@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Models\PlatformUser;
 
 return [
 
@@ -40,9 +41,17 @@ return [
     */
 
     'guards' => [
+        // Shop staff, on a tenant subdomain.
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+        ],
+
+        // MobiShop staff, on the central domain. A separate guard and a separate
+        // table so a compromised shop account can never reach the platform panel.
+        'platform' => [
+            'driver' => 'session',
+            'provider' => 'platform_users',
         ],
     ],
 
@@ -67,6 +76,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'platform_users' => [
+            'driver' => 'eloquent',
+            'model' => PlatformUser::class,
         ],
 
         // 'users' => [

@@ -108,35 +108,35 @@ design-system skeleton — so every later phase is only about domain work.
 ## Phase 1 — Tenancy, Identity, Onboarding ★ security-critical
 
 ### 1.1 Central schema
-- [ ] `tenants` table (name, slug, status, trial_ends_at, settings)
-- [ ] `domains` table (subdomain unique, tenant_id, is_primary)
-- [ ] Platform admin seed (central users, separate guard from tenant users)
+- [x] `tenants` table (name, slug, status, trial_ends_at, settings)
+- [x] `domains` table (subdomain unique, tenant_id, is_primary)
+- [x] Platform admin seed (central users, separate guard from tenant users)
 
 ### 1.2 Tenant context
-- [ ] `TenantContext` service — resolve by subdomain; no subdomain → central routes
-- [ ] Middleware sets context + `SET LOCAL app.tenant_id` per request
-- [ ] Transaction-safe: context re-applied on every connection/transaction start
-- [ ] Queue jobs serialise tenant id and restore context before handling (tested)
-- [ ] Artisan/console context switching (`--tenant=` option) for maintenance commands
+- [x] `TenantContext` service — resolve by subdomain; no subdomain → central routes
+- [x] Middleware sets context + `SET LOCAL app.tenant_id` per request
+- [x] Transaction-safe: context re-applied on every connection/transaction start
+- [x] Queue jobs serialise tenant id and restore context before handling (tested)
+- [ ] Artisan/console context switching (`--tenant=` option) for maintenance commands — **deferred**, no maintenance commands exist yet
 
 ### 1.3 BelongsToTenant + RLS
-- [ ] `BelongsToTenant` trait: global scope, creating-hook fill, `tenant()` relation
-- [ ] `withoutTenancy()` escape hatch — Platform module only, requires a comment
-- [ ] Migration helper `$this->enableRls('table')` → policy `USING (tenant_id = current_setting('app.tenant_id')::bigint)` + `FORCE ROW LEVEL SECURITY`
-- [ ] Apply RLS to `users`
-- [ ] `php artisan tenancy:check` — fails CI when a tenant-ish table/model lacks the trait or RLS
+- [x] `BelongsToTenant` trait: global scope, creating-hook fill, `tenant()` relation
+- [x] `withoutTenancy()` escape hatch — Platform module only, requires a comment
+- [x] Migration helper `$this->enableRls('table')` → policy `USING (tenant_id = current_setting('app.tenant_id')::bigint)` + `FORCE ROW LEVEL SECURITY`
+- [x] Apply RLS to `users`
+- [x] `php artisan tenancy:check` — fails CI when a tenant-ish table/model lacks the trait or RLS
 
 ### 1.4 Auth & onboarding
-- [ ] Onboarding wizard: shop name → subdomain (availability check) → owner user → demo-data toggle
-- [ ] Per-tenant login, password reset, remember-me
+- [x] Onboarding wizard: shop name → subdomain (availability check) → owner user → demo-data toggle
+- [~] Per-tenant login + remember-me done; **password reset not yet built**
 - [ ] Optional TOTP 2FA + recovery codes
 - [ ] Session management screen (active sessions, revoke)
-- [ ] Argon2id hashing; rate limits on login/OTP
+- [x] Argon2id hashing; rate limits on login/OTP
 
 ### 1.5 Roles & permissions
-- [ ] spatie/laravel-permission with `teams = tenant_id`
-- [ ] Seed 7 roles: Owner, Manager, Cashier, Salesperson, Technician, Accountant, Warehousekeeper
-- [ ] Permission catalogue `module.action`, default sets per role
+- [x] spatie/laravel-permission with `teams = tenant_id`
+- [x] Seed 7 roles: Owner, Manager, Cashier, Salesperson, Technician, Accountant, Warehousekeeper
+- [x] Permission catalogue `module.action`, default sets per role
 - [ ] Policies scaffolded per module
 
 ### 1.6 User management UI
@@ -146,16 +146,16 @@ design-system skeleton — so every later phase is only about domain work.
 - [ ] Activity log wired (spatie/laravel-activitylog)
 
 ### 1.7 Tests
-- [ ] Registration/onboarding flow
-- [ ] Login, password reset, 2FA
-- [ ] Permission denial matrix (role × endpoint)
-- [ ] **Isolation suite v1**: tenant B → tenant A resource ids = 403/404
-- [ ] Raw-query RLS test proving leakage impossible without the Eloquent scope
-- [ ] Queued job executes under the correct tenant
+- [x] Registration/onboarding flow
+- [~] Login covered (11 tests incl. throttling and enumeration-resistance); password reset and 2FA not yet built
+- [~] Role permission sets asserted (Salesperson cannot see cost/profit/passcode); full role × endpoint matrix waits on module endpoints
+- [x] **Isolation suite v1**: tenant B → tenant A resource ids = 403/404
+- [x] Raw-query RLS test proving leakage impossible without the Eloquent scope
+- [x] Queued job executes under the correct tenant
 
 ### Phase 1 — Definition of Done
-- [ ] Two demo tenants seeded
-- [ ] `composer test:isolation` green and wired into CI
+- [x] Two demo tenants seeded
+- [x] `composer test:isolation` green and wired into CI
 
 > ### ⛔ DECISION GATE 1
 > Present the onboarding + login flow summary. Confirm the **subdomain scheme** and the

@@ -1,18 +1,25 @@
-import { Head } from '@inertiajs/react';
-import { StoreIcon } from 'lucide-react';
+import { Head, useForm, usePage } from '@inertiajs/react';
+import { LoaderIcon, StoreIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toLatinDigits } from '@/lib/digits';
+import type { SharedProps } from '@/types';
 
 /**
- * Login placeholder.
- *
- * The real per-tenant auth flow (rate limits, 2FA, password reset, remember-me) is
- * Phase 1.4. This page exists so the auth layout, RTL form rules and the LTR-input
- * convention are settled before the flow is built on top of them.
+ * Per-tenant login. The shop's own name is shown so a user who followed the wrong
+ * bookmark notices before typing their password into another shop's page.
  */
 export default function Login() {
+  const { tenant } = usePage<SharedProps>().props;
+
+  const form = useForm({
+    mobile: '',
+    password: '',
+    remember: false,
+  });
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
       <Head title="ورود" />
@@ -22,7 +29,7 @@ export default function Login() {
           <span className="flex size-11 items-center justify-center rounded-card bg-primary text-primary-foreground">
             <StoreIcon className="size-5" />
           </span>
-          <h1 className="text-lg">ورود به پنل فروشگاه</h1>
+          <h1 className="text-lg">{tenant?.name ?? 'ورود به پنل فروشگاه'}</h1>
           <p className="text-xs text-muted-foreground">
             برای ادامه، شماره موبایل و رمز عبور خود را وارد کنید.
           </p>
@@ -30,12 +37,13 @@ export default function Login() {
 
         <form
           className="space-y-4 rounded-card border border-border bg-surface p-6 shadow-low"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={(event) => {
+            event.preventDefault();
+            form.post('/login', { onFinish: () => form.reset('password') });
+          }}
         >
           <div className="space-y-1.5">
             <Label htmlFor="mobile">شماره موبایل</Label>
-            {/* Phone numbers are inherently LTR: the label layout stays RTL while the
-                value reads left-to-right (design-system rule 3). */}
             <Input
               id="mobile"
               name="mobile"
@@ -45,7 +53,13 @@ export default function Login() {
               autoComplete="username"
               placeholder="09121234567"
               className="ltr-value tabular"
+              autoFocus
+              value={form.data.mobile}
+              onChange={(e) => form.setData('mobile', toLatinDigits(e.target.value))}
             />
+            {form.errors.mobile && (
+              <p className="text-2xs text-destructive">{form.errors.mobile}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -57,16 +71,28 @@ export default function Login() {
               dir="ltr"
               autoComplete="current-password"
               className="ltr-value"
+              value={form.data.password}
+              onChange={(e) => form.setData('password', e.target.value)}
             />
+            {form.errors.password && (
+              <p className="text-2xs text-destructive">{form.errors.password}</p>
+            )}
           </div>
 
-          <Button type="submit" className="w-full">
+          <label className="flex items-center gap-2 text-2xs text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-4 accent-[var(--primary)]"
+              checked={form.data.remember}
+              onChange={(e) => form.setData('remember', e.target.checked)}
+            />
+            مرا به خاطر بسپار
+          </label>
+
+          <Button type="submit" className="w-full" disabled={form.processing}>
+            {form.processing && <LoaderIcon className="size-4 animate-spin" />}
             ورود
           </Button>
-
-          <p className="text-center text-2xs text-muted-foreground">
-            فروشگاه ندارید؟ <span className="text-primary">ثبت‌نام ۱۴ روز رایگان</span>
-          </p>
         </form>
       </div>
     </div>

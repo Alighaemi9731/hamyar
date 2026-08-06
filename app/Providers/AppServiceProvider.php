@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,10 +22,50 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->configureFactories();
         $this->configureModels();
         $this->configureDates();
         $this->configurePasswords();
         $this->configureUrls();
+    }
+
+    /**
+     * Teach Laravel where a module model's factory lives.
+     *
+     * The default guess strips the `App\Models\` prefix, so our modular layout
+     * (ADR 0003) produces nonsense like
+     * `Database\Factories\Modules\Platform\Models\TenantFactory`.
+     *
+     * A module-namespaced factory wins when present, so a future collision between,
+     * say, Sales\Payment and Platform\Payment has somewhere to go; otherwise the flat
+     * `Database\Factories\<Model>Factory` is used.
+     */
+    private function configureFactories(): void
+    {
+        Factory::guessFactoryNamesUsing(
+            /**
+             * @param  class-string<Model>  $model
+             * @return class-string<Factory<Model>>
+             */
+            function (string $model): string {
+                $basename = class_basename($model);
+
+                if (str_starts_with($model, 'App\\Modules\\')) {
+                    $module = Str::before(Str::after($model, 'App\\Modules\\'), '\\');
+                    $namespaced = "Database\\Factories\\{$module}\\{$basename}Factory";
+
+                    if (class_exists($namespaced)) {
+                        /** @var class-string<Factory<Model>> $namespaced */
+                        return $namespaced;
+                    }
+                }
+
+                /** @var class-string<Factory<Model>> $flat */
+                $flat = "Database\\Factories\\{$basename}Factory";
+
+                return $flat;
+            }
+        );
     }
 
     /**
@@ -68,7 +110,15 @@ class AppServiceProvider extends ServiceProvider
 
     private function configurePasswords(): void
     {
-        Password::defaults(fn (): Password => Password::min(8)->uncompromised());
+        Password::defaults(function (): Password {
+            $rule = Password::min(8);
+
+            // `uncompromised()` calls the Have I Been Pwned API. That is exactly right
+            // in production and unacceptable in a test: it would make the suite depend
+            // on an external service, fail offline, and leak a hash prefix per run
+            // (docs/testing.md — "no network from a test").
+            return $this->app->runningUnitTests() ? $rule : $rule->uncompromised();
+        });
     }
 
     private function configureUrls(): void

@@ -18,7 +18,6 @@ parameters:
 
     excludePaths:
         analyseAndScan:
-            - app/Modules/*/database/migrations/*
             - bootstrap/cache/*
 
     tmpDir: bootstrap/cache/phpstan
@@ -40,8 +39,16 @@ parameters:
         # bound TestCase, and `expect()->toBeRial()` is a custom expectation registered
         # in tests/Pest.php. PHPStan sees neither, so these are false positives rather
         # than findings. Scoped to tests/ so nothing in app/ is silenced.
+        # Pest binds `$this` in a test closure to the TestCase at runtime, so
+        # `$this->tenant` (set in beforeEach) and `$this->get(...)` are invisible to
+        # static analysis. Both identifiers are scoped to test paths only.
         -
             identifier: method.notFound
+            paths:
+                - tests/*
+                - app/Modules/*/tests/*
+        -
+            identifier: property.notFound
             paths:
                 - tests/*
                 - app/Modules/*/tests/*

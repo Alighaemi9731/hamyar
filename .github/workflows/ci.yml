@@ -117,6 +117,20 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      # Golden rule 1, verified against the database as it actually is rather than
+      # against migration source — so a policy dropped by hand is caught too.
+      - name: Tenancy check (RLS + BelongsToTenant + composite indexes)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: mobishop_test
+          DB_USERNAME: mobishop_app
+          DB_PASSWORD: app-secret
+          REDIS_HOST: 127.0.0.1
+        run: |
+          php artisan migrate:fresh --force
+          php artisan tenancy:check
+
       - name: Pest
         env:
           DB_HOST: 127.0.0.1
@@ -144,10 +158,11 @@ jobs:
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: |
-          # Match CALL sites (`isolation();`), not the helper's own definition in
-          # tests/Pest.php — which is what the first version of this grep found,
-          # sending it straight back into the empty-run failure it was meant to avoid.
-          if grep -rqE 'isolation\(\);' tests app/Modules --include='*.php' \
+          # Look for the group DECLARATION, which is what actually puts a test in the
+          # suite. An earlier version grepped for a helper call and matched the
+          # helper's own definition, sending it back into the empty-run failure it
+          # was meant to avoid.
+          if grep -rqE "group\('isolation'\)" tests app/Modules --include='*.php' \
                --exclude=Pest.php; then
             ./vendor/bin/pest --group=isolation --ci
           else

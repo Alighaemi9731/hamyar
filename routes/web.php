@@ -2,41 +2,78 @@
 
 declare(strict_types=1);
 
+use App\Modules\Identity\Http\Controllers\LoginController;
+use App\Modules\Platform\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
-| Application routes
+| Central routes — app.mobishop.ir
 |--------------------------------------------------------------------------
 |
-| Module routes live in app/Modules/<Name>/routes/ and are registered by each
-| module's service provider. Only app-level shell routes belong here.
+| No tenant context. RLS denies every tenant table here by default, which is the
+| correct posture: onboarding and billing have no business reading shop data.
 |
-| Phase 1 splits this into a central group (app.localhost — onboarding, billing,
-| platform) and a tenant group (<shop>.app.localhost) resolved by subdomain.
+| Registered FIRST and constrained by domain, so they win over the tenant group
+| below for the same paths.
 |
 */
 
-Route::get('/', fn () => redirect()->route('dashboard'))->name('home');
+Route::domain(config()->string('app.domain'))->group(function (): void {
+    Route::get('/', fn () => Inertia::render('welcome'))->name('welcome');
 
-Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
+    Route::middleware('guest')->group(function (): void {
+        Route::get('/register', [OnboardingController::class, 'create'])->name('register');
+        Route::post('/register', [OnboardingController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('register.store');
 
-// Placeholder until Identity lands the real auth flow in Phase 1.4.
-Route::get('/login', fn () => Inertia::render('auth/login'))->name('login');
+        // Live availability check for the wizard's subdomain step. Throttled: it is an
+        // unauthenticated endpoint that reveals which shop names are taken.
+        Route::post('/register/check-subdomain', [OnboardingController::class, 'checkSubdomain'])
+            ->middleware('throttle:30,1')
+            ->name('register.check-subdomain');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Tenant routes — <shop>.mobishop.ir
+|--------------------------------------------------------------------------
+|
+| `tenant` resolves the hostname and pins the context; an unknown host 404s here
+| rather than falling back to anything.
+|
+| Module routes (Sales, Repairs, …) are registered by each module's service provider
+| and carry their own middleware — see App\Support\Modules\ModuleServiceProvider.
+|
+*/
+
+Route::middleware('tenant')->group(function (): void {
+    Route::middleware('guest')->group(function (): void {
+        Route::get('/login', [LoginController::class, 'create'])->name('login');
+        Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+    });
+
+    Route::middleware(['auth', 'tenant.user'])->group(function (): void {
+        Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+        Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
+    });
+});
 
 /*
 |--------------------------------------------------------------------------
 | Design gallery — local/testing only
 |--------------------------------------------------------------------------
 |
-| Every base and domain component with its state matrix. The workflow rule
-| (mobishop-ui skill): a component lands here BEFORE it is used in a feature page.
-|
-| Deliberately not registered in production: it is a development tool, and shipping
-| it would expose an un-audited surface on every tenant subdomain.
+| A component gallery, not a product surface: it renders with no tenant so it stays
+| reachable on the central domain. Never registered in production — shipping it would
+| put an un-audited page on every tenant subdomain.
 |
 */
+
 if (app()->environment('local', 'testing')) {
     Route::get('/design', fn () => Inertia::render('design/index'))->name('design');
 }

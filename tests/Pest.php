@@ -61,13 +61,19 @@ expect()->extend('toBeUtc', function () {
 |--------------------------------------------------------------------------
 */
 
-/**
- * Marks a test as part of the cross-tenant isolation suite (`composer test:isolation`).
- *
- * Golden rule 8: every tenant-scoped endpoint needs one of these. Grouping them lets
- * the suite run on its own, which is what the deploy checklist gates on.
- */
-function isolation(): void
-{
-    test()->group('isolation');
-}
+/*
+|--------------------------------------------------------------------------
+| The isolation group
+|--------------------------------------------------------------------------
+|
+| Golden rule 8: every tenant-scoped endpoint needs a cross-tenant isolation test.
+| They carry the `isolation` group so `composer test:isolation` and the dedicated CI
+| job can run them alone — that suite is the one that must never be quietly skipped.
+|
+| A group is a property of the test *definition*, not of its body, so it is declared
+| at the top of a test file:
+|
+|     pest()->group('isolation');            // whole file
+|     it('…', fn () => …)->group('isolation'); // one test
+|
+*/
