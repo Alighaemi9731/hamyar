@@ -1,59 +1,85 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MobiShop
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Multi-tenant SaaS for mobile-phone shops in Iran. POS with serialized IMEI inventory,
+a repairs workflow, CRM, cheques, installments, treasury, SMS and reporting — sold as
+plans with individually purchasable modules.
 
-## About Laravel
+Persian (fa-IR), RTL, Jalali calendar, money in integer rial.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Quick start
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+```bash
+cp .env.example .env
+make build && make up          # php-fpm, nginx, postgres:16, redis:7, minio, mailpit
+make install
+make artisan CMD="key:generate"
+make fresh                     # migrate + seed
+npm run dev                    # Vite, on the host
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| | |
+|---|---|
+| App | <http://app.localhost> |
+| Tenant | `http://<shop>.app.localhost` |
+| Design gallery *(dev only)* | <http://app.localhost/design> |
+| Mailpit | <http://localhost:8025> |
+| MinIO console | <http://localhost:9001> |
 
-## Learning Laravel
+`*.localhost` resolves to loopback automatically on macOS and in modern browsers. If
+your platform disagrees, see [docs/deploy.md](docs/deploy.md#local-hostnames).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Quality gate
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+make test              # composer test: Pint → RTL gate → Larastan L8 → Pest
+make test-isolation    # cross-tenant isolation suite only
+```
 
-## Laravel Sponsors
+Nothing merges without this green. Two rules that are load-bearing rather than
+stylistic:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- **Tests run on real PostgreSQL, never SQLite** — SQLite has no Row-Level Security,
+  so a green SQLite suite would prove nothing about tenant isolation
+  ([ADR 0004](docs/adr/0004-postgres-only-tests.md)).
+- **Physical direction classes fail the build** — `ml-`, `left-`, `text-left` and
+  friends mirror wrongly for RTL users and are invisible to an LTR author
+  ([ADR 0005](docs/adr/0005-rtl-direction-class-gate.md)).
 
-### Premium Partners
+## Where things are
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```
+app/Modules/<Name>/        18 modules; cross-module contact only via events
+app/Support/               Money (integer rial), Jalali, Digits
+resources/js/components/   ui/ = shadcn base kit · domain/ = Money, Num, JDatePicker…
+docs/specs/                one spec per module — the source of truth for tests
+docs/adr/                  decisions that are expensive to reverse
+```
 
-## Contributing
+## Documentation
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| | |
+|---|---|
+| **Start here each session** | [docs/ROADMAP.md](docs/ROADMAP.md) |
+| What shipped, and why | [docs/PROGRESS.md](docs/PROGRESS.md) |
+| How it fits together | [docs/architecture.md](docs/architecture.md) |
+| Module specs | [docs/specs/README.md](docs/specs/README.md) |
+| Decisions | [docs/adr/README.md](docs/adr/README.md) |
+| Testing policy | [docs/testing.md](docs/testing.md) |
+| Design system | [docs/design-system.md](docs/design-system.md) |
+| Deploy & ops | [docs/deploy.md](docs/deploy.md) |
 
-## Code of Conduct
+Project rules live in [CLAUDE.md](CLAUDE.md) and take precedence over everything else,
+including the generated Laravel guidance at the bottom of that file.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Non-negotiables
 
-## Security Vulnerabilities
+1. Every tenant table: `tenant_id` + composite index + `BelongsToTenant` + RLS policy.
+2. Money is integer rial in `BIGINT`. No floats. Toman is display only.
+3. Stock and balances are `SUM`s over movement/ledger tables, never stored totals.
+4. A phone is a row in `product_units` with a state machine and a full history.
+5. Timestamps stored UTC, rendered Jalali.
+6. Every tenant-scoped endpoint ships with a cross-tenant isolation test.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Licence
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary. All rights reserved.
