@@ -42,6 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { AppShell } from '@/layouts/app-shell';
 
 /**
@@ -60,23 +61,23 @@ export default function DesignGallery() {
     <AppShell title="گالری دیزاین‌سیستم">
       <Head title="گالری دیزاین‌سیستم" />
 
-      <p className="mb-8 max-w-2xl text-xs text-muted-foreground">
+      <p className="mb-14 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         هر کامپوننت پیش از استفاده در صفحات محصول، اینجا با همه حالت‌هایش ثبت می‌شود.
         این صفحه فقط در محیط توسعه در دسترس است. برای بررسی: یک‌بار در حالت روشن و
         یک‌بار تیره، در عرض ۳۹۰ و ۱۲۸۰ پیکسل.
       </p>
 
-      <div className="space-y-10">
+      <div className="space-y-6">
         <TokensSection />
-        <MoneySection />
+        <MoneySection alt />
         <NumSection />
-        <DateSection />
+        <DateSection alt />
         <StatusSection />
-        <ButtonSection />
+        <ButtonSection alt />
         <FormSection />
-        <OverlaySection />
+        <OverlaySection alt />
         <TableSection />
-        <StateSection />
+        <StateSection alt />
       </div>
     </AppShell>
   );
@@ -84,34 +85,46 @@ export default function DesignGallery() {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Sections alternate ground rather than relying on borders — that alternation is the
+ * primary separator in this visual language (ADR 0008). `alt` flips a section onto
+ * `surface-muted`; the gallery alternates them so both grounds get reviewed.
+ */
 function Section({
   title,
   note,
+  alt = false,
   children,
 }: {
   title: string;
   note?: string;
+  alt?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-card border border-border bg-surface p-5">
+    <section
+      className={cn(
+        'rounded-card border border-border px-6 py-10 sm:px-10 sm:py-14',
+        alt ? 'bg-surface-muted' : 'bg-surface'
+      )}
+    >
       {/* <bdi> isolates the heading from the surrounding RTL paragraph direction.
           Without it, a Latin title like "<Money/>" has its angle brackets reordered by
           the bidi algorithm and displays as "</Money>". `dir="auto"` on <bdi> picks the
           direction from the first strong character, so Persian titles stay RTL. */}
-      <h2 className="mb-1 text-sm font-bold">
+      <h2 className="mb-2 text-xl font-bold">
         <bdi>{title}</bdi>
       </h2>
-      {note && <p className="mb-4 text-2xs text-muted-foreground">{note}</p>}
-      <div className="space-y-5">{children}</div>
+      {note && <p className="mb-10 max-w-2xl text-sm leading-relaxed text-muted-foreground">{note}</p>}
+      <div className="space-y-8">{children}</div>
     </section>
   );
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-start">
-      <span className="pt-1.5 text-2xs text-muted-foreground">{label}</span>
+    <div className="grid gap-3 sm:grid-cols-[11rem_1fr] sm:items-start">
+      <span className="pt-2 text-xs text-muted-foreground">{label}</span>
       <div className="flex flex-wrap items-center gap-3">{children}</div>
     </div>
   );
@@ -119,50 +132,129 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 /* -------------------------------------------------------------------------- */
 
-function TokensSection() {
-  const swatches = [
-    { name: 'brand', className: 'bg-brand text-white' },
-    { name: 'ink', className: 'bg-ink text-white' },
-    { name: 'paper', className: 'bg-paper text-ink border border-border' },
-    { name: 'label', className: 'bg-label text-ink' },
-    { name: 'success', className: 'bg-success text-white' },
-    { name: 'warning', className: 'bg-warning text-white' },
-    { name: 'danger', className: 'bg-danger text-white' },
-    { name: 'info', className: 'bg-info text-white' },
+function TokensSection({ alt }: { alt?: boolean }) {
+  const grounds = [
+    { name: 'canvas', value: '#FFFFFF', className: 'bg-canvas text-ink' },
+    { name: 'canvas-alt', value: '#F5F5F7', className: 'bg-canvas-alt text-ink' },
+    { name: 'canvas-invert', value: '#000000', className: 'bg-canvas-invert text-white' },
+    { name: 'ink', value: '#1D1D1F', className: 'bg-ink text-white' },
+    { name: 'ink-soft', value: '#6E6E73', className: 'bg-ink-soft text-white' },
+  ];
+
+  const semantics = [
+    { name: 'brand', value: '#0066CC', className: 'bg-brand text-white' },
+    { name: 'success', value: '#0F7B3F', className: 'bg-success text-white' },
+    { name: 'warning', value: '#8A5A00', className: 'bg-warning text-white' },
+    { name: 'danger', value: '#B3261E', className: 'bg-danger text-white' },
+    { name: 'label', value: '#FFD84D', className: 'bg-label text-ink' },
   ];
 
   return (
     <Section
+      alt={alt}
       title="توکن‌ها"
-      note="رنگ‌ها فقط از این توکن‌ها می‌آیند؛ هیچ کد رنگ خامی در صفحات نوشته نمی‌شود. زردِ label فقط برای هایلایت‌های خرد است، هرگز سطح بزرگ."
+      note="رنگ فقط معنا را حمل می‌کند، نه تزئین را: آبی یعنی «می‌شود روی این کاری کرد»، و سه رنگ سمانتیک یعنی وضعیت مالی/کاری. بقیه رابط خنثی است. هیچ کد رنگ خامی در صفحات نوشته نمی‌شود."
     >
-      <div className="flex flex-wrap gap-2">
-        {swatches.map((swatch) => (
-          <div
-            key={swatch.name}
-            className={`flex h-16 w-24 flex-col justify-end rounded-control p-2 text-2xs ${swatch.className}`}
-          >
-            {swatch.name}
-          </div>
-        ))}
-      </div>
+      <Row label="زمینه و متن">
+        <div className="flex flex-wrap gap-2">
+          {grounds.map((s) => (
+            <div
+              key={s.name}
+              className={`flex h-20 w-28 flex-col justify-end rounded-control border border-border p-2.5 text-2xs ${s.className}`}
+            >
+              <span className="font-medium">{s.name}</span>
+              <span className="ltr-value opacity-70" dir="ltr">
+                {s.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="یک آبی + سمانتیک">
+        <div className="flex flex-wrap gap-2">
+          {semantics.map((s) => (
+            <div
+              key={s.name}
+              className={`flex h-20 w-28 flex-col justify-end rounded-control border border-border p-2.5 text-2xs ${s.className}`}
+            >
+              <span className="font-medium">{s.name}</span>
+              <span className="ltr-value opacity-70" dir="ltr">
+                {s.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Row>
 
       <Row label="تایپوگرافی">
-        <div className="space-y-1">
-          <p className="font-display text-2xl font-extrabold">استعداد ۸۰۰ — تیتر</p>
-          <p className="text-base">وزیرمتن ۴۰۰ — متن بدنه فارسی برای خواندن راحت.</p>
-          <p className="tabular text-xs" dir="ltr">
+        <div className="space-y-3">
+          <p className="font-display text-3xl font-extrabold">استعداد ۸۰۰ — تیتر</p>
+          <p className="font-display text-xl font-bold">استعداد ۷۰۰ — تیتر بخش</p>
+          <p className="max-w-xl text-base leading-relaxed">
+            وزیرمتن ۴۰۰ در اندازه ۱۷ پیکسل با ارتفاع خط ۱٫۶۵ — فارسی به فاصله سطر
+            بیشتری از لاتین نیاز دارد و این قاعده دست‌نخورده مانده است.
+          </p>
+          <p className="tabular text-sm" dir="ltr">
             1,250,000 — tabular figures line up in a column
           </p>
+        </div>
+      </Row>
+
+      <Row label="شکل و عمق">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex h-16 w-28 items-center justify-center rounded-pill border border-border bg-surface text-2xs">
+            pill
+          </div>
+          <div className="flex h-16 w-28 items-center justify-center rounded-card border border-border bg-surface text-2xs shadow-low">
+            card 18px
+          </div>
+          <div className="flex h-16 w-28 items-center justify-center rounded-control border border-border bg-surface text-2xs shadow-high">
+            control 12px
+          </div>
+        </div>
+      </Row>
+
+      <Row label="کروم شیشه‌ای">
+        <div className="relative h-24 w-full max-w-md overflow-hidden rounded-card">
+          {/* Something busy behind the panel, so the blur and saturate are visible.
+              A flat fill would make the frosted effect impossible to review. */}
+          <div className="absolute inset-0 bg-brand" />
+          <div className="absolute inset-y-0 start-1/3 w-24 bg-warning" />
+          <div className="absolute inset-y-0 end-8 w-16 bg-success" />
+          <div className="glass absolute inset-x-0 top-0 flex h-12 items-center border-b px-4 text-2xs">
+            .glass — نوار چسبان مات‌شیشه‌ای
+          </div>
+        </div>
+      </Row>
+
+      <Row label="حرکت">
+        <div className="flex flex-wrap gap-3">
+          {['reveal', 'delay-1', 'delay-2'].map((label, i) => (
+            <div
+              key={label}
+              className={cn(
+                'reveal flex h-16 w-28 items-center justify-center rounded-card border border-border bg-surface text-2xs',
+                i === 1 && 'reveal-delay-1',
+                i === 2 && 'reveal-delay-2'
+              )}
+            >
+              {label}
+            </div>
+          ))}
+          <span className="self-center text-2xs text-muted-foreground">
+            تنها واژگان حرکتی: محو + بالا آمدن. با prefers-reduced-motion غیرفعال می‌شود.
+          </span>
         </div>
       </Row>
     </Section>
   );
 }
 
-function MoneySection() {
+function MoneySection({ alt }: { alt?: boolean }) {
   return (
     <Section
+      alt={alt}
       title="<Money/>"
       note="تنها راه نمایش پول. ورودی همیشه عدد صحیح ریال است؛ واحد نمایش (ریال/تومان) و شکل ارقام از تنظیمات فروشگاه می‌آید."
     >
@@ -188,9 +280,10 @@ function MoneySection() {
   );
 }
 
-function NumSection() {
+function NumSection({ alt }: { alt?: boolean }) {
   return (
     <Section
+      alt
       title="<Num/>"
       note="سه حالت عمدی: متن (ارقام فارسی)، جدول (لاتینِ جدولی)، و شناسه‌های ذاتاً LTR مثل IMEI که هرگز فارسی نمی‌شوند — چون باید تلفنی خوانده و در همتا وارد شوند."
     >
@@ -213,12 +306,13 @@ function NumSection() {
   );
 }
 
-function DateSection() {
+function DateSection({ alt }: { alt?: boolean }) {
   const [value, setValue] = useState<string | null>(new Date().toISOString());
   const [empty, setEmpty] = useState<string | null>(null);
 
   return (
     <Section
+      alt={alt}
       title="<JDatePicker/>"
       note="ورودی و خروجی همیشه UTC است؛ جلالی فقط نمایش است. هفته از شنبه شروع می‌شود و جمعه رنگ متفاوت دارد."
     >
@@ -250,7 +344,7 @@ function DateSection() {
   );
 }
 
-function StatusSection() {
+function StatusSection({ alt }: { alt?: boolean }) {
   const groups: Array<{ label: string; keys: string[] }> = [
     { label: 'فاکتور', keys: ['draft', 'final', 'void', 'paid', 'partially_paid', 'unpaid'] },
     { label: 'واحد سریالی', keys: ['in_stock', 'reserved', 'sold', 'in_repair', 'returned', 'written_off'] },
@@ -265,6 +359,7 @@ function StatusSection() {
 
   return (
     <Section
+      alt
       title="<StatusBadge/>"
       note={`نگاشت وضعیت→رنگ فقط یک‌جا تعریف می‌شود (${Object.keys(STATUS_MAP).length} وضعیت). رنگ‌دهی دستی در صفحه = باگ.`}
     >
@@ -285,9 +380,9 @@ function StatusSection() {
   );
 }
 
-function ButtonSection() {
+function ButtonSection({ alt }: { alt?: boolean }) {
   return (
-    <Section title="Button" note="در هر صفحه فقط یک دکمه اصلی (brand) وجود دارد.">
+    <Section alt={alt} title="Button" note="در هر صفحه فقط یک دکمه اصلی (brand) وجود دارد.">
       <Row label="variant">
         <Button>ثبت فاکتور</Button>
         <Button variant="secondary">ذخیره پیش‌نویس</Button>
@@ -330,9 +425,10 @@ function ButtonSection() {
   );
 }
 
-function FormSection() {
+function FormSection({ alt }: { alt?: boolean }) {
   return (
     <Section
+      alt={alt}
       title="فرم‌ها"
       note="لیبل بالای فیلد، خطا زیر فیلد با متن قابل‌اقدام. مقادیر ذاتاً LTR (IMEI/موبایل/مبلغ لاتین) با dir=ltr داخلی."
     >
@@ -394,9 +490,10 @@ function FormSection() {
   );
 }
 
-function OverlaySection() {
+function OverlaySection({ alt }: { alt?: boolean }) {
   return (
     <Section
+      alt
       title="لایه‌های شناور"
       note="همه Portalها dir=rtl صریح می‌گیرند، وگرنه انیمیشن و ترازشان برعکس می‌شود."
     >
@@ -506,7 +603,7 @@ function OverlaySection() {
   );
 }
 
-function TableSection() {
+function TableSection({ alt }: { alt?: boolean }) {
   const rows = [
     { imei: '356938035643809', model: 'iPhone 13 128GB', status: 'in_stock', cost: 425_000_000 },
     { imei: '351756051523999', model: 'Galaxy A54 256GB', status: 'reserved', cost: 118_000_000 },
@@ -515,6 +612,7 @@ function TableSection() {
 
   return (
     <Section
+      alt={alt}
       title="Table"
       note="اعداد مالی همیشه tabular و راست‌چین؛ IMEI همیشه LTR. سرستون مبلغ هم‌راستای مقادیرش."
     >
@@ -548,9 +646,9 @@ function TableSection() {
   );
 }
 
-function StateSection() {
+function StateSection({ alt }: { alt?: boolean }) {
   return (
-    <Section title="حالت‌های صفحه" note="هر لیست باید حالت خالی و حالت بارگذاری داشته باشد.">
+    <Section alt={alt} title="حالت‌های صفحه" note="هر لیست باید حالت خالی و حالت بارگذاری داشته باشد.">
       <Row label="Skeleton">
         <div className="w-full max-w-md space-y-2">
           <Skeleton className="h-4 w-1/3" />

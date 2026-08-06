@@ -15,57 +15,109 @@ clarity and speed over showmanship.
 Defined once, in `resources/css/app.css` under Tailwind v4 `@theme`. **Pages never
 hardcode a colour or a size.**
 
-### Palette
+The visual language is set by [ADR 0008](adr/0008-visual-language.md): calm neutral
+ground, one accent, whitespace as the primary structuring device, and colour reserved
+for things you can act on.
+
+### Ground and text
 
 | Token | Value | Use |
 |---|---|---|
-| `paper` | `#F7F9FB` | Light page ground — cool and clean, deliberately not warm cream |
-| `ink` | `#0E1B2C` | Primary text and dark surfaces |
-| `brand` | `#0FA3A8` | Persian-tile turquoise: CTAs, links, active states |
-| `label` | `#FFD84D` | Price-label yellow — **tiny highlights only, never a large fill** |
-| `success` | `#12A150` | Paid · cleared · delivered · in stock |
-| `warning` | `#D97E00` | Due soon · awaiting · reserved |
-| `danger` | `#D3363C` | Overdue · bounced · void · abandoned |
-| `info` | `#2563C9` | In flight, nothing to do |
+| `canvas` | `#ffffff` | Primary section ground |
+| `canvas-alt` | `#f5f5f7` | Alternating section ground |
+| `canvas-invert` | `#000000` | Feature band — rare, high impact |
+| `ink` | `#1d1d1f` | Primary text — 16.8:1 on white |
+| `ink-soft` | `#6e6e73` | Secondary text — 5.07:1 on white, 4.66:1 on `canvas-alt` |
 
-`brand` ships as a 50–900 ramp. Dark mode uses `brand-400` for primary because
-full-saturation turquoise on a dark ground fails AA for text.
+Sections **alternate** `canvas` and `canvas-alt`. That alternation, not borders, is
+what separates one block of content from the next.
 
-The yellow is a signature, not a surface. At scale it reads as a warning, which is the
-opposite of the "price tag" association it exists to create.
+### The one accent
+
+| Token | Value | Use |
+|---|---|---|
+| `brand` | `#0066cc` | Links, primary fills, active states, focus ring |
+| `brand-hover` | `#005bbb` | Hover |
+| `brand-on-dark` | `#409cff` | Dark mode — 7.4:1 on black |
+
+**One accent, and it is the only chromatic colour in the chrome.** Blue means *you can
+act on this*. A second accent would destroy that rule, so there isn't one — secondary
+actions are neutral-filled or outlined.
+
+It is named `brand`, not `accent`, because shadcn already owns `--color-accent` for
+its muted hover surface.
+
+`#0066cc` rather than a brighter blue is a measured choice: `#0071e3` falls to 4.31:1
+on `#f5f5f7`, below AA, and half our sections use that ground.
+
+### Semantics
+
+| Token | Value | Meaning | Contrast on white |
+|---|---|---|---|
+| `success` | `#0f7b3f` | paid · cleared · delivered · in stock | 5.35:1 |
+| `warning` | `#8a5a00` | due soon · awaiting · reserved | 5.93:1 |
+| `danger` | `#b3261e` | overdue · bounced · void · abandoned | 6.54:1 |
+| `info` | `#0066cc` | in flight, nothing to do | 5.57:1 |
+
+Muted to sit inside a near-monochrome page, but every value clears AA on both grounds.
+A status badge is information, not decoration.
+
+`label` (`#ffd84d`) survives as a signature for **price tags only** — tiny highlights,
+never a fill. At scale it reads as a warning, which is the opposite of what it means.
 
 ### Surfaces
 
 Light/dark is a **variable swap** (`:root` and `.dark`), never a per-component colour
 override. Components consume `--background`, `--surface`, `--card`, `--border`,
-`--primary`, `--muted-foreground` and friends — not the raw palette.
+`--primary`, `--muted-foreground` — not the raw palette.
+
+Dark mode grounds on true black with `#1d1d1f` surfaces, and lifts the accent to
+`brand-on-dark`, because the light-mode blue is unreadable on black.
 
 The theme class is applied by an inline script in `app.blade.php` **before first
 paint**, so switching never flashes white.
 
 ### Typography
 
-- Headings — **Estedad** 700/800, tight tracking
-- Body — **Vazirmatn** 400/500/700
-- Both self-hosted via Fontsource. No CDN, no Latin-only extra face: an Iranian shop
-  on mobile data should not download a font it cannot read.
-- Line height 1.7 for body: Persian needs more leading than Latin at the same size.
-- Scale: 12 / 14 / 16 / 18 / 22 / 28 / 36 / 52.
+- Headings — **Estedad** 600/700/800, tight tracking
+- Body — **Vazirmatn** 400/500/600/700
+- Self-hosted via Fontsource. **We do not ship SF Pro** — it is Apple's and not
+  licensed to us. Estedad and Vazirmatn are the right answer regardless: this product
+  is Persian-first.
+- Body 17px at **1.65** leading; Persian needs more leading than Latin at the same size.
+- Scale: 12 / 13 / 15 / **17** / 21 / 28 / 40 / 56 / 72.
+- Tracking tightens as size grows: `-0.015em` headings, `-0.022em` display. Large type
+  needs negative tracking to hold together.
+- **`tabular-nums` on every financial figure — unchanged.**
 
 ### Shape and depth
 
-- Radius: 12px cards (`--radius-card`), 8px controls (`--radius-control`).
-- **Two** shadow levels. No coloured or rainbow shadows.
+- **Actions are pills** (`9999px`), enforced at the system level on
+  `[data-slot="button"]` so no page has to remember and a shadcn re-add cannot undo it.
+- Cards 18px (`--radius-card`), controls 12px (`--radius-control`), chips 8px.
+- **Hairline borders** at 8% alpha — a crease, not a rule. That is what keeps a dense
+  table from looking like a spreadsheet.
+- Two very soft, near-colourless shadows. Elevation comes from ground contrast and
+  whitespace first; shadow is the last resort.
 
-### Layout and density
+### Space and layout
 
-- 12-column RTL grid, 1152px container (`--container-shell`).
-- 96px vertical section rhythm (`--spacing-section`).
-- `--density-row` is 44px by default and 36px under `data-density="compact"`, which
-  POS and table-heavy screens set. 36px rows are for scanning, never for touch targets.
+- Content column 1110px (`--container-shell`), wide sections 1400px.
+- **Section rhythm 144px** (`--spacing-section`), 88px on mobile — 1.5× the previous
+  value. Generous whitespace is the single biggest carrier of this language; cutting it
+  undoes the rest.
+- `--density-row` is 44px by default and 36px under `data-density="compact"`, which POS
+  and table-heavy screens set. 36px rows are for scanning, never for touch targets.
 - Named z-index tokens (`--z-sticky` … `--z-toast`). Never inline a magic number.
 
----
+### Chrome and motion
+
+- `.glass` — sticky frosted nav and sidebar: `backdrop-filter: saturate(180%) blur(20px)`
+  over a translucent ground. The `saturate()` is load-bearing; without it the blur reads
+  grey and dead. Confined to the two persistent surfaces, because `backdrop-filter`
+  costs GPU on the mid-range Android our users actually carry.
+- `.reveal` — fade + rise, 0.5s, 12px of travel, with `.reveal-delay-1..3` for
+  stagger. That is the entire motion vocabulary. `prefers-reduced-motion` disables it.
 
 ## 2. Hard rules
 

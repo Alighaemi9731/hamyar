@@ -21,22 +21,22 @@ export default function Login() {
   });
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-5 py-16">
       <Head title="ورود" />
 
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <span className="flex size-11 items-center justify-center rounded-card bg-primary text-primary-foreground">
+        <div className="reveal mb-10 flex flex-col items-center gap-3 text-center">
+          <span className="flex size-12 items-center justify-center rounded-card bg-primary text-primary-foreground shadow-low">
             <StoreIcon className="size-5" />
           </span>
-          <h1 className="text-lg">{tenant?.name ?? 'ورود به پنل فروشگاه'}</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-2xl font-bold">{tenant?.name ?? 'ورود به پنل فروشگاه'}</h1>
+          <p className="text-sm text-muted-foreground">
             برای ادامه، شماره موبایل و رمز عبور خود را وارد کنید.
           </p>
         </div>
 
         <form
-          className="space-y-4 rounded-card border border-border bg-surface p-6 shadow-low"
+          className="reveal reveal-delay-1 space-y-5 rounded-card border border-border bg-surface p-7 shadow-low sm:p-8"
           onSubmit={(event) => {
             event.preventDefault();
             form.post('/login', { onFinish: () => form.reset('password') });
@@ -95,7 +95,7 @@ export default function Login() {
             </Link>
           </div>
 
-          <Button type="submit" className="w-full" disabled={form.processing}>
+          <Button type="submit" className="h-11 w-full text-base" disabled={form.processing}>
             {form.processing && <LoaderIcon className="size-4 animate-spin" />}
             ورود
           </Button>
