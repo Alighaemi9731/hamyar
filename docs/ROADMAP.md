@@ -96,7 +96,8 @@ design-system skeleton — so every later phase is only about domain work.
 
 ### Phase 0 — Definition of Done
 - [x] `make up` then `make fresh` boots an RTL app
-- [ ] **CI green on a PR** — workflow is written and every job's commands pass locally, but it has never actually run: the repo has no remote yet. Push to GitHub and open a PR to close this.
+- [x] CI green on a PR — [#1](https://github.com/Alighaemi9731/mobishop/pull/1), all four jobs green, merged
+      · ⚠️ **Known issue:** on this repo only `workflow_dispatch` fires; `push` and `pull_request` triggers produce no run. Runs must currently be started with `gh workflow run ci.yml --ref <branch>`. Needs investigation in the repo's GitHub settings.
 - [x] Arch test asserts module boundaries
 - [x] `/design` renders the initial kit
 - [x] Boost MCP answers an Application Info call
