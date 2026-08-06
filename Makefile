@@ -1,0 +1,104 @@
+# MobiShop — developer entrypoints.
+# Everything PHP runs inside the `app` container; Node/Vite runs on the host.
+
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+export HOST_UID := $(shell id -u)
+export HOST_GID := $(shell id -g)
+
+DC     := docker compose
+APP    := $(DC) exec -T app
+APP_IT := $(DC) exec app
+
+.PHONY: help
+help: ## Show this help
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+
+## ---------------------------------------------------------------- stack ----
+
+.PHONY: build
+build: ## Rebuild the app image
+	$(DC) build --build-arg UID=$(HOST_UID) --build-arg GID=$(HOST_GID) app
+
+.PHONY: up
+up: ## Start the dev stack (app, nginx, postgres, redis, minio, mailpit)
+	$(DC) up -d --wait postgres redis minio
+	$(DC) up -d
+	@echo ""
+	@echo "  app        http://app.localhost$(if $(APP_HTTP_PORT),:$(APP_HTTP_PORT),)"
+	@echo "  tenant     http://demo.app.localhost$(if $(APP_HTTP_PORT),:$(APP_HTTP_PORT),)"
+	@echo "  mailpit    http://localhost:8025"
+	@echo "  minio      http://localhost:9001"
+	@echo ""
+	@echo "  Run 'npm run dev' on the host for Vite."
+
+.PHONY: down
+down: ## Stop the dev stack (keeps volumes)
+	$(DC) down
+
+.PHONY: destroy
+destroy: ## Stop the stack AND delete all volumes (irreversible)
+	$(DC) down -v
+
+.PHONY: restart
+restart: ## Restart app + nginx
+	$(DC) restart app nginx
+
+.PHONY: logs
+logs: ## Tail logs for all services
+	$(DC) logs -f --tail=100
+
+.PHONY: sh
+sh: ## Shell inside the app container
+	$(APP_IT) bash
+
+.PHONY: psql
+psql: ## psql into the dev database
+	$(DC) exec postgres psql -U $${DB_USERNAME:-mobishop} -d $${DB_DATABASE:-mobishop}
+
+## ------------------------------------------------------------ app tasks ----
+
+.PHONY: install
+install: ## Install PHP + JS dependencies
+	$(APP) composer install
+	npm install
+
+.PHONY: fresh
+fresh: ## Drop, migrate and seed the dev database (demo tenant)
+	$(APP) php artisan migrate:fresh --seed
+	@echo ""
+	@echo "  Demo tenant: http://demo.app.localhost — admin@demo.test / password"
+
+.PHONY: migrate
+migrate: ## Run pending migrations
+	$(APP) php artisan migrate
+
+.PHONY: test
+test: ## Full quality gate: Pint + Larastan + Pest
+	$(APP) composer test
+
+.PHONY: test-isolation
+test-isolation: ## Tenancy isolation suite only
+	$(APP) composer test:isolation
+
+.PHONY: pint
+pint: ## Fix code style
+	$(APP) ./vendor/bin/pint
+
+.PHONY: stan
+stan: ## Static analysis (Larastan level 8)
+	$(APP) ./vendor/bin/phpstan analyse
+
+.PHONY: artisan
+artisan: ## Run an artisan command: make artisan CMD="route:list"
+	$(APP_IT) php artisan $(CMD)
+
+.PHONY: composer
+composer: ## Run a composer command: make composer CMD="require foo/bar"
+	$(APP_IT) composer $(CMD)
+
+.PHONY: horizon
+horizon: ## Run Horizon in the foreground
+	$(APP_IT) php artisan horizon

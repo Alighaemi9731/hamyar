@@ -1,0 +1,614 @@
+# MobiShop — Roadmap
+
+**This file is the session entrypoint.** Every session: read `CLAUDE.md`, read this
+file, take the next unchecked `[ ]` task top-to-bottom, implement it, run
+`composer test`, tick the box, and append one line to `docs/PROGRESS.md`.
+
+Rules that override convenience:
+
+- A task is only ticked when `composer test` is green (Pint + Larastan L8 + Pest).
+- Every tenant-scoped endpoint ships with a cross-tenant isolation test.
+- **DECISION GATE** tasks stop the session. Present the summary, ask the human, wait.
+
+Legend: `[ ]` todo · `[x]` done · `[~]` in progress (only one at a time) · `[!]` blocked
+
+---
+
+## Phase 0 — Foundation & Developer Experience
+
+**Goal:** a booting RTL Laravel app, reproducible dev stack, green CI, and the
+design-system skeleton — so every later phase is only about domain work.
+
+### 0.1 Repository & scaffold
+- [ ] Scaffold Laravel 12 into the pre-seeded folder without clobbering `CLAUDE.md`, `.claude/`, `docs/`, `PROMPT.md`, `START-HERE-FA.md`
+- [ ] Merge Laravel's `.gitignore` into the existing one (append, never replace)
+- [ ] `git init` + first commit; keep `.claude/skills/` tracked, ignore `.claude/settings.local.json`
+- [ ] `.editorconfig`
+
+### 0.2 Documentation baseline
+- [ ] `docs/ROADMAP.md` (this file — all phases as checkboxes, gates preserved)
+- [ ] `docs/PROGRESS.md`
+- [ ] `docs/architecture.md`
+- [ ] `docs/testing.md`
+- [ ] `docs/deploy.md`
+- [ ] `docs/design-system.md` (ported to English from `mobishop-ui` SKILL + sections 1–2 of `docs/03-design-and-claude-setup-fa.md`, including `#landing`)
+- [ ] `docs/adr/0001-stack.md`
+- [ ] `docs/adr/0002-single-db-tenancy-rls.md`
+- [ ] `docs/adr/0003-modular-monolith.md`
+- [ ] `docs/specs/README.md` + one spec file per module (18 modules)
+
+### 0.3 Dev stack
+- [ ] `compose.yaml`: php-fpm app, nginx, postgres:16, redis:7, minio, mailpit
+- [ ] Postgres bootstrap: separate non-owner app role (RLS cannot be bypassed) + `_test` database
+- [ ] `Makefile` targets: `up`, `down`, `fresh`, `test`, `sh` (+ build/logs/psql/artisan/composer)
+- [ ] Document `*.app.localhost` host resolution in `docs/deploy.md#local-hostnames`
+- [ ] `.env.example` fully documented (every key commented)
+
+### 0.4 Laravel core configuration
+- [ ] Locale `fa`, fallback `en`, storage timezone UTC, display timezone `Asia/Tehran` (never stored)
+- [ ] Postgres as default connection; Redis for cache/session/queue
+- [ ] `Model::preventLazyLoading()` + `preventSilentlyDiscardingAttributes()` outside production
+- [ ] `Number`/money helpers: IRR integer in, formatted string out — no floats
+- [ ] Jalali helpers over `morilog/jalali` (render only; storage stays UTC)
+
+### 0.5 Modules
+- [ ] `php artisan make:module <Name>` generator (Providers, Http, Models, Services, Events, Policies, database/migrations, tests) + auto-registration
+- [ ] Create shells for all 18 modules from CLAUDE.md rule 6
+- [ ] Pest arch test: modules exist; Domain layer does not depend on Http
+
+### 0.6 Quality gates
+- [ ] Pest v4 + arch plugin, `phpunit.xml` pointed at the `_test` database
+- [ ] Larastan level 8 (`phpstan.neon.dist`)
+- [ ] Pint (`pint.json`, Laravel preset + project rules)
+- [ ] `bin/check-direction-classes` — grep gate failing on any physical direction class
+- [ ] `composer test` = pint --test → phpstan → pest; `composer test:isolation`
+- [ ] GitHub Actions CI: lint → stan → test (real Postgres 16) → build assets
+
+### 0.7 Frontend foundation
+- [ ] Inertia v2 + React 19 + TypeScript + Vite 7
+- [ ] Tailwind v4 with `@theme` design tokens in `resources/css/app.css`
+- [ ] RTL base layout: `<html dir="rtl" lang="fa">`, Vazirmatn (body) + Estedad (headings), self-hosted
+- [ ] Dark mode via CSS variables from day one
+- [ ] Shared Inertia props: `auth.user`, `tenant`, `features`, `flash`
+- [ ] `components.json` with `"rtl": true`; shadcn base kit (Button, Input, Select, Dialog, Sheet, Tabs, Table, Sonner, Command, Badge, Tooltip, DropdownMenu, Popover, Skeleton)
+- [ ] `dir="rtl"` passed to every Radix portal
+
+### 0.8 Domain components (gallery-first)
+- [ ] `<Money/>` — IRR integer in, formatted out, `tabular-nums`
+- [ ] `<Num/>` — Persian digits in prose, Latin tabular digits in tables (tenant setting)
+- [ ] `<JDatePicker/>` — Jalali picker, UTC value out
+- [ ] `<StatusBadge/>` — single status→semantic-colour map
+- [ ] `<EmptyState/>` — actionable Persian copy
+- [ ] `/design` gallery route (dev-only): every component × state matrix (default/hover/focus/disabled/loading/error) × light+dark × 390px/1280px
+
+### 0.9 App shell
+- [ ] Login placeholder page
+- [ ] App shell: RTL sidebar (fa-IR nav), topbar, toast host — built strictly from gallery components
+
+### 0.10 AI tooling
+- [ ] `laravel/boost` installed; generated guidelines merged **below** the golden rules in `CLAUDE.md` (diff reviewed)
+- [ ] Laravel Boost MCP registered (`docker compose exec -T app php artisan boost:mcp`)
+- [ ] Playwright MCP registered
+- [ ] Confirm `.claude/skills/mobishop-ui/SKILL.md` loads
+
+### Phase 0 — Definition of Done
+- [ ] `make up` then `make fresh` boots an RTL app
+- [ ] CI green on a PR
+- [ ] Arch test asserts module boundaries
+- [ ] `/design` renders the initial kit
+- [ ] Boost MCP answers an Application Info call
+- [ ] Zero physical direction classes (grep gate wired into `composer test`)
+
+---
+
+## Phase 1 — Tenancy, Identity, Onboarding ★ security-critical
+
+### 1.1 Central schema
+- [ ] `tenants` table (name, slug, status, trial_ends_at, settings)
+- [ ] `domains` table (subdomain unique, tenant_id, is_primary)
+- [ ] Platform admin seed (central users, separate guard from tenant users)
+
+### 1.2 Tenant context
+- [ ] `TenantContext` service — resolve by subdomain; no subdomain → central routes
+- [ ] Middleware sets context + `SET LOCAL app.tenant_id` per request
+- [ ] Transaction-safe: context re-applied on every connection/transaction start
+- [ ] Queue jobs serialise tenant id and restore context before handling (tested)
+- [ ] Artisan/console context switching (`--tenant=` option) for maintenance commands
+
+### 1.3 BelongsToTenant + RLS
+- [ ] `BelongsToTenant` trait: global scope, creating-hook fill, `tenant()` relation
+- [ ] `withoutTenancy()` escape hatch — Platform module only, requires a comment
+- [ ] Migration helper `$this->enableRls('table')` → policy `USING (tenant_id = current_setting('app.tenant_id')::bigint)` + `FORCE ROW LEVEL SECURITY`
+- [ ] Apply RLS to `users`
+- [ ] `php artisan tenancy:check` — fails CI when a tenant-ish table/model lacks the trait or RLS
+
+### 1.4 Auth & onboarding
+- [ ] Onboarding wizard: shop name → subdomain (availability check) → owner user → demo-data toggle
+- [ ] Per-tenant login, password reset, remember-me
+- [ ] Optional TOTP 2FA + recovery codes
+- [ ] Session management screen (active sessions, revoke)
+- [ ] Argon2id hashing; rate limits on login/OTP
+
+### 1.5 Roles & permissions
+- [ ] spatie/laravel-permission with `teams = tenant_id`
+- [ ] Seed 7 roles: Owner, Manager, Cashier, Salesperson, Technician, Accountant, Warehousekeeper
+- [ ] Permission catalogue `module.action`, default sets per role
+- [ ] Policies scaffolded per module
+
+### 1.6 User management UI
+- [ ] Invite by mobile/email; accept-invite flow
+- [ ] Activate/deactivate users
+- [ ] Assign roles; branch pivot table ready (branches land in Phase 3)
+- [ ] Activity log wired (spatie/laravel-activitylog)
+
+### 1.7 Tests
+- [ ] Registration/onboarding flow
+- [ ] Login, password reset, 2FA
+- [ ] Permission denial matrix (role × endpoint)
+- [ ] **Isolation suite v1**: tenant B → tenant A resource ids = 403/404
+- [ ] Raw-query RLS test proving leakage impossible without the Eloquent scope
+- [ ] Queued job executes under the correct tenant
+
+### Phase 1 — Definition of Done
+- [ ] Two demo tenants seeded
+- [ ] `composer test:isolation` green and wired into CI
+
+> ### ⛔ DECISION GATE 1
+> Present the onboarding + login flow summary. Confirm the **subdomain scheme** and the
+> **role list** with the human before starting Phase 2.
+
+---
+
+## Phase 2 — Plans, Modules, Billing, Super-admin
+
+### 2.1 Registry & plans
+- [ ] `modules` registry (code, name_fa, description, is_addonable) seeded from CLAUDE.md rule 6
+- [ ] `plans` (interval month/quarter/year, price IRR, trial_days)
+- [ ] `plan_module` pivot
+- [ ] `plan_limits` (users, branches, invoices_per_month, storage_mb, sms_credit_bonus)
+
+### 2.2 Subscriptions
+- [ ] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
+- [ ] Add-on purchases table
+- [ ] Upgrade/downgrade with proration — formula documented in `docs/adr/0004-proration.md`
+- [ ] Coupons, trial, grace period
+
+### 2.3 Feature gating
+- [ ] Pennant features `module:<code>` and `limit:<key>` resolved from the active subscription
+- [ ] `EnsureModuleEnabled` route middleware
+- [ ] `features` shared Inertia prop; nav hides disabled modules
+- [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
+
+### 2.4 Payments
+- [ ] shetabit/multipay Zarinpal driver (sandbox)
+- [ ] Subscription invoices; payment init / callback / verify
+- [ ] Idempotent verification (replayed callback must not double-credit)
+- [ ] Receipt page
+- [ ] Renewal reminders (queued SMS/email stub)
+
+### 2.5 Filament v4 central panel
+- [ ] Panel restricted to platform admins
+- [ ] CRUD: tenants, plans, modules, coupons
+- [ ] Subscription overview
+- [ ] Impersonate tenant owner (audited)
+- [ ] Announcements
+- [ ] MRR / churn dashboard widgets
+- [ ] SMS credit package sales
+
+### 2.6 Tests
+- [ ] Plan purchase happy path with a fake gateway
+- [ ] Proration maths unit tests
+- [ ] Feature gating: module off → 403 + hidden nav
+- [ ] Limit exhaustion behaviour
+- [ ] Impersonation writes an audit record
+
+### Phase 2 — Definition of Done
+- [ ] A plan can be bought in sandbox, features unlock, everything manageable in Filament
+
+> ### ⛔ DECISION GATE 2
+> Pricing/limits table and the proration rule need the human's sign-off.
+
+---
+
+## Phase 3 — Catalog, Inventory, Serialized Units, Purchasing
+
+### 3.1 Branches & warehouses
+- [ ] `branches`, `warehouses` (per-branch defaults)
+- [ ] User↔branch restriction enforced in queries and policies
+
+### 3.2 Catalog
+- [ ] Categories tree, brands
+- [ ] `products` (type: standard | serialized)
+- [ ] Variants (colour/storage/ram matrix), barcodes
+- [ ] Price levels (consumer/reseller/vip) + `product_prices`
+- [ ] Bulk price update (percent/amount, filterable)
+
+### 3.3 Serialized units
+- [ ] `product_units`: imei1, imei2, serial, condition, grade, cost, status enum, acquired_from party, acquired_at, hamta fields, notes
+- [ ] Media attachment (seller ID scan)
+- [ ] State machine + history table; illegal transitions rejected
+- [ ] IMEI passport page — bought from whom → sold to whom → repaired when
+- [ ] IMEI uniqueness per tenant
+
+### 3.4 Stock ledger
+- [ ] `stock_movements` (in/out/transfer/adjust/count + polymorphic ref)
+- [ ] Quantity-on-hand = SUM query with covering indexes (never a stored total)
+- [ ] Low-stock threshold + alerts list
+- [ ] Dead-stock report base
+
+### 3.5 Purchasing
+- [ ] Suppliers as parties
+- [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
+- [ ] Landed cost allocation into unit cost
+- [ ] Purchase returns
+- [ ] GRN print
+
+### 3.6 Movement operations
+- [ ] Transfers between warehouses/branches — dispatch + receive confirmation
+- [ ] Stock count sessions (blind count option) → adjustment movements
+
+### 3.7 Labels
+- [ ] Price/barcode labels, single + batch, printable HTML at label sizes
+
+### 3.8 Tests
+- [ ] Ledger invariants (no negative stock unless the allow-flag is set)
+- [ ] Unit state transitions incl. illegal ones
+- [ ] IMEI uniqueness per tenant
+- [ ] Two-step transfer flow
+- [ ] Price-level resolution
+- [ ] Purchase cost maths including landed costs
+- [ ] Cross-tenant isolation for every new endpoint
+
+### Phase 3 — Definition of Done
+- [ ] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B → count stock, and every number reconciles with movements
+
+---
+
+## Phase 4 — Parties CRM (Customers & Suppliers)
+
+### 4.1 Parties
+- [ ] Unified `parties` (kind: customer/supplier/colleague/both)
+- [ ] Multiple contacts, addresses, Jalali birthday
+- [ ] Tags/groups, credit limit, opening balance
+
+### 4.2 Ledger engine
+- [ ] `ledger_entries` (party & account dimensions, debit/credit, polymorphic ref)
+- [ ] Minimal `accounts` table + one default cash account (full Treasury lands in Phase 7)
+- [ ] Party statement page with running balance
+- [ ] Receive/pay quick-forms posting to accounts
+
+### 4.3 Engagement
+- [ ] 360° timeline component (sales, repairs, sms, payments, notes)
+- [ ] Follow-up reminders (assignee, due date, done)
+- [ ] Loyalty points table + earn-rule stub
+
+### 4.4 Import
+- [ ] Excel customer import with column-mapping wizard + dry-run report
+
+### 4.5 Tests
+- [ ] Ledger maths: statement equals the sum of entries
+- [ ] Credit-limit block flag on over-limit credit sale
+- [ ] Import edge cases (duplicate mobiles, bad-row report)
+- [ ] Cross-tenant isolation
+
+### Phase 4 — Definition of Done
+- [ ] Customer page shows a true balance and full timeline; a 500-row sheet imports cleanly
+
+---
+
+## Phase 5 — Sales, POS, Trade-in, Installment creation ★ revenue-critical
+
+### 5.1 Invoices
+- [ ] Lifecycle draft → final → void
+- [ ] Scan-first POS screen (barcode/IMEI box autofocus, Enter submits)
+- [ ] Line types: variant + qty | serialized unit picker (only `in_stock` units of this branch)
+- [ ] Per-line discount and warranty months
+- [ ] Invoice-level discount, VAT toggle, shipping
+- [ ] Salesperson field + commission accrual entry
+- [ ] Numbering per tenant+branch via the `counters` row-lock service
+
+### 5.2 Payments
+- [ ] Split payments: cash / POS terminal / card-to-card / cheque ref / customer credit
+- [ ] Change calculation
+- [ ] Partial payment → unpaid balance posts to the party ledger automatically
+
+### 5.3 Returns & quotes
+- [ ] Returns full/partial; serialized return flips unit returned → in_stock with grade re-check
+- [ ] Quotes → convert to invoice
+
+### 5.4 Trade-in
+- [ ] "Buy customer device" line inside POS → mini-intake (model, imei, condition, agreed price, ID scan, HAMTA transfer checklist ack)
+- [ ] Creates a purchase + `product_unit` (used) and offsets the invoice total
+
+### 5.5 Installment sale
+- [ ] Mark invoice as installment → wizard (down payment, count, interval, flat profit %, first due Jalali)
+- [ ] Generates `installment_plan` + rows; last row absorbs rounding remainder
+- [ ] Optional guarantor party
+- [ ] Contract print
+
+### 5.6 Printing
+- [ ] Thermal 80mm receipt
+- [ ] A5 / A4 official invoice
+- [ ] QR to a public invoice view
+- [ ] Template settings (logo, footer terms)
+
+### 5.7 Profit engine
+- [ ] Serialized = exact unit cost; standard goods = weighted-average cost at sale time
+- [ ] Cost snapshot stored on the invoice line
+- [ ] Daily Z-report (cash session close)
+
+### 5.8 Tests
+- [ ] Full POS happy path
+- [ ] Split payment maths incl. change and ledger postings
+- [ ] Serialized double-sell race: two parallel finalises → one wins, other gets a clean error
+- [ ] Trade-in creates the unit and the totals are correct
+- [ ] Installment schedule maths and rounding rule
+- [ ] Return restores stock and reverses the ledger
+- [ ] Numbering: no gaps/dupes under 50 parallel finalises
+- [ ] Cross-tenant isolation
+
+### Phase 5 — Definition of Done
+- [ ] End-to-end: buy plan → receive stock → sell a phone with trade-in + 3 cheques + installments → print all papers → every ledger/stock figure reconciles
+
+> ### ⛔ DECISION GATE 3
+> Review invoice print templates and rounding rules with the human.
+
+---
+
+## Phase 6 — Repairs ★ flagship module
+
+### 6.1 Intake
+- [ ] Customer, device (brand/model/imei — link to a unit if we sold it)
+- [ ] Reported issue
+- [ ] Configurable checklist + per-tenant template builder
+- [ ] Photos
+- [ ] Passcode/pattern: encrypted at rest, masked in UI, permission-gated reveal
+- [ ] Accessories list, prepaid amount, estimate
+- [ ] Printed receipt with tracking code + QR
+
+### 6.2 Workflow
+- [ ] State machine: queued → diagnosing → awaiting_approval → awaiting_parts → repairing → ready → delivered | rejected | abandoned
+- [ ] Every transition emits an event (SMS hooks in Phase 8)
+- [ ] History with actor + note
+- [ ] Kanban board + list views
+- [ ] Technician assignment, priority, promised date
+- [ ] Per-technician workload screen
+
+### 6.3 Estimate & approval
+- [ ] Amount cap without approval (tenant setting)
+- [ ] Approval via public signed link, or manual "approved by phone" with note
+
+### 6.4 Parts & services
+- [ ] Parts consumption from Inventory: reserve → consume on complete → return on cancel
+- [ ] Labor/services catalogue (flash, unlock, FRP, data recovery…) with prices
+- [ ] Outsource to an external technician party with cost tracking
+
+### 6.5 Delivery
+- [ ] Payment settle (reuses the Phase 5 payment box)
+- [ ] Signature pad capture stored as an image
+- [ ] Warranty-on-repair days
+- [ ] Delivered receipt print
+
+### 6.6 Abandoned devices
+- [ ] Configurable N days after ready → flag + escalating SMS steps + status
+
+### 6.7 Public tracking
+- [ ] No-login page: code → status timeline + shop contact, signed URL
+
+### 6.8 Tests
+- [ ] Every legal and illegal transition
+- [ ] Approval cap enforcement
+- [ ] Parts reserve/consume/rollback
+- [ ] Concurrent technician actions
+- [ ] Encrypted passcode never appears in logs or JSON
+- [ ] Public page leaks nothing tenant-private
+- [ ] Abandoned scheduler
+- [ ] Cross-tenant isolation
+
+### Phase 6 — Definition of Done
+- [ ] Full repair lifecycle demo on seeded data; board usable; tracking page live
+
+---
+
+## Phase 7 — Treasury, Expenses/Incomes, Cheques, Installment collection, Rentals
+
+### 7.1 Accounts
+- [ ] Cash boxes, banks, POS terminals, petty cash
+- [ ] Opening balances
+- [ ] Transfer between accounts
+- [ ] Account statement (ledger view)
+- [ ] Simple reconciliation check-off
+
+### 7.2 Expenses & incomes
+- [ ] Expense/income modules with category trees
+- [ ] Recurring templates (rent, salaries)
+- [ ] **Rental module**: contracts for leasing shop desk/space (party, amount, period, start/end) → auto-generated periodic income entries + reminder
+
+### 7.3 Cheques
+- [ ] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced | spent_to_third_party | returned
+- [ ] Due-date reminders list
+- [ ] Printable receipt
+- [ ] Ledger posting matrix documented in `docs/specs/cheques.md`
+
+### 7.4 Installment collection
+- [ ] Due/overdue lists
+- [ ] Collect via any payment method
+- [ ] Late-fee policy
+- [ ] Early settlement recalculation
+- [ ] SMS nudge hooks
+
+### 7.5 Closing & reporting base
+- [ ] Daily close (Z) across accounts
+- [ ] Simple P&L (period revenue, COGS from cost snapshots, expenses)
+- [ ] Cash-flow summary
+
+### 7.6 Tests
+- [ ] Cheque lifecycle postings at every stage
+- [ ] Installment collection and early-settlement maths
+- [ ] Recurring generator idempotency
+- [ ] P&L reconciles against a fully seeded scenario
+- [ ] Cross-tenant isolation
+
+### Phase 7 — Definition of Done
+- [ ] A seeded "one crazy month" scenario reconciles to the rial across all reports
+
+---
+
+## Phase 8 — Messaging (SMS) & Notifications
+
+### 8.1 Drivers
+- [ ] Driver abstraction
+- [ ] Kavenegar driver (pattern/lookup send)
+- [ ] sms.ir stub
+- [ ] Per-tenant credentials vs platform-pool billing by credits
+- [ ] Credit wallet, price tiers, low-credit alert
+
+### 8.2 Templates & automations
+- [ ] Template manager with variables (`{name}`, `{ticket_code}`, `{amount}`, `{due_date_j}`…)
+- [ ] Automation toggle matrix: invoice finalized, repair status changes, ready, installment T-3/T-0/overdue, cheque T-2, birthday, abandoned-device steps
+
+### 8.3 Campaigns
+- [ ] Audience builder over CRM filters (last purchase, brand owned, tags, balance)
+- [ ] Schedule + throttled queued sending
+- [ ] Per-message status / delivery polling
+- [ ] Opt-out list honoured everywhere
+
+### 8.4 In-app
+- [ ] Notification centre (bell) fed by the same events
+
+### 8.5 Tests
+- [ ] Driver fake asserting exact payloads
+- [ ] Automation matrix
+- [ ] Credit deduction accuracy incl. refund on gateway failure
+- [ ] Campaign filter correctness on a seeded CRM
+- [ ] Opt-out respected
+- [ ] Cross-tenant isolation
+
+### Phase 8 — Definition of Done
+- [ ] Changing a repair status fires the right pattern SMS in sandbox/fake and logs the cost
+
+---
+
+## Phase 9 — Dashboard & Reporting
+
+### 9.1 Dashboard
+- [ ] Role-aware widgets per `docs/specs/reporting.md`
+- [ ] Fast SQL: indexed, no N+1, measured
+
+### 9.2 Reports (25+)
+- [ ] Sales daily/monthly
+- [ ] Sales by product / brand / salesperson
+- [ ] Profit report
+- [ ] Technician performance
+- [ ] Dead stock
+- [ ] Stock valuation
+- [ ] Party balances aging
+- [ ] Cheques calendar
+- [ ] Installments book
+- [ ] Tax/VAT summary
+- [ ] SMS usage
+- [ ] …remaining reports enumerated in `docs/specs/reporting.md`
+- [ ] All with Jalali range filter, print CSS, Excel export
+- [ ] Saved-filter presets
+
+### 9.3 Tests
+- [ ] Golden-number tests: seeded scenario → exact expected figures per report
+- [ ] Query performance budget (<300ms on a 100k-row seed for top reports)
+
+### Phase 9 — Definition of Done
+- [ ] Numbers everywhere agree with the Phase 7 reconciliation scenario
+
+---
+
+## Phase 10 — Multi-branch polish, Storefront, HAMTA, Moadian v1, Data tools
+
+### 10.1 Multi-branch audit
+- [ ] Every module respects branch context
+- [ ] Branch switcher
+- [ ] Consolidated vs per-branch reporting toggle
+- [ ] Per-branch counters verified
+
+### 10.2 Storefront
+- [ ] Public shop landing page + product catalogue with live prices
+- [ ] Reseller price-list link (password/expiry, per-price-level)
+- [ ] PDF export
+- [ ] WhatsApp CTA
+
+### 10.3 HAMTA
+- [ ] Guided ownership-transfer workflow on used buy/sell (checklist, activation-id record on unit)
+- [ ] "Transfer pending" warnings
+- [ ] `*#7777#` instructions page
+- [ ] UI states explicitly: no official API — record-keeping and guidance only
+
+### 10.4 Moadian v1
+- [ ] Adapter interface + one intermediary-provider driver behind a queue
+- [ ] Invoice → e-invoice payload mapping
+- [ ] Send / poll status
+- [ ] Error inbox + resend
+- [ ] Feature-flagged
+
+### 10.5 Data tools
+- [ ] Full tenant export (Excel/JSON zip)
+- [ ] Products import
+- [ ] Backup-request button (admin-side artisan)
+- [ ] Audit-log viewer UI with filters
+
+### 10.6 Tests
+- [ ] Price-list link security (expiry, password, price level)
+- [ ] Storefront leaks nothing private
+- [ ] Moadian driver contract tests with a fake
+- [ ] Export completeness snapshot
+
+> ### ⛔ DECISION GATE 4
+> Choose the real Moadian intermediary provider and confirm storefront scope before building 10.2/10.4.
+
+---
+
+## Phase 11 — Hardening, Performance, Launch
+
+### 11.1 Security
+- [ ] OWASP ASVS-L1 checklist in `docs/security.md`
+- [ ] Rate limits: login, OTP, public tracking/price-list pages
+- [ ] Signed-URL audit
+- [ ] Security headers + CSP
+- [ ] Dependency audit in CI
+- [ ] Secrets hygiene review
+- [ ] Encrypted-columns inventory (device passcodes!)
+- [ ] Impersonation & RLS re-verification
+
+### 11.2 Performance
+- [ ] Seed 50 tenants × realistic volumes
+- [ ] Load test top 10 endpoints (k6 or artisan bench)
+- [ ] Fix N+1s
+- [ ] Add missing composite indexes
+- [ ] Queue latency dashboards
+
+### 11.3 Ops
+- [ ] Production compose + nginx + SSL guide in `docs/deploy.md`
+- [ ] Zero-downtime deploy script
+- [ ] Nightly `pg_dump` + WAL archiving
+- [ ] Restore drill documented **and performed once** (log committed)
+- [ ] Sentry + health endpoint + uptime hook
+- [ ] Horizon production config
+
+### 11.4 Launch kit
+- [ ] Demo tenant with rich Persian data
+- [ ] 5-minute owner onboarding tour
+- [ ] Terms + privacy pages
+- [ ] Public landing page per `docs/design-system.md#landing`: signature live thermal receipt hero, specced section order, Blade + Tailwind, JS ≤ 180KB gz, LCP < 2.5s on 4G, `prefers-reduced-motion` honoured
+
+> ### ⛔ DECISION GATE 5
+> Show the landing at wireframe and first-styled-pass before polishing.
+
+### Phase 11 — Definition of Done
+- [ ] Staging deploy from CI
+- [ ] Restore drill log committed
+- [ ] Load test report in `docs/`
+- [ ] Go-live checklist all green
+
+---
+
+## Anti-goals — do NOT build unless explicitly asked
+
+Native mobile apps · full online-ordering/e-commerce checkout · double-entry GL beyond
+the specified ledgers · multi-currency · Kubernetes · GraphQL · microservices.

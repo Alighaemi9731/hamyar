@@ -1,0 +1,34 @@
+# --- MobiShop ---
+# .claude/skills/ IS tracked on purpose: the design-system skill ships with the repo.
+.claude/settings.local.json
+_tmp/
+/bin/.phpstan-cache
+
+# --- Laravel ---
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+.env
+.env.backup
+.env.production
+/auth.json
+*.log
+.phpunit.result.cache
+/.phpunit.cache
+/.phpstan.cache
+Homestead.json
+Homestead.yaml
+
+# --- editors & OS ---
+/.idea
+/.fleet
+/.nova
+/.vscode
+/.zed
+.phpactor.json
+.DS_Store
+Thumbs.db
