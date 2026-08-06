@@ -22,6 +22,16 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        // `@vite` reads public/build/manifest.json, which is a build artefact and is
+        // gitignored. Without this the suite passes on a machine that happens to have
+        // run `npm run build` and 500s everywhere else — which is exactly how it
+        // failed the first time CI ran.
+        //
+        // Feature tests assert the server's response, not the asset pipeline; the
+        // build is covered by its own CI job and by the browser checks.
+        $this->withoutVite();
+    })
     ->in('Feature', '../app/Modules');
 
 pest()->extend(TestCase::class)->in('Unit');
