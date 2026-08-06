@@ -2,15 +2,20 @@
 # MobiShop — Postgres bootstrap.
 #
 # Golden rule 1: Row-Level Security is the second line of tenancy defence. Postgres
-# lets *table owners* and *superusers* bypass RLS unless FORCE ROW LEVEL SECURITY is
-# set, so we deliberately split two roles:
+# exempts two kinds of role from RLS policies:
 #
-#   ${POSTGRES_USER}  — owner. Runs migrations. Owns the schema.
-#   ${APP_DB_USER}    — the role the application connects as. Owns nothing,
-#                       is not a superuser, therefore RLS always applies to it.
+#   1. superusers, and roles with BYPASSRLS — always exempt, no way to force them;
+#   2. the table owner — exempt UNLESS the table declares FORCE ROW LEVEL SECURITY.
 #
-# Migrations additionally apply FORCE ROW LEVEL SECURITY (see the enableRls() helper)
-# so even the owner cannot read across tenants outside of an explicit escape hatch.
+# The role created here (${APP_DB_USER}) is deliberately NOT a superuser, and every
+# tenant table is created with FORCE ROW LEVEL SECURITY by the enableRls() migration
+# helper. Together that means RLS applies to the application even though the
+# application owns its own tables — which in turn lets migrations, seeders, tests and
+# request traffic all share one connection with no privilege juggling.
+#
+# ${POSTGRES_USER} remains a superuser but is infrastructure-only: `make psql`,
+# backups and manual surgery. No application code ever connects as it. If you use it
+# to poke at data, remember RLS will NOT protect you and you will see every tenant.
 
 set -euo pipefail
 
@@ -18,29 +23,31 @@ APP_DB_USER="${APP_DB_USER:-mobishop_app}"
 APP_DB_PASSWORD="${APP_DB_PASSWORD:-app-secret}"
 TEST_DB="${POSTGRES_DB}_test"
 
-psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-SQL
-    CREATE ROLE ${APP_DB_USER} LOGIN PASSWORD '${APP_DB_PASSWORD}';
-
-    GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO ${APP_DB_USER};
-    GRANT USAGE ON SCHEMA public TO ${APP_DB_USER};
-
-    -- Everything the owner creates from now on is usable by the app role.
-    ALTER DEFAULT PRIVILEGES FOR ROLE ${POSTGRES_USER} IN SCHEMA public
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${APP_DB_USER};
-    ALTER DEFAULT PRIVILEGES FOR ROLE ${POSTGRES_USER} IN SCHEMA public
-        GRANT USAGE, SELECT ON SEQUENCES TO ${APP_DB_USER};
+create_app_role() {
+    psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-SQL
+        CREATE ROLE ${APP_DB_USER} LOGIN PASSWORD '${APP_DB_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
 SQL
+}
+
+grant_database() {
+    local db="$1"
+
+    psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${db}" <<-SQL
+        GRANT CONNECT ON DATABASE ${db} TO ${APP_DB_USER};
+
+        -- The app role creates and owns its own tables (migrations run as this role),
+        -- so it needs CREATE on the schema. FORCE ROW LEVEL SECURITY is what keeps
+        -- ownership from becoming an RLS bypass.
+        GRANT USAGE, CREATE ON SCHEMA public TO ${APP_DB_USER};
+SQL
+}
+
+create_app_role
 
 # Dedicated database for the Pest suite so a test run never truncates dev data.
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-SQL
     CREATE DATABASE ${TEST_DB} OWNER ${POSTGRES_USER};
 SQL
 
-psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${TEST_DB}" <<-SQL
-    GRANT CONNECT ON DATABASE ${TEST_DB} TO ${APP_DB_USER};
-    GRANT USAGE ON SCHEMA public TO ${APP_DB_USER};
-    ALTER DEFAULT PRIVILEGES FOR ROLE ${POSTGRES_USER} IN SCHEMA public
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${APP_DB_USER};
-    ALTER DEFAULT PRIVILEGES FOR ROLE ${POSTGRES_USER} IN SCHEMA public
-        GRANT USAGE, SELECT ON SEQUENCES TO ${APP_DB_USER};
-SQL
+grant_database "${POSTGRES_DB}"
+grant_database "${TEST_DB}"

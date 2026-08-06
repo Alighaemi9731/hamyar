@@ -1,0 +1,179 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * MobiShop — RTL direction-class gate.
+ *
+ * Golden rule 9 / design-system rule 1: the UI is right-to-left, so only *logical*
+ * utilities are allowed (ms-/me-/ps-/pe-/start-/end-/text-start/text-end/border-s/
+ * border-e/rounded-s/rounded-e). A physical utility (ml-, pl-, left-, text-left, …)
+ * silently mirrors the layout for Persian users, which is why this is a build failure
+ * rather than a lint warning.
+ *
+ * Wired into `composer test` as the `rtl` script, and into CI before static analysis.
+ *
+ * Escape hatch: put `rtl-allow` in a comment on the same line. Use it only for
+ * genuinely direction-independent cases (e.g. a print template pinned to a physical
+ * paper edge) and say why.
+ */
+
+const SCAN_ROOTS = ['resources', 'app', 'routes'];
+
+const SCAN_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'css', 'php', 'blade.php', 'html'];
+
+/**
+ * Physical utilities and their logical replacements.
+ *
+ * The `(?<![\w-])` guard stops `transform-none` matching `form-`, and `format` from
+ * matching `mr-`. Values are matched loosely (`[\w./\[\]%-]+`) so arbitrary values
+ * like `ml-[3px]` are caught too.
+ */
+const RULES = [
+    'ml-'         => 'ms-',
+    'mr-'         => 'me-',
+    'pl-'         => 'ps-',
+    'pr-'         => 'pe-',
+    'border-l'    => 'border-s',
+    'border-r'    => 'border-e',
+    'rounded-l'   => 'rounded-s',
+    'rounded-r'   => 'rounded-e',
+    'left-'       => 'start-',
+    'right-'      => 'end-',
+    'text-left'   => 'text-start',
+    'text-right'  => 'text-end',
+    'float-left'  => 'float-start',
+    'float-right' => 'float-end',
+    'scroll-ml-'  => 'scroll-ms-',
+    'scroll-mr-'  => 'scroll-me-',
+    'scroll-pl-'  => 'scroll-ps-',
+    'scroll-pr-'  => 'scroll-pe-',
+];
+
+/** Paths that never contain our own utility classes. */
+const EXCLUDED = [
+    'node_modules',
+    'vendor',
+    'resources/js/components/ui/__generated',
+];
+
+/**
+ * @return list<string>
+ */
+function collectFiles(string $root): array
+{
+    if (! is_dir($root)) {
+        return [];
+    }
+
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+    );
+
+    /** @var SplFileInfo $file */
+    foreach ($iterator as $file) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        $path = $file->getPathname();
+
+        foreach (EXCLUDED as $excluded) {
+            if (str_contains($path, $excluded)) {
+                continue 2;
+            }
+        }
+
+        foreach (SCAN_EXTENSIONS as $extension) {
+            if (str_ends_with($path, '.'.$extension)) {
+                $files[] = $path;
+
+                continue 2;
+            }
+        }
+    }
+
+    sort($files);
+
+    return $files;
+}
+
+/**
+ * Build one regex per physical utility.
+ *
+ * Matches a class token only when it starts at a class boundary — the start of the
+ * string, whitespace, a quote, a backtick, `{`, or a Tailwind variant separator
+ * (`sm:`, `hover:`, `rtl:`) — so prose and identifiers are not flagged.
+ */
+function patternFor(string $utility): string
+{
+    $escaped = preg_quote($utility, '/');
+
+    // Utilities ending in `-` take a value; the rest are complete class names.
+    $tail = str_ends_with($utility, '-') ? '[\w./\[\]%()-]+' : '(?![\w-])';
+
+    return '/(?<=^|[\s"\'`{:\[])'.$escaped.$tail.'/';
+}
+
+$violations = [];
+$scanned = 0;
+
+foreach (SCAN_ROOTS as $root) {
+    foreach (collectFiles($root) as $path) {
+        $scanned++;
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES);
+
+        if ($lines === false) {
+            continue;
+        }
+
+        foreach ($lines as $index => $line) {
+            if (str_contains($line, 'rtl-allow')) {
+                continue;
+            }
+
+            foreach (RULES as $physical => $logical) {
+                if (preg_match(patternFor($physical), $line, $matches) === 1) {
+                    $violations[] = [
+                        'file' => $path,
+                        'line' => $index + 1,
+                        'found' => $matches[0],
+                        'use' => $logical,
+                        'source' => trim($line),
+                    ];
+                }
+            }
+        }
+    }
+}
+
+if ($violations === []) {
+    fwrite(STDOUT, "  RTL gate: no physical direction classes in {$scanned} files.\n");
+    exit(0);
+}
+
+fwrite(STDERR, "\n  RTL gate FAILED — physical direction classes are a bug (golden rule 9).\n\n");
+
+foreach ($violations as $violation) {
+    $source = mb_strimwidth($violation['source'], 0, 110, '…');
+
+    fwrite(STDERR, sprintf(
+        "  %s:%d\n    found `%s` — use `%s` instead\n    %s\n\n",
+        $violation['file'],
+        $violation['line'],
+        $violation['found'],
+        $violation['use'],
+        $source,
+    ));
+}
+
+fwrite(STDERR, sprintf(
+    "  %d violation(s). Logical utilities only: ms/me/ps/pe/start/end/text-start/text-end.\n".
+    "  If a line is genuinely direction-independent, add a `rtl-allow` comment explaining why.\n\n",
+    count($violations),
+));
+
+exit(1);

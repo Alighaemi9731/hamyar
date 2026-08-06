@@ -59,13 +59,53 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | Golden rule 5: MobiShop STORES every timestamp in UTC. This value must stay
+    | "UTC" — changing it silently rewrites the meaning of every stored date.
+    |
+    | The shop's wall-clock timezone lives in `display_timezone` below and is applied
+    | only at the rendering boundary (App\Support\Jalali). That ordering matters:
+    | converting a UTC instant straight to Jalali reports the wrong *day* for
+    | anything after 20:30 Tehran time, which is exactly when a shop closes its till.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Wall-clock timezone used when rendering dates for humans. Never stored.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Asia/Tehran'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Currency Display Unit
+    |--------------------------------------------------------------------------
+    |
+    | Default money unit shown to users: "rial" or "toman". Iranian shops quote in
+    | toman (1 toman = 10 rial) but golden rule 2 keeps storage in integer rial
+    | regardless. Individual tenants override this in their settings.
+    |
+    */
+
+    'currency_display' => env('APP_CURRENCY_DISPLAY', 'toman'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tenant Domain
+    |--------------------------------------------------------------------------
+    |
+    | Bare domain that tenant subdomains hang off: <shop>.app.localhost. Used by
+    | the tenant-resolution middleware (Phase 1) and by route domain constraints.
+    |
+    */
+
+    'domain' => env('APP_DOMAIN', 'app.localhost'),
 
     /*
     |--------------------------------------------------------------------------
@@ -78,11 +118,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'fa'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'fa_IR'),
 
     /*
     |--------------------------------------------------------------------------

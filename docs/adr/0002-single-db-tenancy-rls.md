@@ -33,16 +33,27 @@ of defence:
 4. **Automated isolation tests in CI** — a two-tenant matrix over every tenant-scoped
    endpoint, plus raw-SQL tests that bypass Eloquent entirely and still see nothing.
 
-Two database roles back layer 3:
+The role model behind layer 3 is worth stating precisely, because getting it wrong
+turns RLS into decoration. PostgreSQL exempts two kinds of role from a policy:
 
-| Role | Purpose |
-|---|---|
-| `mobishop` (owner) | Runs migrations, owns the schema |
-| `mobishop_app` | The role the application connects as; owns nothing, not a superuser |
+1. **superusers and `BYPASSRLS` roles** — always exempt, unconditionally;
+2. **the table owner** — exempt *unless* the table declares `FORCE ROW LEVEL SECURITY`.
 
-This split matters: PostgreSQL exempts **table owners and superusers** from RLS
-policies unless `FORCE ROW LEVEL SECURITY` is set. We set `FORCE` *and* connect as a
-non-owner, so neither mistake alone is enough to leak data.
+So we do both things that close those holes:
+
+| Role | Superuser | Used by |
+|---|---|---|
+| `mobishop_app` | **No** (`NOSUPERUSER NOBYPASSRLS`) | Everything: requests, queue workers, migrations, seeders, tests |
+| `mobishop` | Yes | Infrastructure only — `make psql`, backups, manual surgery |
+
+`mobishop_app` owns the tables it migrates, which would normally exempt it — but
+`enableRls()` always emits `FORCE ROW LEVEL SECURITY`, so the policy applies to the
+owner too. The result is one connection for every context (no privilege juggling
+between migrating and serving) while the test suite exercises exactly the same
+enforcement path as production traffic.
+
+The superuser is a documented foot-gun: anyone querying through `make psql` sees all
+tenants, by design, because backups and incident response need that.
 
 ## Alternatives considered
 

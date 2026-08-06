@@ -7,7 +7,10 @@ SHELL := /bin/bash
 export HOST_UID := $(shell id -u)
 export HOST_GID := $(shell id -g)
 
-DC     := docker compose
+# Prefer the `docker compose` plugin; fall back to the standalone `docker-compose`
+# binary, which is what Homebrew installs alongside colima.
+DC := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
+
 APP    := $(DC) exec -T app
 APP_IT := $(DC) exec app
 
@@ -55,8 +58,12 @@ sh: ## Shell inside the app container
 	$(APP_IT) bash
 
 .PHONY: psql
-psql: ## psql into the dev database
-	$(DC) exec postgres psql -U $${DB_USERNAME:-mobishop} -d $${DB_DATABASE:-mobishop}
+psql: ## psql into the dev database as the superuser (NOTE: bypasses RLS — you see all tenants)
+	$(DC) exec postgres psql -U $${DB_ROOT_USERNAME:-mobishop} -d $${DB_DATABASE:-mobishop}
+
+.PHONY: psql-app
+psql-app: ## psql as the application role (RLS enforced — set app.tenant_id to see rows)
+	$(DC) exec postgres psql -U $${DB_USERNAME:-mobishop_app} -d $${DB_DATABASE:-mobishop}
 
 ## ------------------------------------------------------------ app tasks ----
 
