@@ -90,7 +90,7 @@ final class MakeModuleCommand extends Command
 
         $this->components->info("Module [{$name}] created at app/Modules/{$name}.");
         $this->components->bulletList([
-            "Provider auto-registers via App\\Providers\\ModuleServiceProvider — no bootstrap edit needed.",
+            'Provider auto-registers via App\\Providers\\ModuleServiceProvider — no bootstrap edit needed.',
             "Write the spec first: docs/specs/{$slug}.md",
             'Tenant tables need tenant_id + composite index + enableRls() in the same migration.',
         ]);

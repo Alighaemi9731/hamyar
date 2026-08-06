@@ -14,9 +14,11 @@ declare(strict_types=1);
  *
  * Wired into `composer test` as the `rtl` script, and into CI before static analysis.
  *
- * Escape hatch: put `rtl-allow` in a comment on the same line. Use it only for
- * genuinely direction-independent cases (e.g. a print template pinned to a physical
- * paper edge) and say why.
+ * Escape hatch: put `rtl-allow` in a comment on the same line, or on the line
+ * immediately above (long className strings are one very long line, so an inline
+ * comment is not always possible). Use it only for genuinely physical cases — a
+ * Sheet whose API takes side="left", a print template pinned to a paper edge — and
+ * always say why.
  */
 
 const SCAN_ROOTS = ['resources', 'app', 'routes'];
@@ -26,30 +28,48 @@ const SCAN_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'css', 'php', 'blade.php', 'h
 /**
  * Physical utilities and their logical replacements.
  *
- * The `(?<![\w-])` guard stops `transform-none` matching `form-`, and `format` from
- * matching `mr-`. Values are matched loosely (`[\w./\[\]%-]+`) so arbitrary values
- * like `ml-[3px]` are caught too.
+ * Each rule declares how the class is spelled, which is what keeps English prose in
+ * comments from tripping the gate:
+ *
+ *   'value'    prefix REQUIRES a Tailwind value  → `ml-4`, `left-[3px]`, `-mr-2`
+ *   'optional' prefix may take one               → `border-l`, `border-l-2`
+ *   'exact'    complete class name               → `text-left`, `float-right`
+ *
+ * Matching a value rather than "any word characters" is the difference between
+ * flagging `left-0` (a bug) and flagging `left-to-right` (a sentence).
  */
 const RULES = [
-    'ml-'         => 'ms-',
-    'mr-'         => 'me-',
-    'pl-'         => 'ps-',
-    'pr-'         => 'pe-',
-    'border-l'    => 'border-s',
-    'border-r'    => 'border-e',
-    'rounded-l'   => 'rounded-s',
-    'rounded-r'   => 'rounded-e',
-    'left-'       => 'start-',
-    'right-'      => 'end-',
-    'text-left'   => 'text-start',
-    'text-right'  => 'text-end',
-    'float-left'  => 'float-start',
-    'float-right' => 'float-end',
-    'scroll-ml-'  => 'scroll-ms-',
-    'scroll-mr-'  => 'scroll-me-',
-    'scroll-pl-'  => 'scroll-ps-',
-    'scroll-pr-'  => 'scroll-pe-',
+    ['ml-', 'ms-', 'value'],
+    ['mr-', 'me-', 'value'],
+    ['pl-', 'ps-', 'value'],
+    ['pr-', 'pe-', 'value'],
+    ['left-', 'start-', 'value'],
+    ['right-', 'end-', 'value'],
+    ['scroll-ml-', 'scroll-ms-', 'value'],
+    ['scroll-mr-', 'scroll-me-', 'value'],
+    ['scroll-pl-', 'scroll-ps-', 'value'],
+    ['scroll-pr-', 'scroll-pe-', 'value'],
+    ['inset-l-', 'inset-s-', 'value'],
+    ['inset-r-', 'inset-e-', 'value'],
+
+    ['border-l', 'border-s', 'optional'],
+    ['border-r', 'border-e', 'optional'],
+    ['rounded-l', 'rounded-s', 'optional'],
+    ['rounded-r', 'rounded-e', 'optional'],
+
+    ['text-left', 'text-start', 'exact'],
+    ['text-right', 'text-end', 'exact'],
+    ['float-left', 'float-start', 'exact'],
+    ['float-right', 'float-end', 'exact'],
+    ['clear-left', 'clear-start', 'exact'],
+    ['clear-right', 'clear-end', 'exact'],
 ];
+
+/**
+ * What can legally follow a physical prefix in Tailwind: a numeric scale step, a
+ * keyword, an arbitrary `[…]` value, or a CSS variable `(--x)`.
+ */
+const VALUE = '(?:\d[\w./%]*|auto|full|px|screen|min|max|fit|reverse|dvw|dvh|\[[^\]\s]*\]|\([^)\s]*\))';
 
 /** Paths that never contain our own utility classes. */
 const EXCLUDED = [
@@ -107,14 +127,27 @@ function collectFiles(string $root): array
  * string, whitespace, a quote, a backtick, `{`, or a Tailwind variant separator
  * (`sm:`, `hover:`, `rtl:`) — so prose and identifiers are not flagged.
  */
-function patternFor(string $utility): string
+function patternFor(string $utility, string $kind): string
 {
-    $escaped = preg_quote($utility, '/');
+    // `~` as the delimiter: VALUE contains `/` (for fractions like `ml-1/2`), which
+    // would otherwise close a `/`-delimited pattern early.
+    $escaped = preg_quote($utility, '~');
 
-    // Utilities ending in `-` take a value; the rest are complete class names.
-    $tail = str_ends_with($utility, '-') ? '[\w./\[\]%()-]+' : '(?![\w-])';
+    $tail = match ($kind) {
+        'value' => VALUE.'(?![\w-])',
+        'optional' => '(?:-'.VALUE.')?(?![\w-])',
+        default => '(?![\w-])',
+    };
 
-    return '/(?<=^|[\s"\'`{:\[])'.$escaped.$tail.'/';
+    // A class token starts at the start of the line, after whitespace, a quote, a
+    // backtick, `{`, `[`, or a Tailwind variant separator (`sm:`, `rtl:`) — plus the
+    // negative form, where a leading `-` sits at one of those same boundaries.
+    //
+    // The second alternative must require a boundary BEFORE the `-`, otherwise
+    // `slide-in-from-left-2` (a legitimate compound utility) reads as `left-2`.
+    $boundary = '(?:(?<=^|[\s"\'`{:\[])|(?<=[\s"\'`{:\[]-))';
+
+    return '~'.$boundary.$escaped.$tail.'~';
 }
 
 $violations = [];
@@ -131,12 +164,14 @@ foreach (SCAN_ROOTS as $root) {
         }
 
         foreach ($lines as $index => $line) {
-            if (str_contains($line, 'rtl-allow')) {
+            $previous = $lines[$index - 1] ?? '';
+
+            if (str_contains($line, 'rtl-allow') || str_contains($previous, 'rtl-allow')) {
                 continue;
             }
 
-            foreach (RULES as $physical => $logical) {
-                if (preg_match(patternFor($physical), $line, $matches) === 1) {
+            foreach (RULES as [$physical, $logical, $kind]) {
+                if (preg_match(patternFor($physical, $kind), $line, $matches) === 1) {
                     $violations[] = [
                         'file' => $path,
                         'line' => $index + 1,

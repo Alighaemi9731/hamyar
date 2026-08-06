@@ -1,0 +1,79 @@
+import {
+  BanknoteIcon,
+  BarChart3Icon,
+  BellIcon,
+  BoxesIcon,
+  CreditCardIcon,
+  FileTextIcon,
+  LayoutDashboardIcon,
+  type LucideIcon,
+  ReceiptIcon,
+  SettingsIcon,
+  ShoppingCartIcon,
+  SmartphoneIcon,
+  StoreIcon,
+  TagsIcon,
+  TruckIcon,
+  UsersIcon,
+  WrenchIcon,
+} from 'lucide-react';
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  /**
+   * Pennant feature key gating this item. Undefined = always visible.
+   * Hiding here is convenience; the route is guarded by EnsureModuleEnabled too.
+   */
+  feature?: string;
+}
+
+export interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+/**
+ * Tenant sidebar navigation, grouped the way a shop thinks about its day:
+ * what happens at the counter, what is in the back room, where the money is,
+ * and everything else.
+ */
+export const NAVIGATION: NavSection[] = [
+  {
+    label: 'روزانه',
+    items: [
+      { label: 'داشبورد', href: '/dashboard', icon: LayoutDashboardIcon },
+      { label: 'فروش و صندوق', href: '/sales', icon: ShoppingCartIcon, feature: 'module:sales' },
+      { label: 'تعمیرات', href: '/repairs', icon: WrenchIcon, feature: 'module:repairs' },
+      { label: 'مشتریان', href: '/crm', icon: UsersIcon, feature: 'module:crm' },
+    ],
+  },
+  {
+    label: 'کالا و انبار',
+    items: [
+      { label: 'کالاها', href: '/catalog', icon: TagsIcon, feature: 'module:catalog' },
+      { label: 'انبار', href: '/inventory', icon: BoxesIcon, feature: 'module:inventory' },
+      { label: 'شناسنامه IMEI', href: '/inventory/units', icon: SmartphoneIcon, feature: 'module:inventory' },
+      { label: 'خرید', href: '/purchasing', icon: TruckIcon, feature: 'module:purchasing' },
+    ],
+  },
+  {
+    label: 'مالی',
+    items: [
+      { label: 'خزانه‌داری', href: '/treasury', icon: BanknoteIcon, feature: 'module:treasury' },
+      { label: 'چک‌ها', href: '/cheques', icon: FileTextIcon, feature: 'module:cheques' },
+      { label: 'اقساط', href: '/installments', icon: CreditCardIcon, feature: 'module:installments' },
+      { label: 'گزارش‌ها', href: '/reporting', icon: BarChart3Icon, feature: 'module:reporting' },
+    ],
+  },
+  {
+    label: 'ابزارها',
+    items: [
+      { label: 'پیامک', href: '/messaging', icon: BellIcon, feature: 'module:messaging' },
+      { label: 'ویترین', href: '/storefront', icon: StoreIcon, feature: 'module:storefront' },
+      { label: 'صورتحساب‌ها', href: '/moadian', icon: ReceiptIcon, feature: 'module:moadian' },
+      { label: 'تنظیمات', href: '/settings', icon: SettingsIcon },
+    ],
+  },
+];

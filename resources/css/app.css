@@ -1,11 +1,331 @@
 @import 'tailwindcss';
 
+/* Self-hosted so the panel works on a slow Iranian connection with no CDN. */
+@import '@fontsource/vazirmatn/400.css';
+@import '@fontsource/vazirmatn/500.css';
+@import '@fontsource/vazirmatn/700.css';
+@import '@fontsource/estedad/700.css';
+@import '@fontsource/estedad/800.css';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+/* No Geist: Vazirmatn covers Latin well enough, and an extra variable font is a
+   download Iranian shops on mobile data do not need. */
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../../app/Modules/**/resources/views/**/*.blade.php';
 @source '../**/*.blade.php';
-@source '../**/*.js';
+@source '../**/*.{js,jsx,ts,tsx}';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   MobiShop design tokens — the single source of truth.
+
+   Rules (docs/design-system.md, mobishop-ui skill):
+   · Pages never hardcode a hex value or a raw size. Use these tokens.
+   · Dark mode is a variable swap below — never a per-component colour override.
+   · `label` yellow is a signature accent for price tags and small highlights.
+     It is never a large fill; at scale it reads as a warning, not a price.
+   ========================================================================== */
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+  /* --- brand palette (fixed, identical in both themes) -------------------- */
+  --color-paper: #f7f9fb; /* cool clean light ground — deliberately not warm cream */
+  --color-ink: #0e1b2c; /* inky navy for text and dark surfaces */
+  --color-brand: #0fa3a8; /* Persian-tile turquoise: CTAs, links, active states */
+  --color-label: #ffd84d; /* price-label yellow: tiny highlights only */
+
+  --color-brand-50: #e6f7f8;
+  --color-brand-100: #c2ecee;
+  --color-brand-200: #8cdadd;
+  --color-brand-300: #55c7cc;
+  --color-brand-400: #2bb3b9;
+  --color-brand-500: #0fa3a8;
+  --color-brand-600: #0c8489;
+  --color-brand-700: #0a686c;
+  --color-brand-800: #084f53;
+  --color-brand-900: #063a3d;
+
+  /* --- product semantics -------------------------------------------------- */
+  --color-success: #12a150; /* paid · cleared · delivered */
+  --color-warning: #d97e00; /* due soon · awaiting */
+  --color-danger: #d3363c; /* overdue · bounced · failed */
+  --color-info: #2563c9; /* neutral informational state */
+
+  /* --- typography ---------------------------------------------------------
+     Body = Vazirmatn, headings = Estedad 700/800. Latin fallback = system.
+     `--font-num` forces tabular figures on every financial number. */
+  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-display: 'Estedad', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  /* Type scale from the design brief: 12/14/16/18/22/28/36/52 */
+  --text-2xs: 0.75rem; /* 12 */
+  --text-xs: 0.875rem; /* 14 */
+  --text-sm: 1rem; /* 16 */
+  --text-base: 1.125rem; /* 18 */
+  --text-lg: 1.375rem; /* 22 */
+  --text-xl: 1.75rem; /* 28 */
+  --text-2xl: 2.25rem; /* 36 */
+  --text-3xl: 3.25rem; /* 52 */
+
+  /* --- radii & shadows: two levels only, no rainbow shadows --------------- */
+  --radius-card: 0.75rem; /* 12 */
+  --radius-control: 0.5rem; /* 8 */
+  --shadow-low: 0 1px 2px rgb(14 27 44 / 0.06), 0 1px 3px rgb(14 27 44 / 0.08);
+  --shadow-high: 0 8px 24px rgb(14 27 44 / 0.12);
+
+  /* --- layout ------------------------------------------------------------- */
+  --container-shell: 72rem; /* 1152px — the 12-column RTL grid container */
+  --spacing-section: 6rem; /* 96px vertical section rhythm */
+
+  /* --- named z-index (never inline a magic number) ------------------------ */
+  --z-sticky: 20;
+  --z-drawer: 40;
+  --z-overlay: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+}
+
+/* ==========================================================================
+   Surface variables — this is where light/dark actually happens.
+   Components reference these, never the raw palette above.
+   ========================================================================== */
+
+:root {
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+
+  --surface: #ffffff;
+  --surface-foreground: var(--color-ink);
+  --surface-muted: #eef2f6;
+
+  --muted: #eef2f6;
+  --muted-foreground: #5a6b7f;
+
+  --card: #ffffff;
+  --card-foreground: var(--color-ink);
+
+  --popover: #ffffff;
+  --popover-foreground: var(--color-ink);
+
+  --primary: var(--color-brand);
+  --primary-foreground: #ffffff;
+
+  --secondary: #eef2f6;
+  --secondary-foreground: var(--color-ink);
+
+  --accent: var(--color-brand-50);
+  --accent-foreground: var(--color-brand-800);
+
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+
+  --border: #dbe3ec;
+  --input: #cbd6e2;
+  --ring: var(--color-brand);
+
+  /* Density: POS and table-heavy screens set `data-density="compact"`. */
+  --density-row: 2.75rem; /* 44px — comfortable, meets the 40px touch floor */
+  --density-gap: 1rem;
+
+  /* Charts: brand-led, then hues that stay distinguishable for the most common
+     colour-vision deficiencies. Reports are read, not decorated. */
+  --chart-1: var(--color-brand);
+  --chart-2: #2563c9;
+  --chart-3: #d97e00;
+  --chart-4: #7c5cd6;
+  --chart-5: #12a150;
+
+  --radius: var(--radius-control);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-brand);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-brand-50);
+  --sidebar-accent-foreground: var(--color-brand-800);
+  --sidebar-border: #dbe3ec;
+  --sidebar-ring: var(--color-brand);
+}
+
+[data-density='compact'] {
+  --density-row: 2.25rem; /* 36px — dense grids only, never a touch target */
+  --density-gap: 0.5rem;
+}
+
+.dark {
+  --background: #0a1420;
+  --foreground: #e8eef5;
+
+  --surface: #101f30;
+  --surface-foreground: #e8eef5;
+  --surface-muted: #17293c;
+
+  --muted: #17293c;
+  --muted-foreground: #90a3b8;
+
+  --card: #101f30;
+  --card-foreground: #e8eef5;
+
+  --popover: #101f30;
+  --popover-foreground: #e8eef5;
+
+  /* Lifted a step: full-saturation brand on a dark ground fails AA for text. */
+  --primary: var(--color-brand-400);
+  --primary-foreground: #04191b;
+
+  --secondary: #17293c;
+  --secondary-foreground: #e8eef5;
+
+  --accent: #0a3f43;
+  --accent-foreground: var(--color-brand-200);
+
+  --destructive: #e5595e;
+  --destructive-foreground: #1a0709;
+
+  --border: #23384e;
+  --input: #2c4460;
+  --ring: var(--color-brand-400);
+
+  --chart-1: var(--color-brand-300);
+  --chart-2: #6f9fe8;
+  --chart-3: #eda23c;
+  --chart-4: #a58ce8;
+  --chart-5: #4cc47f;
+
+  --sidebar: #101f30;
+  --sidebar-foreground: #e8eef5;
+  --sidebar-primary: var(--color-brand-400);
+  --sidebar-primary-foreground: #04191b;
+  --sidebar-accent: #0a3f43;
+  --sidebar-accent-foreground: var(--color-brand-200);
+  --sidebar-border: #23384e;
+  --sidebar-ring: var(--color-brand-400);
+}
+
+/* Expose the surface variables as Tailwind colour utilities (bg-surface, …). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-muted: var(--surface-muted);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius: var(--radius-control);
+  /* shadcn writes a Latin default here; ours are the Persian faces above. */
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ==========================================================================
+   Base layer
+   ========================================================================== */
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    border-color: var(--border);
+  }
+
+  html {
+    /* RTL is set on the element in app.blade.php; this is the typographic side. */
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: var(--text-sm);
+    line-height: 1.7; /* Persian needs more leading than Latin at the same size */
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  /* Every financial figure lines up in a column. Applied by <Money/> and <Num/>. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Accessibility floor: focus must always be visible (design-system rule 8). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  /* Inherently-LTR values (IMEI, phone numbers, Latin amounts) keep their reading
+     order while the surrounding layout stays RTL. */
+  .ltr-value {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Print: the design system owns print, not page-local @media print hacks. */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
 }

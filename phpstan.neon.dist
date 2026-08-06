@@ -1,0 +1,50 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # Teaches PHPStan the Pest DSL: `it()`/`test()` chains, custom expectations and
+    # the higher-order proxies. Without it every Pest file is a wall of false errors.
+    - vendor/pestphp/pest/extension.neon
+
+parameters:
+    level: 8
+
+    paths:
+        - app
+        - bootstrap/app.php
+        - bootstrap/providers.php
+        - config
+        - database
+        - routes
+        - tests
+
+    excludePaths:
+        analyseAndScan:
+            - app/Modules/*/database/migrations/*
+            - bootstrap/cache/*
+
+    tmpDir: bootstrap/cache/phpstan
+
+    # Money is integer rial and stock is a SUM over movements (golden rules 2 and 3),
+    # so a float appearing anywhere near either is a bug worth failing the build for.
+    checkExplicitMixed: true
+    checkImplicitMixed: false
+
+    treatPhpDocTypesAsCertain: false
+
+    # Module test directories are empty until their phase lands, so the ignore rule
+    # scoped to them legitimately matches nothing today. Without this, an empty module
+    # would fail the build for a reason that has nothing to do with its code.
+    reportUnmatchedIgnoredErrors: false
+
+    ignoreErrors:
+        # Pest's DSL is resolved at runtime: inside an `it()` closure `$this` is the
+        # bound TestCase, and `expect()->toBeRial()` is a custom expectation registered
+        # in tests/Pest.php. PHPStan sees neither, so these are false positives rather
+        # than findings. Scoped to tests/ so nothing in app/ is silenced.
+        -
+            identifier: method.notFound
+            paths:
+                - tests/*
+                - app/Modules/*/tests/*
+        -
+            identifier: property.nonObject
+            path: tests/Pest.php

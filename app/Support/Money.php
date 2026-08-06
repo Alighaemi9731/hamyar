@@ -126,7 +126,7 @@ final class Money
         $result = array_fill(0, $parts, $base);
         $result[$parts - 1] = $rial - ($base * ($parts - 1));
 
-        return $result;
+        return array_values($result);
     }
 
     /**

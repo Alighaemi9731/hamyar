@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use InvalidArgumentException;
@@ -44,9 +45,7 @@ final class Jalali
             return '';
         }
 
-        $jalalian = Jalalian::fromCarbon(self::toDisplayTime($value));
-
-        $formatted = $jalalian->format($format);
+        $formatted = self::jalalian($value)->format($format);
 
         return $persianDigits ? Digits::toPersian($formatted) : $formatted;
     }
@@ -60,7 +59,17 @@ final class Jalali
             return '';
         }
 
-        return Jalalian::fromCarbon(self::toDisplayTime($value))->ago();
+        return self::jalalian($value)->ago();
+    }
+
+    /**
+     * morilog/jalali predates CarbonImmutable and its signature still demands the
+     * mutable class, so the conversion is confined to this one place — the rest of
+     * the application stays immutable (see AppServiceProvider::configureDates).
+     */
+    private static function jalalian(DateTimeInterface|string|int $value): Jalalian
+    {
+        return Jalalian::fromCarbon(Carbon::instance(self::toDisplayTime($value)));
     }
 
     /**

@@ -58,4 +58,9 @@ WORKDIR /var/www/html
 
 USER mobishop
 
+# The bind-mounted repo is owned by the host user, which git inside the container
+# treats as "dubious ownership" and refuses to read — Pint uses git to scope changed
+# files, so without this every run prints a warning.
+RUN git config --global --add safe.directory /var/www/html
+
 CMD ["php-fpm"]
