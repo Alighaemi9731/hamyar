@@ -144,10 +144,14 @@ jobs:
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: |
-          if grep -rqE '(^|\s)isolation\(\)' tests app/Modules --include='*.php'; then
+          # Match CALL sites (`isolation();`), not the helper's own definition in
+          # tests/Pest.php — which is what the first version of this grep found,
+          # sending it straight back into the empty-run failure it was meant to avoid.
+          if grep -rqE 'isolation\(\);' tests app/Modules --include='*.php' \
+               --exclude=Pest.php; then
             ./vendor/bin/pest --group=isolation --ci
           else
-            echo "::warning title=No isolation tests::The cross-tenant isolation group is empty. This is expected only until Phase 1 introduces the first tenant-scoped endpoints; after that, an empty group means a test was deleted."
+            echo "::warning title=No isolation tests::The cross-tenant isolation group is empty. Expected only until Phase 1 introduces the first tenant-scoped endpoints; after that, an empty group means a test was deleted."
           fi
 
   # --------------------------------------------------------------- assets ----
