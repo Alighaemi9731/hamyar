@@ -35,6 +35,9 @@ design-system skeleton — so every later phase is only about domain work.
 - [x] `docs/adr/0001-stack.md`
 - [x] `docs/adr/0002-single-db-tenancy-rls.md`
 - [x] `docs/adr/0003-modular-monolith.md`
+- [x] `docs/adr/0004-postgres-only-tests.md` (approved 2026-08-07)
+- [x] `docs/adr/0005-rtl-direction-class-gate.md` (approved 2026-08-07)
+- [x] `docs/adr/README.md` — ADR index
 - [x] `docs/specs/README.md` + one spec file per module (18 modules)
 
 ### 0.3 Dev stack
@@ -170,7 +173,7 @@ design-system skeleton — so every later phase is only about domain work.
 ### 2.2 Subscriptions
 - [ ] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
 - [ ] Add-on purchases table
-- [ ] Upgrade/downgrade with proration — formula documented in `docs/adr/0004-proration.md`
+- [ ] Upgrade/downgrade with proration — formula documented in `docs/adr/0006-proration.md`
 - [ ] Coupons, trial, grace period
 
 ### 2.3 Feature gating

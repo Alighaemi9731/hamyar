@@ -48,7 +48,7 @@ its invoice cap mid-month must still be able to look up a customer.
 
 ### Proration
 
-Documented in `docs/adr/0004-proration.md` (written when Phase 2 starts, signed off at
+Documented in `docs/adr/0006-proration.md` (written when Phase 2 starts, signed off at
 **DECISION GATE 2**). The rule to implement:
 
 ```

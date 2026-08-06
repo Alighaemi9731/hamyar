@@ -90,3 +90,9 @@ this product.
   `tenant_id`, not restoring a file. Documented in [docs/deploy.md](../deploy.md).
 - **Negative.** Noisy-neighbour risk on shared tables. Accepted at this scale;
   `sms_messages` and `stock_movements` are designed for future monthly partitioning.
+
+## Related
+
+The role model above is only meaningful if the test suite exercises it, which is why
+[ADR 0004](0004-postgres-only-tests.md) forbids SQLite outright: on SQLite the entire
+RLS layer silently disappears and the isolation suite would prove nothing.
