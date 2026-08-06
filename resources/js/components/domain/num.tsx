@@ -53,7 +53,9 @@ export function Num({ value, variant = 'prose', grouped, className }: NumProps) 
 
   return (
     <span className={cn(variant === 'table' && 'tabular whitespace-nowrap', className)}>
-      {text}
+      {/* Isolated for the same reason as <Money/>: a leading minus is bidi-neutral and
+          would otherwise jump to the far side of the number in RTL text. */}
+      <bdi>{text}</bdi>
     </span>
   );
 }

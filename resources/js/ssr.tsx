@@ -2,6 +2,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import createServer from '@inertiajs/react/server';
 import ReactDOMServer from 'react-dom/server';
 
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { resolvePage } from '@/lib/pages';
 
 const appName = 'MobiShop';
@@ -20,6 +21,10 @@ createServer((page) =>
     render: ReactDOMServer.renderToString,
     title: (title) => (title ? `${title} — ${appName}` : appName),
     resolve: resolvePage,
-    setup: ({ App, props }) => <App {...props} />,
+    setup: ({ App, props }) => (
+      <TooltipProvider delayDuration={200}>
+        <App {...props} />
+      </TooltipProvider>
+    ),
   })
 );

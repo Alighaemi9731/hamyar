@@ -1,0 +1,158 @@
+# Inventory
+
+**Phase 3** · Module `app/Modules/Inventory`
+
+## Purpose
+
+Knows where every item is and, for phones, what happened to it. This module owns the
+product's single biggest differentiator: the **IMEI passport**, which answers *bought
+from whom → sold to whom → repaired when* for any handset the shop has ever touched.
+
+Two kinds of stock, and the distinction runs through the whole system:
+
+- **Standard goods** (accessories, parts) — a quantity in a warehouse.
+- **Serialized units** (phones) — one row per physical device, with its own cost,
+  condition and life story. A serialized item is never "3 in stock"; it is three rows.
+
+## Data
+
+### `branches`, `warehouses`
+
+`branches`: name, code, address, phone, is_default.
+`warehouses`: name, branch_id, is_default. A branch may hold several warehouses (shop
+floor, back room, repair bench).
+
+### `product_units` — the serialized register
+
+| Column | Notes |
+|---|---|
+| `imei1`, `imei2` | Unique per tenant. Validated with Luhn. `imei2` optional (dual-SIM) |
+| `serial` | For devices without an IMEI |
+| `product_variant_id` | Model + colour + storage |
+| `condition` | `new` · `used` · `refurb` |
+| `grade` | Cosmetic grade for used stock (A/B/C) |
+| `cost` | **Integer rial.** This exact unit's purchase cost — profit is per-unit, never averaged |
+| `status` | `in_stock` · `reserved` · `sold` · `in_repair` · `returned` · `written_off` |
+| `warehouse_id` | Current location |
+| `acquired_from_party_id` | Supplier, or the customer on a trade-in |
+| `acquired_at` | UTC |
+| `hamta_status` | `not_required` · `pending` · `done` (see [hamta.md](hamta.md)) |
+| `hamta_activation_id` | Recorded, not verified — there is no API |
+| `warranty_months`, `warranty_until` | |
+| `notes` | |
+
+Media attached via [Files](files.md): seller ID scan, consent form, device photos.
+
+### `product_unit_histories`
+
+Every state transition: `from_status`, `to_status`, `actor_id`, `reference_type`,
+`reference_id`, `note`, `created_at`. This table is what makes the passport possible;
+it is append-only.
+
+### `stock_movements` — the quantity ledger
+
+| Column | Notes |
+|---|---|
+| `product_variant_id`, `warehouse_id` | |
+| `quantity` | Signed integer: in is positive, out is negative |
+| `type` | `purchase` · `sale` · `return` · `transfer_out` · `transfer_in` · `adjustment` · `count` · `repair_consume` · `repair_return` · `write_off` |
+| `reference_type`, `reference_id` | Polymorphic — the document that caused it |
+| `unit_cost` | Cost snapshot at the time of the movement |
+| `occurred_at` | UTC |
+
+**Quantity on hand is a `SUM`, never a column.** Covering index
+`(tenant_id, product_variant_id, warehouse_id)`.
+
+### `transfers`, `transfer_items`
+
+Two-step: `dispatched` → `received`. Stock leaves the source on dispatch and arrives
+at the destination on receipt, so goods in transit are visible and cannot be sold at
+either end.
+
+### `stock_counts`, `stock_count_items`
+
+A counting session, optionally **blind** (the counter cannot see the expected figure).
+Closing the session writes `adjustment` movements for the differences — it never
+overwrites a quantity.
+
+## Behaviour
+
+### Unit state machine
+
+```
+              ┌──────────────┐
+   purchase──▶│   in_stock   │◀────────────┐
+              └──┬───┬───┬───┘             │
+     reserve─────┘   │   └──────┐          │
+              ┌──────▼───┐  ┌───▼──────┐   │
+              │ reserved │  │ in_repair│───┘
+              └────┬─────┘  └──────────┘
+                   │ sell
+              ┌────▼─────┐   return   ┌──────────┐
+              │   sold   │───────────▶│ returned │──┐
+              └──────────┘            └──────────┘  │
+                                                    │ re-grade
+              ┌──────────────┐                      │
+              │  written_off │◀─────────────────────┘
+              └──────────────┘
+```
+
+Illegal transitions throw. `sold → in_stock` directly is illegal: a returned phone
+passes through `returned` so it gets a cosmetic re-grade before resale.
+
+Reservation exists so a POS screen can hold a specific handset while payment is taken
+without two salespeople selling the same IMEI. Reservations expire.
+
+### IMEI rules
+
+- Unique per tenant, on both `imei1` and `imei2`, enforced by a database constraint —
+  not just validation, because two salespeople can submit simultaneously.
+- Luhn check on entry, with a clear Persian message on failure.
+- Persian/Arabic digits normalised to Latin before validation.
+- Searching any IMEI field finds the unit from anywhere in the app.
+
+### Negative stock
+
+Blocked by default. A tenant setting may allow it per warehouse (some shops sell
+accessories before the invoice is entered), and when enabled the low-stock report
+surfaces every negative balance.
+
+## Screens
+
+- Stock list — by variant, with on-hand per warehouse.
+- Serialized unit list — filter by status, condition, grade, warehouse, brand.
+- **IMEI passport** — one page per unit: purchase (from whom, when, cost, documents),
+  sale (to whom, when, price, invoice, warranty), every repair, transfers, HAMTA
+  status, attached media, full history.
+- Transfers — dispatch and receive.
+- Stock count session.
+- Low stock and dead stock lists.
+- Label printing — price/barcode, single and batch, at real label sizes.
+
+## Events
+
+Emits: `UnitStatusChanged`, `StockMovementRecorded`, `LowStockDetected`,
+`TransferDispatched`, `TransferReceived`, `StockCountClosed`.
+
+Listens: `InvoiceFinalised` (Sales) → reserve/sell units; `InvoiceVoided` → restore;
+`PurchaseReceived` (Purchasing) → create units and movements; `RepairPartConsumed`
+(Repairs) → decrement.
+
+## Acceptance
+
+- Pasting 10 IMEIs creates 10 units, 10 movements, and stock reconciles.
+- Duplicate IMEI within a tenant is rejected; the same IMEI in a different tenant is
+  fine.
+- Every illegal state transition throws; every legal one is recorded with actor.
+- Two-step transfer: after dispatch the unit is at neither end's sellable stock; after
+  receipt it is sellable only at the destination.
+- Blind count closes with adjustment movements; the on-hand `SUM` matches the count.
+- Quantity on hand always equals `SUM(stock_movements.quantity)` — asserted after
+  every operation.
+- Landed costs from Purchasing land in `product_units.cost`.
+- Cross-tenant isolation on every endpoint, including the IMEI search.
+
+## Out of scope
+
+Serial-number tracking for accessories (they are standard goods). Bin/shelf-level
+locations. Automatic reordering.

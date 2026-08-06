@@ -63,12 +63,15 @@ export function AppShell({ title, actions, children }: AppShellProps) {
             </SheetContent>
           </Sheet>
 
+          {/* `min-w-0 shrink` overrides the base Button's `shrink-0`: without it the
+              search field refuses to compress below its text width and pushes the
+              theme toggle a hair past the viewport edge at 390px. */}
           <Button
             variant="outline"
-            className="h-9 max-w-md flex-1 justify-start gap-2 text-muted-foreground"
+            className="h-9 min-w-0 max-w-md shrink flex-1 justify-start gap-2 text-muted-foreground"
           >
-            <SearchIcon className="size-4" />
-            <span className="text-xs">جستجوی کالا، مشتری، IMEI یا شماره قبض…</span>
+            <SearchIcon className="size-4 shrink-0" />
+            <span className="truncate text-xs">جستجوی کالا، مشتری، IMEI یا شماره قبض…</span>
           </Button>
 
           <div className="ms-auto flex items-center gap-1">

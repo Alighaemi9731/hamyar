@@ -20,84 +20,84 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress (only one at a time) · `[
 design-system skeleton — so every later phase is only about domain work.
 
 ### 0.1 Repository & scaffold
-- [ ] Scaffold Laravel 12 into the pre-seeded folder without clobbering `CLAUDE.md`, `.claude/`, `docs/`, `PROMPT.md`, `START-HERE-FA.md`
-- [ ] Merge Laravel's `.gitignore` into the existing one (append, never replace)
-- [ ] `git init` + first commit; keep `.claude/skills/` tracked, ignore `.claude/settings.local.json`
-- [ ] `.editorconfig`
+- [x] Scaffold Laravel 12 into the pre-seeded folder without clobbering `CLAUDE.md`, `.claude/`, `docs/`, `PROMPT.md`, `START-HERE-FA.md`
+- [x] Merge Laravel's `.gitignore` into the existing one (append, never replace)
+- [x] `git init` + first commit; keep `.claude/skills/` tracked, ignore `.claude/settings.local.json`
+- [x] `.editorconfig`
 
 ### 0.2 Documentation baseline
-- [ ] `docs/ROADMAP.md` (this file — all phases as checkboxes, gates preserved)
-- [ ] `docs/PROGRESS.md`
-- [ ] `docs/architecture.md`
-- [ ] `docs/testing.md`
-- [ ] `docs/deploy.md`
-- [ ] `docs/design-system.md` (ported to English from `mobishop-ui` SKILL + sections 1–2 of `docs/03-design-and-claude-setup-fa.md`, including `#landing`)
-- [ ] `docs/adr/0001-stack.md`
-- [ ] `docs/adr/0002-single-db-tenancy-rls.md`
-- [ ] `docs/adr/0003-modular-monolith.md`
-- [ ] `docs/specs/README.md` + one spec file per module (18 modules)
+- [x] `docs/ROADMAP.md` (this file — all phases as checkboxes, gates preserved)
+- [x] `docs/PROGRESS.md`
+- [x] `docs/architecture.md`
+- [x] `docs/testing.md`
+- [x] `docs/deploy.md`
+- [x] `docs/design-system.md` (ported to English from `mobishop-ui` SKILL + sections 1–2 of `docs/03-design-and-claude-setup-fa.md`, including `#landing`)
+- [x] `docs/adr/0001-stack.md`
+- [x] `docs/adr/0002-single-db-tenancy-rls.md`
+- [x] `docs/adr/0003-modular-monolith.md`
+- [x] `docs/specs/README.md` + one spec file per module (18 modules)
 
 ### 0.3 Dev stack
-- [ ] `compose.yaml`: php-fpm app, nginx, postgres:16, redis:7, minio, mailpit
-- [ ] Postgres bootstrap: separate non-owner app role (RLS cannot be bypassed) + `_test` database
-- [ ] `Makefile` targets: `up`, `down`, `fresh`, `test`, `sh` (+ build/logs/psql/artisan/composer)
-- [ ] Document `*.app.localhost` host resolution in `docs/deploy.md#local-hostnames`
-- [ ] `.env.example` fully documented (every key commented)
+- [x] `compose.yaml`: php-fpm app, nginx, postgres:16, redis:7, minio, mailpit
+- [x] Postgres bootstrap: separate non-owner app role (RLS cannot be bypassed) + `_test` database
+- [x] `Makefile` targets: `up`, `down`, `fresh`, `test`, `sh` (+ build/logs/psql/artisan/composer)
+- [x] Document `*.app.localhost` host resolution in `docs/deploy.md#local-hostnames`
+- [x] `.env.example` fully documented (every key commented)
 
 ### 0.4 Laravel core configuration
-- [ ] Locale `fa`, fallback `en`, storage timezone UTC, display timezone `Asia/Tehran` (never stored)
-- [ ] Postgres as default connection; Redis for cache/session/queue
-- [ ] `Model::preventLazyLoading()` + `preventSilentlyDiscardingAttributes()` outside production
-- [ ] `Number`/money helpers: IRR integer in, formatted string out — no floats
-- [ ] Jalali helpers over `morilog/jalali` (render only; storage stays UTC)
+- [x] Locale `fa`, fallback `en`, storage timezone UTC, display timezone `Asia/Tehran` (never stored)
+- [x] Postgres as default connection; Redis for cache/session/queue
+- [x] `Model::preventLazyLoading()` + `preventSilentlyDiscardingAttributes()` outside production
+- [x] `Number`/money helpers: IRR integer in, formatted string out — no floats
+- [x] Jalali helpers over `morilog/jalali` (render only; storage stays UTC)
 
 ### 0.5 Modules
-- [ ] `php artisan make:module <Name>` generator (Providers, Http, Models, Services, Events, Policies, database/migrations, tests) + auto-registration
-- [ ] Create shells for all 18 modules from CLAUDE.md rule 6
-- [ ] Pest arch test: modules exist; Domain layer does not depend on Http
+- [x] `php artisan make:module <Name>` generator (Providers, Http, Models, Services, Events, Policies, database/migrations, tests) + auto-registration
+- [x] Create shells for all 18 modules from CLAUDE.md rule 6
+- [x] Pest arch test: modules exist; Domain layer does not depend on Http
 
 ### 0.6 Quality gates
-- [ ] Pest v4 + arch plugin, `phpunit.xml` pointed at the `_test` database
-- [ ] Larastan level 8 (`phpstan.neon.dist`)
-- [ ] Pint (`pint.json`, Laravel preset + project rules)
-- [ ] `bin/check-direction-classes` — grep gate failing on any physical direction class
-- [ ] `composer test` = pint --test → phpstan → pest; `composer test:isolation`
-- [ ] GitHub Actions CI: lint → stan → test (real Postgres 16) → build assets
+- [x] Pest v4 + arch plugin, `phpunit.xml` pointed at the `_test` database
+- [x] Larastan level 8 (`phpstan.neon.dist`)
+- [x] Pint (`pint.json`, Laravel preset + project rules)
+- [x] `bin/check-direction-classes` — grep gate failing on any physical direction class
+- [x] `composer test` = pint --test → phpstan → pest; `composer test:isolation`
+- [x] GitHub Actions CI: lint → stan → test (real Postgres 16) → build assets
 
 ### 0.7 Frontend foundation
-- [ ] Inertia v2 + React 19 + TypeScript + Vite 7
-- [ ] Tailwind v4 with `@theme` design tokens in `resources/css/app.css`
-- [ ] RTL base layout: `<html dir="rtl" lang="fa">`, Vazirmatn (body) + Estedad (headings), self-hosted
-- [ ] Dark mode via CSS variables from day one
-- [ ] Shared Inertia props: `auth.user`, `tenant`, `features`, `flash`
-- [ ] `components.json` with `"rtl": true`; shadcn base kit (Button, Input, Select, Dialog, Sheet, Tabs, Table, Sonner, Command, Badge, Tooltip, DropdownMenu, Popover, Skeleton)
-- [ ] `dir="rtl"` passed to every Radix portal
+- [x] Inertia v2 + React 19 + TypeScript + Vite 7
+- [x] Tailwind v4 with `@theme` design tokens in `resources/css/app.css`
+- [x] RTL base layout: `<html dir="rtl" lang="fa">`, Vazirmatn (body) + Estedad (headings), self-hosted
+- [x] Dark mode via CSS variables from day one
+- [x] Shared Inertia props: `auth.user`, `tenant`, `features`, `flash`
+- [x] `components.json` with `"rtl": true`; shadcn base kit (Button, Input, Select, Dialog, Sheet, Tabs, Table, Sonner, Command, Badge, Tooltip, DropdownMenu, Popover, Skeleton)
+- [x] `dir="rtl"` passed to every Radix portal
 
 ### 0.8 Domain components (gallery-first)
-- [ ] `<Money/>` — IRR integer in, formatted out, `tabular-nums`
-- [ ] `<Num/>` — Persian digits in prose, Latin tabular digits in tables (tenant setting)
-- [ ] `<JDatePicker/>` — Jalali picker, UTC value out
-- [ ] `<StatusBadge/>` — single status→semantic-colour map
-- [ ] `<EmptyState/>` — actionable Persian copy
-- [ ] `/design` gallery route (dev-only): every component × state matrix (default/hover/focus/disabled/loading/error) × light+dark × 390px/1280px
+- [x] `<Money/>` — IRR integer in, formatted out, `tabular-nums`
+- [x] `<Num/>` — Persian digits in prose, Latin tabular digits in tables (tenant setting)
+- [x] `<JDatePicker/>` — Jalali picker, UTC value out
+- [x] `<StatusBadge/>` — single status→semantic-colour map
+- [x] `<EmptyState/>` — actionable Persian copy
+- [x] `/design` gallery route (dev-only): every component × state matrix (default/hover/focus/disabled/loading/error) × light+dark × 390px/1280px
 
 ### 0.9 App shell
-- [ ] Login placeholder page
-- [ ] App shell: RTL sidebar (fa-IR nav), topbar, toast host — built strictly from gallery components
+- [x] Login placeholder page
+- [x] App shell: RTL sidebar (fa-IR nav), topbar, toast host — built strictly from gallery components
 
 ### 0.10 AI tooling
-- [ ] `laravel/boost` installed; generated guidelines merged **below** the golden rules in `CLAUDE.md` (diff reviewed)
-- [ ] Laravel Boost MCP registered (`docker compose exec -T app php artisan boost:mcp`)
-- [ ] Playwright MCP registered
-- [ ] Confirm `.claude/skills/mobishop-ui/SKILL.md` loads
+- [x] `laravel/boost` installed; generated guidelines merged **below** the golden rules in `CLAUDE.md` (diff reviewed)
+- [x] Laravel Boost MCP registered (`docker compose exec -T app php artisan boost:mcp`)
+- [x] Playwright MCP registered
+- [x] Confirm `.claude/skills/mobishop-ui/SKILL.md` loads
 
 ### Phase 0 — Definition of Done
-- [ ] `make up` then `make fresh` boots an RTL app
-- [ ] CI green on a PR
-- [ ] Arch test asserts module boundaries
-- [ ] `/design` renders the initial kit
-- [ ] Boost MCP answers an Application Info call
-- [ ] Zero physical direction classes (grep gate wired into `composer test`)
+- [x] `make up` then `make fresh` boots an RTL app
+- [ ] **CI green on a PR** — workflow is written and every job's commands pass locally, but it has never actually run: the repo has no remote yet. Push to GitHub and open a PR to close this.
+- [x] Arch test asserts module boundaries
+- [x] `/design` renders the initial kit
+- [x] Boost MCP answers an Application Info call
+- [x] Zero physical direction classes (grep gate wired into `composer test`)
 
 ---
 

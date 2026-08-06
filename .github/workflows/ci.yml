@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.4'
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------- lint ----
+  lint:
+    name: Style & RTL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Pint (check only)
+        run: ./vendor/bin/pint --test
+
+      # Golden rule 9. Cheap and fails fast, so it runs before static analysis.
+      - name: RTL direction-class gate
+        run: php bin/check-direction-classes
+
+  # ----------------------------------------------------------------- stan ----
+  static-analysis:
+    name: Larastan (level 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - run: ./vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=github
+
+  # ---------------------------------------------------------------- tests ----
+  tests:
+    name: Pest (PostgreSQL 16)
+    runs-on: ubuntu-latest
+
+    services:
+      # A real Postgres, never SQLite: Row-Level Security is the tenancy guarantee
+      # this product sells, and SQLite has no equivalent — a green SQLite suite would
+      # prove nothing about isolation (ADR 0002).
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mobishop
+          POSTGRES_USER: mobishop
+          POSTGRES_PASSWORD: secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U mobishop"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, pgsql, redis, gd, zip, bcmath, intl, exif, pcntl
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Provision the test database and the non-superuser app role
+        # Mirrors docker/postgres/init/. The app role must not be a superuser or RLS
+        # is silently bypassed and the isolation suite becomes theatre.
+        env:
+          PGPASSWORD: secret
+        run: |
+          psql -h 127.0.0.1 -U mobishop -d mobishop -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE ROLE mobishop_app LOGIN PASSWORD 'app-secret'
+              NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+            CREATE DATABASE mobishop_test OWNER mobishop;
+          SQL
+          psql -h 127.0.0.1 -U mobishop -d mobishop_test -v ON_ERROR_STOP=1 <<'SQL'
+            GRANT CONNECT ON DATABASE mobishop_test TO mobishop_app;
+            GRANT USAGE, CREATE ON SCHEMA public TO mobishop_app;
+          SQL
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pest
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: mobishop_test
+          DB_USERNAME: mobishop_app
+          DB_PASSWORD: app-secret
+          REDIS_HOST: 127.0.0.1
+        run: ./vendor/bin/pest --ci
+
+      # Runs again on its own so a failure is unambiguous in the checks list: this is
+      # the suite that must never be skipped (golden rule 8).
+      - name: Cross-tenant isolation suite
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: mobishop_test
+          DB_USERNAME: mobishop_app
+          DB_PASSWORD: app-secret
+          REDIS_HOST: 127.0.0.1
+        run: ./vendor/bin/pest --group=isolation --ci
+
+  # --------------------------------------------------------------- assets ----
+  assets:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Vite build
+        run: npm run build

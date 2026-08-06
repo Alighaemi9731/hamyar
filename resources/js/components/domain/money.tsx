@@ -53,7 +53,13 @@ export function Money({
       data-rial={rial}
       title={`${formatMoney(rial, 'rial', false)} ریال`}
     >
-      {formatted}
+      {/* The number is bidi-isolated, the unit label is not.
+          A minus sign is a bidi-NEUTRAL character and Persian digits are class AN
+          (not "strong"), so inside RTL text an unisolated "-۴۵۰٬۰۰۰" has its sign
+          pushed to the far side and reads as "۴۵۰٬۰۰۰-". <bdi> keeps the sign glued
+          to its number, while the label stays in RTL flow where Persian expects it
+          («۱۲٬۵۰۰٬۰۰۰ تومان»). */}
+      <bdi>{formatted}</bdi>
       {withUnit && <span className="ms-1 text-2xs text-muted-foreground">{label}</span>}
     </span>
   );

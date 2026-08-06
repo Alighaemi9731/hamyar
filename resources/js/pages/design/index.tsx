@@ -95,7 +95,13 @@ function Section({
 }) {
   return (
     <section className="rounded-card border border-border bg-surface p-5">
-      <h2 className="mb-1 text-sm font-bold">{title}</h2>
+      {/* <bdi> isolates the heading from the surrounding RTL paragraph direction.
+          Without it, a Latin title like "<Money/>" has its angle brackets reordered by
+          the bidi algorithm and displays as "</Money>". `dir="auto"` on <bdi> picks the
+          direction from the first strong character, so Persian titles stay RTL. */}
+      <h2 className="mb-1 text-sm font-bold">
+        <bdi>{title}</bdi>
+      </h2>
       {note && <p className="mb-4 text-2xs text-muted-foreground">{note}</p>}
       <div className="space-y-5">{children}</div>
     </section>
