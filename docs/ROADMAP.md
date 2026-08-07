@@ -97,7 +97,7 @@ design-system skeleton — so every later phase is only about domain work.
 ### Phase 0 — Definition of Done
 - [x] `make up` then `make fresh` boots an RTL app
 - [x] CI green on a PR — [#1](https://github.com/Alighaemi9731/mobishop/pull/1), all four jobs green, merged
-      · ⚠️ **Known issue:** on this repo only `workflow_dispatch` fires; `push` and `pull_request` triggers produce no run. Runs must currently be started with `gh workflow run ci.yml --ref <branch>`. Needs investigation in the repo's GitHub settings.
+      · **CI trigger investigation (resolved, 2026-08-07).** `push`/`pull_request` initially produced no runs, so only `workflow_dispatch` worked. Checked and ruled out: the workflow exists on the default branch (`main`), its `on:` block lists `push: branches: [main]` and an unfiltered `pull_request`, the branch names match, and repo Actions policy is `enabled: true` / `allowed_actions: all`. The real cause was **event-delivery latency on a brand-new private repo**: the `pull_request` runs did eventually appear, roughly 25 minutes behind each push, and the delay has since fallen to about 2 minutes. Nothing to click and nothing to change — it resolved on its own. If it ever recurs: Settings → Actions → General → "Allow all actions", and confirm Actions is not disabled at the account level.
 - [x] Arch test asserts module boundaries
 - [x] `/design` renders the initial kit
 - [x] Boost MCP answers an Application Info call
