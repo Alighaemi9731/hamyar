@@ -167,6 +167,42 @@ final class TenantContext
     }
 
     /**
+     * Run a callback with platform-wide read access to platform-owned tables.
+     *
+     * Sets `app.platform`, which only the RLS policies on `subscriptions` and the
+     * billing tables consult. It does NOT open up ordinary tenant tables — a shop's
+     * invoices, customers and stock stay invisible no matter what. The flag is cleared
+     * in a `finally`, so an exception cannot leave a process able to read across
+     * tenants.
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public function runAsPlatform(Closure $callback): mixed
+    {
+        $this->setPlatformFlag(true);
+
+        try {
+            return $callback();
+        } finally {
+            $this->setPlatformFlag(false);
+        }
+    }
+
+    private function setPlatformFlag(bool $enabled): void
+    {
+        $connection = $this->db->connection();
+
+        if ($connection->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        $connection->statement('select set_config(?, ?, false)', ['app.platform', $enabled ? '1' : '']);
+    }
+
+    /**
      * Push the current tenant id onto the database session.
      *
      * Public because the service provider re-applies it after a connection is

@@ -38,8 +38,12 @@ trait EnablesRowLevelSecurity
      * @param  string  $column  the tenancy discriminator; only change it for a table
      *                          that genuinely scopes by something else
      */
-    protected function enableRls(string $table, string $column = 'tenant_id', bool $allowNullTenant = false): void
-    {
+    protected function enableRls(
+        string $table,
+        string $column = 'tenant_id',
+        bool $allowNullTenant = false,
+        bool $allowPlatform = false,
+    ): void {
         $this->guardIdentifier($table);
         $this->guardIdentifier($column);
 
@@ -56,6 +60,16 @@ trait EnablesRowLevelSecurity
         $predicate = $allowNullTenant
             ? "{$column} IS NOT DISTINCT FROM {$current}"
             : "{$column} = {$current}";
+
+        // Platform-owned tables (subscriptions, billing) must stay invisible to a
+        // tenant while remaining readable by the Platform module, which legitimately
+        // reports across every shop for MRR and churn. A blanket exemption would give
+        // that up everywhere; this makes it an explicit, opt-in session flag that only
+        // TenantContext::runAsPlatform() sets — so every cross-tenant read is a
+        // deliberate, greppable act rather than an accident.
+        if ($allowPlatform) {
+            $predicate = "({$predicate} OR current_setting('app.platform', true) = '1')";
+        }
 
         DB::statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
         DB::statement("ALTER TABLE {$table} FORCE ROW LEVEL SECURITY");

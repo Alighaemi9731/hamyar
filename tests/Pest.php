@@ -116,3 +116,22 @@ function unknownTenantUrl(string $path = ''): string
 |     it('…', fn () => …)->group('isolation'); // one test
 |
 */
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function subscribe(App\Modules\Platform\Models\Tenant $tenant, string $planCode, array $overrides = []): App\Modules\Platform\Models\Subscription
+{
+    $plan = App\Modules\Platform\Models\Plan::query()->where('code', $planCode)->firstOrFail();
+
+    // `subscriptions` is RLS-protected, so selling a plan is a platform act — exactly
+    // as it is in TenantProvisioner. If this ever works without the wrapper, the
+    // policy has been weakened.
+    return app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(fn (): App\Modules\Platform\Models\Subscription => App\Modules\Platform\Models\Subscription::query()->create(array_merge([
+        'tenant_id' => $tenant->getKey(),
+        'plan_id' => $plan->getKey(),
+        'status' => App\Modules\Platform\Models\Subscription::STATUS_ACTIVE,
+        'current_period_start' => now()->subDays(10),
+        'current_period_end' => now()->addDays(20),
+    ], $overrides)));
+}

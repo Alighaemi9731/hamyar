@@ -6,6 +6,8 @@ namespace App\Http\Middleware;
 
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Services\SubscriptionResolver;
+use App\Modules\Platform\Support\PlanCatalogue;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -41,10 +43,10 @@ final class HandleInertiaRequests extends Middleware
             // frontend uses that to tell "no shop yet" from "inside a shop".
             'tenant' => fn (): ?array => $this->tenant(),
 
-            // Phase 2 resolves these from the tenant's plan via Pennant. Hiding nav
-            // with them is convenience only — routes are guarded independently by
+            // Resolved from the tenant's plan + add-ons. Hiding nav with these is
+            // convenience only — the route is guarded independently by
             // EnsureModuleEnabled (golden rule 7).
-            'features' => (object) [],
+            'features' => fn (): array => $this->features(),
 
             'flash' => [
                 'success' => fn (): ?string => $this->flash($request, 'success'),
@@ -55,6 +57,32 @@ final class HandleInertiaRequests extends Middleware
 
             'location' => $request->getPathInfo(),
         ];
+    }
+
+    /**
+     * `module:<code> => bool` for every sellable module.
+     *
+     * Every module is listed explicitly, including the disabled ones, so the frontend
+     * can distinguish "not in your plan" (false) from "unknown key" (absent) — the
+     * first is an upsell, the second is a bug.
+     *
+     * @return array<string, bool>
+     */
+    private function features(): array
+    {
+        if (! app(TenantContext::class)->has()) {
+            return [];
+        }
+
+        $granted = app(SubscriptionResolver::class)->grantedModuleCodes();
+
+        $features = [];
+
+        foreach (PlanCatalogue::modules() as $module) {
+            $features['module:'.$module['code']] = in_array($module['code'], $granted, true);
+        }
+
+        return $features;
     }
 
     /**

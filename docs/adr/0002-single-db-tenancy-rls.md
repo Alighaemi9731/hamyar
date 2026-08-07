@@ -91,6 +91,37 @@ this product.
 - **Negative.** Noisy-neighbour risk on shared tables. Accepted at this scale;
   `sms_messages` and `stock_movements` are designed for future monthly partitioning.
 
+## Amendment (2026-08-08): the platform escape hatch
+
+Billing broke the symmetry. `subscriptions` and `subscription_invoices` carry a
+`tenant_id`, but the Platform module has to read *across* every shop to compute MRR and
+churn, and a shop must never write its own subscription row. A plain tenant policy makes
+the first impossible; exempting the tables from RLS entirely gives up the second.
+
+So those two tables get a policy with one extra disjunct:
+
+```sql
+tenant_id = current_setting('app.tenant_id', true)::bigint
+  OR current_setting('app.platform', true) = '1'
+```
+
+`app.platform` is set by exactly one method, `TenantContext::runAsPlatform()`, which
+clears it in a `finally`. Three properties make this safe rather than a back door:
+
+- **Narrow.** Only the billing policies consult the flag. Ordinary tenant tables ignore
+  it, so a platform context still sees zero users, zero invoices, zero stock. Asserted
+  directly in `PlatformBillingIsolationTest`.
+- **Explicit.** Every cross-tenant read is a visible `runAsPlatform()` call in the
+  source. There is no ambient mode and nothing is opened by default.
+- **Still enforced.** These tables remain RLS-protected and `tenancy:check` still
+  requires it. What they are exempt from is the *Eloquent* trait — listed by name in
+  `PLATFORM_OWNED_TABLES`, which buys no relief from the database policy.
+
+The alternative we rejected was adding the tables to `EXEMPT_TABLES`, which would have
+been one line. It would also have removed the database's protection from the two tables
+that record what every customer owes us, on the strength of a promise that application
+code always remembers a `where` clause.
+
 ## Related
 
 The role model above is only meaningful if the test suite exercises it, which is why

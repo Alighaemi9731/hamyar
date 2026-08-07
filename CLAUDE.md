@@ -28,6 +28,9 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    and `WITH CHECK`, so an unset context denies everything rather than erroring —
    the layer fails closed. Never write a query that bypasses the scope
    (`withoutTenancy()` only inside Platform module, with a comment why).
+   Platform-owned billing tables (`subscriptions`, `subscription_invoices`) keep RLS
+   but read across tenants via `TenantContext::runAsPlatform()` — narrow by design,
+   never a blanket bypass (ADR 0002 amendment).
    `php artisan tenancy:check` enforces all of this and runs in CI.
 1b. APEX DOMAIN: the production domain is **not chosen yet**. Never hardcode one.
    It comes from `config('app.domain')` only, and must stay configurable everywhere

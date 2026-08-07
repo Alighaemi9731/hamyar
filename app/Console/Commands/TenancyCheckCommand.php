@@ -31,6 +31,25 @@ final class TenancyCheckCommand extends Command
     protected $description = 'Verify every tenant table has RLS and every tenant model uses BelongsToTenant';
 
     /**
+     * Tenant tables owned by the Platform module.
+     *
+     * These still REQUIRE RLS — the check below enforces it — but are exempt from the
+     * `BelongsToTenant` requirement. The Eloquent scope would fight the cross-tenant
+     * reads the platform legitimately performs for MRR and churn; their policies use
+     * the `app.platform` escape hatch instead, which only
+     * `TenantContext::runAsPlatform()` can set.
+     *
+     * Adding a table here is a deliberate act. It buys an exemption from the Eloquent
+     * scope only, never from RLS.
+     *
+     * @var list<string>
+     */
+    private const PLATFORM_OWNED_TABLES = [
+        'subscriptions',
+        'subscription_invoices',
+    ];
+
+    /**
      * Tables that legitimately have no `tenant_id`.
      *
      * `sessions` is the interesting one: it carries a nullable `tenant_id` for the
@@ -181,6 +200,11 @@ final class TenancyCheckCommand extends Command
             $table = $model->getTable();
 
             if (! in_array($table, $tenantTables, true)) {
+                continue;
+            }
+
+            // RLS is still enforced for these above; only the scope is exempt.
+            if (in_array($table, self::PLATFORM_OWNED_TABLES, true)) {
                 continue;
             }
 

@@ -172,24 +172,29 @@ design-system skeleton — so every later phase is only about domain work.
 ## Phase 2 — Plans, Modules, Billing, Super-admin
 
 ### 2.1 Registry & plans
-- [ ] `modules` registry (code, name_fa, description, is_addonable) seeded from CLAUDE.md rule 6
-- [ ] `plans` (interval month/quarter/year, price IRR, trial_days)
-- [ ] `plan_module` pivot
-- [ ] `plan_limits` (users, branches, invoices_per_month, storage_mb, sms_credit_bonus)
+- [x] `modules` registry (code, name_fa, description, is_addonable) seeded from CLAUDE.md rule 6
+- [x] `plans` (interval month/quarter/year, price IRR, trial_days)
+- [x] `plan_module` pivot
+- [x] `plan_limits` (users, branches, invoices_per_month, storage_mb, sms_credit_bonus)
 
 ### 2.2 Subscriptions
-- [ ] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
-- [ ] Add-on purchases table
-- [ ] Upgrade/downgrade with proration — formula documented in `docs/adr/0006-proration.md`
-- [ ] Coupons, trial, grace period
+- [x] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
+- [x] Add-on purchases table
+- [~] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases); **ADR 0006 is Proposed — needs sign-off at Gate 2** before the upgrade/downgrade flow is wired to payments
+- [~] `coupons` table + trial + grace period modelled and enforced by `Subscription::isUsable()`; redemption flow lands with billing
 
 ### 2.3 Feature gating
-- [ ] Pennant features `module:<code>` and `limit:<key>` resolved from the active subscription
-- [ ] `EnsureModuleEnabled` route middleware
-- [ ] `features` shared Inertia prop; nav hides disabled modules
+- [~] Module grants resolved from plan + add-ons via `SubscriptionResolver` (fails closed). Pennant `limit:<key>` flags land with the usage counters below
+- [x] `EnsureModuleEnabled` route middleware
+- [x] `features` shared Inertia prop; nav hides disabled modules
 - [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
 
 ### 2.4 Payments
+- [ ] `payment_attempts` and `subscription_addons` carry no `tenant_id`, so `tenancy:check`
+      does not see them and RLS does not cover them — they are reachable only through an
+      RLS-protected parent today, but the moment a tenant-facing billing endpoint exists
+      they need either a denormalised `tenant_id` + RLS or a policy joining the parent.
+      Decide before the first endpoint, not after.
 - [ ] shetabit/multipay Zarinpal driver (sandbox)
 - [ ] Subscription invoices; payment init / callback / verify
 - [ ] Idempotent verification (replayed callback must not double-credit)
@@ -207,8 +212,10 @@ design-system skeleton — so every later phase is only about domain work.
 
 ### 2.6 Tests
 - [ ] Plan purchase happy path with a fake gateway
-- [ ] Proration maths unit tests
-- [ ] Feature gating: module off → 403 + hidden nav
+- [x] Proration maths unit tests (11 cases, exact expected rial)
+- [x] Feature gating: module off → 403 + hidden nav
+- [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the
+      `runAsPlatform()` hatch proven narrow (`PlatformBillingIsolationTest`)
 - [ ] Limit exhaustion behaviour
 - [ ] Impersonation writes an audit record
 
