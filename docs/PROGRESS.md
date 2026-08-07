@@ -34,3 +34,14 @@ is written in English but the business calendar is Jalali.
 - 2026-08-07 (j1405-05-16) · design · Propagated the visual language to every Phase 0/1 screen. `login`/`register` each had their own copy of the auth frame — both now use `AuthLayout`; the four settings screens each chose their own card padding — now `SettingsSection`. Added a Prettier config so the formatter stops rewriting the codebase to its own defaults. design-system.md, the mobishop-ui skill and ADR 0008 updated in step.
 - 2026-08-07 (j1405-05-16) · 1.x · **Redirect-loop bug found by opening the app in a browser, not by the suite.** `Authenticate` ran before `ResolveTenant`, so the tenant-scoped user provider never found the session's user: `/dashboard` bounced to `/login`, which (having no Authenticate) resolved the user fine and bounced back. Every existing auth test used `actingAs()`, which injects the user into the guard and skips the provider entirely — so 192 tests passed against a completely unusable app. Fixed with an explicit middleware priority list, plus `AuthenticatedNavigationTest` which logs in through the real form and would have caught it. Also switched `SESSION_DRIVER` to `database`, which the sessions screen has always depended on.
 - 2026-08-08 (j1405-05-17) · 2.1–2.3 · Plan catalogue (16 modules, 3 plans, limits), subscriptions with add-ons/coupons/grace, `SubscriptionResolver`, `EnsureModuleEnabled` route middleware and resolved `features` shared props. Gating **fails closed**: no subscription or a lapsed one grants zero modules, for the same reason RLS denies by default. Proration written as `ProrationCalculator` with exact-value unit tests; ADR 0006 is Proposed pending Gate 2. Note: the `plan_module` pivot is named explicitly on both relations — Laravel's convention would order it `module_plan`, which is not the documented schema.
+- **2026-08-08** — Phase 2.1–2.3: module registry, three plans with limits, subscriptions
+  and add-ons, `SubscriptionResolver` (fails closed), `EnsureModuleEnabled`, `features`
+  Inertia prop, `ProrationCalculator` (ADR 0006, Proposed).
+  Notable: `tenancy:check` flagged `subscriptions`/`subscription_invoices` as unprotected.
+  Rather than exempt them, they keep RLS with an extra disjunct on an `app.platform` flag
+  that only `TenantContext::runAsPlatform()` sets — narrow enough that a platform context
+  still sees zero users (asserted). ADR 0002 amended. `tenancy:check` now runs in
+  `composer test`, not just CI, which is why this reached CI in the first place.
+  **Stops at DECISION GATE 2** — pricing/limits and the proration rule need sign-off
+  before 2.4 (payments) and 2.5 (Filament) can build on them.
+

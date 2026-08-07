@@ -207,8 +207,10 @@ design-system skeleton — so every later phase is only about domain work.
 
 ### 2.6 Tests
 - [ ] Plan purchase happy path with a fake gateway
-- [ ] Proration maths unit tests
-- [ ] Feature gating: module off → 403 + hidden nav
+- [x] Proration maths unit tests (11 cases, exact expected rial)
+- [x] Feature gating: module off → 403 + hidden nav
+- [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the
+      `runAsPlatform()` hatch proven narrow (`PlatformBillingIsolationTest`)
 - [ ] Limit exhaustion behaviour
 - [ ] Impersonation writes an audit record
 
