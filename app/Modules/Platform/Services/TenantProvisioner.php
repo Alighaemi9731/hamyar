@@ -104,6 +104,10 @@ final class TenantProvisioner
      *
      * Falls back silently when the catalogue has not been synced yet — provisioning a
      * shop must never fail because a seed is missing.
+     *
+     * Runs inside `runAsPlatform()`: onboarding happens on the central domain, where
+     * there is no tenant context, and `subscriptions` is RLS-protected. The platform is
+     * the party writing this row, so it says so explicitly.
      */
     public function startTrial(Tenant $tenant): ?Subscription
     {
@@ -117,14 +121,14 @@ final class TenantProvisioner
         $now = CarbonImmutable::now();
         $trialEnds = $now->addDays($plan->trial_days);
 
-        return Subscription::query()->create([
+        return $this->context->runAsPlatform(fn (): Subscription => Subscription::query()->create([
             'tenant_id' => $tenant->getKey(),
             'plan_id' => $plan->getKey(),
             'status' => Subscription::STATUS_TRIALING,
             'trial_ends_at' => $trialEnds,
             'current_period_start' => $now,
             'current_period_end' => $trialEnds,
-        ]);
+        ]));
     }
 
     /**

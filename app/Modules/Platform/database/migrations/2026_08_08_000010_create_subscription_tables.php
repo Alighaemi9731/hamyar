@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\Database\EnablesRowLevelSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -9,13 +10,19 @@ use Illuminate\Support\Facades\Schema;
 /**
  * What each shop has actually bought.
  *
- * Central tables (they carry `tenant_id` but belong to the Platform module, which owns
- * the billing relationship). No RLS: a tenant must never read or write its own
- * subscription — that is the platform's record of what it is owed. Tenant-facing
- * screens read it through the Platform module's services, not by querying directly.
+ * Platform-owned but tenant-scoped: these carry `tenant_id` and are RLS-protected like
+ * any other tenant table, so one shop can never see another's billing. They differ in
+ * one respect — the policy also honours the `app.platform` flag, which only
+ * `TenantContext::runAsPlatform()` sets, so the Platform module can report MRR and
+ * churn across every shop without an exemption that would apply everywhere.
+ *
+ * They deliberately do NOT use `BelongsToTenant`: the Eloquent scope would fight those
+ * cross-tenant platform reads. RLS remains mandatory and enforced.
  */
 return new class extends Migration
 {
+    use EnablesRowLevelSecurity;
+
     public function up(): void
     {
         Schema::create('subscriptions', function (Blueprint $table): void {
@@ -46,6 +53,11 @@ return new class extends Migration
             $table->index(['tenant_id', 'status']);
             $table->index('current_period_end');
         });
+
+        // RLS with the platform escape hatch: a tenant can never read or write another
+        // shop's subscription, and the Platform module reads across all of them only
+        // inside TenantContext::runAsPlatform().
+        $this->enableRls('subscriptions', allowPlatform: true);
 
         Schema::create('subscription_addons', function (Blueprint $table): void {
             $table->id();
@@ -98,6 +110,8 @@ return new class extends Migration
 
             $table->index(['tenant_id', 'status']);
         });
+
+        $this->enableRls('subscription_invoices', allowPlatform: true);
 
         Schema::create('payment_attempts', function (Blueprint $table): void {
             $table->id();

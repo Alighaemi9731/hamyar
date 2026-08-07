@@ -37,22 +37,6 @@ beforeEach(function (): void {
 
 afterEach(fn () => app(TenantContext::class)->forget());
 
-/**
- * @param  array<string, mixed>  $overrides
- */
-function subscribe(Tenant $tenant, string $planCode, array $overrides = []): Subscription
-{
-    $plan = Plan::query()->where('code', $planCode)->firstOrFail();
-
-    return Subscription::query()->create(array_merge([
-        'tenant_id' => $tenant->getKey(),
-        'plan_id' => $plan->getKey(),
-        'status' => Subscription::STATUS_ACTIVE,
-        'current_period_start' => now()->subDays(10),
-        'current_period_end' => now()->addDays(20),
-    ], $overrides));
-}
-
 /* ------------------------------------------------------------- catalogue -- */
 
 it('syncs the catalogue idempotently', function (): void {
@@ -216,7 +200,9 @@ it('puts a newly onboarded shop on a trial that includes repairs', function (): 
         'password' => 'secret-secret-1',
     ]);
 
-    $subscription = Subscription::query()->where('tenant_id', $tenant->getKey())->firstOrFail();
+    $subscription = app(TenantContext::class)->runAsPlatform(
+        fn (): Subscription => Subscription::query()->where('tenant_id', $tenant->getKey())->firstOrFail()
+    );
 
     expect($subscription->status)->toBe(Subscription::STATUS_TRIALING);
     expect($subscription->isTrialing())->toBeTrue();
