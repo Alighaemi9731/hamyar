@@ -190,6 +190,11 @@ design-system skeleton — so every later phase is only about domain work.
 - [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
 
 ### 2.4 Payments
+- [ ] `payment_attempts` and `subscription_addons` carry no `tenant_id`, so `tenancy:check`
+      does not see them and RLS does not cover them — they are reachable only through an
+      RLS-protected parent today, but the moment a tenant-facing billing endpoint exists
+      they need either a denormalised `tenant_id` + RLS or a policy joining the parent.
+      Decide before the first endpoint, not after.
 - [ ] shetabit/multipay Zarinpal driver (sandbox)
 - [ ] Subscription invoices; payment init / callback / verify
 - [ ] Idempotent verification (replayed callback must not double-credit)
