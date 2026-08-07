@@ -104,9 +104,7 @@ export function formatJalali(
 
   const { jy, jm, jd } = toJalali(date);
 
-  let out = longMonth
-    ? `${jd} ${MONTH_NAMES[jm - 1]} ${jy}`
-    : `${jy}/${pad(jm)}/${pad(jd)}`;
+  let out = longMonth ? `${jd} ${MONTH_NAMES[jm - 1]} ${jy}` : `${jy}/${pad(jm)}/${pad(jd)}`;
 
   if (withTime) {
     const { hh, mm } = tehranParts(date);

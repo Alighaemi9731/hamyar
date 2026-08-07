@@ -26,9 +26,9 @@ export default function Sessions({ sessions }: { sessions: SessionRow[] }) {
       <Head title="نشست‌های فعال" />
 
       <div className="max-w-2xl space-y-6">
-        <p className="text-sm text-muted-foreground">
-          هر دستگاهی که با حساب شما وارد شده است. اگر موردی را نمی‌شناسید، همان‌جا ببندیدش
-          و رمز عبورتان را عوض کنید.
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          هر دستگاهی که با حساب شما وارد شده است. اگر موردی را نمی‌شناسید، همان‌جا ببندیدش و رمز
+          عبورتان را عوض کنید.
         </p>
 
         {sessions.length === 0 ? (
@@ -72,15 +72,15 @@ export default function Sessions({ sessions }: { sessions: SessionRow[] }) {
         )}
 
         <form
-          className="space-y-4 rounded-card border border-border bg-surface p-5"
+          className="space-y-4 rounded-card border border-border bg-surface p-6 sm:p-7"
           onSubmit={(e) => {
             e.preventDefault();
             revokeOthers.delete('/settings/sessions');
           }}
         >
-          <p className="text-xs text-muted-foreground">
-            بستن همه نشست‌های دیگر به رمز عبور نیاز دارد — تا کسی که پشت میز باز شما
-            نشسته نتواند این کار را بکند.
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            بستن همه نشست‌های دیگر به رمز عبور نیاز دارد — تا کسی که پشت میز باز شما نشسته نتواند
+            این کار را بکند.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="revoke-password">رمز عبور فعلی</Label>

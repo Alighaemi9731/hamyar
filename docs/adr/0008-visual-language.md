@@ -117,6 +117,20 @@ neutral-filled or outlined instead.
 - **Negative.** `backdrop-filter` costs GPU on low-end Android, which is our actual
   audience. Confined to two persistent surfaces (nav, sidebar) rather than used
   decoratively, and it degrades to a solid translucent panel where unsupported.
+### Applied (2026-08-07)
+
+Propagated to every Phase 0/1 screen. Two consolidations came out of it and are part
+of the decision rather than incidental:
+
+- `login` and `register` each carried their own copy of the auth frame; both now use
+  `AuthLayout`. Duplicated frames are how a "token change" turns into a per-page hunt.
+- The four settings screens each chose their own card padding; `SettingsSection` now
+  owns it.
+
+`--secondary` also had to move off `#f5f5f7`: with it equal to `canvas-alt`, a
+secondary button was invisible on an alternating section — caught immediately by the
+gallery, which is what the gallery is for.
+
 - **Binding.** These are tokens. Pages must not reintroduce raw hex values, a second
   accent, or per-page shadow and radius values; `docs/design-system.md` and the
   `mobishop-ui` skill are updated in step with this ADR.

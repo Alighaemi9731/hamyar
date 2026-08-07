@@ -58,7 +58,9 @@ hover surface.
 5. Money is rendered ONLY via `<Money/>` (IRR integer in, formatted out). Dates ONLY
    via Jalali components/helpers. Statuses ONLY via `<StatusBadge/>` (single
    status→color map — never map colors ad hoc in a page).
-6. Domain components live in `resources/js/components/domain/` and must be used
+6. Layout primitives carry the frame — `AppShell`, `AuthLayout`, `SettingsSection`.
+   Never hand-roll an auth frame or card padding in a page; extend the primitive.
+   Domain components live in `resources/js/components/domain/` and must be used
    instead of rebuilding: Money, Num, JDatePicker, JDateRange, IMEIInput,
    PartyPicker, UnitPicker, StatusBadge, StatCard, DataTable, EmptyState,
    KanbanCard, PrintLayout.Thermal80, PrintLayout.A4, PrintLayout.A5.
@@ -85,6 +87,10 @@ hover surface.
   and sidebar; it costs GPU on mid-range Android.
 - Motion vocabulary is exactly `.reveal` (fade + rise, 0.5s, 12px) plus
   `.reveal-delay-1..3`. Nothing else.
+
+## Formatting
+
+`.prettierrc.json` governs `resources/js` (single quotes, 100 cols). `npm run format`.
 
 ## Workflow
 

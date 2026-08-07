@@ -36,8 +36,7 @@ export function Num({ value, variant = 'prose', grouped, className }: NumProps) 
   const raw = typeof value === 'number' ? value : Number(value);
   const isNumeric = Number.isFinite(raw);
 
-  let text =
-    shouldGroup && isNumeric ? raw.toLocaleString('en-US') : String(value);
+  let text = shouldGroup && isNumeric ? raw.toLocaleString('en-US') : String(value);
 
   if (variant === 'prose' && settings.digits === 'fa') {
     text = toPersianDigits(text);

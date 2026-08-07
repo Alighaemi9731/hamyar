@@ -101,9 +101,7 @@ export function JDatePicker({
             className
           )}
         >
-          <span className="tabular">
-            {value ? formatJalali(value) : placeholder}
-          </span>
+          <span className="tabular">{value ? formatJalali(value) : placeholder}</span>
           <CalendarIcon className="size-4 shrink-0 opacity-60" />
         </Button>
       </PopoverTrigger>
@@ -129,9 +127,7 @@ export function JDatePicker({
             className={cn('ltr-value text-center tabular', typedIsInvalid && 'border-destructive')}
           />
           {typedIsInvalid && (
-            <p className="text-2xs text-destructive">
-              تاریخ معتبر نیست. قالب درست: ۱۴۰۵/۰۵/۱۵
-            </p>
+            <p className="text-2xs text-destructive">تاریخ معتبر نیست. قالب درست: ۱۴۰۵/۰۵/۱۵</p>
           )}
         </div>
 

@@ -16,7 +16,11 @@ export default function ForgotPassword() {
     <AuthLayout
       title="بازیابی رمز عبور"
       description="شماره موبایل خود را وارد کنید تا لینک بازیابی برایتان ارسال شود."
-      footer={<Link href="/login" className="text-primary">بازگشت به ورود</Link>}
+      footer={
+        <Link href="/login" className="text-primary">
+          بازگشت به ورود
+        </Link>
+      }
     >
       <Head title="بازیابی رمز عبور" />
 

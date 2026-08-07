@@ -43,7 +43,9 @@ export function EmptyState({
         aria-hidden
         className={cn(
           'flex size-12 items-center justify-center rounded-full',
-          variant === 'search' ? 'bg-muted text-muted-foreground' : 'bg-accent text-accent-foreground'
+          variant === 'search'
+            ? 'bg-muted text-muted-foreground'
+            : 'bg-accent text-accent-foreground'
         )}
       >
         <Icon className="size-6" />

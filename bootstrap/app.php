@@ -34,15 +34,38 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.user' => EnsureUserBelongsToTenant::class,
         ]);
 
-        // ResolveTenant MUST run before SubstituteBindings.
+        // Explicit middleware ordering. Two of these placements are load-bearing and
+        // both produced real, hard-to-spot bugs when left to the default order:
         //
-        // Route-model binding resolves `{user}` by querying the model, and every tenant
-        // model is scoped by the current context. SubstituteBindings lives in the `web`
-        // group, which runs before route-level middleware, so without this the binding
-        // query ran with NO tenant — the global scope applied `1 = 0`, nothing matched,
-        // and every bound tenant route 404'd instead of working.
-        $middleware->prependToPriorityList(SubstituteBindings::class, ResolveTenant::class);
-        $middleware->appendToPriorityList(SubstituteBindings::class, EnsureUserBelongsToTenant::class);
+        // 1. ResolveTenant BEFORE Authenticate. The `web` auth guard resolves the
+        //    session's user id through the tenant-scoped provider. With no context the
+        //    global scope applies `1 = 0`, the user is never found, and `/dashboard`
+        //    redirects to `/login` — which, having no Authenticate of its own, DOES
+        //    resolve the user and redirects straight back. An infinite redirect loop
+        //    that no `actingAs()` test can catch, because actingAs injects the user
+        //    into the guard and skips the provider entirely.
+        //
+        // 2. ResolveTenant BEFORE SubstituteBindings. Route-model binding queries the
+        //    model too, so without a context every `{user}`-style tenant route 404s.
+        //
+        // EnsureUserBelongsToTenant sits immediately AFTER Authenticate: it has to see
+        // a resolved user to compare tenants, and is useless anywhere earlier.
+        $middleware->priority([
+            Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests::class,
+            Illuminate\Cookie\Middleware\EncryptCookies::class,
+            Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            Illuminate\Session\Middleware\StartSession::class,
+            Illuminate\View\Middleware\ShareErrorsFromSession::class,
+            Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            ResolveTenant::class,
+            Illuminate\Auth\Middleware\Authenticate::class,
+            EnsureUserBelongsToTenant::class,
+            Illuminate\Routing\Middleware\ThrottleRequests::class,
+            Illuminate\Routing\Middleware\ThrottleRequestsWithRedis::class,
+            Illuminate\Contracts\Session\Middleware\AuthenticatesSessions::class,
+            SubstituteBindings::class,
+            Illuminate\Auth\Middleware\Authorize::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

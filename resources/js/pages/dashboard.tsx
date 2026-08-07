@@ -20,7 +20,7 @@ export default function Dashboard() {
         icon={PackageIcon}
         title="هنوز داده‌ای برای نمایش نیست"
         description="با ثبت اولین خرید و ورود گوشی‌ها به انبار، آمار فروش و سود همین‌جا نمایش داده می‌شود."
-        action={<Button>شروع کنید</Button>}
+        action={<Button size="lg">شروع کنید</Button>}
       />
     </AppShell>
   );
