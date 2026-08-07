@@ -1,0 +1,75 @@
+import { Head, useForm } from '@inertiajs/react';
+import { LoaderIcon } from 'lucide-react';
+
+import { Num } from '@/components/domain/num';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/layouts/auth-layout';
+
+interface Props {
+  token: string;
+  name: string;
+  mobile: string;
+}
+
+export default function AcceptInvitation({ token, name, mobile }: Props) {
+  const form = useForm({ token, password: '', password_confirmation: '' });
+
+  return (
+    <AuthLayout title={`${name} عزیز، خوش آمدید`} description="برای ورود، یک رمز عبور انتخاب کنید.">
+      <Head title="پذیرش دعوت" />
+
+      <div className="rounded-control bg-muted p-3 text-2xs text-muted-foreground">
+        شماره موبایل شما: <Num value={mobile} variant="ltr" />
+      </div>
+
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.post('/invitations/accept');
+        }}
+      >
+        {form.errors.token && (
+          <p className="rounded-control bg-destructive/10 p-3 text-xs text-destructive">
+            {form.errors.token}
+          </p>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password">رمز عبور</Label>
+          <Input
+            id="password"
+            type="password"
+            dir="ltr"
+            className="ltr-value"
+            autoFocus
+            value={form.data.password}
+            onChange={(e) => form.setData('password', e.target.value)}
+          />
+          {form.errors.password && (
+            <p className="text-2xs text-destructive">{form.errors.password}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password_confirmation">تکرار رمز عبور</Label>
+          <Input
+            id="password_confirmation"
+            type="password"
+            dir="ltr"
+            className="ltr-value"
+            value={form.data.password_confirmation}
+            onChange={(e) => form.setData('password_confirmation', e.target.value)}
+          />
+        </div>
+
+        <Button type="submit" className="h-11 w-full text-base" disabled={form.processing}>
+          {form.processing && <LoaderIcon className="size-4 animate-spin" />}
+          ساخت حساب و ورود
+        </Button>
+      </form>
+    </AuthLayout>
+  );
+}

@@ -27,7 +27,7 @@ function onboardingPayload(array $overrides = []): array
 }
 
 it('provisions a working shop from the wizard', function (): void {
-    $response = $this->post('http://app.localhost/register', onboardingPayload());
+    $response = $this->post(centralUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -37,15 +37,15 @@ it('provisions a working shop from the wizard', function (): void {
 
     // The hostname is what the middleware actually resolves on, so assert on it
     // rather than on the slug.
-    expect(Domain::query()->where('hostname', 'iranian-mobile.app.localhost')->exists())->toBeTrue();
+    expect(Domain::query()->where('hostname', Domain::hostnameFor('iranian-mobile'))->exists())->toBeTrue();
 
     // Sent to their own subdomain to log in — we never authenticate across the
     // hostname boundary, because the session cookie is scoped to the tenant domain.
-    $response->assertRedirect('http://iranian-mobile.app.localhost/login');
+    $response->assertRedirect('http://'.Domain::hostnameFor('iranian-mobile').'/login');
 });
 
 it('gives the owner the Owner role with every permission', function (): void {
-    $this->post('http://app.localhost/register', onboardingPayload());
+    $this->post(centralUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -60,7 +60,7 @@ it('gives the owner the Owner role with every permission', function (): void {
 });
 
 it('seeds all seven roles for the new tenant', function (): void {
-    $this->post('http://app.localhost/register', onboardingPayload());
+    $this->post(centralUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -76,7 +76,7 @@ it('seeds all seven roles for the new tenant', function (): void {
 it('does not let a Salesperson see costs or profit', function (): void {
     // The boundary the role split exists for: staff turnover is high and margins are
     // the most commercially sensitive thing in the shop.
-    $this->post('http://app.localhost/register', onboardingPayload());
+    $this->post(centralUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -92,16 +92,16 @@ it('does not let a Salesperson see costs or profit', function (): void {
 });
 
 it('rejects a reserved subdomain', function (string $subdomain): void {
-    $this->post('http://app.localhost/register', onboardingPayload(['subdomain' => $subdomain]))
+    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
         ->assertSessionHasErrors('subdomain');
 
     expect(Tenant::query()->count())->toBe(0);
 })->with(['www', 'admin', 'api', 'support', 'billing', 'mobishop']);
 
 it('rejects a subdomain that is already taken', function (): void {
-    $this->post('http://app.localhost/register', onboardingPayload());
+    $this->post(centralUrl('/register'), onboardingPayload());
 
-    $this->post('http://app.localhost/register', onboardingPayload([
+    $this->post(centralUrl('/register'), onboardingPayload([
         'owner_mobile' => '09129999999',
         'owner_email' => 'other@example.test',
     ]))->assertSessionHasErrors('subdomain');
@@ -110,7 +110,7 @@ it('rejects a subdomain that is already taken', function (): void {
 });
 
 it('rejects malformed subdomains', function (string $subdomain): void {
-    $this->post('http://app.localhost/register', onboardingPayload(['subdomain' => $subdomain]))
+    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
         ->assertSessionHasErrors('subdomain');
 })->with([
     'ab',            // too short
@@ -122,7 +122,7 @@ it('rejects malformed subdomains', function (string $subdomain): void {
 it('normalises Persian digits in the mobile number', function (): void {
     // Iranian keyboards emit Persian digits constantly; the same number typed either
     // way must behave identically.
-    $this->post('http://app.localhost/register', onboardingPayload([
+    $this->post(centralUrl('/register'), onboardingPayload([
         'owner_mobile' => '۰۹۱۲۱۲۳۴۵۶۷',
     ]));
 
@@ -137,11 +137,11 @@ it('normalises Persian digits in the mobile number', function (): void {
 });
 
 it('reports subdomain availability', function (): void {
-    $this->postJson('http://app.localhost/register/check-subdomain', ['subdomain' => 'brand-new'])
+    $this->postJson(centralUrl('/register/check-subdomain'), ['subdomain' => 'brand-new'])
         ->assertOk()
         ->assertJson(['ok' => true]);
 
-    $this->postJson('http://app.localhost/register/check-subdomain', ['subdomain' => 'admin'])
+    $this->postJson(centralUrl('/register/check-subdomain'), ['subdomain' => 'admin'])
         ->assertOk()
         ->assertJson(['ok' => false]);
 });

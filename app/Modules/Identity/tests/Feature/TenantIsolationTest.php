@@ -116,16 +116,16 @@ it('restores the previous tenant even when the callback throws', function (): vo
 });
 
 it('serves each tenant its own login page and 404s an unknown host', function (): void {
-    $this->get('http://'.$this->alpha->slug.'.app.localhost/login')
+    $this->get(tenantUrl($this->alpha, '/login'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('tenant.name', 'Alpha'));
 
-    $this->get('http://'.$this->beta->slug.'.app.localhost/login')
+    $this->get(tenantUrl($this->beta, '/login'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('tenant.name', 'Beta'));
 
     // Never a fallback to a default tenant — a typo must not serve someone else's shop.
-    $this->get('http://not-a-real-shop.app.localhost/login')->assertNotFound();
+    $this->get(unknownTenantUrl('/login'))->assertNotFound();
 });
 
 it('logs out a session presented to the wrong tenant', function (): void {
@@ -142,7 +142,7 @@ it('logs out a session presented to the wrong tenant', function (): void {
     // Host-only session cookies stop the cookie ever arriving. This asserts the
     // second line: even if it does, the request is rejected.
     $this->actingAs($alphaUser)
-        ->get('http://'.$this->beta->slug.'.app.localhost/dashboard')
+        ->get(tenantUrl($this->beta, '/dashboard'))
         ->assertRedirect(route('login'));
 
     expect(auth()->check())->toBeFalse();
@@ -153,7 +153,7 @@ it('lets a user reach their own tenant dashboard', function (): void {
     $alphaUser = $this->context->runFor($this->alpha, fn () => User::factory()->create());
 
     $this->actingAs($alphaUser)
-        ->get('http://'.$this->alpha->slug.'.app.localhost/dashboard')
+        ->get(tenantUrl($this->alpha, '/dashboard'))
         ->assertOk();
 });
 

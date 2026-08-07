@@ -1,4 +1,4 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { LoaderIcon, StoreIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -79,15 +79,21 @@ export default function Login() {
             )}
           </div>
 
-          <label className="flex items-center gap-2 text-2xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-2xs text-muted-foreground">
             <input
               type="checkbox"
               className="size-4 accent-[var(--primary)]"
               checked={form.data.remember}
               onChange={(e) => form.setData('remember', e.target.checked)}
             />
-            مرا به خاطر بسپار
-          </label>
+              مرا به خاطر بسپار
+            </label>
+
+            <Link href="/forgot-password" className="text-2xs text-primary">
+              رمز عبور را فراموش کرده‌اید؟
+            </Link>
+          </div>
 
           <Button type="submit" className="w-full" disabled={form.processing}>
             {form.processing && <LoaderIcon className="size-4 animate-spin" />}

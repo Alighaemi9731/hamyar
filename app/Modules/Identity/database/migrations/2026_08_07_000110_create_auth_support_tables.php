@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * `password_reset_tokens` is keyed by email in stock Laravel. That breaks under
  * multi-tenancy: the same address can exist in two shops, so a token issued for one
- * would reset the other's password. The key is (tenant_id, email).
+ * would reset the other's password. The key is (tenant_id, identifier), and the
+ * identifier is the mobile number people actually log in with.
  *
  * Sessions use the **database** driver rather than Redis, even though Redis backs
  * cache and queues. The reason is the session-management screen in Phase 1.4 — a shop
@@ -29,11 +30,14 @@ return new class extends Migration
     {
         Schema::create('password_reset_tokens', function (Blueprint $table): void {
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->string('email');
+            // Named `identifier`, not `email`: staff log in with a MOBILE number here.
+            // Keeping Laravel's column name would make every reader assume otherwise.
+            $table->string('identifier');
+            // Only the hash is stored, so a database leak yields no working links.
             $table->string('token');
             $table->timestamp('created_at')->nullable();
 
-            $table->primary(['tenant_id', 'email']);
+            $table->primary(['tenant_id', 'identifier']);
         });
 
         $this->enableRls('password_reset_tokens');

@@ -24,7 +24,13 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $name
  * @property string|null $email
  * @property string|null $mobile
+ * @property string $password
  * @property bool $is_active
+ * @property string|null $two_factor_secret
+ * @property list<string>|null $two_factor_recovery_codes
+ * @property \Carbon\CarbonImmutable|null $two_factor_confirmed_at
+ * @property \Carbon\CarbonImmutable|null $last_login_at
+ * @property string|null $last_login_ip
  */
 final class User extends Authenticatable
 {
@@ -80,7 +86,7 @@ final class User extends Authenticatable
 
     public function hasTwoFactorEnabled(): bool
     {
-        return $this->getAttribute('two_factor_confirmed_at') !== null;
+        return $this->two_factor_confirmed_at !== null;
     }
 
     /**
@@ -103,9 +109,6 @@ final class User extends Authenticatable
      */
     public function getTenantId(): int
     {
-        /** @var int $tenantId */
-        $tenantId = $this->getAttribute('tenant_id');
-
-        return $tenantId;
+        return $this->tenant_id;
     }
 }

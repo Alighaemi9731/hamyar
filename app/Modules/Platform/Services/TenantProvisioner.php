@@ -97,8 +97,21 @@ final class TenantProvisioner
      */
     public function seedRoles(Tenant $tenant): void
     {
-        self::syncPermissionCatalogue();
+        // Establishes the context itself rather than assuming an ambient one. It takes
+        // the tenant explicitly, so a caller reasonably expects it to just work — and
+        // without this the role inserts are rejected by the RLS policy's WITH CHECK,
+        // which is a confusing way to learn about a missing context.
+        // runFor() restores whatever was set before, so nesting inside provision()
+        // is safe.
+        $this->context->runFor($tenant, function () use ($tenant): void {
+            self::syncPermissionCatalogue();
 
+            $this->createSystemRoles($tenant);
+        });
+    }
+
+    private function createSystemRoles(Tenant $tenant): void
+    {
         foreach (PermissionCatalogue::roles() as $name => $definition) {
             /** @var Role $role */
             $role = Role::query()->firstOrCreate(

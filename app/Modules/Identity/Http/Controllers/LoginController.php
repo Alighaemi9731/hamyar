@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Http\Requests\LoginRequest;
+use App\Modules\Identity\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -51,6 +52,20 @@ final class LoginController extends Controller
         }
 
         $request->clearRateLimit();
+
+        // 2FA: stop short of an authenticated session. The password is proven, the
+        // second factor is not, so nothing is logged in yet — the pending id is
+        // parked in the session and redeemed by TwoFactorController::verify().
+        if ($user instanceof User && $user->hasTwoFactorEnabled()) {
+            $pendingId = $user->getKey();
+
+            Auth::logout();
+
+            $request->session()->put(TwoFactorController::PENDING_SESSION_KEY, $pendingId);
+            $request->session()->put('auth.two_factor.remember', $request->boolean('remember'));
+
+            return redirect()->route('two-factor.challenge');
+        }
 
         // Rotates the session id, so a session fixed before login is worthless.
         $request->session()->regenerate();

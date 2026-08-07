@@ -11,13 +11,13 @@ it('responds to the health check', function (): void {
 });
 
 it('renders the central landing page', function (): void {
-    $this->get('http://app.localhost/')
+    $this->get(centralUrl('/'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('welcome'));
 });
 
 it('renders the onboarding wizard on the central domain', function (): void {
-    $this->get('http://app.localhost/register')
+    $this->get(centralUrl('/register'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('auth/register'));
 });
@@ -25,11 +25,11 @@ it('renders the onboarding wizard on the central domain', function (): void {
 it('does not serve tenant login on the central domain', function (): void {
     // /login lives behind the `tenant` middleware; on the central host there is no
     // tenant to resolve, so it must 404 rather than render a shop-less login form.
-    $this->get('http://app.localhost/login')->assertNotFound();
+    $this->get(centralUrl('/login'))->assertNotFound();
 });
 
 it('serves the document as RTL Persian', function (): void {
-    $response = $this->get('http://app.localhost/');
+    $response = $this->get(centralUrl('/'));
 
     $response->assertOk();
     // Golden rule 9 starts at the document element: every logical utility below it
@@ -40,7 +40,7 @@ it('serves the document as RTL Persian', function (): void {
 });
 
 it('shares the props every page is typed against', function (): void {
-    $this->get('http://app.localhost/')->assertInertia(
+    $this->get(centralUrl('/'))->assertInertia(
         fn ($page) => $page
             ->has('auth.user')
             ->has('tenant')
@@ -51,7 +51,7 @@ it('shares the props every page is typed against', function (): void {
 });
 
 it('exposes the design gallery in local and testing environments', function (): void {
-    $this->get('http://app.localhost/design')
+    $this->get(centralUrl('/design'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('design/index'));
 });

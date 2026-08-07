@@ -63,6 +63,45 @@ expect()->extend('toBeUtc', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Hosts
+|--------------------------------------------------------------------------
+|
+| The apex domain is not chosen yet (golden rule 1b) and must never be hardcoded —
+| including in a test fixture, because a literal here is exactly what makes the
+| "it's configurable" claim untrue the day it changes.
+|
+*/
+
+/**
+ * Absolute URL on the central (no-tenant) host.
+ *
+ * The path defaults to EMPTY, not "/": callers routinely append their own path
+ * (`tenantUrl($t).'/login'`), and a default slash silently produces `//login`,
+ * which 404s.
+ */
+function centralUrl(string $path = ''): string
+{
+    return 'http://'.config()->string('app.domain').$path;
+}
+
+/**
+ * Absolute URL on a tenant's own host.
+ */
+function tenantUrl(App\Modules\Platform\Models\Tenant $tenant, string $path = ''): string
+{
+    return 'http://'.App\Modules\Platform\Models\Domain::hostnameFor($tenant->slug).$path;
+}
+
+/**
+ * A hostname that resolves to no tenant at all.
+ */
+function unknownTenantUrl(string $path = ''): string
+{
+    return 'http://not-a-real-shop.'.config()->string('app.domain').$path;
+}
+
+/*
+|--------------------------------------------------------------------------
 | The isolation group
 |--------------------------------------------------------------------------
 |

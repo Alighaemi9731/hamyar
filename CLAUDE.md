@@ -14,11 +14,27 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
   spatie/laravel-activitylog, maatwebsite/excel, picqer/php-barcode-generator, bacon/qr-code
 
 ## Golden rules (violations = bug, fix before anything else)
-1. TENANCY: single database, shared schema. Every tenant table has `tenant_id`.
-   All tenant models use the `BelongsToTenant` trait (global scope + auto-fill).
-   Postgres RLS is enabled on every tenant table; each request/job runs
-   `SET LOCAL app.tenant_id`. Never write a query that bypasses the scope
+1. TENANCY: single database, shared schema. Every tenant table has `tenant_id`,
+   a composite index leading with it, the `BelongsToTenant` trait (global scope +
+   auto-fill) and a Postgres RLS policy — all four, in the same migration.
+   The tenant id is pinned on the connection with
+   `select set_config('app.tenant_id', <id>, false)` — **session-scoped, not
+   `SET LOCAL`**. `SET LOCAL` is transaction-scoped and Laravel does not wrap a
+   request in a transaction, so it would silently set nothing and every tenant
+   query would return zero rows. Session scope means the value must be cleared at
+   each boundary; four are covered and tested (ADR 0007): end of request, around a
+   queued job, `TenantContext::runFor()`, and connection (re)establishment.
+   RLS policies read `current_setting('app.tenant_id', true)` and use both `USING`
+   and `WITH CHECK`, so an unset context denies everything rather than erroring —
+   the layer fails closed. Never write a query that bypasses the scope
    (`withoutTenancy()` only inside Platform module, with a comment why).
+   `php artisan tenancy:check` enforces all of this and runs in CI.
+1b. APEX DOMAIN: the production domain is **not chosen yet**. Never hardcode one.
+   It comes from `config('app.domain')` only, and must stay configurable everywhere
+   it surfaces — links, printed receipts, repair-tracking QR codes, reseller
+   price-list links, SMS templates and emails. A hostname literal in a template or
+   a test fixture is a bug. Tenants resolve by `domains.hostname` rows, so changing
+   the apex is a config change plus a data migration, never a code change.
 2. MONEY: integers in IRR (rial). No floats anywhere near money. Column type BIGINT.
 3. LEDGERS: stock quantity and party/account balances are NEVER updated in place —
    they are SUMs over `stock_movements` / `ledger_entries`. Write movements, not totals.

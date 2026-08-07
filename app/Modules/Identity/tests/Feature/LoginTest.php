@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\RateLimiter;
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = 'http://'.$this->tenant->slug.'.app.localhost';
+    $this->url = tenantUrl($this->tenant);
 
     $this->user = app(TenantContext::class)->runFor(
         $this->tenant,
@@ -106,7 +106,7 @@ it('scopes the throttle to the tenant, so one shop cannot lock out another', fun
         $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong']);
     }
 
-    $this->post('http://'.$other->slug.'.app.localhost/login', [
+    $this->post(tenantUrl($other, '/login'), [
         'mobile' => '09121234567',
         'password' => 'password',
     ])->assertRedirect(route('dashboard'));
