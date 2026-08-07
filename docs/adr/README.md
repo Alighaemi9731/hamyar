@@ -15,6 +15,7 @@ A decision marked **Binding** cannot be changed without a new ADR that supersede
 | [0005](0005-rtl-direction-class-gate.md) | RTL enforced by a build gate matching Tailwind value syntax | Accepted |
 | 0006 | Subscription proration formula | *Pending — Phase 2, Decision Gate 2* |
 | [0007](0007-tenant-session-variable.md) | `set_config(..., false)` rather than `SET LOCAL` for `app.tenant_id` | Accepted |
+| [0008](0008-visual-language.md) | Visual language: calm neutral ground, one blue, pill actions | Accepted |
 
 ## Writing a new one
 

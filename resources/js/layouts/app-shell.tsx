@@ -41,13 +41,13 @@ export function AppShell({ title, actions, children }: AppShellProps) {
 
   return (
     <div className="flex min-h-dvh bg-background">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e border-border bg-surface lg:flex">
+      <aside className="glass sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
         <ShopBadge name={tenant?.name ?? 'MobiShop'} subdomain={tenant?.subdomain ?? null} />
         <SidebarNav currentPath={location} features={features} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-sticky flex h-14 items-center gap-2 border-b border-border bg-surface/85 px-4 backdrop-blur">
+        <header className="glass sticky top-0 z-sticky flex h-16 items-center gap-2 border-b px-4 sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="منو">
@@ -68,10 +68,10 @@ export function AppShell({ title, actions, children }: AppShellProps) {
               theme toggle a hair past the viewport edge at 390px. */}
           <Button
             variant="outline"
-            className="h-9 min-w-0 max-w-md shrink flex-1 justify-start gap-2 text-muted-foreground"
+            className="h-10 min-w-0 max-w-md shrink flex-1 justify-start gap-2 text-muted-foreground"
           >
             <SearchIcon className="size-4 shrink-0" />
-            <span className="truncate text-xs">جستجوی کالا، مشتری، IMEI یا شماره قبض…</span>
+            <span className="truncate text-sm">جستجوی کالا، مشتری، IMEI یا شماره قبض…</span>
           </Button>
 
           <div className="ms-auto flex items-center gap-1">
@@ -79,10 +79,10 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6">
+        <main className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14">
           {(title || actions) && (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              {title && <h1 className="text-lg">{title}</h1>}
+            <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+              {title && <h1 className="text-2xl font-bold">{title}</h1>}
               {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
           )}
@@ -98,12 +98,12 @@ export function AppShell({ title, actions, children }: AppShellProps) {
 
 function ShopBadge({ name, subdomain }: { name: string; subdomain: string | null }) {
   return (
-    <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-      <span className="flex size-8 items-center justify-center rounded-control bg-primary text-primary-foreground">
+    <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
+      <span className="flex size-9 items-center justify-center rounded-control bg-primary text-primary-foreground">
         <StoreIcon className="size-4" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-display text-xs font-bold">{name}</span>
+        <span className="block truncate font-display text-sm font-bold">{name}</span>
         {subdomain && (
           <span className="ltr-value block truncate text-2xs text-muted-foreground" dir="ltr">
             {subdomain}
@@ -122,7 +122,7 @@ function SidebarNav({
   features: Record<string, boolean>;
 }) {
   return (
-    <nav className="flex-1 overflow-y-auto px-2 py-3">
+    <nav className="flex-1 overflow-y-auto px-3 py-4">
       {NAVIGATION.map((section) => {
         // A section whose every item is gated off by the plan should disappear
         // entirely rather than leave an orphan heading.
@@ -136,7 +136,7 @@ function SidebarNav({
 
         return (
           <div key={section.label} className="mb-4">
-            <p className="px-3 pb-1 text-2xs font-medium text-muted-foreground">{section.label}</p>
+            <p className="px-3 pb-2 text-2xs font-medium tracking-wide text-muted-foreground">{section.label}</p>
 
             <ul className="space-y-0.5">
               {visible.map((item) => {
@@ -149,11 +149,11 @@ function SidebarNav({
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'flex items-center gap-2.5 rounded-control px-3 text-xs transition-colors',
+                        'flex items-center gap-3 rounded-pill px-3.5 text-sm transition-colors',
                         'h-[var(--density-row)]',
                         active
-                          ? 'bg-accent font-medium text-accent-foreground'
-                          : 'text-foreground/80 hover:bg-muted hover:text-foreground'
+                          ? 'bg-primary/10 font-semibold text-primary'
+                          : 'text-foreground/75 hover:bg-accent hover:text-foreground'
                       )}
                     >
                       <item.icon className="size-4 shrink-0" />
