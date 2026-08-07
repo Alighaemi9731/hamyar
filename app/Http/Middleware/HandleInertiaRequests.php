@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Models\Tenant;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -34,9 +37,9 @@ final class HandleInertiaRequests extends Middleware
                 'user' => fn (): ?array => $this->user($request),
             ],
 
-            // Phase 1 replaces this with the resolved TenantContext. Until then every
-            // page renders in the central (no-tenant) context.
-            'tenant' => null,
+            // Null on central routes (onboarding, billing, the platform panel) — the
+            // frontend uses that to tell "no shop yet" from "inside a shop".
+            'tenant' => fn (): ?array => $this->tenant(),
 
             // Phase 2 resolves these from the tenant's plan via Pennant. Hiding nav
             // with them is convenience only — routes are guarded independently by
@@ -51,6 +54,28 @@ final class HandleInertiaRequests extends Middleware
             ],
 
             'location' => $request->getPathInfo(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function tenant(): ?array
+    {
+        $tenant = app(TenantContext::class)->tenant();
+
+        if (! $tenant instanceof Tenant) {
+            return null;
+        }
+
+        return [
+            'id' => $tenant->getKey(),
+            'name' => $tenant->name,
+            'subdomain' => $tenant->slug,
+            'settings' => [
+                'currency_display' => $tenant->setting('currency_display', 'toman'),
+                'digits' => $tenant->setting('digits', 'fa'),
+            ],
         ];
     }
 
@@ -72,7 +97,10 @@ final class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if ($user === null) {
+        // Guard on our concrete model rather than the Authenticatable contract: the
+        // contract has none of these attributes, and the platform guard resolves a
+        // different class entirely.
+        if (! $user instanceof User) {
             return null;
         }
 
@@ -80,10 +108,11 @@ final class HandleInertiaRequests extends Middleware
             'id' => $user->getKey(),
             'name' => $user->name,
             'email' => $user->email,
-            'mobile' => null,
-            // Phase 1 fills these from spatie/laravel-permission (teams = tenant_id).
-            'permissions' => [],
-            'roles' => [],
+            'mobile' => $user->mobile,
+            // Flattened for the UI. Hiding a control with these is convenience only —
+            // the route and the policy are the actual authorization (golden rule 7).
+            'permissions' => $user->getAllPermissions()->pluck('name')->values()->all(),
+            'roles' => $user->getRoleNames()->values()->all(),
         ];
     }
 }

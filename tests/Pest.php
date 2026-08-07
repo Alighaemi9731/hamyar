@@ -61,13 +61,58 @@ expect()->extend('toBeUtc', function () {
 |--------------------------------------------------------------------------
 */
 
+/*
+|--------------------------------------------------------------------------
+| Hosts
+|--------------------------------------------------------------------------
+|
+| The apex domain is not chosen yet (golden rule 1b) and must never be hardcoded —
+| including in a test fixture, because a literal here is exactly what makes the
+| "it's configurable" claim untrue the day it changes.
+|
+*/
+
 /**
- * Marks a test as part of the cross-tenant isolation suite (`composer test:isolation`).
+ * Absolute URL on the central (no-tenant) host.
  *
- * Golden rule 8: every tenant-scoped endpoint needs one of these. Grouping them lets
- * the suite run on its own, which is what the deploy checklist gates on.
+ * The path defaults to EMPTY, not "/": callers routinely append their own path
+ * (`tenantUrl($t).'/login'`), and a default slash silently produces `//login`,
+ * which 404s.
  */
-function isolation(): void
+function centralUrl(string $path = ''): string
 {
-    test()->group('isolation');
+    return 'http://'.config()->string('app.domain').$path;
 }
+
+/**
+ * Absolute URL on a tenant's own host.
+ */
+function tenantUrl(App\Modules\Platform\Models\Tenant $tenant, string $path = ''): string
+{
+    return 'http://'.App\Modules\Platform\Models\Domain::hostnameFor($tenant->slug).$path;
+}
+
+/**
+ * A hostname that resolves to no tenant at all.
+ */
+function unknownTenantUrl(string $path = ''): string
+{
+    return 'http://not-a-real-shop.'.config()->string('app.domain').$path;
+}
+
+/*
+|--------------------------------------------------------------------------
+| The isolation group
+|--------------------------------------------------------------------------
+|
+| Golden rule 8: every tenant-scoped endpoint needs a cross-tenant isolation test.
+| They carry the `isolation` group so `composer test:isolation` and the dedicated CI
+| job can run them alone — that suite is the one that must never be quietly skipped.
+|
+| A group is a property of the test *definition*, not of its body, so it is declared
+| at the top of a test file:
+|
+|     pest()->group('isolation');            // whole file
+|     it('…', fn () => …)->group('isolation'); // one test
+|
+*/

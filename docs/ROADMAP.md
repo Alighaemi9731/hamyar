@@ -108,58 +108,64 @@ design-system skeleton — so every later phase is only about domain work.
 ## Phase 1 — Tenancy, Identity, Onboarding ★ security-critical
 
 ### 1.1 Central schema
-- [ ] `tenants` table (name, slug, status, trial_ends_at, settings)
-- [ ] `domains` table (subdomain unique, tenant_id, is_primary)
-- [ ] Platform admin seed (central users, separate guard from tenant users)
+- [x] `tenants` table (name, slug, status, trial_ends_at, settings)
+- [x] `domains` table (subdomain unique, tenant_id, is_primary)
+- [x] Platform admin seed (central users, separate guard from tenant users)
 
 ### 1.2 Tenant context
-- [ ] `TenantContext` service — resolve by subdomain; no subdomain → central routes
-- [ ] Middleware sets context + `SET LOCAL app.tenant_id` per request
-- [ ] Transaction-safe: context re-applied on every connection/transaction start
-- [ ] Queue jobs serialise tenant id and restore context before handling (tested)
-- [ ] Artisan/console context switching (`--tenant=` option) for maintenance commands
+- [x] `TenantContext` service — resolve by subdomain; no subdomain → central routes
+- [x] Middleware sets context + `SET LOCAL app.tenant_id` per request
+- [x] Transaction-safe: context re-applied on every connection/transaction start
+- [x] Queue jobs serialise tenant id and restore context before handling (tested)
+- [x] Artisan/console context switching (`--tenant=` option) for maintenance commands — `InteractsWithTenants` + `tenancy:sync-permissions` as its first user
 
 ### 1.3 BelongsToTenant + RLS
-- [ ] `BelongsToTenant` trait: global scope, creating-hook fill, `tenant()` relation
-- [ ] `withoutTenancy()` escape hatch — Platform module only, requires a comment
-- [ ] Migration helper `$this->enableRls('table')` → policy `USING (tenant_id = current_setting('app.tenant_id')::bigint)` + `FORCE ROW LEVEL SECURITY`
-- [ ] Apply RLS to `users`
-- [ ] `php artisan tenancy:check` — fails CI when a tenant-ish table/model lacks the trait or RLS
+- [x] `BelongsToTenant` trait: global scope, creating-hook fill, `tenant()` relation
+- [x] `withoutTenancy()` escape hatch — Platform module only, requires a comment
+- [x] Migration helper `$this->enableRls('table')` → policy `USING (tenant_id = current_setting('app.tenant_id')::bigint)` + `FORCE ROW LEVEL SECURITY`
+- [x] Apply RLS to `users`
+- [x] `php artisan tenancy:check` — fails CI when a tenant-ish table/model lacks the trait or RLS
 
 ### 1.4 Auth & onboarding
-- [ ] Onboarding wizard: shop name → subdomain (availability check) → owner user → demo-data toggle
-- [ ] Per-tenant login, password reset, remember-me
-- [ ] Optional TOTP 2FA + recovery codes
-- [ ] Session management screen (active sessions, revoke)
-- [ ] Argon2id hashing; rate limits on login/OTP
+- [x] Onboarding wizard: shop name → subdomain (availability check) → owner user → demo-data toggle
+- [x] Per-tenant login, password reset, remember-me
+- [x] Optional TOTP 2FA + recovery codes
+- [x] Session management screen (active sessions, revoke)
+- [x] Argon2id hashing; rate limits on login/OTP
 
 ### 1.5 Roles & permissions
-- [ ] spatie/laravel-permission with `teams = tenant_id`
-- [ ] Seed 7 roles: Owner, Manager, Cashier, Salesperson, Technician, Accountant, Warehousekeeper
-- [ ] Permission catalogue `module.action`, default sets per role
-- [ ] Policies scaffolded per module
+- [x] spatie/laravel-permission with `teams = tenant_id`
+- [x] Seed 7 roles: Owner, Manager, Cashier, Salesperson, Technician, Accountant, Warehousekeeper
+- [x] Permission catalogue `module.action`, default sets per role
+- [x] Policies scaffolded per module (UserPolicy, ActivityPolicy; Owner `Gate::before` with structural-invariant exceptions)
 
 ### 1.6 User management UI
-- [ ] Invite by mobile/email; accept-invite flow
-- [ ] Activate/deactivate users
-- [ ] Assign roles; branch pivot table ready (branches land in Phase 3)
-- [ ] Activity log wired (spatie/laravel-activitylog)
+- [x] Invite by mobile/email; accept-invite flow
+- [x] Activate/deactivate users
+- [x] Assign roles (last-Owner guard); branch pivot deferred to Phase 3 with `branches`
+- [x] Activity log wired (spatie/laravel-activitylog) + read-only viewer
 
 ### 1.7 Tests
-- [ ] Registration/onboarding flow
-- [ ] Login, password reset, 2FA
-- [ ] Permission denial matrix (role × endpoint)
-- [ ] **Isolation suite v1**: tenant B → tenant A resource ids = 403/404
-- [ ] Raw-query RLS test proving leakage impossible without the Eloquent scope
-- [ ] Queued job executes under the correct tenant
+- [x] Registration/onboarding flow
+- [x] Login, password reset and 2FA covered (37 tests across login/reset/2FA)
+- [x] Permission denial matrix for every Identity endpoint; full role × endpoint matrix grows with each module's endpoints
+- [x] **Isolation suite v1**: tenant B → tenant A resource ids = 403/404
+- [x] Raw-query RLS test proving leakage impossible without the Eloquent scope
+- [x] Queued job executes under the correct tenant
 
 ### Phase 1 — Definition of Done
-- [ ] Two demo tenants seeded
-- [ ] `composer test:isolation` green and wired into CI
+- [x] Two demo tenants seeded
+- [x] `composer test:isolation` green and wired into CI
 
-> ### ⛔ DECISION GATE 1
-> Present the onboarding + login flow summary. Confirm the **subdomain scheme** and the
-> **role list** with the human before starting Phase 2.
+> ### ✅ DECISION GATE 1 — CLEARED 2026-08-07
+> - **Subdomain scheme approved as designed**: charset rules, no `--`, hostname stored
+>   as `domains` rows, 48 reserved names, 30-char ceiling.
+> - **`mobishop.ir` is NOT confirmed** — a working name only. The apex domain stays
+>   strictly configurable (golden rule 1b); choosing/registering it is a Phase 11 task.
+> - **Role list approved**: all seven names, plus both boundaries — Salesperson blind to
+>   cost/profit (per-tenant owner override allowed), and `repairs.reveal_passcode` as a
+>   separate, always-audited permission.
+> - **ADR 0007 approved**; CLAUDE.md golden rule 1 amended to match the implementation.
 
 ---
 
@@ -596,6 +602,12 @@ design-system skeleton — so every later phase is only about domain work.
 - [ ] Horizon production config
 
 ### 11.4 Launch kit
+- [ ] **Choose, register and configure the production apex domain.** `mobishop.ir` is a
+      working name only — nothing may hardcode it. Set `APP_DOMAIN`, provision the
+      wildcard TLS certificate for `*.<domain>`, migrate existing `domains.hostname`
+      rows, and re-check every place a hostname surfaces: printed receipts,
+      repair-tracking QR codes, reseller price-list links, SMS templates, emails.
+      (CLAUDE.md golden rule 1b.)
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages

@@ -4,35 +4,54 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Modules\Platform\Models\PlatformUser;
+use App\Modules\Platform\Services\TenantProvisioner;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
  * Root seeder — `make fresh`.
  *
- * Phase 0 only has the framework's `users` table, so this seeds the single account
- * that lets you log into the shell and click around.
- *
- * Phase 1 replaces this with the real onboarding path: two tenants (`demo` and
- * `acme`), their domains, the seven seeded roles, and a `DemoDataSeeder` that builds
- * a believable Persian shop — products with real model names, customers, a repair
- * board mid-flow, cheques at various stages, and a month of sales that reconciles.
- * Two tenants, not one, because the isolation suite needs something to cross.
+ * Seeds **two** tenants on purpose, not one. The cross-tenant isolation suite needs
+ * something to cross, and a single-tenant dev database is exactly the environment in
+ * which a leak is invisible.
  */
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    public function run(): void
+    public function run(TenantProvisioner $provisioner): void
     {
-        User::factory()->create([
-            'name' => 'مدیر دمو',
-            'email' => 'admin@demo.test',
-            // Password is `password`; documented in the Makefile output and README.
+        PlatformUser::query()->create([
+            'name' => 'مدیر پلتفرم',
+            'email' => 'admin@mobishop.test',
+            'password' => 'password',
+            'is_active' => true,
         ]);
 
+        $demo = $provisioner->provision([
+            'name' => 'موبایل دمو',
+            'subdomain' => 'demo',
+            'owner_name' => 'رضا محمدی',
+            'owner_mobile' => '09121234567',
+            'owner_email' => 'admin@demo.test',
+            'password' => 'password',
+        ]);
+
+        $acme = $provisioner->provision([
+            'name' => 'موبایل آکمه',
+            'subdomain' => 'acme',
+            'owner_name' => 'سارا احمدی',
+            'owner_mobile' => '09129876543',
+            'owner_email' => 'admin@acme.test',
+            'password' => 'password',
+        ]);
+
+        $domain = config()->string('app.domain');
+
         $this->command?->newLine();
-        $this->command?->info('  Demo login: admin@demo.test / password');
+        $this->command?->info("  Platform admin  http://{$domain}  admin@mobishop.test / password");
+        $this->command?->info("  Tenant {$demo->slug}     http://{$demo->slug}.{$domain}/login  09121234567 / password");
+        $this->command?->info("  Tenant {$acme->slug}     http://{$acme->slug}.{$domain}/login  09129876543 / password");
     }
 }

@@ -23,4 +23,15 @@ final class PlatformServiceProvider extends ModuleServiceProvider
     {
         //
     }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \App\Modules\Platform\Console\Commands\TenantSyncPermissionsCommand::class,
+            ]);
+        }
+    }
 }
