@@ -8,7 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 import { toLatinDigits } from '@/lib/digits';
 import { formatJalali } from '@/lib/jalali';
@@ -45,7 +51,12 @@ interface Props {
 }
 
 export default function Users({ users, invitations, roles }: Props) {
-  const invite = useForm({ name: '', mobile: '', email: '', role: 'Salesperson' });
+  const invite = useForm({
+    name: '',
+    mobile: '',
+    email: '',
+    role: 'Salesperson',
+  });
   const toggle = useForm({});
 
   const pending = invitations.filter((i) => i.status === 'pending');
@@ -54,7 +65,7 @@ export default function Users({ users, invitations, roles }: Props) {
     <AppShell title="کاربران فروشگاه">
       <Head title="کاربران فروشگاه" />
 
-      <div className="max-w-3xl space-y-8">
+      <div className="max-w-3xl space-y-6">
         <section className="overflow-hidden rounded-card border border-border bg-surface">
           {users.length === 0 ? (
             <EmptyState icon={UsersIcon} title="هنوز کاربری ثبت نشده" />
@@ -100,7 +111,7 @@ export default function Users({ users, invitations, roles }: Props) {
 
         {pending.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-bold">دعوت‌نامه‌های در انتظار</h2>
+            <h2 className="text-lg font-bold">دعوت‌نامه‌های در انتظار</h2>
             <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
               {pending.map((invitation) => (
                 <li key={invitation.id} className="flex items-center gap-3 p-4">
@@ -126,21 +137,22 @@ export default function Users({ users, invitations, roles }: Props) {
           </section>
         )}
 
-        <section className="space-y-4 rounded-card border border-border bg-surface p-5">
-          <h2 className="flex items-center gap-2 text-sm font-bold">
+        <section className="space-y-5 rounded-card border border-border bg-surface p-6 sm:p-7">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
             <UserPlusIcon className="size-4" />
             دعوت کاربر جدید
           </h2>
-          <p className="text-2xs text-muted-foreground">
-            کاربر با لینک دعوت، رمز عبور خودش را انتخاب می‌کند — هیچ‌کس جز خودش رمزش را
-            نمی‌داند.
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            کاربر با لینک دعوت، رمز عبور خودش را انتخاب می‌کند — هیچ‌کس جز خودش رمزش را نمی‌داند.
           </p>
 
           <form
             className="grid gap-4 sm:grid-cols-2"
             onSubmit={(e) => {
               e.preventDefault();
-              invite.post('/settings/users/invite', { onSuccess: () => invite.reset() });
+              invite.post('/settings/users/invite', {
+                onSuccess: () => invite.reset(),
+              });
             }}
           >
             <div className="space-y-1.5">
@@ -150,7 +162,9 @@ export default function Users({ users, invitations, roles }: Props) {
                 value={invite.data.name}
                 onChange={(e) => invite.setData('name', e.target.value)}
               />
-              {invite.errors.name && <p className="text-2xs text-destructive">{invite.errors.name}</p>}
+              {invite.errors.name && (
+                <p className="text-2xs text-destructive">{invite.errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">

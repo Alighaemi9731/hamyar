@@ -58,7 +58,8 @@ export default function ActivityLog({ activities }: Props) {
                   </p>
                   <p className="text-2xs text-muted-foreground">
                     {activity.causer ?? 'سیستم'}
-                    {activity.created_at && ` · ${formatJalali(activity.created_at, { withTime: true })}`}
+                    {activity.created_at &&
+                      ` · ${formatJalali(activity.created_at, { withTime: true })}`}
                   </p>
                 </div>
               </li>

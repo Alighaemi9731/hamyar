@@ -28,7 +28,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -62,9 +68,9 @@ export default function DesignGallery() {
       <Head title="گالری دیزاین‌سیستم" />
 
       <p className="mb-14 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        هر کامپوننت پیش از استفاده در صفحات محصول، اینجا با همه حالت‌هایش ثبت می‌شود.
-        این صفحه فقط در محیط توسعه در دسترس است. برای بررسی: یک‌بار در حالت روشن و
-        یک‌بار تیره، در عرض ۳۹۰ و ۱۲۸۰ پیکسل.
+        هر کامپوننت پیش از استفاده در صفحات محصول، اینجا با همه حالت‌هایش ثبت می‌شود. این صفحه فقط
+        در محیط توسعه در دسترس است. برای بررسی: یک‌بار در حالت روشن و یک‌بار تیره، در عرض ۳۹۰ و ۱۲۸۰
+        پیکسل.
       </p>
 
       <div className="space-y-6">
@@ -115,7 +121,9 @@ function Section({
       <h2 className="mb-2 text-xl font-bold">
         <bdi>{title}</bdi>
       </h2>
-      {note && <p className="mb-10 max-w-2xl text-sm leading-relaxed text-muted-foreground">{note}</p>}
+      {note && (
+        <p className="mb-10 max-w-2xl text-sm leading-relaxed text-muted-foreground">{note}</p>
+      )}
       <div className="space-y-8">{children}</div>
     </section>
   );
@@ -192,8 +200,8 @@ function TokensSection({ alt }: { alt?: boolean }) {
           <p className="font-display text-3xl font-extrabold">استعداد ۸۰۰ — تیتر</p>
           <p className="font-display text-xl font-bold">استعداد ۷۰۰ — تیتر بخش</p>
           <p className="max-w-xl text-base leading-relaxed">
-            وزیرمتن ۴۰۰ در اندازه ۱۷ پیکسل با ارتفاع خط ۱٫۶۵ — فارسی به فاصله سطر
-            بیشتری از لاتین نیاز دارد و این قاعده دست‌نخورده مانده است.
+            وزیرمتن ۴۰۰ در اندازه ۱۷ پیکسل با ارتفاع خط ۱٫۶۵ — فارسی به فاصله سطر بیشتری از لاتین
+            نیاز دارد و این قاعده دست‌نخورده مانده است.
           </p>
           <p className="tabular text-sm" dir="ltr">
             1,250,000 — tabular figures line up in a column
@@ -271,9 +279,15 @@ function MoneySection({ alt }: { alt?: boolean }) {
       </Row>
       <Row label="ستون جدول (تراز)">
         <div className="w-40 space-y-0.5 text-end">
-          <div><Money rial={9_500_000} digits="latin" /></div>
-          <div><Money rial={125_000_000} digits="latin" /></div>
-          <div><Money rial={1_250_000_000} digits="latin" /></div>
+          <div>
+            <Money rial={9_500_000} digits="latin" />
+          </div>
+          <div>
+            <Money rial={125_000_000} digits="latin" />
+          </div>
+          <div>
+            <Money rial={1_250_000_000} digits="latin" />
+          </div>
         </div>
       </Row>
     </Section>
@@ -347,10 +361,23 @@ function DateSection({ alt }: { alt?: boolean }) {
 function StatusSection({ alt }: { alt?: boolean }) {
   const groups: Array<{ label: string; keys: string[] }> = [
     { label: 'فاکتور', keys: ['draft', 'final', 'void', 'paid', 'partially_paid', 'unpaid'] },
-    { label: 'واحد سریالی', keys: ['in_stock', 'reserved', 'sold', 'in_repair', 'returned', 'written_off'] },
+    {
+      label: 'واحد سریالی',
+      keys: ['in_stock', 'reserved', 'sold', 'in_repair', 'returned', 'written_off'],
+    },
     {
       label: 'تعمیر',
-      keys: ['queued', 'diagnosing', 'awaiting_approval', 'awaiting_parts', 'repairing', 'ready', 'delivered', 'rejected', 'abandoned'],
+      keys: [
+        'queued',
+        'diagnosing',
+        'awaiting_approval',
+        'awaiting_parts',
+        'repairing',
+        'ready',
+        'delivered',
+        'rejected',
+        'abandoned',
+      ],
     },
     { label: 'چک', keys: ['in_hand', 'deposited', 'cleared', 'bounced', 'spent_to_third_party'] },
     { label: 'اقساط', keys: ['due_soon', 'overdue', 'settled'] },
@@ -506,8 +533,8 @@ function OverlaySection({ alt }: { alt?: boolean }) {
             <DialogHeader>
               <DialogTitle>ابطال فاکتور ۱۴۰۵-۰۰۱۲؟</DialogTitle>
               <DialogDescription>
-                موجودی گوشی‌ها به انبار برمی‌گردد و اسناد مالی معکوس می‌شود. این کار
-                قابل بازگشت نیست.
+                موجودی گوشی‌ها به انبار برمی‌گردد و اسناد مالی معکوس می‌شود. این کار قابل بازگشت
+                نیست.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -648,7 +675,11 @@ function TableSection({ alt }: { alt?: boolean }) {
 
 function StateSection({ alt }: { alt?: boolean }) {
   return (
-    <Section alt={alt} title="حالت‌های صفحه" note="هر لیست باید حالت خالی و حالت بارگذاری داشته باشد.">
+    <Section
+      alt={alt}
+      title="حالت‌های صفحه"
+      note="هر لیست باید حالت خالی و حالت بارگذاری داشته باشد."
+    >
       <Row label="Skeleton">
         <div className="w-full max-w-md space-y-2">
           <Skeleton className="h-4 w-1/3" />

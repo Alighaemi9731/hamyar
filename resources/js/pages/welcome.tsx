@@ -22,8 +22,8 @@ export default function Welcome() {
       <div className="space-y-2">
         <h1 className="reveal text-3xl font-extrabold">MobiShop</h1>
         <p className="reveal reveal-delay-1 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          سامانه ابری مدیریت فروشگاه موبایل — فروش سریالی، تعمیرات، اقساط و چک، همه در
-          یک‌جا. هر گوشی یک شناسنامه IMEI دارد.
+          سامانه ابری مدیریت فروشگاه موبایل — فروش سریالی، تعمیرات، اقساط و چک، همه در یک‌جا. هر
+          گوشی یک شناسنامه IMEI دارد.
         </p>
       </div>
 

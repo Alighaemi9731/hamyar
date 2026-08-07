@@ -54,7 +54,12 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { label: 'کالاها', href: '/catalog', icon: TagsIcon, feature: 'module:catalog' },
       { label: 'انبار', href: '/inventory', icon: BoxesIcon, feature: 'module:inventory' },
-      { label: 'شناسنامه IMEI', href: '/inventory/units', icon: SmartphoneIcon, feature: 'module:inventory' },
+      {
+        label: 'شناسنامه IMEI',
+        href: '/inventory/units',
+        icon: SmartphoneIcon,
+        feature: 'module:inventory',
+      },
       { label: 'خرید', href: '/purchasing', icon: TruckIcon, feature: 'module:purchasing' },
     ],
   },
@@ -63,7 +68,12 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { label: 'خزانه‌داری', href: '/treasury', icon: BanknoteIcon, feature: 'module:treasury' },
       { label: 'چک‌ها', href: '/cheques', icon: FileTextIcon, feature: 'module:cheques' },
-      { label: 'اقساط', href: '/installments', icon: CreditCardIcon, feature: 'module:installments' },
+      {
+        label: 'اقساط',
+        href: '/installments',
+        icon: CreditCardIcon,
+        feature: 'module:installments',
+      },
       { label: 'گزارش‌ها', href: '/reporting', icon: BarChart3Icon, feature: 'module:reporting' },
     ],
   },

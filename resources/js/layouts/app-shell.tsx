@@ -136,12 +136,13 @@ function SidebarNav({
 
         return (
           <div key={section.label} className="mb-4">
-            <p className="px-3 pb-2 text-2xs font-medium tracking-wide text-muted-foreground">{section.label}</p>
+            <p className="px-3 pb-2 text-2xs font-medium tracking-wide text-muted-foreground">
+              {section.label}
+            </p>
 
             <ul className="space-y-0.5">
               {visible.map((item) => {
-                const active =
-                  currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+                const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
 
                 return (
                   <li key={item.href}>

@@ -154,29 +154,43 @@ paint**, so switching never flashes white.
    Dates only through the Jalali helpers. Statuses only through `<StatusBadge/>`,
    which owns the single status→colour map for the whole product.
 
-6. **Domain components** live in `resources/js/components/domain/` and are used rather
+6. **Layout primitives** carry the frame so pages never re-invent spacing:
+   `AppShell` (frosted sticky nav + sidebar, 1110px column), `AuthLayout` (every
+   unauthenticated screen — login, onboarding, reset, 2FA challenge, invitation) and
+   `SettingsSection` (one settings card). A page that hand-rolls its own auth frame or
+   card padding is how the system drifts back to per-page styling; consolidate instead.
+
+7. **Domain components** live in `resources/js/components/domain/` and are used rather
    than rebuilt:
    `Money` · `Num` · `JDatePicker` · `JDateRange` · `IMEIInput` · `PartyPicker` ·
    `UnitPicker` · `StatusBadge` · `StatCard` · `DataTable` · `EmptyState` ·
    `KanbanCard` · `PrintLayout.Thermal80` · `PrintLayout.A4` · `PrintLayout.A5`.
 
-7. **Forms.** Label above the field. Error under the field, in actionable Persian —
+8. **Forms.** Label above the field. Error under the field, in actionable Persian —
    «مبلغ نمی‌تواند از مانده فاکتور بیشتر باشد», not «خطا». One `brand` button per
    view. Enter submits on POS screens. Inherently-LTR inputs get inner `dir="ltr"`
    while the label layout stays RTL.
 
-8. **Accessibility floor.** Visible focus ring, AA contrast, touch targets ≥ 40px,
+9. **Accessibility floor.** Visible focus ring, AA contrast, touch targets ≥ 40px,
    `prefers-reduced-motion` honoured on every animation.
 
-9. **Empty states are a screen state, not a fallback.** Say what is missing and give
+10. **Empty states are a screen state, not a fallback.** Say what is missing and give
    the next action. «موردی یافت نشد» tells a shop owner nothing.
 
-10. **Print is part of the system.** Thermal 80mm and A4/A5 templates live under
+11. **Print is part of the system.** Thermal 80mm and A4/A5 templates live under
     `PrintLayout.*`. No page-local `@media print` hacks.
 
 ---
 
-## 3. Workflow
+## 3. Formatting
+
+`.prettierrc.json` is the single formatting authority for `resources/js` — single
+quotes, 100 columns, ES5 trailing commas. Run `npm run format`; `npm run format:check`
+verifies. Formatting arguments are not a good use of review time, and an unconfigured
+formatter silently rewrites the whole codebase to its own defaults the first time
+somebody runs it.
+
+## 4. Workflow
 
 1. New or changed component → add it to the `/design` gallery with its **state
    matrix** (default, hover, focus, disabled, loading, error, empty) **before** it
@@ -196,7 +210,7 @@ would put an un-audited surface on every tenant subdomain.
 
 ---
 
-## 4. Landing page {#landing}
+## 5. Landing page {#landing}
 
 Built in Phase 11. **Blade + Tailwind, no React** — the public pages must be fast and
 SEO-friendly.
@@ -248,7 +262,7 @@ Primary CTA: **«۱۴ روز رایگان شروع کنید»** — no bank card
 
 ---
 
-## 5. Persian copy
+## 6. Persian copy
 
 - All UI strings in `lang/fa/**`. Never hardcode Farsi in a component.
 - Domain terms, fixed translations: فاکتور invoice · پیش‌فاکتور quote · حواله transfer ·
