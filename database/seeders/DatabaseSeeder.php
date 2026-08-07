@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\Platform\Models\PlatformUser;
+use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\TenantProvisioner;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -20,8 +21,12 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    public function run(TenantProvisioner $provisioner): void
+    public function run(TenantProvisioner $provisioner, PlanCatalogueSeeder $catalogue): void
     {
+        // Plans and modules first: provisioning puts each new shop on a trial, which
+        // needs a plan to point at.
+        $catalogue->sync();
+
         PlatformUser::query()->create([
             'name' => 'مدیر پلتفرم',
             'email' => 'admin@mobishop.test',
