@@ -59,6 +59,8 @@
         <!-- Integrations must never reach the network from a test. -->
         <env name="SMS_DRIVER" value="null"/>
         <env name="MOADIAN_DRIVER" value="fake"/>
+        <!-- Never touch a real gateway from a test. -->
+        <env name="PAYMENT_DRIVER" value="fake"/>
         <env name="MOADIAN_ENABLED" value="false"/>
     </php>
 </phpunit>

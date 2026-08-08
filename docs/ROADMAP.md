@@ -191,16 +191,21 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
 
 ### 2.4 Payments
-- [ ] `payment_attempts` and `subscription_addons` carry no `tenant_id`, so `tenancy:check`
-      does not see them and RLS does not cover them — they are reachable only through an
-      RLS-protected parent today, but the moment a tenant-facing billing endpoint exists
-      they need either a denormalised `tenant_id` + RLS or a policy joining the parent.
-      Decide before the first endpoint, not after.
-- [ ] shetabit/multipay Zarinpal driver (sandbox)
-- [ ] Subscription invoices; payment init / callback / verify
-- [ ] Idempotent verification (replayed callback must not double-credit)
-- [ ] Receipt page
-- [ ] Renewal reminders (queued SMS/email stub)
+- [x] `payment_attempts` and `subscription_addons` are real tenant tables with FORCE RLS
+      (Gate 2 item 0, done before any endpoint existed)
+- [x] Zarinpal driver (sandbox) behind a `PaymentGateway` interface, plus `FakeGateway`
+      for tests. Talks to Zarinpal's REST API directly rather than through multipay's
+      drivers, which redirect and `die()` and cannot be wrapped or tested
+- [x] `counters` table + `CounterService` (row lock, per tenant, never MAX+1)
+- [x] Subscription invoices; payment init / callback / verify
+- [x] Idempotent verification — unique authority + `FOR UPDATE` + status check under
+      the lock; replay cannot double-extend the period
+- [x] Amount-tampering guard: a gateway-settled amount that differs from the invoice is
+      refused rather than trusted
+- [x] Receipt page
+- [x] Renewal reminders — `SendRenewalReminders` at 7/3/1 days, emits
+      `SubscriptionRenewalDue` inside each tenant's context; Messaging picks the channel
+- [ ] Coupon redemption flow (table exists; UI and validation land with the panel)
 
 ### 2.5 Filament v4 central panel
 - [ ] Panel restricted to platform admins
@@ -212,7 +217,7 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] SMS credit package sales
 
 ### 2.6 Tests
-- [ ] Plan purchase happy path with a fake gateway
+- [x] Plan purchase happy path with a fake gateway (17 cases in `BillingPaymentTest`)
 - [x] Proration maths unit tests (11 cases, exact expected rial)
 - [x] Feature gating: module off → 403 + hidden nav
 - [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the

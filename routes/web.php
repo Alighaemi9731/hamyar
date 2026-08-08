@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Http\Controllers\LoginController;
+use App\Modules\Platform\Http\Controllers\BillingController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -60,7 +61,30 @@ Route::middleware('tenant')->group(function (): void {
         Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
         Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
+
+        /*
+        | Billing. Not behind `module:platform` — a shop whose subscription has lapsed
+        | must still be able to reach the page that lets it pay. Gating the checkout
+        | behind an active subscription is the classic lockout bug.
+        */
+        Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
+        Route::post('/billing/subscribe/{plan}', [BillingController::class, 'subscribe'])
+            ->middleware('throttle:10,1')
+            ->name('billing.subscribe');
+        Route::get('/billing/invoices/{invoice}', [BillingController::class, 'receipt'])
+            ->whereNumber('invoice')
+            ->name('billing.receipt');
     });
+
+    /*
+    | The gateway's return URL. Outside `auth` on purpose: a customer may come back in a
+    | different browser context, and refusing the callback over an expired session would
+    | strand a paid invoice. Verification authorises itself — an authority we never
+    | issued is rejected, and one we did can only settle once.
+    */
+    Route::get('/billing/callback', [BillingController::class, 'callback'])
+        ->middleware('throttle:30,1')
+        ->name('billing.callback');
 });
 
 /*

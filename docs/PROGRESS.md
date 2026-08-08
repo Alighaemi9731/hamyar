@@ -61,4 +61,28 @@ is written in English but the business calendar is Jalali.
   volume borrowed from Basic and never exceeding the trialled plan.
   Item 4: golden rule 6 amended to list all 18 modules including Storefront (authorized
   by the owner; the omission was in the rule, not the code).
+- **2026-08-08** — Phase 2.4 payments. `PaymentGateway` interface + Zarinpal (sandbox) +
+  `FakeGateway`; `counters` with a row-locked `CounterService`; invoices, attempts,
+  init/callback/verify; billing and receipt pages; renewal reminders at 7/3/1 days.
+  Two real bugs surfaced by tests rather than by users:
+  (1) `subscription_invoices.number` was globally UNIQUE while counters are per-tenant, so
+  the second shop to ever buy a plan would have collided with the first — now
+  `unique(tenant_id, number)`;
+  (2) proration on an already-expired subscription yields zero remaining days and hence a
+  zero invoice, so a lapsed shop would have renewed **for free** — `invoiceForPlan` now
+  bills the full price whenever there is no live period left, and the same applies coming
+  out of a trial. Both have regression tests.
+  Note: `PlanCatalogueSeeder`'s split (structure synced, business data seeded once) means
+  changing a price in code no longer changes any existing environment.
+- **2026-08-08** — Phase 2.4 payments. `PaymentGateway` interface + Zarinpal (sandbox) +
+  `FakeGateway`; `counters` with a row-locked `CounterService`; invoices, attempts,
+  init/callback/verify; billing and receipt pages; renewal reminders at 7/3/1 days.
+  Two real bugs surfaced by tests rather than by users:
+  (1) `subscription_invoices.number` was globally UNIQUE while counters are per-tenant, so
+  the second shop ever to buy a plan would have collided with the first — now
+  `unique(tenant_id, number)`;
+  (2) proration on an already-expired subscription yields zero remaining days and hence a
+  zero invoice, so a lapsed shop would have renewed **for free** — `invoiceForPlan` now
+  bills the full price whenever no live period remains, trials included.
+  Both have regression tests.
 

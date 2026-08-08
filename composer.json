@@ -13,6 +13,7 @@
         "laravel/tinker": "^2.10.1",
         "morilog/jalali": "^3.4",
         "pragmarx/google2fa": "^9.0",
+        "shetabit/multipay": "^2.11",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^8.3"
     },
