@@ -47,6 +47,8 @@ final class TenancyCheckCommand extends Command
     private const PLATFORM_OWNED_TABLES = [
         'subscriptions',
         'subscription_invoices',
+        'subscription_addons',
+        'payment_attempts',
     ];
 
     /**

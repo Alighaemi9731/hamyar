@@ -1,8 +1,8 @@
 # ADR 0006 — Subscription proration
 
-- **Status:** **Proposed** — needs sign-off at DECISION GATE 2
-- **Date:** 2026-08-07
-- **Deciders:** Project owner (pending) + lead engineer
+- **Status:** **Accepted** at DECISION GATE 2, unchanged
+- **Date:** 2026-08-07 (accepted 2026-08-08)
+- **Deciders:** Project owner + lead engineer
 
 ## Context
 
@@ -85,6 +85,11 @@ shop owner. Whole days match how the customer thinks about a monthly subscriptio
 
 **Round the remainder up.** Rejected: it takes money the customer did not expect,
 which is exactly the class of surprise that erodes trust in a billing system.
+
+**Round half-up to the nearest 1,000 rial**, so every line reads as a round 100-toman
+figure. Raised and rejected at Gate 2. It reads better on a Persian invoice, and the
+exposure is at most 499 rial, but it reintroduces the possibility of rounding *against*
+the customer for a purely cosmetic gain. Truncation stands.
 
 ## Consequences
 

@@ -183,7 +183,8 @@ design-system skeleton — so every later phase is only about domain work.
 - [~] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases); **ADR 0006 is Proposed — needs sign-off at Gate 2** before the upgrade/downgrade flow is wired to payments
 - [~] `coupons` table + trial + grace period modelled and enforced by `Subscription::isUsable()`; redemption flow lands with billing
 
-### 2.3 Feature gating
+### 2.3 Feature gating (trial rules per Gate 2 item 3: Pro features, 14 days, no card,
+zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [~] Module grants resolved from plan + add-ons via `SubscriptionResolver` (fails closed). Pennant `limit:<key>` flags land with the usage counters below
 - [x] `EnsureModuleEnabled` route middleware
 - [x] `features` shared Inertia prop; nav hides disabled modules
@@ -615,6 +616,14 @@ design-system skeleton — so every later phase is only about domain work.
       rows, and re-check every place a hostname surfaces: printed receipts,
       repair-tracking QR codes, reseller price-list links, SMS templates, emails.
       (CLAUDE.md golden rule 1b.)
+- [ ] **Validate final pricing against Iranian competitors before launch.** The Gate 2
+      numbers (Basic ۲۹۰k / Pro ۵۹۰k / Enterprise ۱,۱۹۰k toman, and the eight add-on
+      prices) were approved as *provisional business data*, not as final. They live in
+      the database and are editable in the Filament panel — `PlanCatalogue` only seeds a
+      fresh install, so changing them at launch is a panel edit, not a deploy. Check them
+      against what Iranian shop-management products actually charge, confirm the add-on
+      stack still prices above the plan that contains it, and re-check the ladder against
+      inflation since 1405.
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages

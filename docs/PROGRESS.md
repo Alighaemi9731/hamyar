@@ -44,4 +44,21 @@ is written in English but the business calendar is Jalali.
   `composer test`, not just CI, which is why this reached CI in the first place.
   **Stops at DECISION GATE 2** — pricing/limits and the proration rule need sign-off
   before 2.4 (payments) and 2.5 (Filament) can build on them.
+- **2026-08-08** — DECISION GATE 2 answered; Phase 2 unblocked.
+  Item 0 (first, as instructed): `subscription_addons` and `payment_attempts` are now
+  real tenant tables — `tenant_id` backfilled from the parent, FK, composite index,
+  FORCE RLS with the `app.platform` disjunct, and both covered by `tenancy:check`.
+  ADR 0002 gained a second amendment recording the lesson: *reachability is not
+  protection*.
+  Item 1: prices approved as provisional. Found that `PlanCatalogueSeeder` overwrote
+  `price` on every run, which would have silently reverted any Filament edit — it now
+  seeds business data (prices, limits, trial days, plan/module membership) on create
+  only, and keeps syncing just the structure the code owns. "Validate final pricing
+  against Iranian competitors" added to the Phase 11 launch checklist.
+  Item 2: ADR 0006 accepted unchanged — truncate to 1 rial. The round-half-up-to-1,000
+  alternative is recorded as considered and rejected.
+  Item 3: `TrialPolicy` — Pro features, 14 days, no card, bonus SMS forced to 0, invoice
+  volume borrowed from Basic and never exceeding the trialled plan.
+  Item 4: golden rule 6 amended to list all 18 modules including Storefront (authorized
+  by the owner; the omission was in the rule, not the code).
 

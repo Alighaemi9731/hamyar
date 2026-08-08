@@ -11,7 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A module bought on top of a plan.
  *
+ * Platform-owned like its parent subscription, and RLS-protected on its own
+ * `tenant_id` rather than relying on the parent being protected — see the migration
+ * `2026_08_08_000020` for why that reliance was not good enough.
+ *
  * @property int $id
+ * @property int $tenant_id
  * @property int $subscription_id
  * @property int $module_id
  * @property int $price
@@ -21,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class SubscriptionAddon extends Model
 {
-    protected $fillable = ['subscription_id', 'module_id', 'price', 'starts_at', 'ends_at'];
+    protected $fillable = ['tenant_id', 'subscription_id', 'module_id', 'price', 'starts_at', 'ends_at'];
 
     /**
      * @return array<string, string>

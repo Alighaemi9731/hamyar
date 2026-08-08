@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $interval
  * @property int $price integer RIAL (golden rule 2)
  * @property int $trial_days
+ * @property string|null $tagline_fa
+ * @property int $position
  * @property bool $is_public
  */
 final class Plan extends Model
