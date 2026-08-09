@@ -99,4 +99,15 @@ is written in English but the business calendar is Jalali.
   Cleared with `null` instead.
   SMS credit packages deferred to Phase 8: selling credit needs Messaging's ledger to
   sell into, and guessing that schema now would create a second balance to reconcile.
+- **2026-08-09** — Phase 3.1: branches, warehouses, per-branch counters, branch access.
+  Two things worth recording. (1) `counters` shipped in 2.4 without `branch_id`, which
+  docs/specs/settings.md always required; fixed now, while the column is empty, rather
+  than as a data migration on live invoice numbering in Phase 5. The unique index uses
+  `NULLS NOT DISTINCT` so tenant-level counters (subscription invoices, no branch) stay
+  constrained. (2) `branch_user` restriction is opt-in — no rows means every branch —
+  because making the empty case restrictive would lock every user out of a feature
+  single-branch shops never configure.
+  Platform does not know Inventory exists: provisioning emits `TenantProvisioned` and
+  Inventory listens (golden rule 6). The listener is synchronous and inside the signup
+  transaction, with a test that forces it to throw and asserts the tenant is rolled back.
 

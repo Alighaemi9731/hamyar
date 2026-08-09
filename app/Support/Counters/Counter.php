@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property int $id
  * @property int $tenant_id
+ * @property int|null $branch_id
  * @property string $key
  * @property int $value
  * @property string|null $period
@@ -26,7 +27,7 @@ final class Counter extends Model
 
     public const REPAIR_TICKET = 'repair_ticket';
 
-    protected $fillable = ['tenant_id', 'key', 'value', 'period'];
+    protected $fillable = ['tenant_id', 'branch_id', 'key', 'value', 'period'];
 
     /**
      * @return array<string, string>

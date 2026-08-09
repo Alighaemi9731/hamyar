@@ -241,16 +241,28 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 ### Phase 2 — Definition of Done
 - [x] A plan can be bought in sandbox, features unlock, everything manageable in Filament
 
-> ### ⛔ DECISION GATE 2
-> Pricing/limits table and the proration rule need the human's sign-off.
+> ### ✅ DECISION GATE 2 — CLEARED 2026-08-08
+> Plan structure approved as built. Prices approved as **provisional business data**,
+> kept Filament-editable, with competitor validation added to the Phase 11 checklist.
+> Proration accepted as ADR 0006 stands (truncate to 1 rial; round-half-up considered and
+> rejected). Trial confirmed: Pro features, 14 days, no card, zero bonus SMS, Basic
+> invoice cap. Storefront confirmed as a real module; golden rule 6 amended to 18.
+> Plus item 0: the billing child tables were made properly tenant-scoped *before* any
+> 2.4 endpoint existed.
 
 ---
 
 ## Phase 3 — Catalog, Inventory, Serialized Units, Purchasing
 
 ### 3.1 Branches & warehouses
-- [ ] `branches`, `warehouses` (per-branch defaults)
-- [ ] User↔branch restriction enforced in queries and policies
+- [x] `branches`, `warehouses` (per-branch defaults, enforced by partial unique indexes)
+- [x] Every new shop gets one of each via `TenantProvisioned` → `CreateDefaultLocation`,
+      inside the signup transaction (a shop that cannot receive stock is worse than a
+      failed signup)
+- [x] `counters` gained `branch_id` — the settings spec always said per-branch, and the
+      Phase 2.4 table did not. Fixed before Phase 5 numbers a single sales invoice
+- [x] User↔branch restriction via `branch_user` + `BranchAccess`. **No rows means every
+      branch** — restriction is opt-in, so single-branch shops never configure it
 
 ### 3.2 Catalog
 - [ ] Categories tree, brands

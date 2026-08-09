@@ -47,7 +47,7 @@ it('keeps separate sequences per key and per period', function (): void {
             // A different document type does not share the sales sequence…
             expect($this->counters->next($id, Counter::REPAIR_TICKET))->toBe(1);
             // …and neither does the same type in a new Jalali year.
-            expect($this->counters->next($id, Counter::SALES_INVOICE, '1406'))->toBe(1);
+            expect($this->counters->next($id, Counter::SALES_INVOICE, period: '1406'))->toBe(1);
             expect($this->counters->next($id, Counter::SALES_INVOICE))->toBe(2);
         });
     });
@@ -75,7 +75,7 @@ it('formats a document number with padding and period', function (): void {
         $id = $this->tenant->getKey();
 
         $number = DB::transaction(
-            fn (): string => $this->counters->nextFormatted($id, Counter::SALES_INVOICE, 'INV', '1405')
+            fn (): string => $this->counters->nextFormatted($id, Counter::SALES_INVOICE, 'INV', period: '1405')
         );
 
         expect($number)->toBe('INV-1405-000001');
