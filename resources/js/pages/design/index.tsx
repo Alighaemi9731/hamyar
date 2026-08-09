@@ -393,7 +393,7 @@ function StatusSection({ alt }: { alt?: boolean }) {
     },
     { label: 'چک', keys: ['in_hand', 'deposited', 'cleared', 'bounced', 'spent_to_third_party'] },
     { label: 'اقساط', keys: ['due_soon', 'overdue', 'settled'] },
-    { label: 'همتا', keys: ['transfer_pending', 'transfer_done'] },
+    { label: 'همتا', keys: ['hamta_not_required', 'hamta_pending', 'hamta_done'] },
   ];
 
   return (

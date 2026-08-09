@@ -71,8 +71,11 @@ export const STATUS_MAP: Record<string, StatusDefinition> = {
   canceled: { label: 'لغوشده', tone: 'neutral' },
 
   // --- HAMTA transfer -------------------------------------------------------
-  transfer_pending: { label: 'انتقال همتا انجام نشده', tone: 'danger' },
-  transfer_done: { label: 'انتقال همتا انجام شد', tone: 'success' },
+  // Keyed to the `product_units.hamta_status` column values, prefixed so they cannot
+  // collide with a future transfer or ticket status that happens to be "pending".
+  hamta_not_required: { label: 'همتا لازم ندارد', tone: 'neutral' },
+  hamta_pending: { label: 'انتقال همتا انجام نشده', tone: 'danger' },
+  hamta_done: { label: 'انتقال همتا انجام شد', tone: 'success' },
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {

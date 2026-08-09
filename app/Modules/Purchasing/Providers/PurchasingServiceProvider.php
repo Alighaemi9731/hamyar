@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Purchasing\Providers;
 
+use App\Modules\Purchasing\Models\PurchaseInvoice;
+use App\Support\Documents\DocumentReference;
+use App\Support\Documents\DocumentRegistry;
 use App\Support\Modules\ModuleServiceProvider;
 
 /**
@@ -22,5 +25,25 @@ final class PurchasingServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        // How a purchase invoice names itself when it appears on someone else's
+        // screen — most importantly as the first line of an IMEI passport, which is
+        // where "bought from whom" is answered. Inventory never learns this class
+        // exists; it asks the shared registry.
+        $this->app->make(DocumentRegistry::class)->register(
+            PurchaseInvoice::class,
+            static fn (array $ids): array => PurchaseInvoice::query()
+                ->whereKey($ids)
+                ->get(['id', 'number'])
+                ->mapWithKeys(fn (PurchaseInvoice $invoice): array => [
+                    $invoice->id => new DocumentReference('فاکتور خرید '.$invoice->number),
+                ])
+                ->all()
+        );
     }
 }

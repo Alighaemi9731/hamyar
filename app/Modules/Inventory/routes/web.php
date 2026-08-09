@@ -22,7 +22,13 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:inventory'])
     ->group(function (): void {
         // Throttled for the same reason as the party lookup: it is a keystroke
         // endpoint, and it answers "which IMEIs does this shop hold".
+        //
+        // Registered BEFORE `units/{unit}`, or `search` binds as a unit id and 404s.
         Route::get('/units/search', [UnitController::class, 'search'])
             ->middleware('throttle:120,1')
             ->name('units.search');
+
+        Route::get('/units', [UnitController::class, 'index'])->name('units.index');
+        Route::get('/units/{unit}', [UnitController::class, 'show'])
+            ->whereNumber('unit')->name('units.show');
     });
