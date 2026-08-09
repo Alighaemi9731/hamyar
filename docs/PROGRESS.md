@@ -99,4 +99,43 @@ is written in English but the business calendar is Jalali.
   Cleared with `null` instead.
   SMS credit packages deferred to Phase 8: selling credit needs Messaging's ledger to
   sell into, and guessing that schema now would create a second balance to reconcile.
+- **2026-08-09** — Phase 3.1: branches, warehouses, per-branch counters, branch access.
+  Two things worth recording. (1) `counters` shipped in 2.4 without `branch_id`, which
+  docs/specs/settings.md always required; fixed now, while the column is empty, rather
+  than as a data migration on live invoice numbering in Phase 5. The unique index uses
+  `NULLS NOT DISTINCT` so tenant-level counters (subscription invoices, no branch) stay
+  constrained. (2) `branch_user` restriction is opt-in — no rows means every branch —
+  because making the empty case restrictive would lock every user out of a feature
+  single-branch shops never configure.
+  Platform does not know Inventory exists: provisioning emits `TenantProvisioned` and
+  Inventory listens (golden rule 6). The listener is synchronous and inside the signup
+  transaction, with a test that forces it to throw and asserts the tenant is rolled back.
+- **2026-08-09** — Phase 3.2 catalog: categories, brands, products, variant matrix,
+  barcodes, price levels, price resolution and bulk updates. 318 tests green.
+  Named the variant matrix column `options`, not `attributes` — Eloquent already uses
+  `$attributes` for a model's raw column values, so that name would have made
+  `$variant->attributes` silently return the wrong thing with no error.
+  Barcode/SKU uniqueness uses partial indexes (`where ... is not null and deleted_at is
+  null`): a plain unique would collide on the many NULLs, and a soft-deleted variant
+  would keep its barcode reserved forever.
+  Bulk pricing's guarantee is that `apply()` consumes the rows `preview()` produced
+  rather than re-deriving them, so an operator cannot approve one set of changes and have
+  a different set applied because a price moved in between.
+  UI screens for catalog are deliberately not built yet — schema and services are tested,
+  and the Inertia pages land as one pass over Phase 3 rather than piecemeal.
+- **2026-08-09** — Phase 3.3 serialized units and 3.4 stock ledger. 355 tests green.
+  IMEI uniqueness needed more than indexes. Two partial unique indexes stop the same
+  number appearing twice in the same column, but a dual-SIM phone's `imei2` could still
+  be registered as a different device's `imei1` — the same handset entered twice, which
+  is exactly what the passport must never allow. Postgres cannot express uniqueness
+  across two columns of one table as an index, so a `before insert or update` trigger
+  does it. Tested directly.
+  The unit state machine refuses `sold → in_stock`: undoing a sale is a return, which
+  produces a `returned` unit and a credit document, and a silent status flip loses the
+  money side entirely. Every transition writes history in the same transaction, and a
+  refused transition leaves none.
+  Stock quantity is a SUM with a covering index and never a column (golden rule 3). Both
+  the service and a CHECK constraint reject zero-quantity movements; transfers write two
+  rows so each side's ledger explains its own change; counts record the difference rather
+  than overwriting a total.
 

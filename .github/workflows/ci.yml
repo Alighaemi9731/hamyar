@@ -31,8 +31,12 @@ jobs:
 
       - uses: ramsey/composer-install@v3
 
+      # The explicit path matters. `pint --test` with no argument reports the same
+      # file count but silently misses violations that `pint --test .` catches — which
+      # is how five real style issues passed locally and failed here. Both the composer
+      # script and this step pass the path, so the two gates cannot disagree again.
       - name: Pint (check only)
-        run: ./vendor/bin/pint --test
+        run: ./vendor/bin/pint --test .
 
       # Golden rule 9. Cheap and fails fast, so it runs before static analysis.
       - name: RTL direction-class gate

@@ -241,38 +241,86 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 ### Phase 2 — Definition of Done
 - [x] A plan can be bought in sandbox, features unlock, everything manageable in Filament
 
-> ### ⛔ DECISION GATE 2
-> Pricing/limits table and the proration rule need the human's sign-off.
+> ### ✅ DECISION GATE 2 — CLEARED 2026-08-08
+> Plan structure approved as built. Prices approved as **provisional business data**,
+> kept Filament-editable, with competitor validation added to the Phase 11 checklist.
+> Proration accepted as ADR 0006 stands (truncate to 1 rial; round-half-up considered and
+> rejected). Trial confirmed: Pro features, 14 days, no card, zero bonus SMS, Basic
+> invoice cap. Storefront confirmed as a real module; golden rule 6 amended to 18.
+> Plus item 0: the billing child tables were made properly tenant-scoped *before* any
+> 2.4 endpoint existed.
 
 ---
 
 ## Phase 3 — Catalog, Inventory, Serialized Units, Purchasing
 
 ### 3.1 Branches & warehouses
-- [ ] `branches`, `warehouses` (per-branch defaults)
-- [ ] User↔branch restriction enforced in queries and policies
+- [x] `branches`, `warehouses` (per-branch defaults, enforced by partial unique indexes)
+- [x] Every new shop gets one of each via `TenantProvisioned` → `CreateDefaultLocation`,
+      inside the signup transaction (a shop that cannot receive stock is worse than a
+      failed signup)
+- [x] `counters` gained `branch_id` — the settings spec always said per-branch, and the
+      Phase 2.4 table did not. Fixed before Phase 5 numbers a single sales invoice
+- [x] User↔branch restriction via `branch_user` + `BranchAccess`. **No rows means every
+      branch** — restriction is opt-in, so single-branch shops never configure it
 
 ### 3.2 Catalog
-- [ ] Categories tree, brands
-- [ ] `products` (type: standard | serialized)
-- [ ] Variants (colour/storage/ram matrix), barcodes
-- [ ] Price levels (consumer/reseller/vip) + `product_prices`
-- [ ] Bulk price update (percent/amount, filterable)
+- [x] Categories tree (adjacency list), brands with Latin + Persian names
+- [x] `products` (type: standard | serialized) — `ProductType` enum
+- [x] Variants via `VariantMatrix`: cartesian product, order-independent fingerprint,
+      regeneration **deactivates** rather than deletes (stock and invoice history)
+- [x] Barcodes/SKUs unique per tenant among LIVE rows only — partial indexes, so NULLs
+      do not collide and a retired line does not hold its barcode hostage
+- [x] Price levels seeded per tenant on provisioning (مصرف‌کننده/همکار/همکار ویژه);
+      `product_prices` append-only so a past month can be re-derived
+- [x] `PriceResolver` — newest row whose `effective_from` has passed, falling back to the
+      default level; a scheduled increase does not apply early
+- [x] Bulk price update: `preview()` and `apply()` share one code path, and `apply()`
+      consumes the preview's rows so nothing can change in between
+- [ ] Catalog UI screens (category tree, product editor, price grid) — schema and services
+      are done and tested; the Inertia pages land with the Phase 3 UI pass
 
 ### 3.3 Serialized units
-- [ ] `product_units`: imei1, imei2, serial, condition, grade, cost, status enum, acquired_from party, acquired_at, hamta fields, notes
-- [ ] Media attachment (seller ID scan)
-- [ ] State machine + history table; illegal transitions rejected
-- [ ] IMEI passport page — bought from whom → sold to whom → repaired when
-- [ ] IMEI uniqueness per tenant
+- [x] `product_units`: imei1/imei2/serial, condition, grade, per-unit cost, status enum,
+      acquired-from party, HAMTA fields, warranty, notes
+- [x] `Imei` helper: Luhn validation, Persian/Arabic digit normalisation, TAC extraction.
+      IMEIs are normalised on save, so a number typed in Persian and one scanned from a
+      box land in the column identically
+- [x] IMEI uniqueness per tenant — partial unique indexes **plus a trigger** for the
+      cross-column case (one device's `imei2` reused as another's `imei1`), which indexes
+      alone cannot express
+- [x] `UnitStateMachine` + `product_unit_histories`; illegal transitions rejected, most
+      importantly `sold → in_stock` (undoing a sale is a *return*, with a credit document)
+- [x] Every transition writes history in the same transaction — a transition with no
+      history row is a hole in the passport
+- [ ] Media attachment (seller ID scan) — lands with the Files module wiring
+- [ ] IMEI passport page — data model and history are complete and tested; the screen
+      lands with the Phase 3 UI pass
 
 ### 3.4 Stock ledger
-- [ ] `stock_movements` (in/out/transfer/adjust/count + polymorphic ref)
-- [ ] Quantity-on-hand = SUM query with covering indexes (never a stored total)
-- [ ] Low-stock threshold + alerts list
-- [ ] Dead-stock report base
+
+- [x] `stock_movements` (10 types + polymorphic reference to the causing document)
+- [x] Quantity-on-hand = SUM with a covering index, never a stored total (golden rule 3).
+      `onHandForMany()` for list screens, and an `$at` parameter so a valuation can ask
+      what the figure was on a past date — which a stored total could never answer
+- [x] Negative stock blocked by default, opt-in per warehouse
+- [x] Sign guards: a negative purchase or a positive sale is refused, and a zero-quantity
+      movement is rejected by both the service and a CHECK constraint
+- [x] Transfers as two movements, one per side; stock counts reconcile by writing the
+      *difference*, so the correction stays visible
+- [ ] Low-stock threshold + alerts list — `products.low_stock_threshold` exists; the
+      alerts screen lands with the Phase 3 UI pass
+- [ ] Dead-stock report base — Phase 9 (Reporting)
 
 ### 3.5 Purchasing
+> **Ordering dependency.** "Suppliers as parties" needs the `parties` table, which this
+> roadmap creates in **Phase 4.1**. `product_units.acquired_from_party_id` is already in
+> place as an unconstrained bigint awaiting that FK. Two ways forward, and it is a
+> judgement call worth making deliberately rather than improvising:
+> **(a)** land a minimal `parties` table in CRM now and let Phase 4 extend it, or
+> **(b)** run Phase 4.1–4.2 before 3.5 and keep purchasing whole.
+> (b) is cleaner — a half-built party gets extended by four later phases — but it
+> reorders the roadmap, so it should be a conscious choice.
 - [ ] Suppliers as parties
 - [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
 - [ ] Landed cost allocation into unit cost

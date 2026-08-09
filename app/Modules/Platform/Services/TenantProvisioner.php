@@ -6,6 +6,7 @@ namespace App\Modules\Platform\Services;
 
 use App\Modules\Identity\Models\User;
 use App\Modules\Identity\Support\PermissionCatalogue;
+use App\Modules\Platform\Events\TenantProvisioned;
 use App\Modules\Platform\Models\Domain;
 use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\Subscription;
@@ -88,6 +89,13 @@ final class TenantProvisioner
                 ]);
 
                 $owner->assignRole('Owner');
+
+                // Other modules set up their own defaults from here — Inventory creates
+                // the first branch and warehouse. Platform must not reach into them
+                // (golden rule 6), and the listener runs inside this transaction and
+                // this tenant context, so a failure there rolls the whole signup back
+                // rather than leaving a shop with no warehouse.
+                event(new TenantProvisioned($tenant));
 
                 return $tenant;
             });

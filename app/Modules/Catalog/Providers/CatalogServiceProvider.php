@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Providers;
 
+use App\Modules\Catalog\Listeners\SeedPriceLevels;
+use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 /**
  * Catalog module.
@@ -22,5 +25,12 @@ final class CatalogServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Event::listen(TenantProvisioned::class, SeedPriceLevels::class);
     }
 }

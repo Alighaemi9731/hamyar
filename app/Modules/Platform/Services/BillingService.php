@@ -89,8 +89,9 @@ final class BillingService
             $invoice = SubscriptionInvoice::query()->create([
                 'tenant_id' => $tenantId,
                 'subscription_id' => $subscription?->getKey(),
+                // No branch: the platform bills the shop, not one of its shopfronts.
                 'number' => $this->counters->nextFormatted(
-                    $tenantId, Counter::SUBSCRIPTION_INVOICE, 'SUB', pad: 5
+                    $tenantId, Counter::SUBSCRIPTION_INVOICE, 'SUB', branchId: null, pad: 5
                 ),
                 'subtotal' => $subtotal,
                 'discount' => 0,

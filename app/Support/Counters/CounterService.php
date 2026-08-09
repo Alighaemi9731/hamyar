@@ -27,13 +27,15 @@ final class CounterService
     /**
      * The next value in the sequence, incremented atomically.
      *
+     * @param  int|null  $branchId  the branch this document belongs to; null for
+     *                              tenant-level sequences such as subscription invoices
      * @param  string|null  $period  scopes the counter, e.g. a Jalali year for numbers
      *                               that restart annually
      *
      * @throws RuntimeException when called outside a transaction, where the lock would
      *                          be useless
      */
-    public function next(int $tenantId, string $key, ?string $period = null): int
+    public function next(int $tenantId, string $key, ?int $branchId = null, ?string $period = null): int
     {
         if ($this->connection->transactionLevel() === 0) {
             throw new RuntimeException(
@@ -47,6 +49,7 @@ final class CounterService
         $locked = Counter::query()
             ->where('tenant_id', $tenantId)
             ->where('key', $key)
+            ->where('branch_id', $branchId)
             ->where('period', $period)
             ->lockForUpdate()
             ->first();
@@ -57,6 +60,7 @@ final class CounterService
             $locked = Counter::query()->create([
                 'tenant_id' => $tenantId,
                 'key' => $key,
+                'branch_id' => $branchId,
                 'period' => $period,
                 'value' => 0,
             ]);
@@ -71,9 +75,15 @@ final class CounterService
     /**
      * A formatted document number, e.g. `INV-1405-000042`.
      */
-    public function nextFormatted(int $tenantId, string $key, string $prefix, ?string $period = null, int $pad = 6): string
-    {
-        $number = $this->next($tenantId, $key, $period);
+    public function nextFormatted(
+        int $tenantId,
+        string $key,
+        string $prefix,
+        ?int $branchId = null,
+        ?string $period = null,
+        int $pad = 6,
+    ): string {
+        $number = $this->next($tenantId, $key, $branchId, $period);
 
         return $period === null
             ? sprintf('%s-%0'.$pad.'d', $prefix, $number)
