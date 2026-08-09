@@ -265,11 +265,20 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       branch** — restriction is opt-in, so single-branch shops never configure it
 
 ### 3.2 Catalog
-- [ ] Categories tree, brands
-- [ ] `products` (type: standard | serialized)
-- [ ] Variants (colour/storage/ram matrix), barcodes
-- [ ] Price levels (consumer/reseller/vip) + `product_prices`
-- [ ] Bulk price update (percent/amount, filterable)
+- [x] Categories tree (adjacency list), brands with Latin + Persian names
+- [x] `products` (type: standard | serialized) — `ProductType` enum
+- [x] Variants via `VariantMatrix`: cartesian product, order-independent fingerprint,
+      regeneration **deactivates** rather than deletes (stock and invoice history)
+- [x] Barcodes/SKUs unique per tenant among LIVE rows only — partial indexes, so NULLs
+      do not collide and a retired line does not hold its barcode hostage
+- [x] Price levels seeded per tenant on provisioning (مصرف‌کننده/همکار/همکار ویژه);
+      `product_prices` append-only so a past month can be re-derived
+- [x] `PriceResolver` — newest row whose `effective_from` has passed, falling back to the
+      default level; a scheduled increase does not apply early
+- [x] Bulk price update: `preview()` and `apply()` share one code path, and `apply()`
+      consumes the preview's rows so nothing can change in between
+- [ ] Catalog UI screens (category tree, product editor, price grid) — schema and services
+      are done and tested; the Inertia pages land with the Phase 3 UI pass
 
 ### 3.3 Serialized units
 - [ ] `product_units`: imei1, imei2, serial, condition, grade, cost, status enum, acquired_from party, acquired_at, hamta fields, notes

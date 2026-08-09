@@ -110,4 +110,17 @@ is written in English but the business calendar is Jalali.
   Platform does not know Inventory exists: provisioning emits `TenantProvisioned` and
   Inventory listens (golden rule 6). The listener is synchronous and inside the signup
   transaction, with a test that forces it to throw and asserts the tenant is rolled back.
+- **2026-08-09** — Phase 3.2 catalog: categories, brands, products, variant matrix,
+  barcodes, price levels, price resolution and bulk updates. 318 tests green.
+  Named the variant matrix column `options`, not `attributes` — Eloquent already uses
+  `$attributes` for a model's raw column values, so that name would have made
+  `$variant->attributes` silently return the wrong thing with no error.
+  Barcode/SKU uniqueness uses partial indexes (`where ... is not null and deleted_at is
+  null`): a plain unique would collide on the many NULLs, and a soft-deleted variant
+  would keep its barcode reserved forever.
+  Bulk pricing's guarantee is that `apply()` consumes the rows `preview()` produced
+  rather than re-deriving them, so an operator cannot approve one set of changes and have
+  a different set applied because a price moved in between.
+  UI screens for catalog are deliberately not built yet — schema and services are tested,
+  and the Inertia pages land as one pass over Phase 3 rather than piecemeal.
 
