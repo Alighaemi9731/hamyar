@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Catalog\Providers;
 
 use App\Modules\Catalog\Listeners\SeedPriceLevels;
+use App\Modules\Catalog\Models\Category;
+use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Policies\CategoryPolicy;
+use App\Modules\Catalog\Policies\ProductPolicy;
 use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Catalog module.
@@ -30,6 +35,9 @@ final class CatalogServiceProvider extends ModuleServiceProvider
     public function boot(): void
     {
         parent::boot();
+
+        Gate::policy(Product::class, ProductPolicy::class);
+        Gate::policy(Category::class, CategoryPolicy::class);
 
         Event::listen(TenantProvisioned::class, SeedPriceLevels::class);
     }

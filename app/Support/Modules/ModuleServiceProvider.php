@@ -7,6 +7,7 @@ namespace App\Support\Modules;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\View\ViewFinderInterface;
 use ReflectionClass;
 
 /**
@@ -34,6 +35,7 @@ abstract class ModuleServiceProvider extends ServiceProvider
     {
         $this->bootMigrations();
         $this->bootViews();
+        $this->bootInertiaPageNamespace();
         $this->bootTranslations();
         $this->bootRoutes();
     }
@@ -83,6 +85,40 @@ abstract class ModuleServiceProvider extends ServiceProvider
         if (is_dir($path)) {
             $this->loadTranslationsFrom($path, $this->namespaceKey());
         }
+    }
+
+    /**
+     * Teach the Inertia test helper what `Catalog::Products/Index` means.
+     *
+     * `assertInertia(...)->component('x')` checks the page file exists, which catches a
+     * typo'd component name before a user does. Its finder is a plain `FileViewFinder`,
+     * and a name containing `::` is a *namespace hint* to that class — unregistered, it
+     * throws, and the assertion reports the page as missing when the file is right
+     * there. Registering the hint is what makes module-owned pages testable at all.
+     *
+     * Test-only: nothing in a request resolves this binding, and touching it at boot in
+     * production would build a view finder every application has no use for.
+     */
+    protected function bootInertiaPageNamespace(): void
+    {
+        if (! $this->app->runningUnitTests()) {
+            return;
+        }
+
+        $path = $this->modulePath('resources/js/pages');
+
+        if (! is_dir($path)) {
+            return;
+        }
+
+        $module = $this->moduleName();
+
+        $this->app->resolving(
+            'inertia.testing.view-finder',
+            static function (ViewFinderInterface $finder) use ($module, $path): void {
+                $finder->addNamespace($module, $path);
+            }
+        );
     }
 
     protected function bootRoutes(): void

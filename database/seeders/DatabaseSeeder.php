@@ -7,7 +7,6 @@ namespace Database\Seeders;
 use App\Modules\Platform\Models\PlatformUser;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\TenantProvisioner;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
@@ -19,7 +18,14 @@ use Illuminate\Database\Seeder;
  */
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
+    /*
+     * `WithoutModelEvents` is deliberately NOT used here.
+     *
+     * It mutes model events for the whole seeder run, and `BelongsToTenant` fills
+     * `tenant_id` from a `creating` hook — so every tenant-scoped insert would arrive
+     * with a null tenant and be rejected by its own RLS policy. Nothing caught it
+     * while the seeder only created central rows; the first seeded product did.
+     */
 
     public function run(TenantProvisioner $provisioner, PlanCatalogueSeeder $catalogue): void
     {
@@ -51,6 +57,11 @@ class DatabaseSeeder extends Seeder
             'owner_email' => 'admin@acme.test',
             'password' => 'password',
         ]);
+
+        // Only the demo shop gets stock. `acme` stays deliberately empty: it is what
+        // the isolation suite crosses into, and a shop with data in it makes a leak
+        // look like a legitimate row.
+        $this->call(DemoShopSeeder::class);
 
         $domain = config()->string('app.domain');
 

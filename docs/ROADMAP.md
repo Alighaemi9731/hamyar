@@ -277,8 +277,7 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       default level; a scheduled increase does not apply early
 - [x] Bulk price update: `preview()` and `apply()` share one code path, and `apply()`
       consumes the preview's rows so nothing can change in between
-- [ ] Catalog UI screens (category tree, product editor, price grid) — schema and services
-      are done and tested; the Inertia pages land with the Phase 3 UI pass
+- [x] Catalog UI screens (category tree, product editor, price grid) — Phase 3.9
 
 ### 3.3 Serialized units
 - [x] `product_units`: imei1/imei2/serial, condition, grade, per-unit cost, status enum,
@@ -294,8 +293,8 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [x] Every transition writes history in the same transaction — a transition with no
       history row is a hole in the passport
 - [ ] Media attachment (seller ID scan) — lands with the Files module wiring
-- [ ] IMEI passport page — data model and history are complete and tested; the screen
-      lands with the Phase 3 UI pass
+- [x] IMEI passport page — Phase 3.9. Nothing truncates, events group by Jalali day,
+      and each line is named in the words a shop uses
 
 ### 3.4 Stock ledger
 
@@ -308,8 +307,8 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       movement is rejected by both the service and a CHECK constraint
 - [x] Transfers as two movements, one per side; stock counts reconcile by writing the
       *difference*, so the correction stays visible
-- [ ] Low-stock threshold + alerts list — `products.low_stock_threshold` exists; the
-      alerts screen lands with the Phase 3 UI pass
+- [x] Low-stock threshold + alerts list — opt-in by threshold, and "out" is separated
+      from "low" because one costs a sale today and the other is a purchase order
 - [ ] Dead-stock report base — Phase 9 (Reporting)
 
 ### 4.1 Parties — **moved ahead of 3.5** (see the note there)
@@ -379,29 +378,30 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       are skipped rather than written off
 
 ### 3.7 Labels
-- [ ] Price/barcode labels, single + batch, printable HTML at label sizes — lands with
-      the 3.9 UI pass, since it is entirely a print-layout concern
+- [x] Price/barcode labels, single + batch, printable HTML at label sizes. The sheet on
+      screen IS the sheet that prints; barcodes are server-rendered Code 128
 
 ### 3.8 Tests
 - [x] Ledger invariants (no negative stock unless the allow-flag is set)
 - [x] Unit state transitions incl. illegal ones
-- [ ] IMEI uniqueness per tenant
+- [x] IMEI uniqueness per tenant
 - [x] Two-step transfer flow
 - [x] Price-level resolution
 - [x] Purchase cost maths including landed costs
-- [ ] Cross-tenant isolation for every new endpoint
+- [x] Cross-tenant isolation for every new endpoint
 
 ### 3.9 UI pass — one coherent pass, after 4.1–4.2 and 3.5
 Built together rather than piecemeal, so the screens share components instead of
 converging on them later.
-- [ ] Category tree
-- [ ] Product editor with the variant matrix
-- [ ] Price-level grid + bulk update with preview
-- [ ] **IMEI passport page** — the product's signature screen
-- [ ] Stock views + low-stock alerts
-- [ ] Label printing (price/barcode, single + batch)
-- [ ] Every screen built from `/design` gallery components (golden rule 9)
-- [ ] Verified with Playwright at 390 and 1280, light and dark, RTL
+- [x] Category tree
+- [x] Product editor with the variant matrix
+- [x] Price-level grid + bulk update with preview
+- [x] **IMEI passport page** — the product's signature screen
+- [x] Stock views + low-stock alerts
+- [x] Label printing (price/barcode, single + batch)
+- [x] Every screen built from `/design` gallery components (golden rule 9)
+- [x] Verified with Playwright at 390 and 1280, light and dark, RTL — zero horizontal
+      overflow and no console errors; three defects found and fixed (see PROGRESS 3.9f)
 
 ### Phase 3 — Definition of Done
 - [ ] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B → count stock, and every number reconciles with movements

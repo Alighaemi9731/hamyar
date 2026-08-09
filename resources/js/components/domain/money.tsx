@@ -10,6 +10,14 @@ export interface MoneyProps {
   /** Show the unit label ("تومان" / "ریال") after the number. */
   withUnit?: boolean;
   /**
+   * Where the unit label sits.
+   *
+   * "inline" reads naturally in a sentence. "block" puts it on its own line, which a
+   * narrow container needs: a nine-digit figure plus its unit does not fit a
+   * quarter-width dashboard card, and the pair has no break opportunity between them.
+   */
+  unitPlacement?: 'inline' | 'block';
+  /**
    * Force digit style. Defaults to the tenant setting; tables and invoices pass
    * "latin" so columns align (design-system rule 4).
    */
@@ -29,6 +37,7 @@ export function Money({
   rial,
   unit,
   withUnit = false,
+  unitPlacement = 'inline',
   digits,
   signed = false,
   className,
@@ -41,10 +50,13 @@ export function Money({
   const formatted = formatMoney(rial, resolvedUnit, persian);
   const label = resolvedUnit === 'toman' ? 'تومان' : 'ریال';
 
+  const stacked = withUnit && unitPlacement === 'block';
+
   return (
     <span
       className={cn(
-        'tabular whitespace-nowrap',
+        'tabular',
+        stacked ? 'flex flex-col items-start' : 'whitespace-nowrap',
         signed && rial < 0 && 'text-destructive',
         signed && rial > 0 && 'text-success',
         className
@@ -60,7 +72,13 @@ export function Money({
           to its number, while the label stays in RTL flow where Persian expects it
           («۱۲٬۵۰۰٬۰۰۰ تومان»). */}
       <bdi>{formatted}</bdi>
-      {withUnit && <span className="ms-1 text-2xs text-muted-foreground">{label}</span>}
+      {withUnit && (
+        <span
+          className={cn('text-2xs text-muted-foreground', stacked ? 'mt-0.5 font-normal' : 'ms-1')}
+        >
+          {label}
+        </span>
+      )}
     </span>
   );
 }

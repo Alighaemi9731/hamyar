@@ -1,13 +1,20 @@
 import { Head } from '@inertiajs/react';
-import { PlusIcon, SearchIcon, SmartphoneIcon, WrenchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ConfirmDialog } from '@/components/domain/confirm-dialog';
+import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { Pagination } from '@/components/domain/pagination';
+import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
+import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
+import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,6 +90,12 @@ export default function DesignGallery() {
         <FormSection />
         <OverlaySection alt />
         <TableSection />
+        <StatCardSection alt />
+        <ImeiSection />
+        <DataTableSection alt />
+        <PickerSection />
+        <ConfirmAndPagingSection alt />
+        <PrintSection />
         <StateSection alt />
       </div>
     </AppShell>
@@ -381,7 +394,7 @@ function StatusSection({ alt }: { alt?: boolean }) {
     },
     { label: 'چک', keys: ['in_hand', 'deposited', 'cleared', 'bounced', 'spent_to_third_party'] },
     { label: 'اقساط', keys: ['due_soon', 'overdue', 'settled'] },
-    { label: 'همتا', keys: ['transfer_pending', 'transfer_done'] },
+    { label: 'همتا', keys: ['hamta_not_required', 'hamta_pending', 'hamta_done'] },
   ];
 
   return (
@@ -714,6 +727,505 @@ function StateSection({ alt }: { alt?: boolean }) {
             </Button>
           }
         />
+      </div>
+    </Section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * StatCard — one number with just enough context.
+ *
+ * The row below is the review case that matters: `invertTrend` on the last card. A
+ * rising overdue balance rendering green is worse than showing no trend at all.
+ */
+function StatCardSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="StatCard"
+      note="عدد + زمینه. روند صعودی همیشه خوب نیست — کارت آخر با invertTrend."
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="فروش امروز" value={128_500_000} isMoney trend={12} icon={TrendingUpIcon} />
+        <StatCard label="دستگاه موجود" value={47} hint="در ۲ انبار" icon={SmartphoneIcon} />
+        <StatCard
+          label="در انتظار قطعه"
+          value={6}
+          tone="warning"
+          icon={WrenchIcon}
+          hint="بیش از ۳ روز"
+        />
+        <StatCard
+          label="مطالبات معوق"
+          value={94_000_000}
+          isMoney
+          trend={8}
+          invertTrend
+          tone="danger"
+          hint="۵ طرف حساب"
+        />
+      </div>
+
+      <p className="mt-6 text-sm text-muted-foreground">بدون روند و بدون توضیح:</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <StatCard label="تعداد کاربران" value={3} />
+        <StatCard label="اعتبار پیامک" value={0} hint="نیاز به شارژ" tone="warning" />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * IMEIInput — the field the product turns on.
+ *
+ * States to review: empty, partial, valid, invalid checksum, server error, disabled.
+ * Note the LTR digits inside an RTL form, and that Persian digits are accepted.
+ */
+function ImeiSection({ alt = false }: { alt?: boolean }) {
+  const [partial, setPartial] = useState('35693803');
+  const [valid, setValid] = useState('356938035643809');
+  const [invalid, setInvalid] = useState('356938035643801');
+  const [persian, setPersian] = useState('۳۵۶۹۳۸۰۳۵۶۴۳۸۰۹');
+
+  return (
+    <Section
+      alt={alt}
+      title="IMEIInput"
+      note="ارقام LTR داخل فرم RTL. ارقام فارسی پذیرفته و به لاتین تبدیل می‌شوند."
+    >
+      <div className="grid gap-6 md:grid-cols-2">
+        <ImeiInput value={partial} onChange={setPartial} label="در حال تایپ" />
+        <ImeiInput value={valid} onChange={setValid} label="معتبر" />
+        <ImeiInput value={invalid} onChange={setInvalid} label="رقم کنترلی نامعتبر" />
+        <ImeiInput value={persian} onChange={setPersian} label="ورودی با ارقام فارسی" />
+        <ImeiInput value="" onChange={() => undefined} label="IMEI دوم" optional />
+        <ImeiInput
+          value="356938035643809"
+          onChange={() => undefined}
+          label="خطای سرور"
+          error="این IMEI قبلاً در فروشگاه شما ثبت شده است."
+        />
+        <ImeiInput value="356938035643809" onChange={() => undefined} label="غیرفعال" disabled />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * DataTable — the one table.
+ *
+ * Review at 390px: the secondary column disappears rather than the table cramping, and
+ * the wrapper scrolls instead of the page.
+ */
+function DataTableSection({ alt = false }: { alt?: boolean }) {
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('name');
+
+  const rows = [
+    {
+      id: 1,
+      name: 'آیفون ۱۵ پرو ۲۵۶',
+      imei: '356938035643809',
+      price: 890_000_000,
+      status: 'in_stock',
+    },
+    { id: 2, name: 'گلکسی A54', imei: '351234567890123', price: 128_000_000, status: 'reserved' },
+    { id: 3, name: 'ردمی نوت ۱۳', imei: '352099001761481', price: 74_500_000, status: 'sold' },
+  ];
+
+  const columns = [
+    { key: 'name', header: 'کالا', sortable: true, cell: (r: (typeof rows)[0]) => r.name },
+    {
+      key: 'imei',
+      header: 'IMEI',
+      secondary: true,
+      cell: (r: (typeof rows)[0]) => <Num value={r.imei} variant="ltr" />,
+    },
+    {
+      key: 'price',
+      header: 'قیمت',
+      numeric: true,
+      sortable: true,
+      cell: (r: (typeof rows)[0]) => <Money rial={r.price} digits="latin" />,
+    },
+    {
+      key: 'status',
+      header: 'وضعیت',
+      cell: (r: (typeof rows)[0]) => <StatusBadge status={r.status} />,
+    },
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="DataTable"
+      note="در ۳۹۰ پیکسل ستون ثانویه حذف می‌شود؛ اسکرول افقی داخل جدول است نه صفحه."
+    >
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        caption="نمونه فهرست کالا"
+        search={{ value: search, onChange: setSearch, placeholder: 'نام یا IMEI…' }}
+        sort={{ key: sortKey, direction: 'asc', onChange: setSortKey }}
+      />
+
+      <p className="mt-8 text-sm text-muted-foreground">در حال بارگذاری:</p>
+      <div className="mt-3">
+        <DataTable columns={columns} rows={[]} rowKey={(r) => r.id} caption="نمونه" loading />
+      </div>
+
+      <p className="mt-8 text-sm text-muted-foreground">خالی، و «جستجوی بی‌نتیجه»:</p>
+      <div className="mt-3 space-y-4">
+        <DataTable columns={columns} rows={[]} rowKey={(r) => r.id} caption="خالی" />
+        <DataTable
+          columns={columns}
+          rows={[]}
+          rowKey={(r) => r.id}
+          caption="بی‌نتیجه"
+          search={{ value: 'گوشی نایاب', onChange: () => undefined }}
+        />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * PartyPicker & UnitPicker — the two lookups every document starts with.
+ *
+ * Both talk to a module endpoint in the product; here they are driven by fixtures, so
+ * the states that are hardest to reach against a real database — still loading, no
+ * results, request failed — can actually be reviewed.
+ *
+ * What to check: open each one (the panel only exists while open), then confirm the
+ * IMEI reads left-to-right inside the right-to-left row, the balance says
+ * بدهکار/بستانکار rather than carrying a minus sign, and the panel matches the trigger
+ * width at 390px instead of overflowing it.
+ */
+function PickerSection({ alt = false }: { alt?: boolean }) {
+  const PARTIES: PartyOption[] = [
+    {
+      id: 1,
+      name: 'محمدرضا کریمی‌نژاد',
+      company_name: 'موبایل کریمی',
+      kind: 'colleague',
+      kind_label: 'همکار',
+      mobile: '09121112233',
+      balance: { value: 128_500_000, formatted: '۱۲٬۸۵۰٬۰۰۰ تومان' },
+    },
+    {
+      id: 2,
+      name: 'سمیرا احمدی',
+      company_name: null,
+      kind: 'customer',
+      kind_label: 'مشتری',
+      mobile: '09351234567',
+      balance: { value: 0, formatted: '۰ تومان' },
+    },
+    {
+      id: 3,
+      name: 'پخش قطعات جنوب شرق تهران',
+      company_name: 'شرکت تجارت الکترونیک آریا',
+      kind: 'supplier',
+      kind_label: 'تأمین‌کننده',
+      mobile: '02133445566',
+      balance: { value: -46_200_000, formatted: '۴٬۶۲۰٬۰۰۰- تومان' },
+    },
+  ];
+
+  const UNITS: UnitOption[] = [
+    {
+      id: 11,
+      imei1: '356938035643809',
+      imei2: '356938035643817',
+      serial: null,
+      product_name: 'آیفون ۱۵ پرو مکس',
+      variant_name: 'تیتانیوم طبیعی · ۲۵۶ گیگ',
+      status: 'in_stock',
+      condition_label: 'نو',
+      grade: null,
+      warehouse_name: 'انبار فروشگاه مرکزی',
+      cost: { value: 780_000_000, formatted: '۷۸٬۰۰۰٬۰۰۰ تومان' },
+    },
+    {
+      id: 12,
+      imei1: '352099001761481',
+      imei2: null,
+      serial: null,
+      product_name: 'گلکسی S24 اولترا',
+      variant_name: 'مشکی · ۵۱۲ گیگ',
+      status: 'reserved',
+      condition_label: 'دست‌دوم',
+      grade: 'A',
+      warehouse_name: 'انبار شعبه ونک',
+      cost: { value: 412_000_000, formatted: '۴۱٬۲۰۰٬۰۰۰ تومان' },
+    },
+  ];
+
+  const [party, setParty] = useState<PartyOption | null>(null);
+  const [chosenParty, setChosenParty] = useState<PartyOption | null>(PARTIES[0] ?? null);
+  const [unit, setUnit] = useState<UnitOption | null>(null);
+  const [chosenUnit, setChosenUnit] = useState<UnitOption | null>(UNITS[0] ?? null);
+
+  /** Resolves after a beat, the way a real request does. */
+  const found = useCallback(
+    <TRow,>(rows: TRow[]) =>
+      () =>
+        new Promise<TRow[]>((resolve) => window.setTimeout(() => resolve(rows), 220)),
+    []
+  );
+
+  const parties = useMemo(() => found(PARTIES)(), [found]);
+  const partySearch = useCallback(() => parties, [parties]);
+  const unitsPromise = useMemo(() => found(UNITS)(), [found]);
+  const unitSearch = useCallback(() => unitsPromise, [unitsPromise]);
+  const noResults = useCallback(() => Promise.resolve([]), []);
+  // Never settles — the only honest way to hold a component in its loading state.
+  const pending = useCallback(() => new Promise<never[]>(() => undefined), []);
+  const failing = useCallback(() => Promise.reject(new Error('gallery fixture')), []);
+
+  return (
+    <Section
+      alt={alt}
+      title="PartyPicker / UnitPicker"
+      note="هر دو پیکر با داده نمونه کار می‌کنند. برای دیدن پنل، روی فیلد کلیک کنید. حالت‌های «در حال بارگذاری»، «بی‌نتیجه» و «خطا» هم اینجا ساخته شده‌اند."
+    >
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>انتخاب طرف حساب — خالی</Label>
+            <PartyPicker value={party} onChange={setParty} search={partySearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>انتخاب‌شده، با مانده حساب</Label>
+            <PartyPicker value={chosenParty} onChange={setChosenParty} search={partySearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>بدون دسترسی به مانده حساب</Label>
+            <PartyPicker
+              value={{ ...(PARTIES[1] as PartyOption), balance: null }}
+              onChange={() => undefined}
+              search={partySearch}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>خطای فرم</Label>
+            <PartyPicker value={null} onChange={() => undefined} invalid search={partySearch} />
+            <p className="text-sm text-danger">انتخاب طرف حساب برای فاکتور اعتباری الزامی است.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>غیرفعال</Label>
+            <PartyPicker
+              value={PARTIES[2] as PartyOption}
+              onChange={() => undefined}
+              disabled
+              search={partySearch}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>اسکن دستگاه — خالی</Label>
+            <UnitPicker value={unit} onChange={setUnit} search={unitSearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>انتخاب‌شده</Label>
+            <UnitPicker value={chosenUnit} onChange={setChosenUnit} search={unitSearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>خطای فرم</Label>
+            <UnitPicker value={null} onChange={() => undefined} invalid search={unitSearch} />
+            <p className="text-sm text-danger">این دستگاه پیش‌تر در فاکتور دیگری ثبت شده است.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>غیرفعال</Label>
+            <UnitPicker
+              value={UNITS[1] as UnitOption}
+              onChange={() => undefined}
+              disabled
+              search={unitSearch}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="space-y-2">
+          <Label>در حال بارگذاری</Label>
+          <PartyPicker value={null} onChange={() => undefined} search={pending} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>بی‌نتیجه</Label>
+          <UnitPicker value={null} onChange={() => undefined} search={noResults} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>خطای شبکه</Label>
+          <PartyPicker value={null} onChange={() => undefined} search={failing} />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * Pagination & ConfirmDialog — the two pieces every list screen needs.
+ *
+ * Pagination takes Laravel's `linkCollection()` verbatim. Check that the arrows point
+ * the RTL way (previous is on the right), that the current page is the only filled
+ * pill, and that a disabled arrow is visibly inert rather than merely unclickable.
+ *
+ * ConfirmDialog exists to enforce copy, not to look pretty: title names the thing,
+ * description says what happens to it, button carries the verb.
+ */
+function ConfirmAndPagingSection({ alt = false }: { alt?: boolean }) {
+  const links = (current: number, pages: number) => [
+    { url: current > 1 ? '#prev' : null, label: 'قبلی', active: false },
+    ...Array.from({ length: pages }, (_, index) => ({
+      url: `#page-${index + 1}`,
+      label: String(index + 1),
+      active: index + 1 === current,
+    })),
+    { url: current < pages ? '#next' : null, label: 'بعدی', active: false },
+  ];
+
+  const [open, setOpen] = useState(false);
+  const [openSafe, setOpenSafe] = useState(false);
+
+  return (
+    <Section
+      alt={alt}
+      title="Pagination / ConfirmDialog"
+      note="فلش «قبلی» در چیدمان راست‌به‌چپ سمت راست است. در حالت اول و آخر، فلش غیرفعال دیده می‌شود نه اینکه فقط کار نکند."
+    >
+      <Row label="صفحه اول">
+        <Pagination links={links(1, 5)} total={112} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="صفحه میانی">
+        <Pagination links={links(3, 5)} total={112} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="یک صفحه (بدون کنترل)">
+        <Pagination links={links(1, 1)} total={7} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="تأیید حذف">
+        <Button variant="destructive" onClick={() => setOpen(true)}>
+          حذف کالا
+        </Button>
+        <Button variant="outline" onClick={() => setOpenSafe(true)}>
+          اقدام غیرمخرب
+        </Button>
+
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="حذف «آیفون ۱۵ پرو»"
+          description="این کالا از فهرست و از فروش خارج می‌شود. فاکتورها، گردش انبار و دستگاه‌های ثبت‌شده حذف نمی‌شوند."
+          confirmLabel="حذف کالا"
+          onConfirm={() => setOpen(false)}
+        />
+
+        <ConfirmDialog
+          open={openSafe}
+          onOpenChange={setOpenSafe}
+          destructive={false}
+          title="ارسال دوباره دعوت‌نامه"
+          description="یک پیامک تازه با لینک جدید برای همان شماره فرستاده می‌شود و لینک قبلی باطل می‌گردد."
+          confirmLabel="ارسال دوباره"
+          onConfirm={() => setOpenSafe(false)}
+        />
+      </Row>
+    </Section>
+  );
+}
+
+/**
+ * PrintLayout — the three papers the system owns.
+ *
+ * Each sheet is shown at its real width, because that is the point: what is on screen
+ * is what comes out of the printer. Only ONE of these may be on a real page —
+ * `@page` is a document-level rule and cannot be scoped — so the gallery is the only
+ * place all three appear together, and the size rule here is deliberately not applied.
+ *
+ * What to review: ink on white regardless of theme, RTL preserved on paper, and the
+ * 80mm receipt legible at its true width rather than scaled down to fit.
+ */
+function PrintSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="PrintLayout"
+      note="کاغذ همیشه سفید است، حتی وقتی برنامه در حالت تیره باز شده باشد. عرض‌ها واقعی‌اند: ۸۰ میلی‌متر، A5 و A4."
+    >
+      <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
+        <div className="w-[80mm] max-w-full border border-border bg-white p-4 text-black">
+          <p className="text-center text-sm font-bold">فروشگاه موبایل نمونه</p>
+          <p className="mt-1 text-center text-2xs">۸۰ میلی‌متر — رسید حرارتی</p>
+          <div className="my-3 border-t border-dashed border-black/30" />
+          <div className="space-y-1 text-2xs">
+            <div className="flex justify-between">
+              <span>آیفون ۱۵ پرو ۲۵۶</span>
+              <span className="tabular">۸۹٬۰۰۰٬۰۰۰</span>
+            </div>
+            <div className="flex justify-between">
+              <span>قاب محافظ</span>
+              <span className="tabular">۴۵۰٬۰۰۰</span>
+            </div>
+          </div>
+          <div className="my-3 border-t border-dashed border-black/30" />
+          <div className="flex justify-between text-xs font-bold">
+            <span>جمع کل</span>
+            <span className="tabular">۸۹٬۴۵۰٬۰۰۰ تومان</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="w-[148mm] max-w-full border border-border bg-white p-6 text-black">
+            <p className="text-sm font-bold">A5 — فاکتور نصف‌برگی</p>
+            <p className="mt-1 text-2xs text-black/60">
+              همان فاکتوری که بیشتر مغازه‌ها واقعاً دست مشتری می‌دهند.
+            </p>
+          </div>
+
+          <div className="w-full border border-border bg-white p-6 text-black">
+            <p className="text-sm font-bold">A4 — فاکتور رسمی و برگه برچسب</p>
+            <p className="mt-1 text-2xs text-black/60">
+              برگه برچسب هم روی همین کاغذ چاپ می‌شود؛ اندازه هر برچسب به میلی‌متر تعیین می‌شود.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-[2mm]">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex h-[25mm] w-[38mm] flex-col justify-between border border-black/15 p-[1.5mm]"
+                >
+                  <p className="text-[6pt] leading-tight">قاب محافظ شفاف</p>
+                  <div className="h-[8mm] bg-[repeating-linear-gradient(90deg,#000_0_1px,transparent_1px_3px)]" />
+                  <div className="flex items-end justify-between">
+                    <span className="ltr-value text-[5pt] tabular" dir="ltr">
+                      6260000000019
+                    </span>
+                    <span className="rounded-[1mm] bg-label px-[1mm] text-[8pt] font-bold tabular">
+                      ۴۵۰٬۰۰۰
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </Section>
   );

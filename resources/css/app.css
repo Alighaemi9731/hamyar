@@ -16,6 +16,10 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../../app/Modules/**/resources/views/**/*.blade.php';
+/* Module-owned Inertia pages (`Catalog::Products/Index`). Without this line their
+   classes are simply absent from the stylesheet — the page renders unstyled and
+   nothing errors, which is the worst way for a build step to fail. */
+@source '../../app/Modules/**/resources/js/**/*.{ts,tsx}';
 @source '../**/*.blade.php';
 @source '../**/*.{js,jsx,ts,tsx}';
 
@@ -485,10 +489,27 @@
     animation-delay: 180ms;
   }
 
-  /* Print: the design system owns print, not page-local @media print hacks. */
+  /* Print: the design system owns print, not page-local @media print hacks.
+     Paper rules live here and in `PrintLayout`; no feature page writes its own. */
   @media print {
     .no-print {
       display: none !important;
+    }
+
+    /* Ink on white, whatever theme the shop happens to be working in. A dark-mode
+       receipt prints as a black rectangle and empties a toner cartridge. */
+    html,
+    body {
+      background: #fff !important;
+      color: #000 !important;
+    }
+
+    /* The shell's content column is a screen concern: its max-width and padding
+       would shrink an A4 sheet to the middle of the page. */
+    [data-print-root] {
+      max-width: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
     }
   }
 }

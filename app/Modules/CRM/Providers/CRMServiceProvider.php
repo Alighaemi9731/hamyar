@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\Modules\CRM\Providers;
 
 use App\Modules\CRM\Listeners\CreateDefaultAccount;
+use App\Modules\CRM\Models\Party;
+use App\Modules\CRM\Policies\PartyPolicy;
 use App\Modules\Platform\Events\TenantProvisioned;
+use App\Support\Documents\DocumentReference;
+use App\Support\Documents\DocumentRegistry;
+use App\Support\Documents\DocumentType;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * CRM module.
@@ -30,6 +36,22 @@ final class CRMServiceProvider extends ModuleServiceProvider
     public function boot(): void
     {
         parent::boot();
+
+        Gate::policy(Party::class, PartyPolicy::class);
+
+        // Registered under a short key rather than the class name: `product_units`
+        // carries a plain `acquired_from_party_id`, not a morph pair, so the screen
+        // asking for it knows it wants a party but must not know what class that is.
+        $this->app->make(DocumentRegistry::class)->register(
+            DocumentType::PARTY,
+            static fn (array $ids): array => Party::query()
+                ->whereKey($ids)
+                ->get(['id', 'name'])
+                ->mapWithKeys(fn (Party $party): array => [
+                    $party->id => new DocumentReference($party->name),
+                ])
+                ->all()
+        );
 
         Event::listen(TenantProvisioned::class, CreateDefaultAccount::class);
     }

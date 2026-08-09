@@ -66,6 +66,46 @@ final class PriceResolver
     }
 
     /**
+     * The whole price grid for a page of variants, in one query.
+     *
+     * `[variantId][levelId] => rial`. Absent keys mean "no price at this level", which
+     * the grid shows as an empty cell — distinct from a price of zero, which is a
+     * decision someone made.
+     *
+     * No fallback to the default level here, deliberately: the grid is where prices are
+     * *edited*, and showing the consumer price in the همکار column would have an
+     * operator "confirm" a reseller rate that was never entered.
+     *
+     * @param  list<int>  $variantIds
+     * @return array<int, array<int, int>>
+     */
+    public function currentForMany(array $variantIds, ?CarbonImmutable $at = null): array
+    {
+        if ($variantIds === []) {
+            return [];
+        }
+
+        $at ??= CarbonImmutable::now();
+
+        $rows = ProductPrice::query()
+            ->whereIn('product_variant_id', $variantIds)
+            ->where('effective_from', '<=', $at)
+            // Newest first per (variant, level); the first row seen for a pair wins,
+            // which is the same rule `newestEffective()` applies one row at a time.
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get();
+
+        $grid = [];
+
+        foreach ($rows as $row) {
+            $grid[$row->product_variant_id][$row->price_level_id] ??= $row->price;
+        }
+
+        return $grid;
+    }
+
+    /**
      * Record a new price. Never updates an existing row — see {@see ProductPrice}.
      */
     public function setPrice(int $variantId, int $priceLevelId, int $rial, ?CarbonImmutable $from = null): ProductPrice

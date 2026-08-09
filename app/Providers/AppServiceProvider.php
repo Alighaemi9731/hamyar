@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Support\Documents\DocumentRegistry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -17,7 +18,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Shared kernel, not a module: modules register describers for their own
+        // documents here, and screens that must name another module's document read
+        // from it — so neither side imports the other (ADR 0003).
+        $this->app->singleton(DocumentRegistry::class);
     }
 
     public function boot(): void
