@@ -36,6 +36,7 @@ final class Account extends Model
 
     /** @use HasFactory<\Database\Factories\AccountFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     public const TYPE_CASH = 'cash';
@@ -44,6 +45,16 @@ final class Account extends Model
 
     /** کارتخوان — a card reader settles to a bank account, usually next day. */
     public const TYPE_POS_TERMINAL = 'pos_terminal';
+
+    /**
+     * The value of goods on the shelf.
+     *
+     * Not somewhere money sits, but somewhere value does — receiving stock has to debit
+     * *something*, and without this the entry would have to net against the supplier and
+     * record nothing. A placeholder for the real chart of accounts in Phase 7, kept
+     * deliberately singular so it cannot be mistaken for one.
+     */
+    public const TYPE_INVENTORY = 'inventory';
 
     protected $fillable = [
         'tenant_id', 'branch_id', 'name', 'type', 'bank_name', 'account_number',

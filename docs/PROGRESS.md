@@ -163,4 +163,17 @@ is written in English but the business calendar is Jalali.
   The statement's closing figure is asserted to equal `partyBalance()`; a statement whose
   total disagrees with the balance shown elsewhere is worse than no statement.
   `product_units.acquired_from_party_id` finally got its FK, closing the gap opened in 3.3.
+- **2026-08-09** — Phase 3.5 purchasing. 392 tests green.
+  Caught myself writing a supplier ledger posting that debited and credited the *same
+  party* for the same amount — it balances, passes every constraint, and records nothing.
+  The worst kind of wrong, because the books look fine. Added an `inventory` account type
+  so received stock debits something real, and `ReceivePurchaseInvoice` now refuses to
+  post at all if that account is missing rather than falling back to a no-op.
+  Receiving is one transaction: allocate landed costs, write stock movements, create
+  units with the first line of their passport, credit the supplier. A test forces a
+  failure partway through and asserts nothing survives — stock without a payable is the
+  discrepancy the transaction exists to prevent.
+  Landed-cost remainders go to the largest line so the allocation sums to the charge
+  exactly; dropping them would leave the books a few rial short per invoice, which
+  accumulates into a discrepancy nobody can explain.
 

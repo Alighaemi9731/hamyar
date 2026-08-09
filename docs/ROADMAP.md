@@ -348,11 +348,22 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 > Rationale: a half-built table extended by four phases accumulates migrations and
 > assumptions that nobody revisits; the FK either exists or the intake screen cannot
 > record who a phone was bought from, which is half the IMEI passport.
-- [ ] Suppliers as parties (requires 4.1)
-- [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
-- [ ] Landed cost allocation into unit cost
-- [ ] Purchase returns
-- [ ] GRN print
+- [x] Suppliers as parties (4.1 landed first, per the reorder)
+- [x] Purchase invoices: draft until received. Standard lines and serialized lines are
+      separate tables — a standard line has a quantity, a serialized line has N handsets
+      each with its own IMEI and cost
+- [x] `ImeiBatchParser`: paste or scan, any separator, Persian digits, Luhn-checked, with
+      a per-line verdict (accepted / invalid / duplicate-in-batch / already-exists with a
+      link to the device). Nothing commits until the batch is clean or rows are skipped
+- [x] `LandedCostAllocator`: by value or by quantity, remainder to the largest line so
+      the allocation sums to the charge **exactly**; per-unit split for serialized lines
+- [x] `ReceivePurchaseInvoice`: one transaction that allocates costs, writes stock
+      movements, creates `product_units` with the first line of their passport, and
+      credits the supplier. Refuses a second receipt
+- [x] An `inventory` account so received stock debits something real — without it the
+      entry would net the supplier against itself and record nothing
+- [ ] Purchase returns — tables exist; the flow lands with the UI pass
+- [ ] GRN print — lands with the UI pass
 
 ### 3.6 Movement operations
 - [ ] Transfers between warehouses/branches — dispatch + receive confirmation
