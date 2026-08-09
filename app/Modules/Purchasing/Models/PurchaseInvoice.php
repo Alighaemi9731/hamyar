@@ -37,6 +37,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $landed_total
  * @property int $total
  * @property string|null $notes
+ * @property-read Warehouse $warehouse
+ * @property-read Branch $branch
  */
 final class PurchaseInvoice extends Model
 {

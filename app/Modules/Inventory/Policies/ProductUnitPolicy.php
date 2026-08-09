@@ -31,4 +31,22 @@ final class ProductUnitPolicy
     {
         return $actor->can('inventory.view_cost');
     }
+
+    /**
+     * Moving stock between warehouses. Separate from `adjust`: a transfer conserves
+     * total stock, an adjustment creates or destroys it, and shops trust those two
+     * acts to very different people.
+     */
+    public function transfer(User $actor): bool
+    {
+        return $actor->can('inventory.transfer');
+    }
+
+    /**
+     * Counting, and writing the difference the count found.
+     */
+    public function adjust(User $actor): bool
+    {
+        return $actor->can('inventory.adjust');
+    }
 }

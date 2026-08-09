@@ -15,6 +15,7 @@ use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyContact;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Enums\UnitStatus;
+use App\Modules\Inventory\Models\Branch;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\UnitStateMachine;
@@ -56,6 +57,7 @@ class DemoShopSeeder extends Seeder
             // trail.
             auth()->setUser($owner);
 
+            $this->seedSecondBranch();
             $this->seedTree();
             $this->seedParties();
             $this->seedShipment();
@@ -63,6 +65,39 @@ class DemoShopSeeder extends Seeder
         });
 
         app(TenantContext::class)->forget();
+    }
+
+    /**
+     * A second shop, so the demo has somewhere to transfer stock *to*.
+     *
+     * Provisioning gives every new tenant one branch and one warehouse, which is right
+     * for a real signup and useless for demonstrating a حواله: a transfer needs two
+     * locations, and with one the screen can only explain what it would do.
+     */
+    private function seedSecondBranch(): void
+    {
+        if (Branch::query()->count() > 1) {
+            return;
+        }
+
+        $branch = Branch::query()->create([
+            'name' => 'شعبه ونک',
+            'code' => 'VNK',
+            'phone' => '02188889999',
+            'address' => 'تهران، میدان ونک، خیابان ولیعصر',
+            'is_default' => false,
+            'is_active' => true,
+        ]);
+
+        Warehouse::query()->create([
+            'branch_id' => $branch->id,
+            'name' => 'انبار شعبه ونک',
+            'is_sellable' => true,
+            // The partial unique index allows one default per branch, and this is the
+            // only warehouse of its own branch.
+            'is_default' => true,
+            'is_active' => true,
+        ]);
     }
 
     private function seedTree(): void

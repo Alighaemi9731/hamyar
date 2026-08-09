@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Purchasing\Providers;
 
 use App\Modules\Purchasing\Models\PurchaseInvoice;
+use App\Modules\Purchasing\Policies\PurchaseInvoicePolicy;
 use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Purchasing module.
@@ -30,6 +32,8 @@ final class PurchasingServiceProvider extends ModuleServiceProvider
     public function boot(): void
     {
         parent::boot();
+
+        Gate::policy(PurchaseInvoice::class, PurchaseInvoicePolicy::class);
 
         // How a purchase invoice names itself when it appears on someone else's
         // screen — most importantly as the first line of an IMEI passport, which is

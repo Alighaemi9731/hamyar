@@ -26,6 +26,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $dispatched_at
  * @property CarbonImmutable|null $received_at
  * @property string|null $notes
+ * @property-read Warehouse $fromWarehouse
+ * @property-read Warehouse $toWarehouse
  */
 final class StockTransfer extends Model
 {

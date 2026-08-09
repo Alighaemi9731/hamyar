@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Inventory\Http\Controllers\StockController;
+use App\Modules\Inventory\Http\Controllers\StockCountController;
+use App\Modules\Inventory\Http\Controllers\TransferController;
 use App\Modules\Inventory\Http\Controllers\UnitController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,4 +37,34 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:inventory'])
         Route::get('/units', [UnitController::class, 'index'])->name('units.index');
         Route::get('/units/{unit}', [UnitController::class, 'show'])
             ->whereNumber('unit')->name('units.show');
+
+        /* --------------------------------------------------------- transfers -- */
+
+        Route::get('/transfers', [TransferController::class, 'index'])->name('transfers.index');
+        Route::post('/transfers', [TransferController::class, 'store'])->name('transfers.store');
+        Route::get('/transfers/{transfer}', [TransferController::class, 'show'])
+            ->whereNumber('transfer')->name('transfers.show');
+        Route::post('/transfers/{transfer}/lines', [TransferController::class, 'storeLine'])
+            ->whereNumber('transfer')->name('transfers.lines.store');
+        Route::delete('/transfers/{transfer}/lines/{item}', [TransferController::class, 'destroyLine'])
+            ->whereNumber('transfer')->whereNumber('item')->name('transfers.lines.destroy');
+        Route::post('/transfers/{transfer}/dispatch', [TransferController::class, 'dispatch'])
+            ->whereNumber('transfer')->name('transfers.dispatch');
+        Route::post('/transfers/{transfer}/receive', [TransferController::class, 'receive'])
+            ->whereNumber('transfer')->name('transfers.receive');
+
+        /* ------------------------------------------------------------ counts -- */
+
+        Route::get('/counts', [StockCountController::class, 'index'])->name('counts.index');
+        Route::post('/counts', [StockCountController::class, 'store'])->name('counts.store');
+        Route::get('/counts/{count}', [StockCountController::class, 'show'])
+            ->whereNumber('count')->name('counts.show');
+        Route::post('/counts/{count}/lines', [StockCountController::class, 'storeLine'])
+            ->whereNumber('count')->name('counts.lines.store');
+        Route::post('/counts/{count}/fill', [StockCountController::class, 'fill'])
+            ->whereNumber('count')->name('counts.fill');
+        Route::put('/counts/{count}/counted', [StockCountController::class, 'count'])
+            ->whereNumber('count')->name('counts.counted');
+        Route::post('/counts/{count}/apply', [StockCountController::class, 'apply'])
+            ->whereNumber('count')->name('counts.apply');
     });
