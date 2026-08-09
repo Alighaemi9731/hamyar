@@ -312,16 +312,29 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       alerts screen lands with the Phase 3 UI pass
 - [ ] Dead-stock report base — Phase 9 (Reporting)
 
+### 4.1 Parties — **moved ahead of 3.5** (see the note there)
+- [ ] Unified `parties` (kind: customer/supplier/colleague/both)
+- [ ] Multiple contacts, addresses, Jalali birthday
+- [ ] Tags/groups, credit limit, opening balance
+- [ ] FK from `product_units.acquired_from_party_id`, which has been waiting since 3.3
+
+### 4.2 Ledger engine — **moved ahead of 3.5**
+- [ ] `ledger_entries` (party & account dimensions, debit/credit, polymorphic ref)
+- [ ] Minimal `accounts` table + one default cash account (full Treasury lands in Phase 7)
+- [ ] Party statement page with running balance
+- [ ] Receive/pay quick-forms posting to accounts
+
 ### 3.5 Purchasing
-> **Ordering dependency.** "Suppliers as parties" needs the `parties` table, which this
-> roadmap creates in **Phase 4.1**. `product_units.acquired_from_party_id` is already in
-> place as an unconstrained bigint awaiting that FK. Two ways forward, and it is a
-> judgement call worth making deliberately rather than improvising:
-> **(a)** land a minimal `parties` table in CRM now and let Phase 4 extend it, or
-> **(b)** run Phase 4.1–4.2 before 3.5 and keep purchasing whole.
-> (b) is cleaner — a half-built party gets extended by four later phases — but it
-> reorders the roadmap, so it should be a conscious choice.
-- [ ] Suppliers as parties
+> **⚠️ RUN 4.1–4.2 FIRST — reorder approved 2026-08-09.**
+> Purchasing needs suppliers, suppliers are parties, and `parties` is created in
+> **Phase 4.1**. Rather than land a minimal `parties` table here and let four later
+> phases extend it, Phase 4.1 (parties) and 4.2 (ledger engine) run before this section
+> and Purchasing is then built whole. `product_units.acquired_from_party_id` gets its FK
+> as part of 4.1. Everything else in Phase 4 keeps its original slot.
+> Rationale: a half-built table extended by four phases accumulates migrations and
+> assumptions that nobody revisits; the FK either exists or the intake screen cannot
+> record who a phone was bought from, which is half the IMEI passport.
+- [ ] Suppliers as parties (requires 4.1)
 - [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
 - [ ] Landed cost allocation into unit cost
 - [ ] Purchase returns
@@ -343,23 +356,29 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] Purchase cost maths including landed costs
 - [ ] Cross-tenant isolation for every new endpoint
 
+### 3.9 UI pass — one coherent pass, after 4.1–4.2 and 3.5
+Built together rather than piecemeal, so the screens share components instead of
+converging on them later.
+- [ ] Category tree
+- [ ] Product editor with the variant matrix
+- [ ] Price-level grid + bulk update with preview
+- [ ] **IMEI passport page** — the product's signature screen
+- [ ] Stock views + low-stock alerts
+- [ ] Label printing (price/barcode, single + batch)
+- [ ] Every screen built from `/design` gallery components (golden rule 9)
+- [ ] Verified with Playwright at 390 and 1280, light and dark, RTL
+
 ### Phase 3 — Definition of Done
 - [ ] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B → count stock, and every number reconciles with movements
+- [ ] The 3.9 screens exist, are built from gallery components, and have been verified in
+      a real browser at both breakpoints in both themes
 
 ---
 
 ## Phase 4 — Parties CRM (Customers & Suppliers)
 
-### 4.1 Parties
-- [ ] Unified `parties` (kind: customer/supplier/colleague/both)
-- [ ] Multiple contacts, addresses, Jalali birthday
-- [ ] Tags/groups, credit limit, opening balance
-
-### 4.2 Ledger engine
-- [ ] `ledger_entries` (party & account dimensions, debit/credit, polymorphic ref)
-- [ ] Minimal `accounts` table + one default cash account (full Treasury lands in Phase 7)
-- [ ] Party statement page with running balance
-- [ ] Receive/pay quick-forms posting to accounts
+### 4.1 Parties — **relocated to Phase 3, ahead of 3.5** (reorder approved 2026-08-09)
+### 4.2 Ledger engine — **relocated to Phase 3, ahead of 3.5**
 
 ### 4.3 Engagement
 - [ ] 360° timeline component (sales, repairs, sms, payments, notes)

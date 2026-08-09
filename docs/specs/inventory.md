@@ -43,6 +43,34 @@ floor, back room, repair bench).
 
 Media attached via [Files](files.md): seller ID scan, consent form, device photos.
 
+#### IMEI uniqueness — indexes are not enough
+
+Uniqueness is **per tenant** (the same handset legitimately moves between shops) and is
+enforced by three things, because the first two miss a case that matters:
+
+1. A partial unique index on `(tenant_id, imei1)`.
+2. A partial unique index on `(tenant_id, imei2)`.
+3. **A `before insert or update` trigger, `product_units_imei_unique`.**
+
+The trigger exists because the two indexes only stop a number repeating *within the same
+column*. A dual-SIM phone's `imei2` could still be registered as a different device's
+`imei1` — the same physical handset entered twice, which is precisely what the passport
+must never allow. Postgres cannot express "unique across two columns of one table" as an
+index, so the trigger checks `new.imei1` and `new.imei2` against both columns of every
+other live row for that tenant and raises `unique_violation`.
+
+All three are partial on live rows (`deleted_at is null`), so a soft-deleted write-off
+does not block re-registering the same handset if it comes back through the door.
+
+Values are normalised to 15 Latin digits before storage (`App\Support\Imei`), because
+Iranian staff type on Persian keyboards — without it, `۳۵۲۰۹۹…` and `352099…` are
+different devices to the index and to every later lookup.
+
+> Tests: `app/Modules/Inventory/tests/Feature/SerializedUnitTest.php` —
+> *"it refuses an IMEI already registered as another device second SIM"* covers the
+> cross-column case specifically, alongside same-column, cross-tenant and
+> soft-delete-frees-the-number.
+
 ### `product_unit_histories`
 
 Every state transition: `from_status`, `to_status`, `actor_id`, `reference_type`,

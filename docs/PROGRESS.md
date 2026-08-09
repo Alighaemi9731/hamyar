@@ -138,4 +138,17 @@ is written in English but the business calendar is Jalali.
   the service and a CHECK constraint reject zero-quantity movements; transfers write two
   rows so each side's ledger explains its own change; counts record the difference rather
   than overwriting a total.
+- **2026-08-09** — **Roadmap reordered (owner-approved).** Phase 4.1 (parties) and 4.2
+  (ledger engine) now run *before* 3.5 (Purchasing); the rest of Phase 4 keeps its
+  original slot. Reason: purchasing needs suppliers, suppliers are parties, and the
+  alternative was a minimal `parties` table that four later phases would extend — which
+  accumulates migrations and assumptions nobody revisits. `product_units
+  .acquired_from_party_id` has been an unconstrained bigint since 3.3 and gets its FK in
+  4.1. Recorded in ROADMAP.md at both the new and the vacated positions.
+  Also settled: Phase 3's UI screens are built as one coherent pass after 4.1–4.2 + 3.5,
+  and Phase 3 is not Definition-of-Done until they exist, are built from `/design`
+  gallery components, and have been verified in a real browser at 390/1280 in light and
+  dark — the IMEI passport page especially, as the product's signature screen.
+  The cross-column IMEI trigger is now documented in docs/specs/inventory.md with a
+  pointer to the test that covers it.
 
