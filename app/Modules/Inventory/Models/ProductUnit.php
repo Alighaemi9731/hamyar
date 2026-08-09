@@ -53,6 +53,7 @@ final class ProductUnit extends Model
 
     /** @use HasFactory<\Database\Factories\ProductUnitFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     public const HAMTA_NOT_REQUIRED = 'not_required';

@@ -31,6 +31,7 @@ final class Category extends Model
 
     /** @use HasFactory<\Database\Factories\CategoryFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     protected $fillable = ['tenant_id', 'parent_id', 'name', 'slug', 'position'];
