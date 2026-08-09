@@ -205,3 +205,64 @@ is written in English but the business calendar is Jalali.
   validity ignored it. A syntactically perfect IMEI can still be rejected for already
   being registered; the error now outranks it.
 
+- **2026-08-09** — Phase 3.9b: `PartyPicker` and `UnitPicker`, with the two lookup
+  endpoints behind them, on the gallery with their full state matrices. Both take an
+  injectable search function so the gallery can show what a live database will not
+  reliably produce — still loading, no results, request failed. The party balance rides
+  along with the name (choosing a party is the moment someone needs to know what they
+  owe) and is withheld entirely, not nulled, without `crm.view_balance`. `UnitPicker` is
+  a scan box rather than a dropdown: a complete 15-digit IMEI with one match selects
+  itself and focus never leaves the field. `LedgerService::partyBalances()` was added for
+  the same reason `StockLedger::onHandForMany()` exists — twelve rows were twelve
+  aggregates per keystroke. Found on the way: the shared `MoneyValue` type declared
+  `{amount, formatted}` while `Money::toArray()` has always sent `{value, formatted}`;
+  pages had been working around it with local interfaces.
+- **2026-08-09** — Phase 3.9c: catalogue screens — category tree, product editor with
+  the variant matrix, price grid with a preview-then-apply bulk tool. Two tree guards an
+  adjacency list will not give you: a move that would make a node its own descendant is
+  refused (a cycle does not error, it silently removes the subtree and every product
+  filed under it), and deleting a node with children is refused rather than cascaded.
+  Slugs are generated with a null language so `Str::slug` does not transliterate Persian
+  to an empty string and collide every category with every other. The matrix axes are
+  re-derived from the existing variants rather than stored — the variants are the truth.
+  Money crosses the wire as `{amount, unit}` so the toman→rial conversion happens once,
+  on the server. These are the first **module-owned Inertia pages**, which needed three
+  pieces of wiring that had never been exercised: a tsconfig include, a Tailwind
+  `@source` line (without it the classes are simply absent and the page renders unstyled
+  with no error), and an Inertia page namespace for the test helper — its finder is a
+  `FileViewFinder`, so `Catalog::Products/Index` is a namespace hint and unregistered it
+  reported every module page as missing.
+- **2026-08-09** — Phase 3.9d: the **IMEI passport**. Nothing in the timeline truncates
+  (a long supplier name wraps to three lines rather than hiding the fact the line exists
+  to record), and events group by Jalali day in Tehran time so seventeen entries read as
+  a story instead of a log. Each line is named in the words a shop uses — «از تعمیر
+  برگشت و موجود شد», not «در تعمیر ← موجود». Decision: `App\Support\Documents\DocumentRegistry`
+  in the shared kernel, because every passport line points at a document owned by another
+  module and Inventory may not import Purchasing or CRM (ADR 0003). Resolvers take a
+  list, never one id — a device transferred five times must describe five transfers in
+  one query, so the longest passports are not the slowest. Sales and Repairs will each be
+  a five-line registration.
+- **2026-08-09** — Phase 3.9e: stock views, low-stock alerts and label printing.
+  Quantity comes from **two** ledgers and they must never be added: a standard product is
+  a SUM over `stock_movements`, a serialized one is a COUNT of `product_units`, because
+  receiving a phone deliberately writes no movement. Low stock is opt-in (only products
+  whose owner set a threshold) and separates "out" from "low" — one costs a sale today,
+  the other is a purchase order this week. `PrintLayout` owns the three papers and the
+  sheet on screen IS the sheet that prints; `@page` cannot be scoped to an element, so
+  each layout is a whole page and emits its own size rule. Barcodes render server-side as
+  Code 128 (Iranian shops mix EANs, their own numbers and supplier codes; a label that
+  cannot be printed is the worse failure). Adds `picqer/php-barcode-generator`, which
+  CLAUDE.md already named as part of the locked stack.
+- **2026-08-09** — Phase 3.9f: browser pass over all ten screens at 390 and 1280, light
+  and dark, RTL, zero horizontal overflow anywhere and no console errors. It earned its
+  place again — three defects no test would have caught: the price grid rendered
+  `82000000` unformatted in a cell whose entire job is being read; the passport spent its
+  most prominent line repeating the model name that was already the page heading, when
+  the IMEI is what every party to a device identifies it by; and the category tree showed
+  four permanently-red bin icons, making deletion the loudest thing on a filing screen.
+  Also added `DemoShopSeeder`, which builds the demo shop by driving the real services —
+  the purchase is *received* through `ReceivePurchaseInvoice`, so landed costs, stock
+  movements, the supplier credit and the passports are all genuine. Writing it exposed a
+  latent bug: `DatabaseSeeder` used `WithoutModelEvents`, which mutes the `creating` hook
+  that fills `tenant_id`, so every tenant-scoped insert would have been rejected by its
+  own RLS policy. Nothing caught it while the seeder only created central rows.

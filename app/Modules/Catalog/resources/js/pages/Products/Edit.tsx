@@ -406,8 +406,15 @@ function AxisRow({
         />
       </div>
 
-      <Button type="button" variant="ghost" size="icon" aria-label="حذف ویژگی" onClick={onRemove}>
-        <Trash2Icon className="size-4 text-destructive" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="حذف ویژگی"
+        className="group"
+        onClick={onRemove}
+      >
+        <Trash2Icon className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
       </Button>
     </div>
   );

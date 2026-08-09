@@ -118,26 +118,42 @@ export default function UnitPassport({ unit, timeline, can }: Props) {
 /* --------------------------------------------------------------- identity -- */
 
 /**
- * The device, said once and said big.
+ * The device, identified once and identified big.
  *
- * The IMEI is the headline because it is what everyone — the customer, HAMTA, the
- * warranty claim, the police report — identifies the device by. It renders LTR and
- * tabular at a size that can be read across a counter, and it can be copied without
- * being retyped, because retyping fifteen digits is where transcription errors come
- * from.
+ * The IMEI is the headline, not the model name. Everyone who ever asks about this
+ * device — the customer, HAMTA, a warranty claim, a police report — identifies it by
+ * that number, and the model name is already the page heading; repeating it here would
+ * spend the most prominent line on something the reader just read.
+ *
+ * It renders LTR and tabular at a size that can be read across a counter, and it can
+ * be copied without being retyped, because retyping fifteen digits is where
+ * transcription errors come from.
  */
 function Identity({ unit }: { unit: Unit }) {
-  const code = unit.imei1 ?? unit.serial;
+  // Some devices genuinely have no IMEI — smartwatches, some tablets — and then the
+  // serial is what identifies them, so it takes the headline instead.
+  const headline = unit.imei1 ?? unit.serial;
+  const headlineLabel = unit.imei1 === null ? 'شماره سریال' : 'شماره IMEI';
 
   return (
     <section className="rounded-card border border-border bg-card p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 space-y-1">
-          <p className="flex flex-wrap items-center gap-2">
-            <SmartphoneIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="font-display text-lg font-bold break-words">{unit.product_name}</span>
+          <p className="text-2xs text-muted-foreground">{headlineLabel}</p>
+
+          {headline === null ? (
+            <p className="text-lg font-semibold text-warning">بدون شناسه</p>
+          ) : (
+            <p className="flex flex-wrap items-center gap-1">
+              <Num value={headline} variant="ltr" className="text-lg font-semibold" />
+              <CopyButton label={headlineLabel} value={headline} />
+            </p>
+          )}
+
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <SmartphoneIcon className="size-4 shrink-0" aria-hidden />
+            <span className="break-words">{unit.variant_name}</span>
           </p>
-          <p className="text-sm text-muted-foreground break-words">{unit.variant_name}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -147,9 +163,8 @@ function Identity({ unit }: { unit: Unit }) {
       </div>
 
       <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CodeField label="IMEI ۱" value={unit.imei1} copyable />
+        {unit.imei1 !== null && <CodeField label="شماره سریال" value={unit.serial} />}
         <CodeField label="IMEI ۲" value={unit.imei2} copyable />
-        <CodeField label="شماره سریال" value={unit.serial} copyable />
         <div className="space-y-1">
           <dt className="text-2xs text-muted-foreground">وضعیت ظاهری</dt>
           <dd className="text-sm">
@@ -164,7 +179,7 @@ function Identity({ unit }: { unit: Unit }) {
         </div>
       </dl>
 
-      {code === null && (
+      {headline === null && (
         <p className="mt-4 text-xs text-warning">
           این دستگاه نه IMEI دارد نه شماره سریال؛ ردیابی آن فقط از روی همین صفحه ممکن است.
         </p>
@@ -182,8 +197,6 @@ function CodeField({
   value: string | null;
   copyable?: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
-
   if (value === null || value === '') {
     return (
       <div className="space-y-1">
@@ -198,26 +211,34 @@ function CodeField({
       <dt className="text-2xs text-muted-foreground">{label}</dt>
       <dd className="flex items-center gap-1">
         <Num value={value} variant="ltr" className="text-sm" />
-        {copyable && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`کپی ${label}`}
-            onClick={() => {
-              void navigator.clipboard?.writeText(value);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1500);
-            }}
-          >
-            {copied ? (
-              <CheckIcon className="size-3.5 text-success" />
-            ) : (
-              <CopyIcon className="size-3.5" />
-            )}
-          </Button>
-        )}
+        {copyable && <CopyButton label={label} value={value} />}
       </dd>
     </div>
+  );
+}
+
+/**
+ * Copy a code to the clipboard, and say so.
+ *
+ * The tick is the whole point: a copy button with no feedback gets pressed three times
+ * because nobody can tell whether it worked.
+ */
+function CopyButton({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={`کپی ${label}`}
+      onClick={() => {
+        void navigator.clipboard?.writeText(value);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <CheckIcon className="size-3.5 text-success" /> : <CopyIcon className="size-3.5" />}
+    </Button>
   );
 }
 

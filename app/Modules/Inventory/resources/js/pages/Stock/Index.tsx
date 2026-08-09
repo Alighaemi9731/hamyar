@@ -122,7 +122,10 @@ export default function StockIndex({ rows, summary, filters, warehouses }: Props
           className={cn(
             'font-medium',
             row.on_hand <= 0 && 'text-danger',
-            row.threshold !== null && row.on_hand > 0 && row.on_hand <= row.threshold && 'text-warning'
+            row.threshold !== null &&
+              row.on_hand > 0 &&
+              row.on_hand <= row.threshold &&
+              'text-warning'
           )}
         >
           <Num value={row.on_hand} variant="table" />

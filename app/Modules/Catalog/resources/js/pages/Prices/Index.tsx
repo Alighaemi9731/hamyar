@@ -242,8 +242,14 @@ function PriceCell({
   const settings = useTenantSettings();
   const unit = settings.currency_display;
 
+  // Grouped, because these are nine-digit figures: `82000000` in a cell is a number
+  // nobody can read at a glance, and reading it is the whole job of this grid. Typing
+  // is unaffected — `save()` strips separators, and the box only reformats on blur, so
+  // the cursor never jumps mid-entry.
   const asDisplayed = (value: number | null): string =>
-    value === null ? '' : String(unit === 'toman' ? value / RIAL_PER_TOMAN : value);
+    value === null
+      ? ''
+      : (unit === 'toman' ? value / RIAL_PER_TOMAN : value).toLocaleString('en-US');
 
   const [draft, setDraft] = useState(asDisplayed(rial));
   const [saving, setSaving] = useState(false);

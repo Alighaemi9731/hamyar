@@ -172,9 +172,12 @@ function TreeRow({
             variant="ghost"
             size="icon"
             aria-label={`حذف ${node.name}`}
+            // `group` so the icon only turns red under the cursor: four permanently
+            // red bins are the loudest thing on a screen whose job is filing.
+            className="group"
             onClick={() => setConfirming(true)}
           >
-            <Trash2Icon className="size-4 text-destructive" />
+            <Trash2Icon className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
           </Button>
         </span>
       </li>
