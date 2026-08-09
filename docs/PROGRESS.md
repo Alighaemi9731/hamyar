@@ -151,4 +151,16 @@ is written in English but the business calendar is Jalali.
   dark — the IMEI passport page especially, as the product's signature screen.
   The cross-column IMEI trigger is now documented in docs/specs/inventory.md with a
   pointer to the test that covers it.
+- **2026-08-09** — Phase 4.1 parties + 4.2 ledger engine (run ahead of 3.5 per the
+  approved reorder). 374 tests green.
+  One table for customers, suppliers and همکاران, because in this trade one person is
+  routinely all three and three tables would mean three balances for one human.
+  The ledger enforces its invariants in two places on purpose: the database checks the
+  shape of a *row* (exactly one of debit/credit, at least one of party/account), and
+  `LedgerService` checks the balance of a *set*, which no per-insert constraint can
+  express. Reversal writes the mirror image rather than deleting, so a statement shows
+  both the error and the correction — the difference between a ledger and a spreadsheet.
+  The statement's closing figure is asserted to equal `partyBalance()`; a statement whose
+  total disagrees with the balance shown elsewhere is worse than no statement.
+  `product_units.acquired_from_party_id` finally got its FK, closing the gap opened in 3.3.
 

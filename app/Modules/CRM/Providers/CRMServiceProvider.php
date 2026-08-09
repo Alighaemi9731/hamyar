@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Providers;
 
+use App\Modules\CRM\Listeners\CreateDefaultAccount;
+use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 /**
  * CRM module.
@@ -22,5 +25,12 @@ final class CRMServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Event::listen(TenantProvisioned::class, CreateDefaultAccount::class);
     }
 }

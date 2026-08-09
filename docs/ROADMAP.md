@@ -313,16 +313,30 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] Dead-stock report base — Phase 9 (Reporting)
 
 ### 4.1 Parties — **moved ahead of 3.5** (see the note there)
-- [ ] Unified `parties` (kind: customer/supplier/colleague/both)
-- [ ] Multiple contacts, addresses, Jalali birthday
-- [ ] Tags/groups, credit limit, opening balance
-- [ ] FK from `product_units.acquired_from_party_id`, which has been waiting since 3.3
+- [x] Unified `parties` (kind: customer/supplier/colleague/both). `kind` is a label for
+      filtering, NOT a restriction — the same person sells you a trade-in and buys a
+      charger in one visit, and a data-entry dead end at the counter is worse
+- [x] `party_contacts` (phone numbers normalised to Latin digits on save, because the
+      counter searches by number constantly), `party_addresses`, tags
+- [x] Credit limit (nullable — null is "nobody decided", distinct from zero) and
+      opening balance, the one stored figure and only a starting point
+- [x] National-id uniqueness per tenant, partial so walk-ins without one are fine
+- [x] FK from `product_units.acquired_from_party_id`, waiting since 3.3
 
 ### 4.2 Ledger engine — **moved ahead of 3.5**
-- [ ] `ledger_entries` (party & account dimensions, debit/credit, polymorphic ref)
-- [ ] Minimal `accounts` table + one default cash account (full Treasury lands in Phase 7)
-- [ ] Party statement page with running balance
-- [ ] Receive/pay quick-forms posting to accounts
+- [x] `ledger_entries` with party and account dimensions, separate debit/credit columns
+      (the layout an Iranian bookkeeper expects on a printed statement), polymorphic
+      reference and a `batch_id` grouping the lines of one event
+- [x] `LedgerService` is the only writer. Postings must balance and need ≥2 lines; the
+      database enforces the shape of a row (one side only, at least one subject) and the
+      service enforces the balance of a set, which SQL cannot express per-insert
+- [x] Balances are `SUM(debit) - SUM(credit)` + opening balance, never stored
+- [x] Minimal `accounts` + one default cash account per shop at provisioning
+- [x] `statement()` with a running balance whose closing figure is asserted equal to
+      `partyBalance()`; a windowed statement folds earlier entries into its opening
+- [x] `reverse()` writes the mirror image and never deletes
+- [x] Credit limit is a **warning with data**, not a block (spec)
+- [ ] Receive/pay quick-forms — the service is done; the screens land with the UI pass
 
 ### 3.5 Purchasing
 > **⚠️ RUN 4.1–4.2 FIRST — reorder approved 2026-08-09.**
