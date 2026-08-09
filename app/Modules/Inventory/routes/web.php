@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Inventory\Http\Controllers\StockController;
 use App\Modules\Inventory\Http\Controllers\UnitController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,9 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:inventory'])
     ->prefix('inventory')
     ->name('inventory.')
     ->group(function (): void {
+        Route::get('/', [StockController::class, 'index'])->name('stock.index');
+        Route::get('/low-stock', [StockController::class, 'lowStock'])->name('stock.low');
+
         // Throttled for the same reason as the party lookup: it is a keystroke
         // endpoint, and it answers "which IMEIs does this shop hold".
         //

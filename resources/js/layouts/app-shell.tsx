@@ -44,13 +44,15 @@ export function AppShell({ title, actions, children }: AppShellProps) {
 
   return (
     <div className="flex min-h-dvh bg-background">
-      <aside className="glass sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
+      {/* Chrome, not content: `no-print` keeps the sidebar, topbar and toasts off
+          paper, so a print layout inside the shell prints only its sheet. */}
+      <aside className="glass no-print sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
         <ShopBadge name={tenant?.name ?? 'MobiShop'} subdomain={tenant?.subdomain ?? null} />
         <SidebarNav currentPath={location} features={features} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="glass sticky top-0 z-sticky flex h-16 items-center gap-2 border-b px-4 sm:px-6">
+        <header className="glass no-print sticky top-0 z-sticky flex h-16 items-center gap-2 border-b px-4 sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="منو">
@@ -82,21 +84,26 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14">
+        <main
+          data-print-root
+          className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14"
+        >
           {(title || actions) && (
-            <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="no-print mb-10 flex flex-wrap items-center justify-between gap-4">
               {title && <h1 className="text-2xl font-bold">{title}</h1>}
               {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
           )}
 
-          <AnnouncementBanner announcements={announcements ?? []} />
+          <div className="no-print">
+            <AnnouncementBanner announcements={announcements ?? []} />
+          </div>
 
           {children}
         </main>
       </div>
 
-      <Toaster dir="rtl" position="bottom-left" richColors closeButton />
+      <Toaster dir="rtl" position="bottom-left" richColors closeButton className="no-print" />
     </div>
   );
 }

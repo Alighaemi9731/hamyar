@@ -95,7 +95,8 @@ export default function DesignGallery() {
         <DataTableSection alt />
         <PickerSection />
         <ConfirmAndPagingSection alt />
-        <StateSection />
+        <PrintSection />
+        <StateSection alt />
       </div>
     </AppShell>
   );
@@ -1147,6 +1148,85 @@ function ConfirmAndPagingSection({ alt = false }: { alt?: boolean }) {
           onConfirm={() => setOpenSafe(false)}
         />
       </Row>
+    </Section>
+  );
+}
+
+/**
+ * PrintLayout — the three papers the system owns.
+ *
+ * Each sheet is shown at its real width, because that is the point: what is on screen
+ * is what comes out of the printer. Only ONE of these may be on a real page —
+ * `@page` is a document-level rule and cannot be scoped — so the gallery is the only
+ * place all three appear together, and the size rule here is deliberately not applied.
+ *
+ * What to review: ink on white regardless of theme, RTL preserved on paper, and the
+ * 80mm receipt legible at its true width rather than scaled down to fit.
+ */
+function PrintSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="PrintLayout"
+      note="کاغذ همیشه سفید است، حتی وقتی برنامه در حالت تیره باز شده باشد. عرض‌ها واقعی‌اند: ۸۰ میلی‌متر، A5 و A4."
+    >
+      <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
+        <div className="w-[80mm] max-w-full border border-border bg-white p-4 text-black">
+          <p className="text-center text-sm font-bold">فروشگاه موبایل نمونه</p>
+          <p className="mt-1 text-center text-2xs">۸۰ میلی‌متر — رسید حرارتی</p>
+          <div className="my-3 border-t border-dashed border-black/30" />
+          <div className="space-y-1 text-2xs">
+            <div className="flex justify-between">
+              <span>آیفون ۱۵ پرو ۲۵۶</span>
+              <span className="tabular">۸۹٬۰۰۰٬۰۰۰</span>
+            </div>
+            <div className="flex justify-between">
+              <span>قاب محافظ</span>
+              <span className="tabular">۴۵۰٬۰۰۰</span>
+            </div>
+          </div>
+          <div className="my-3 border-t border-dashed border-black/30" />
+          <div className="flex justify-between text-xs font-bold">
+            <span>جمع کل</span>
+            <span className="tabular">۸۹٬۴۵۰٬۰۰۰ تومان</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="w-[148mm] max-w-full border border-border bg-white p-6 text-black">
+            <p className="text-sm font-bold">A5 — فاکتور نصف‌برگی</p>
+            <p className="mt-1 text-2xs text-black/60">
+              همان فاکتوری که بیشتر مغازه‌ها واقعاً دست مشتری می‌دهند.
+            </p>
+          </div>
+
+          <div className="w-full border border-border bg-white p-6 text-black">
+            <p className="text-sm font-bold">A4 — فاکتور رسمی و برگه برچسب</p>
+            <p className="mt-1 text-2xs text-black/60">
+              برگه برچسب هم روی همین کاغذ چاپ می‌شود؛ اندازه هر برچسب به میلی‌متر تعیین می‌شود.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-[2mm]">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex h-[25mm] w-[38mm] flex-col justify-between border border-black/15 p-[1.5mm]"
+                >
+                  <p className="text-[6pt] leading-tight">قاب محافظ شفاف</p>
+                  <div className="h-[8mm] bg-[repeating-linear-gradient(90deg,#000_0_1px,transparent_1px_3px)]" />
+                  <div className="flex items-end justify-between">
+                    <span className="ltr-value text-[5pt] tabular" dir="ltr">
+                      6260000000019
+                    </span>
+                    <span className="rounded-[1mm] bg-label px-[1mm] text-[8pt] font-bold tabular">
+                      ۴۵۰٬۰۰۰
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </Section>
   );
 }

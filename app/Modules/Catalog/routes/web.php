@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Catalog\Http\Controllers\CategoryController;
+use App\Modules\Catalog\Http\Controllers\LabelController;
 use App\Modules\Catalog\Http\Controllers\PriceController;
 use App\Modules\Catalog\Http\Controllers\ProductController;
 use App\Modules\Catalog\Http\Controllers\VariantController;
@@ -31,6 +32,10 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:catalog'])
             ->whereNumber('category')->name('categories.update');
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])
             ->whereNumber('category')->name('categories.destroy');
+
+        Route::get('/labels', [LabelController::class, 'index'])->name('labels.index');
+        Route::get('/labels/search', [LabelController::class, 'search'])
+            ->middleware('throttle:120,1')->name('labels.search');
 
         Route::get('/prices', [PriceController::class, 'index'])->name('prices.index');
         Route::post('/prices/preview', [PriceController::class, 'preview'])->name('prices.preview');

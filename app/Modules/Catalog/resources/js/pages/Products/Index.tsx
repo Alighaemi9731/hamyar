@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { PackageIcon, PlusIcon, TagsIcon } from 'lucide-react';
+import { PackageIcon, PlusIcon, PrinterIcon, TagsIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { type Column, DataTable } from '@/components/domain/data-table';
@@ -157,6 +157,12 @@ export default function ProductsIndex({ products, filters, categories, brands, t
           </Button>
           <Button variant="outline" asChild>
             <Link href="/catalog/prices">قیمت‌ها</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/catalog/labels">
+              <PrinterIcon className="size-4" />
+              چاپ برچسب
+            </Link>
           </Button>
           <Button asChild>
             <Link href="/catalog/products/create">
