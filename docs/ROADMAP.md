@@ -313,6 +313,14 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] Dead-stock report base — Phase 9 (Reporting)
 
 ### 3.5 Purchasing
+> **Ordering dependency.** "Suppliers as parties" needs the `parties` table, which this
+> roadmap creates in **Phase 4.1**. `product_units.acquired_from_party_id` is already in
+> place as an unconstrained bigint awaiting that FK. Two ways forward, and it is a
+> judgement call worth making deliberately rather than improvising:
+> **(a)** land a minimal `parties` table in CRM now and let Phase 4 extend it, or
+> **(b)** run Phase 4.1–4.2 before 3.5 and keep purchasing whole.
+> (b) is cleaner — a half-built party gets extended by four later phases — but it
+> reorders the roadmap, so it should be a conscious choice.
 - [ ] Suppliers as parties
 - [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
 - [ ] Landed cost allocation into unit cost
