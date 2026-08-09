@@ -31,12 +31,17 @@ jobs:
 
       - uses: ramsey/composer-install@v3
 
-      # The explicit path matters. `pint --test` with no argument reports the same
-      # file count but silently misses violations that `pint --test .` catches — which
-      # is how five real style issues passed locally and failed here. Both the composer
-      # script and this step pass the path, so the two gates cannot disagree again.
+      # Two invocations on purpose, and `composer lint:test` runs the same pair.
+      #
+      # Pint's results depend on how it is invoked. `pint --test` with no argument misses
+      # violations that `pint --test .` catches, and `pint --test .` has itself dropped a
+      # finding that a narrower scope reported — same version, same file count, same
+      # content. Rather than keep guessing which form is authoritative, run both and fail
+      # if either complains. A few seconds of CI beats another red build for a blank line.
       - name: Pint (check only)
-        run: ./vendor/bin/pint --test .
+        run: |
+          ./vendor/bin/pint --test .
+          ./vendor/bin/pint --test app config database routes tests bin
 
       # Golden rule 9. Cheap and fails fast, so it runs before static analysis.
       - name: RTL direction-class gate

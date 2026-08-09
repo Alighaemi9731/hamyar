@@ -44,6 +44,7 @@ final class Party extends Model
 
     /** @use HasFactory<\Database\Factories\PartyFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     protected $fillable = [
