@@ -208,13 +208,26 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] Coupon redemption flow (table exists; UI and validation land with the panel)
 
 ### 2.5 Filament v4 central panel
-- [ ] Panel restricted to platform admins
-- [ ] CRUD: tenants, plans, modules, coupons
-- [ ] Subscription overview
-- [ ] Impersonate tenant owner (audited)
-- [ ] Announcements
-- [ ] MRR / churn dashboard widgets
-- [ ] SMS credit package sales
+- [x] Panel restricted to platform admins — central domain only (`->domain()`), own
+      `platform` guard, deactivation locks out on the next request
+- [x] CRUD: tenants, plans, modules, coupons. Deliberately narrowed: plans and modules
+      cannot be deleted (subscriptions and invoices reference them), tenants cannot be
+      created by hand (onboarding provisions roles + trial + domain in one transaction),
+      modules cannot be created at all (they are code)
+- [x] Subscription overview — read-only across every shop. No edit: a subscription is the
+      consequence of invoices and payments, and editing it directly would grant access no
+      money explains
+- [x] Impersonate tenant owner (audited) — mandatory reason, audit row written BEFORE the
+      session exists and into the *shop's own* activity log so owners can audit us, then a
+      two-minute signed link minted on the shop's hostname
+- [x] Announcements — global or targeted at one shop, with a display window; surfaced in
+      the tenant app shell
+- [x] MRR / churn dashboard widgets — MRR from live subscriptions (not summed invoices,
+      which include prorations), plus collected-this-month, trials and past-due
+- [ ] SMS credit package sales — **deferred to Phase 8 (Messaging)**. Selling credit
+      needs a credit ledger to sell into, and Messaging owns that design; inventing a
+      `sms_packages` table now would prejudge it and produce a second balance to
+      reconcile. Tracked as a Phase 8 task instead.
 
 ### 2.6 Tests
 - [x] Plan purchase happy path with a fake gateway (17 cases in `BillingPaymentTest`)
@@ -223,10 +236,10 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the
       `runAsPlatform()` hatch proven narrow (`PlatformBillingIsolationTest`)
 - [ ] Limit exhaustion behaviour
-- [ ] Impersonation writes an audit record
+- [x] Impersonation writes an audit record (into the tenant's own log, with the reason)
 
 ### Phase 2 — Definition of Done
-- [ ] A plan can be bought in sandbox, features unlock, everything manageable in Filament
+- [x] A plan can be bought in sandbox, features unlock, everything manageable in Filament
 
 > ### ⛔ DECISION GATE 2
 > Pricing/limits table and the proration rule need the human's sign-off.

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Models;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,8 +22,22 @@ use Illuminate\Notifications\Notifiable;
  * @property string $email
  * @property bool $is_active
  */
-final class PlatformUser extends Authenticatable
+final class PlatformUser extends Authenticatable implements FilamentUser
 {
+    /**
+     * Deactivating a staff account must lock them out immediately.
+     *
+     * Filament calls this on every panel request, not only at login, so revoking access
+     * does not wait for a session to expire — which matters most in the case you
+     * actually care about, someone leaving under a cloud.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        unset($panel);
+
+        return $this->is_active;
+    }
+
     /** @use HasFactory<\Database\Factories\PlatformUserFactory> */
     use HasFactory;
 

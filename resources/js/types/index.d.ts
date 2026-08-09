@@ -45,6 +45,13 @@ export interface FlashMessages {
  */
 export type Features = Record<string, boolean>;
 
+export interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  level: 'info' | 'warning' | 'critical';
+}
+
 export interface SharedProps {
   auth: {
     user: AuthUser | null;
@@ -52,6 +59,8 @@ export interface SharedProps {
   tenant: Tenant | null;
   features: Features;
   flash: FlashMessages;
+  /** Live platform notices for this shop. Usually empty. */
+  announcements: Announcement[];
   /** Current URL path, for marking the active nav item. */
   location: string;
   [key: string]: unknown;

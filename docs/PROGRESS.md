@@ -85,4 +85,18 @@ is written in English but the business calendar is Jalali.
   zero invoice, so a lapsed shop would have renewed **for free** — `invoiceForPlan` now
   bills the full price whenever no live period remains, trials included.
   Both have regression tests.
+- **2026-08-08** — Phase 2.5 Filament v4 super-admin panel. Pinned to the central domain
+  and the `platform` guard; panel requests carry the `app.platform` flag via
+  `PlatformPanelContext`, which opens billing across tenants and nothing else — asserted
+  by a test that a shop's user list stays invisible from the panel.
+  Resources are deliberately narrow (no plan/module deletes, no hand-made tenants, no
+  editable subscriptions) because each of those would break a record that something else
+  depends on. Impersonation writes its audit row before the session exists, into the
+  shop's own activity log, and hands off via a two-minute signed link minted on the
+  shop's hostname.
+  One bug found while testing it: `URL::forceRootUrl($previous)` does not restore — it
+  *pins* the generator root, so every later `route()` came out on the central domain.
+  Cleared with `null` instead.
+  SMS credit packages deferred to Phase 8: selling credit needs Messaging's ledger to
+  sell into, and guessing that schema now would create a second balance to reconcile.
 

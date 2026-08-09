@@ -35,6 +35,24 @@ final class PlanLimit extends Model
         return [self::USERS, self::BRANCHES, self::INVOICES_PER_MONTH, self::STORAGE_MB, self::SMS_CREDIT_BONUS];
     }
 
+    /**
+     * Persian label for a limit key, for the super-admin panel.
+     *
+     * Lives beside the keys so adding one forces the label into view rather than leaving
+     * a raw `sms_credit_bonus` on a staff screen.
+     */
+    public static function labelFor(string $key): string
+    {
+        return match ($key) {
+            self::USERS => 'کاربران',
+            self::BRANCHES => 'شعبه‌ها',
+            self::INVOICES_PER_MONTH => 'فاکتور در ماه',
+            self::STORAGE_MB => 'فضای ذخیره‌سازی (مگابایت)',
+            self::SMS_CREDIT_BONUS => 'پیامک هدیه',
+            default => $key,
+        };
+    }
+
     protected $fillable = ['plan_id', 'key', 'value'];
 
     /**

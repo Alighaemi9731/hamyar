@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Platform\Http\Controllers\BillingController;
+use App\Modules\Platform\Http\Controllers\ImpersonationController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -85,6 +86,16 @@ Route::middleware('tenant')->group(function (): void {
     Route::get('/billing/callback', [BillingController::class, 'callback'])
         ->middleware('throttle:30,1')
         ->name('billing.callback');
+
+    /*
+    | Impersonation hand-off. The signature IS the authorisation — nobody is logged in
+    | when this runs. Minted on this hostname by ImpersonationService, valid two minutes,
+    | and already audited into the shop's own activity log before the link was issued.
+    */
+    Route::get('/impersonate/{user}', [ImpersonationController::class, 'start'])
+        ->middleware(['signed', 'throttle:10,1'])
+        ->whereNumber('user')
+        ->name('impersonate.start');
 });
 
 /*
