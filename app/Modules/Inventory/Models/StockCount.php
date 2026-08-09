@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_blind
  * @property CarbonImmutable|null $applied_at
  * @property string|null $notes
+ * @property-read Warehouse $warehouse
  */
 final class StockCount extends Model
 {

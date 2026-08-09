@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $unit_cost
  * @property int $landed_allocation
  * @property int|null $product_unit_id
+ * @property-read ProductVariant $variant
  */
 final class PurchaseUnitItem extends Model
 {

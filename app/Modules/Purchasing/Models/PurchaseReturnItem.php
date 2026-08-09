@@ -2,33 +2,37 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Inventory\Models;
+namespace App\Modules\Purchasing\Models;
 
 use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Inventory\Models\ProductUnit;
 use App\Support\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One line of a transfer.
+ * One line of a return.
+ *
+ * `product_unit_id` is set for a handset and null for a quantity, mirroring the two
+ * kinds of purchase line. `unit_cost` is copied rather than looked up: what the shop
+ * gets credited is what it paid for *that* device, and the catalogue price may have
+ * moved since.
  *
  * @property int $id
  * @property int $tenant_id
- * @property int $stock_transfer_id
+ * @property int $purchase_return_id
  * @property int $product_variant_id
  * @property int|null $product_unit_id
  * @property int $quantity
- * @property int|null $received_quantity
- * @property-read ProductVariant $variant
- * @property-read ProductUnit|null $unit
+ * @property int $unit_cost integer RIAL
  */
-final class StockTransferItem extends Model
+final class PurchaseReturnItem extends Model
 {
     use BelongsToTenant;
 
     protected $fillable = [
-        'tenant_id', 'stock_transfer_id', 'product_variant_id',
-        'product_unit_id', 'quantity', 'received_quantity',
+        'tenant_id', 'purchase_return_id', 'product_variant_id',
+        'product_unit_id', 'quantity', 'unit_cost',
     ];
 
     /**
@@ -36,15 +40,15 @@ final class StockTransferItem extends Model
      */
     protected function casts(): array
     {
-        return ['quantity' => 'integer', 'received_quantity' => 'integer'];
+        return ['quantity' => 'integer', 'unit_cost' => 'integer'];
     }
 
     /**
-     * @return BelongsTo<StockTransfer, $this>
+     * @return BelongsTo<PurchaseReturn, $this>
      */
-    public function transfer(): BelongsTo
+    public function return(): BelongsTo
     {
-        return $this->belongsTo(StockTransfer::class, 'stock_transfer_id');
+        return $this->belongsTo(PurchaseReturn::class, 'purchase_return_id');
     }
 
     /**
@@ -63,11 +67,8 @@ final class StockTransferItem extends Model
         return $this->belongsTo(ProductUnit::class, 'product_unit_id');
     }
 
-    /**
-     * How many went missing between the two ends. Zero when all arrived.
-     */
-    public function shortfall(): int
+    public function lineTotal(): int
     {
-        return $this->received_quantity === null ? 0 : $this->quantity - $this->received_quantity;
+        return $this->unit_cost * $this->quantity;
     }
 }

@@ -266,3 +266,36 @@ is written in English but the business calendar is Jalali.
   latent bug: `DatabaseSeeder` used `WithoutModelEvents`, which mutes the `creating` hook
   that fills `tenant_id`, so every tenant-scoped insert would have been rejected by its
   own RLS policy. Nothing caught it while the seeder only created central rows.
+- **2026-08-09** — Phase 3 closed. The purchasing intake, transfer and stock-count
+  screens, plus purchase returns and the GRN — the screens the Phase 3 DoD is written
+  around, and the last thing standing between the services and a shop being able to use
+  them.
+  The intake screen is the one this module exists for: paste twenty IMEIs, get a verdict
+  per line (valid / mistyped / twice in this paste / already ours, with a link to the
+  device), fix what is wrong, receive. Nothing commits until the batch is clean or the
+  operator explicitly skips the bad rows, and the server **re-parses on commit** rather
+  than trusting the browser's verdicts — between the preview and the commit another till
+  can register a handset, and a client that decides which IMEIs are acceptable is a
+  client that can register the same device twice.
+  Walked end-to-end in a real browser rather than asserted from services: 10 IMEIs →
+  received at 79,000,000 toman each (78,000,000 plus a 1,000,000 share of freight) →
+  labels → two handsets scanned onto a transfer, dispatched and received → a blind count
+  applied. Every figure reconciles with the movement ledger, and serialized transfers
+  wrote zero quantity movements, so no handset is counted in both registers.
+  Three things the browser found that no test had:
+  (1) **The Owner `Gate::before` override makes document-state checks in a policy dead
+  code.** `PurchaseInvoicePolicy::receive()` required `isDraft()`, and an Owner was still
+  offered "دریافت کالا" on an already-received invoice — the override returns true before
+  any policy method runs. Worse, the edit endpoints would then have reached the service
+  and thrown a 500. A policy answers *who*, never *when*; document state now lives in a
+  controller guard the override cannot skip, the UI flags are `permission && state`, and
+  two regression tests act as an Owner specifically. The whole suite had used a
+  Warehousekeeper, which is exactly what hid it.
+  (2) A disabled brand-filled "ثبت ۱۰ دستگاه" sat beside the enabled skip button on a
+  dirty batch, putting the eye on the one action that would not work. The unavailable
+  button is no longer rendered at all.
+  (3) The count summary read «-۱ عدد کسری» — a minus sign next to the word "short",
+  which reads as a surplus. The word carries the direction; the figure is now absolute.
+  The demo seeder gained a second branch (شعبه ونک). Provisioning gives a new shop one
+  branch and one warehouse, which is right for a real signup and leaves a transfer with
+  nowhere to go.

@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $product_variant_id
  * @property int $expected_quantity
  * @property int|null $counted_quantity
+ * @property-read ProductVariant $variant
  */
 final class StockCountItem extends Model
 {

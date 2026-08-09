@@ -49,16 +49,6 @@ beforeEach(function (): void {
 
 afterEach(fn () => app(TenantContext::class)->forget());
 
-/**
- * Run a closure inside this shop's tenant context.
- *
- * @param  Closure(): mixed  $callback
- */
-function inTenantContext(Tenant $tenant, Closure $callback): mixed
-{
-    return app(TenantContext::class)->runFor($tenant, $callback);
-}
-
 /* ------------------------------------------------------------- categories -- */
 
 it('renders the category tree', function (): void {

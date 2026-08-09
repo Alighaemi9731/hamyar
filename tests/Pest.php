@@ -118,6 +118,19 @@ function unknownTenantUrl(string $path = ''): string
 */
 
 /**
+ * Run a closure inside a shop's tenant context.
+ *
+ * Lives here rather than in one test file because three modules' suites need it, and
+ * a helper defined in a sibling test file only works by accident of load order.
+ *
+ * @param  Closure(): mixed  $callback
+ */
+function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $callback): mixed
+{
+    return app(App\Support\Tenancy\TenantContext::class)->runFor($tenant, $callback);
+}
+
+/**
  * @param  array<string, mixed>  $overrides
  */
 function subscribe(App\Modules\Platform\Models\Tenant $tenant, string $planCode, array $overrides = []): App\Modules\Platform\Models\Subscription

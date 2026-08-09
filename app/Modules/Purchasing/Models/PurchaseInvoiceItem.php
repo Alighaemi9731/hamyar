@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $unit_cost
  * @property int $line_total
  * @property int $landed_allocation
+ * @property-read ProductVariant $variant
  */
 final class PurchaseInvoiceItem extends Model
 {

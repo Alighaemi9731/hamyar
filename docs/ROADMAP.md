@@ -335,7 +335,7 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       `partyBalance()`; a windowed statement folds earlier entries into its opening
 - [x] `reverse()` writes the mirror image and never deletes
 - [x] Credit limit is a **warning with data**, not a block (spec)
-- [ ] Receive/pay quick-forms — the service is done; the screens land with the UI pass
+- [ ] Receive/pay quick-forms — the service is done; the screens land with Treasury (Phase 7)
 
 ### 3.5 Purchasing
 > **⚠️ RUN 4.1–4.2 FIRST — reorder approved 2026-08-09.**
@@ -361,8 +361,12 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       credits the supplier. Refuses a second receipt
 - [x] An `inventory` account so received stock debits something real — without it the
       entry would net the supplier against itself and record nothing
-- [ ] Purchase returns — tables exist; the flow lands with the UI pass
-- [ ] GRN print — lands with the UI pass
+- [x] Purchase returns — a new document, never an edit of the purchase: the shipment did
+      arrive, and collapsing the two would rewrite a month that may be closed. A returned
+      handset becomes `written_off` rather than deleted, because its IMEI was registered
+      to this shop and the passport has to keep saying so
+- [x] GRN print — every IMEI on its own line with a tick box, and costs quoted
+      **including** their share of freight, which is what the goods actually cost
 
 ### 3.6 Movement operations
 - [x] Two-step transfers — stock leaves on dispatch, arrives on receipt, and belongs to
@@ -404,8 +408,16 @@ converging on them later.
       overflow and no console errors; three defects found and fixed (see PROGRESS 3.9f)
 
 ### Phase 3 — Definition of Done
-- [ ] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B → count stock, and every number reconciles with movements
-- [ ] The 3.9 screens exist, are built from gallery components, and have been verified in
+- [x] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B
+      → count stock, and every number reconciles with movements.
+      **Walked end-to-end in a real browser on 2026-08-09**, not asserted from services:
+      ten IMEIs pasted with per-line verdicts → received (each unit costed 79,000,000
+      toman, i.e. 78,000,000 plus its 1,000,000 share of freight) → labels printed →
+      two handsets scanned onto TRF-000001, dispatched and received → CNT-000001 counted
+      blind and applied. The ledger reconciles line by line: chargers `purchase +12`,
+      `count −2`, on hand 10; cases `purchase +4`, `count +1`, on hand 5; and **zero**
+      quantity movements for the serialized variants, so no handset is counted twice.
+- [x] The 3.9 screens exist, are built from gallery components, and have been verified in
       a real browser at both breakpoints in both themes
 
 ---
