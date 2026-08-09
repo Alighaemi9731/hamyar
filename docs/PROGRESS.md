@@ -123,4 +123,19 @@ is written in English but the business calendar is Jalali.
   a different set applied because a price moved in between.
   UI screens for catalog are deliberately not built yet — schema and services are tested,
   and the Inertia pages land as one pass over Phase 3 rather than piecemeal.
+- **2026-08-09** — Phase 3.3 serialized units and 3.4 stock ledger. 355 tests green.
+  IMEI uniqueness needed more than indexes. Two partial unique indexes stop the same
+  number appearing twice in the same column, but a dual-SIM phone's `imei2` could still
+  be registered as a different device's `imei1` — the same handset entered twice, which
+  is exactly what the passport must never allow. Postgres cannot express uniqueness
+  across two columns of one table as an index, so a `before insert or update` trigger
+  does it. Tested directly.
+  The unit state machine refuses `sold → in_stock`: undoing a sale is a return, which
+  produces a `returned` unit and a credit document, and a silent status flip loses the
+  money side entirely. Every transition writes history in the same transaction, and a
+  refused transition leaves none.
+  Stock quantity is a SUM with a covering index and never a column (golden rule 3). Both
+  the service and a CHECK constraint reject zero-quantity movements; transfers write two
+  rows so each side's ledger explains its own change; counts record the difference rather
+  than overwriting a total.
 
