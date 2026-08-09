@@ -312,54 +312,108 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       alerts screen lands with the Phase 3 UI pass
 - [ ] Dead-stock report base — Phase 9 (Reporting)
 
+### 4.1 Parties — **moved ahead of 3.5** (see the note there)
+- [x] Unified `parties` (kind: customer/supplier/colleague/both). `kind` is a label for
+      filtering, NOT a restriction — the same person sells you a trade-in and buys a
+      charger in one visit, and a data-entry dead end at the counter is worse
+- [x] `party_contacts` (phone numbers normalised to Latin digits on save, because the
+      counter searches by number constantly), `party_addresses`, tags
+- [x] Credit limit (nullable — null is "nobody decided", distinct from zero) and
+      opening balance, the one stored figure and only a starting point
+- [x] National-id uniqueness per tenant, partial so walk-ins without one are fine
+- [x] FK from `product_units.acquired_from_party_id`, waiting since 3.3
+
+### 4.2 Ledger engine — **moved ahead of 3.5**
+- [x] `ledger_entries` with party and account dimensions, separate debit/credit columns
+      (the layout an Iranian bookkeeper expects on a printed statement), polymorphic
+      reference and a `batch_id` grouping the lines of one event
+- [x] `LedgerService` is the only writer. Postings must balance and need ≥2 lines; the
+      database enforces the shape of a row (one side only, at least one subject) and the
+      service enforces the balance of a set, which SQL cannot express per-insert
+- [x] Balances are `SUM(debit) - SUM(credit)` + opening balance, never stored
+- [x] Minimal `accounts` + one default cash account per shop at provisioning
+- [x] `statement()` with a running balance whose closing figure is asserted equal to
+      `partyBalance()`; a windowed statement folds earlier entries into its opening
+- [x] `reverse()` writes the mirror image and never deletes
+- [x] Credit limit is a **warning with data**, not a block (spec)
+- [ ] Receive/pay quick-forms — the service is done; the screens land with the UI pass
+
 ### 3.5 Purchasing
-> **Ordering dependency.** "Suppliers as parties" needs the `parties` table, which this
-> roadmap creates in **Phase 4.1**. `product_units.acquired_from_party_id` is already in
-> place as an unconstrained bigint awaiting that FK. Two ways forward, and it is a
-> judgement call worth making deliberately rather than improvising:
-> **(a)** land a minimal `parties` table in CRM now and let Phase 4 extend it, or
-> **(b)** run Phase 4.1–4.2 before 3.5 and keep purchasing whole.
-> (b) is cleaner — a half-built party gets extended by four later phases — but it
-> reorders the roadmap, so it should be a conscious choice.
-- [ ] Suppliers as parties
-- [ ] Purchase invoices: standard lines and/or bulk serialized intake (paste/scan IMEIs)
-- [ ] Landed cost allocation into unit cost
-- [ ] Purchase returns
-- [ ] GRN print
+> **⚠️ RUN 4.1–4.2 FIRST — reorder approved 2026-08-09.**
+> Purchasing needs suppliers, suppliers are parties, and `parties` is created in
+> **Phase 4.1**. Rather than land a minimal `parties` table here and let four later
+> phases extend it, Phase 4.1 (parties) and 4.2 (ledger engine) run before this section
+> and Purchasing is then built whole. `product_units.acquired_from_party_id` gets its FK
+> as part of 4.1. Everything else in Phase 4 keeps its original slot.
+> Rationale: a half-built table extended by four phases accumulates migrations and
+> assumptions that nobody revisits; the FK either exists or the intake screen cannot
+> record who a phone was bought from, which is half the IMEI passport.
+- [x] Suppliers as parties (4.1 landed first, per the reorder)
+- [x] Purchase invoices: draft until received. Standard lines and serialized lines are
+      separate tables — a standard line has a quantity, a serialized line has N handsets
+      each with its own IMEI and cost
+- [x] `ImeiBatchParser`: paste or scan, any separator, Persian digits, Luhn-checked, with
+      a per-line verdict (accepted / invalid / duplicate-in-batch / already-exists with a
+      link to the device). Nothing commits until the batch is clean or rows are skipped
+- [x] `LandedCostAllocator`: by value or by quantity, remainder to the largest line so
+      the allocation sums to the charge **exactly**; per-unit split for serialized lines
+- [x] `ReceivePurchaseInvoice`: one transaction that allocates costs, writes stock
+      movements, creates `product_units` with the first line of their passport, and
+      credits the supplier. Refuses a second receipt
+- [x] An `inventory` account so received stock debits something real — without it the
+      entry would net the supplier against itself and record nothing
+- [ ] Purchase returns — tables exist; the flow lands with the UI pass
+- [ ] GRN print — lands with the UI pass
 
 ### 3.6 Movement operations
-- [ ] Transfers between warehouses/branches — dispatch + receive confirmation
-- [ ] Stock count sessions (blind count option) → adjustment movements
+- [x] Two-step transfers — stock leaves on dispatch, arrives on receipt, and belongs to
+      neither in between. A one-step transfer makes a van full of phones sellable in two
+      shops at once
+- [x] A shortfall on receipt is **recorded**, not reconciled away — five dispatched and
+      three received is something to investigate
+- [x] Serialized transfers move the unit (reserved in transit, relocated on arrival) and
+      deliberately write **no** stock movement; a phone counted in both the unit register
+      and the quantity ledger is counted twice
+- [x] Stock count sessions, **blind by default** — a number on the screen is a number
+      people count towards. Expected quantity is snapshotted per line; uncounted lines
+      are skipped rather than written off
 
 ### 3.7 Labels
-- [ ] Price/barcode labels, single + batch, printable HTML at label sizes
+- [ ] Price/barcode labels, single + batch, printable HTML at label sizes — lands with
+      the 3.9 UI pass, since it is entirely a print-layout concern
 
 ### 3.8 Tests
-- [ ] Ledger invariants (no negative stock unless the allow-flag is set)
-- [ ] Unit state transitions incl. illegal ones
+- [x] Ledger invariants (no negative stock unless the allow-flag is set)
+- [x] Unit state transitions incl. illegal ones
 - [ ] IMEI uniqueness per tenant
-- [ ] Two-step transfer flow
-- [ ] Price-level resolution
-- [ ] Purchase cost maths including landed costs
+- [x] Two-step transfer flow
+- [x] Price-level resolution
+- [x] Purchase cost maths including landed costs
 - [ ] Cross-tenant isolation for every new endpoint
+
+### 3.9 UI pass — one coherent pass, after 4.1–4.2 and 3.5
+Built together rather than piecemeal, so the screens share components instead of
+converging on them later.
+- [ ] Category tree
+- [ ] Product editor with the variant matrix
+- [ ] Price-level grid + bulk update with preview
+- [ ] **IMEI passport page** — the product's signature screen
+- [ ] Stock views + low-stock alerts
+- [ ] Label printing (price/barcode, single + batch)
+- [ ] Every screen built from `/design` gallery components (golden rule 9)
+- [ ] Verified with Playwright at 390 and 1280, light and dark, RTL
 
 ### Phase 3 — Definition of Done
 - [ ] Receive 10 phones by pasting IMEIs → in stock → print labels → transfer 2 to branch B → count stock, and every number reconciles with movements
+- [ ] The 3.9 screens exist, are built from gallery components, and have been verified in
+      a real browser at both breakpoints in both themes
 
 ---
 
 ## Phase 4 — Parties CRM (Customers & Suppliers)
 
-### 4.1 Parties
-- [ ] Unified `parties` (kind: customer/supplier/colleague/both)
-- [ ] Multiple contacts, addresses, Jalali birthday
-- [ ] Tags/groups, credit limit, opening balance
-
-### 4.2 Ledger engine
-- [ ] `ledger_entries` (party & account dimensions, debit/credit, polymorphic ref)
-- [ ] Minimal `accounts` table + one default cash account (full Treasury lands in Phase 7)
-- [ ] Party statement page with running balance
-- [ ] Receive/pay quick-forms posting to accounts
+### 4.1 Parties — **relocated to Phase 3, ahead of 3.5** (reorder approved 2026-08-09)
+### 4.2 Ledger engine — **relocated to Phase 3, ahead of 3.5**
 
 ### 4.3 Engagement
 - [ ] 360° timeline component (sales, repairs, sms, payments, notes)

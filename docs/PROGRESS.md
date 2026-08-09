@@ -138,4 +138,54 @@ is written in English but the business calendar is Jalali.
   the service and a CHECK constraint reject zero-quantity movements; transfers write two
   rows so each side's ledger explains its own change; counts record the difference rather
   than overwriting a total.
+- **2026-08-09** — **Roadmap reordered (owner-approved).** Phase 4.1 (parties) and 4.2
+  (ledger engine) now run *before* 3.5 (Purchasing); the rest of Phase 4 keeps its
+  original slot. Reason: purchasing needs suppliers, suppliers are parties, and the
+  alternative was a minimal `parties` table that four later phases would extend — which
+  accumulates migrations and assumptions nobody revisits. `product_units
+  .acquired_from_party_id` has been an unconstrained bigint since 3.3 and gets its FK in
+  4.1. Recorded in ROADMAP.md at both the new and the vacated positions.
+  Also settled: Phase 3's UI screens are built as one coherent pass after 4.1–4.2 + 3.5,
+  and Phase 3 is not Definition-of-Done until they exist, are built from `/design`
+  gallery components, and have been verified in a real browser at 390/1280 in light and
+  dark — the IMEI passport page especially, as the product's signature screen.
+  The cross-column IMEI trigger is now documented in docs/specs/inventory.md with a
+  pointer to the test that covers it.
+- **2026-08-09** — Phase 4.1 parties + 4.2 ledger engine (run ahead of 3.5 per the
+  approved reorder). 374 tests green.
+  One table for customers, suppliers and همکاران, because in this trade one person is
+  routinely all three and three tables would mean three balances for one human.
+  The ledger enforces its invariants in two places on purpose: the database checks the
+  shape of a *row* (exactly one of debit/credit, at least one of party/account), and
+  `LedgerService` checks the balance of a *set*, which no per-insert constraint can
+  express. Reversal writes the mirror image rather than deleting, so a statement shows
+  both the error and the correction — the difference between a ledger and a spreadsheet.
+  The statement's closing figure is asserted to equal `partyBalance()`; a statement whose
+  total disagrees with the balance shown elsewhere is worse than no statement.
+  `product_units.acquired_from_party_id` finally got its FK, closing the gap opened in 3.3.
+- **2026-08-09** — Phase 3.5 purchasing. 392 tests green.
+  Caught myself writing a supplier ledger posting that debited and credited the *same
+  party* for the same amount — it balances, passes every constraint, and records nothing.
+  The worst kind of wrong, because the books look fine. Added an `inventory` account type
+  so received stock debits something real, and `ReceivePurchaseInvoice` now refuses to
+  post at all if that account is missing rather than falling back to a no-op.
+  Receiving is one transaction: allocate landed costs, write stock movements, create
+  units with the first line of their passport, credit the supplier. A test forces a
+  failure partway through and asserts nothing survives — stock without a payable is the
+  discrepancy the transaction exists to prevent.
+  Landed-cost remainders go to the largest line so the allocation sums to the charge
+  exactly; dropping them would leave the books a few rial short per invoice, which
+  accumulates into a discrepancy nobody can explain.
+- **2026-08-09** — Phase 3.6 transfers and stock counts. 407 tests green.
+  A test caught me contradicting my own design: `stock_movements`' migration says
+  serialized goods do not live in the quantity ledger — a phone's location is
+  `product_units.warehouse_id` — but `TransferService` was writing a movement for every
+  line, serialized included. That double-counts each handset, once in the unit register
+  and once in the ledger, and every stock report would have disagreed with the shelf by
+  exactly the number of phones transferred. Fixed, with a regression test that asserts
+  zero movements for a serialized transfer.
+  Transfers are two-step because the van journey is real; a shortfall on receipt is
+  recorded rather than smoothed over. Counts are blind by default — a number on the
+  screen is a number people count towards — and uncounted lines are skipped, because an
+  unvisited shelf is not an empty shelf.
 
