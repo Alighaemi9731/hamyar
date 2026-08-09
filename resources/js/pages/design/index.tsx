@@ -3,12 +3,14 @@ import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
@@ -92,7 +94,8 @@ export default function DesignGallery() {
         <ImeiSection />
         <DataTableSection alt />
         <PickerSection />
-        <StateSection alt />
+        <ConfirmAndPagingSection alt />
+        <StateSection />
       </div>
     </AppShell>
   );
@@ -1071,6 +1074,79 @@ function PickerSection({ alt = false }: { alt?: boolean }) {
           <PartyPicker value={null} onChange={() => undefined} search={failing} />
         </div>
       </div>
+    </Section>
+  );
+}
+
+/**
+ * Pagination & ConfirmDialog — the two pieces every list screen needs.
+ *
+ * Pagination takes Laravel's `linkCollection()` verbatim. Check that the arrows point
+ * the RTL way (previous is on the right), that the current page is the only filled
+ * pill, and that a disabled arrow is visibly inert rather than merely unclickable.
+ *
+ * ConfirmDialog exists to enforce copy, not to look pretty: title names the thing,
+ * description says what happens to it, button carries the verb.
+ */
+function ConfirmAndPagingSection({ alt = false }: { alt?: boolean }) {
+  const links = (current: number, pages: number) => [
+    { url: current > 1 ? '#prev' : null, label: 'قبلی', active: false },
+    ...Array.from({ length: pages }, (_, index) => ({
+      url: `#page-${index + 1}`,
+      label: String(index + 1),
+      active: index + 1 === current,
+    })),
+    { url: current < pages ? '#next' : null, label: 'بعدی', active: false },
+  ];
+
+  const [open, setOpen] = useState(false);
+  const [openSafe, setOpenSafe] = useState(false);
+
+  return (
+    <Section
+      alt={alt}
+      title="Pagination / ConfirmDialog"
+      note="فلش «قبلی» در چیدمان راست‌به‌چپ سمت راست است. در حالت اول و آخر، فلش غیرفعال دیده می‌شود نه اینکه فقط کار نکند."
+    >
+      <Row label="صفحه اول">
+        <Pagination links={links(1, 5)} total={112} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="صفحه میانی">
+        <Pagination links={links(3, 5)} total={112} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="یک صفحه (بدون کنترل)">
+        <Pagination links={links(1, 1)} total={7} unit="کالا" className="w-full" />
+      </Row>
+
+      <Row label="تأیید حذف">
+        <Button variant="destructive" onClick={() => setOpen(true)}>
+          حذف کالا
+        </Button>
+        <Button variant="outline" onClick={() => setOpenSafe(true)}>
+          اقدام غیرمخرب
+        </Button>
+
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="حذف «آیفون ۱۵ پرو»"
+          description="این کالا از فهرست و از فروش خارج می‌شود. فاکتورها، گردش انبار و دستگاه‌های ثبت‌شده حذف نمی‌شوند."
+          confirmLabel="حذف کالا"
+          onConfirm={() => setOpen(false)}
+        />
+
+        <ConfirmDialog
+          open={openSafe}
+          onOpenChange={setOpenSafe}
+          destructive={false}
+          title="ارسال دوباره دعوت‌نامه"
+          description="یک پیامک تازه با لینک جدید برای همان شماره فرستاده می‌شود و لینک قبلی باطل می‌گردد."
+          confirmLabel="ارسال دوباره"
+          onConfirm={() => setOpenSafe(false)}
+        />
+      </Row>
     </Section>
   );
 }

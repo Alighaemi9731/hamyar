@@ -108,8 +108,8 @@ it('reports a balance that includes the opening figure and every entry', functio
 
         // He bought on credit: the shop is owed more than the opening figure said.
         app(LedgerService::class)->post([
-            ['party_id' => $party->getKey(), 'debit' => 3_000_000],
-            ['account_id' => $account->getKey(), 'credit' => 3_000_000],
+            ['party_id' => $party->id, 'debit' => 3_000_000],
+            ['account_id' => $account->id, 'credit' => 3_000_000],
         ]);
     });
 

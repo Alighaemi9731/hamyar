@@ -16,6 +16,10 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../../app/Modules/**/resources/views/**/*.blade.php';
+/* Module-owned Inertia pages (`Catalog::Products/Index`). Without this line their
+   classes are simply absent from the stylesheet — the page renders unstyled and
+   nothing errors, which is the worst way for a build step to fail. */
+@source '../../app/Modules/**/resources/js/**/*.{ts,tsx}';
 @source '../**/*.blade.php';
 @source '../**/*.{js,jsx,ts,tsx}';
 
