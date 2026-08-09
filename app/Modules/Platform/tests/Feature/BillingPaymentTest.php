@@ -1,0 +1,336 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Events\SubscriptionActivated;
+use App\Modules\Platform\Events\SubscriptionInvoicePaid;
+use App\Modules\Platform\Models\PaymentAttempt;
+use App\Modules\Platform\Models\Plan;
+use App\Modules\Platform\Models\Subscription;
+use App\Modules\Platform\Models\SubscriptionInvoice;
+use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Services\BillingService;
+use App\Modules\Platform\Services\Payments\FakeGateway;
+use App\Modules\Platform\Services\Payments\PaymentGateway;
+use App\Modules\Platform\Services\PlanCatalogueSeeder;
+use App\Modules\Platform\Services\TenantProvisioner;
+use App\Support\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Event;
+
+/**
+ * The payment path, end to end, against {@see FakeGateway}.
+ *
+ * Every test here drives the real `BillingService` — only the two network calls are
+ * swapped. Mocking `BillingService` itself would leave the code that actually decides
+ * whether a shop has paid completely untested.
+ */
+beforeEach(function (): void {
+    app(PlanCatalogueSeeder::class)->sync();
+
+    $this->tenant = Tenant::factory()->withDomain()->create();
+    $this->url = tenantUrl($this->tenant);
+
+    app(TenantProvisioner::class)->seedRoles($this->tenant);
+
+    $this->user = app(TenantContext::class)->runFor($this->tenant, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $this->pro = Plan::query()->where('code', 'pro')->firstOrFail();
+    $this->billing = app(BillingService::class);
+
+    /** @var FakeGateway $gateway */
+    $gateway = app(PaymentGateway::class);
+    $this->gateway = $gateway->willSucceed();
+});
+
+afterEach(fn () => app(TenantContext::class)->forget());
+
+function payFor(Tenant $tenant, Plan $plan): PaymentAttempt
+{
+    $billing = app(BillingService::class);
+    $invoice = $billing->invoiceForPlan($tenant, $plan);
+    $redirect = $billing->initiatePayment($invoice, 'https://example.test/billing/callback');
+
+    return $billing->verifyCallback($redirect->authority, ['Status' => 'OK']);
+}
+
+/* ------------------------------------------------------------ happy path -- */
+
+it('buys a plan and activates the subscription', function (): void {
+    Event::fake([SubscriptionInvoicePaid::class, SubscriptionActivated::class]);
+
+    subscribe($this->tenant, 'basic');
+
+    $attempt = payFor($this->tenant, $this->pro);
+
+    expect($attempt->isVerified())->toBeTrue();
+    expect($attempt->reference)->toBe('REF-'.$attempt->authority);
+
+    app(TenantContext::class)->runAsPlatform(function () use ($attempt): void {
+        expect($attempt->invoice->refresh()->isPaid())->toBeTrue();
+    });
+
+    Event::assertDispatched(SubscriptionInvoicePaid::class);
+    Event::assertDispatched(SubscriptionActivated::class);
+});
+
+it('numbers invoices sequentially per tenant without gaps', function (): void {
+    // Never MAX(+1) — the counter table with a row lock (project convention).
+    $other = Tenant::factory()->withDomain()->create();
+
+    $first = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $second = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $otherFirst = $this->billing->invoiceForPlan($other, $this->pro);
+
+    expect($first->number)->toBe('SUB-00001');
+    expect($second->number)->toBe('SUB-00002');
+    // A second shop starts at 1 again: the sequence is per tenant, not global.
+    expect($otherFirst->number)->toBe('SUB-00001');
+});
+
+it('bills only the difference when upgrading mid-period', function (): void {
+    $subscription = subscribe($this->tenant, 'basic', [
+        'current_period_start' => now()->subDays(11),
+        'current_period_end' => now()->addDays(19),
+    ]);
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    // ADR 0006: charge − credit, not the full Pro price.
+    expect($invoice->total)->toBeLessThan($this->pro->price);
+    expect($invoice->total)->toBeRial();
+    expect($invoice->lines)->toHaveCount(2);
+
+    unset($subscription);
+});
+
+it('charges the full price to renew an EXPIRED subscription', function (): void {
+    // Regression. Proration on a period that has already ended yields zero remaining
+    // days and therefore a zero invoice — a lapsed shop would have renewed for free,
+    // silently, and the only symptom would be missing revenue.
+    subscribe($this->tenant, 'basic', [
+        'current_period_start' => now()->subDays(40),
+        'current_period_end' => now()->subDay(),
+    ]);
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    expect($invoice->total)->toBe($this->pro->price);
+    expect($invoice->requiresPayment())->toBeTrue();
+});
+
+it('charges the full price when upgrading out of a trial', function (): void {
+    // A trial was free, so there is no unused value to credit against the new plan
+    // (ADR 0006). Prorating here would hand out a discount funded by nothing.
+    subscribe($this->tenant, 'basic', [
+        'status' => Subscription::STATUS_TRIALING,
+        'trial_ends_at' => now()->addDays(10),
+        'current_period_end' => now()->addDays(10),
+    ]);
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    expect($invoice->total)->toBe($this->pro->price);
+});
+
+/* ----------------------------------------------------------- idempotency -- */
+
+it('does not settle the same authority twice', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $redirect = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+
+    $first = $this->billing->verifyCallback($redirect->authority, ['Status' => 'OK']);
+    $verifiedAt = $first->verified_at;
+
+    // The shop refreshes the return page. Same authority, second time.
+    $second = $this->billing->verifyCallback($redirect->authority, ['Status' => 'OK']);
+
+    expect($second->getKey())->toBe($first->getKey());
+    expect($verifiedAt)->not->toBeNull();
+    expect($second->verified_at?->toIso8601String())->toBe($verifiedAt?->toIso8601String());
+
+    app(TenantContext::class)->runAsPlatform(function (): void {
+        // One attempt, one paid invoice — not two of either.
+        expect(PaymentAttempt::query()->where('status', PaymentAttempt::STATUS_VERIFIED)->count())->toBe(1);
+        expect(SubscriptionInvoice::query()->where('status', SubscriptionInvoice::STATUS_PAID)->count())->toBe(1);
+    });
+});
+
+it('does not extend the period twice on a replayed callback', function (): void {
+    // The bug that gives a shop two months for one payment.
+    $subscription = subscribe($this->tenant, 'basic', [
+        'current_period_start' => now()->subDays(11),
+        'current_period_end' => now()->addDays(19),
+    ]);
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $redirect = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+
+    $this->billing->verifyCallback($redirect->authority, ['Status' => 'OK']);
+    $afterFirst = app(TenantContext::class)->runAsPlatform(
+        fn () => $subscription->refresh()->current_period_end
+    );
+
+    $this->billing->verifyCallback($redirect->authority, ['Status' => 'OK']);
+    $afterSecond = app(TenantContext::class)->runAsPlatform(
+        fn () => $subscription->refresh()->current_period_end
+    );
+
+    expect($afterSecond?->toIso8601String())->toBe($afterFirst?->toIso8601String());
+});
+
+it('rejects an authority it never issued', function (): void {
+    expect(fn () => $this->billing->verifyCallback('FORGED-0001', ['Status' => 'OK']))
+        ->toThrow(RuntimeException::class, 'Unknown payment authority');
+});
+
+/* --------------------------------------------------------------- failure -- */
+
+it('records a failed payment without granting anything', function (): void {
+    $this->gateway->willFail('موجودی کافی نیست.');
+
+    subscribe($this->tenant, 'basic');
+
+    $attempt = payFor($this->tenant, $this->pro);
+
+    expect($attempt->status)->toBe(PaymentAttempt::STATUS_FAILED);
+    expect($attempt->error)->toBe('موجودی کافی نیست.');
+
+    app(TenantContext::class)->runAsPlatform(function () use ($attempt): void {
+        expect($attempt->invoice->refresh()->isPaid())->toBeFalse();
+    });
+});
+
+it('treats an abandoned payment as a failure, not a success', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $redirect = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+
+    // Zarinpal sends Status=NOK when the customer backs out.
+    $attempt = $this->billing->verifyCallback($redirect->authority, ['Status' => 'NOK']);
+
+    expect($attempt->status)->toBe(PaymentAttempt::STATUS_FAILED);
+});
+
+it('lets a shop retry after a failed attempt', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    $failed = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+    $this->gateway->willFail();
+    $this->billing->verifyCallback($failed->authority, ['Status' => 'OK']);
+
+    // Same invoice, new attempt — the first one being decided must not close the door.
+    $this->gateway->willSucceed();
+    $retry = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+    $attempt = $this->billing->verifyCallback($retry->authority, ['Status' => 'OK']);
+
+    expect($attempt->isVerified())->toBeTrue();
+    expect($retry->authority)->not->toBe($failed->authority);
+});
+
+/* ---------------------------------------------------------------- credit -- */
+
+it('applies stored credit and skips the gateway when it covers everything', function (): void {
+    $subscription = subscribe($this->tenant, 'basic');
+
+    app(TenantContext::class)->runAsPlatform(
+        fn () => $subscription->update(['credit_balance' => 99_000_000])
+    );
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    expect($invoice->total)->toBe(0);
+    expect($invoice->requiresPayment())->toBeFalse();
+
+    $this->billing->settleWithoutPayment($invoice);
+
+    app(TenantContext::class)->runAsPlatform(
+        fn () => expect($invoice->refresh()->isPaid())->toBeTrue()
+    );
+});
+
+it('consumes credit at draft time so it cannot be spent twice', function (): void {
+    $subscription = subscribe($this->tenant, 'basic');
+
+    app(TenantContext::class)->runAsPlatform(
+        fn () => $subscription->update(['credit_balance' => 1_000_000])
+    );
+
+    $first = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $second = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    expect($first->credit_applied)->toBe(1_000_000);
+    // Two open invoices must not both claim the same credit.
+    expect($second->credit_applied)->toBe(0);
+});
+
+/* ------------------------------------------------------------------ http -- */
+
+it('shows the billing page to an owner', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $this->actingAs($this->user)
+        ->get($this->url.'/billing')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('platform/billing/index')
+            ->has('plans', 3)
+        );
+});
+
+it('refuses billing to a role without the permission', function (): void {
+    $cashier = app(TenantContext::class)->runFor($this->tenant, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Cashier');
+
+        return $user;
+    });
+
+    // Manager and below cannot spend the owner's money.
+    $this->actingAs($cashier)->get($this->url.'/billing')->assertForbidden();
+});
+
+it('reaches the callback without a session', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+    $redirect = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
+
+    // Nobody is logged in: the customer came back from the gateway in a fresh context.
+    $this->get($this->url.'/billing/callback?Authority='.$redirect->authority.'&Status=OK')
+        ->assertRedirect($this->url.'/billing/invoices/'.$invoice->getKey());
+
+    app(TenantContext::class)->runAsPlatform(
+        fn () => expect($invoice->refresh()->isPaid())->toBeTrue()
+    );
+});
+
+it('does not show one shop invoice to another', function (): void {
+    pest()->group('isolation');
+
+    $other = Tenant::factory()->withDomain()->create();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    $intruder = app(TenantContext::class)->runFor($other, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    $this->actingAs($intruder)
+        ->get(tenantUrl($other).'/billing/invoices/'.$invoice->getKey())
+        ->assertNotFound();
+});

@@ -122,6 +122,26 @@ been one line. It would also have removed the database's protection from the two
 that record what every customer owes us, on the strength of a promise that application
 code always remembers a `where` clause.
 
+## Amendment (2026-08-08): billing child tables
+
+`subscription_addons` and `payment_attempts` shipped carrying only a foreign key to
+their parent. Because `tenancy:check` keys off a non-nullable `tenant_id`, it could not
+see them, and neither had a policy. The reasoning at the time was that they are only
+reachable through an RLS-protected parent.
+
+That is true, and it stops being true the moment a tenant-facing billing endpoint looks
+one up by its own id — which Phase 2.4 was about to add. An invariant that holds only
+until the next feature is not a boundary; it is a deadline.
+
+Both now carry a denormalised `tenant_id`, backfilled from the parent, with a composite
+index and the same FORCE RLS + `app.platform` policy as their parents
+(`2026_08_08_000020_add_tenant_id_to_billing_child_tables`). The denormalisation is
+chosen over a policy that joins the parent: a join in a policy runs per row on every
+query and cannot use an index.
+
+The general lesson, worth applying to future tables: **reachability is not protection.**
+If a table can be named in a query, it needs its own policy.
+
 ## Related
 
 The role model above is only meaningful if the test suite exercises it, which is why

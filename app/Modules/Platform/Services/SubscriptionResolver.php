@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Services;
 
+use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Support\TrialPolicy;
 use App\Support\Tenancy\TenantContext;
 
 /**
@@ -15,13 +17,16 @@ use App\Support\Tenancy\TenantContext;
  * and every nav render, and re-querying the plan/module graph each time would put a
  * handful of joins on the hot path of a POS screen.
  *
- * `subscriptions` is not tenant-scoped by RLS (it is the platform's record, not the
- * shop's), so lookups here are explicit `where tenant_id` rather than implicit.
+ * `subscriptions` is RLS-protected but deliberately carries no `BelongsToTenant` scope
+ * (ADR 0002 amendment), so lookups here are an explicit `where tenant_id` rather than an
+ * implicit one. The database still refuses to return another shop's row.
  */
 final class SubscriptionResolver
 {
     /** @var array<int, Subscription|null> */
     private array $cache = [];
+
+    private ?Plan $baseline = null;
 
     public function __construct(private readonly TenantContext $context) {}
 
@@ -71,6 +76,9 @@ final class SubscriptionResolver
 
     /**
      * A plan limit's value, or null for unlimited / no subscription.
+     *
+     * During a trial the plan's own limits do not apply unmodified — see
+     * {@see TrialPolicy} for why a free Pro trial is capped like Basic.
      */
     public function limit(string $key): ?int
     {
@@ -80,7 +88,23 @@ final class SubscriptionResolver
             return null;
         }
 
+        if ($subscription->isTrialing()) {
+            return TrialPolicy::limit($key, $subscription->plan, $this->trialBaselinePlan());
+        }
+
         return $subscription->plan->limit($key);
+    }
+
+    /**
+     * The plan whose quotas a trial borrows. Read from the database, not the catalogue,
+     * because the panel may have edited it (Gate 2, item 1).
+     */
+    private function trialBaselinePlan(): ?Plan
+    {
+        return $this->baseline ??= Plan::query()
+            ->with('limits')
+            ->where('code', TrialPolicy::BASELINE_PLAN_CODE)
+            ->first();
     }
 
     /**
@@ -89,6 +113,7 @@ final class SubscriptionResolver
     public function forget(): void
     {
         $this->cache = [];
+        $this->baseline = null;
     }
 
     private function forTenantId(int $tenantId): ?Subscription

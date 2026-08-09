@@ -11,11 +11,11 @@ use App\Providers\ModuleServiceProvider;
  * in a hurry. These fail the build instead.
  */
 
-/** The eighteen modules from CLAUDE.md rule 6, plus Storefront. */
+/** The eighteen modules of CLAUDE.md golden rule 6. */
 const MODULES = [
     'Platform', 'Identity', 'Catalog', 'Inventory', 'Purchasing', 'Sales',
     'Repairs', 'CRM', 'Treasury', 'Cheques', 'Installments', 'Messaging',
-    'Reporting', 'Files', 'Settings', 'Hamta', 'Moadian', 'Storefront',
+    'Reporting', 'Files', 'Settings', 'Storefront', 'Hamta', 'Moadian',
 ];
 
 it('has every module directory with the conventional layout', function (string $module): void {

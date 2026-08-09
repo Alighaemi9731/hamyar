@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property bool $is_addonable
  * @property bool $is_core
  * @property int|null $addon_price
+ * @property int $position
  */
 final class Module extends Model
 {

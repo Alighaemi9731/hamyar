@@ -79,6 +79,19 @@ final class Tenant extends Model
      * "your subscription is suspended" page rather than a 404 that looks like the
      * shop was deleted), but the middleware refuses to let them in.
      */
+    /**
+     * Billing history for this shop.
+     *
+     * Reading it requires the platform flag (ADR 0002 amendment) — from a tenant request
+     * the shop sees only its own rows, which is the same thing from its point of view.
+     *
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     public function isUsable(): bool
     {
         return in_array($this->status, [self::STATUS_TRIALING, self::STATUS_ACTIVE], true);

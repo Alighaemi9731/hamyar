@@ -63,6 +63,8 @@ export const STATUS_MAP: Record<string, StatusDefinition> = {
   settled: { label: 'تسویه‌شده', tone: 'success' },
 
   // --- subscriptions (platform) ---------------------------------------------
+  pending: { label: 'در انتظار پرداخت', tone: 'warning' },
+  failed: { label: 'ناموفق', tone: 'danger' },
   trialing: { label: 'دوره آزمایشی', tone: 'info' },
   active: { label: 'فعال', tone: 'success' },
   past_due: { label: 'پرداخت معوق', tone: 'warning' },

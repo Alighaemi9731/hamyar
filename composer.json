@@ -2,17 +2,25 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "mobishop/mobishop",
     "type": "project",
-    "description": "MobiShop — multi-tenant SaaS for mobile-phone shops (Iran market).",
-    "keywords": ["saas", "multi-tenant", "pos", "repairs", "iran"],
+    "description": "MobiShop \u2014 multi-tenant SaaS for mobile-phone shops (Iran market).",
+    "keywords": [
+        "saas",
+        "multi-tenant",
+        "pos",
+        "repairs",
+        "iran"
+    ],
     "license": "proprietary",
     "require": {
         "php": "^8.4",
+        "filament/filament": "^4.0",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/pennant": "^1.24",
         "laravel/tinker": "^2.10.1",
         "morilog/jalali": "^3.4",
         "pragmarx/google2fa": "^9.0",
+        "shetabit/multipay": "^2.11",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^8.3"
     },
@@ -67,7 +75,8 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+            "@php artisan package:discover --ansi",
+            "@php artisan filament:upgrade"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
@@ -84,7 +93,7 @@
         "lint:test": "Check code style without writing",
         "stan": "Larastan level 8",
         "tenancy": "Golden rule 1 gate: RLS, BelongsToTenant and tenant_id indexes on every tenant table",
-        "rtl": "Fail on physical direction classes (ml-/pl-/left-/text-left…) — golden rule 9",
+        "rtl": "Fail on physical direction classes (ml-/pl-/left-/text-left\u2026) \u2014 golden rule 9",
         "test": "Full quality gate: Pint + RTL grep + Larastan + Pest",
         "test:isolation": "Cross-tenant isolation suite only"
     },

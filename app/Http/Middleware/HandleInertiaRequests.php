@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Models\Announcement;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Support\PlanCatalogue;
@@ -54,6 +55,12 @@ final class HandleInertiaRequests extends Middleware
                 'warning' => fn (): ?string => $this->flash($request, 'warning'),
                 'info' => fn (): ?string => $this->flash($request, 'info'),
             ],
+
+            // Platform notices. A lazy closure, so the query only runs for pages that
+            // actually read it — this is on every request in the app shell, and an
+            // eager query here would tax the POS screen for a banner that is usually
+            // absent.
+            'announcements' => fn (): array => $this->announcements(),
 
             'location' => $request->getPathInfo(),
         ];
@@ -111,6 +118,30 @@ final class HandleInertiaRequests extends Middleware
      * Flash values are session data and therefore `mixed`. Narrowing here keeps the
      * shared-prop contract honest instead of shipping `mixed` to the TypeScript side.
      */
+    /**
+     * Live platform notices for the current shop.
+     *
+     * `announcements` is a central table read by every tenant, so it needs no tenant
+     * context — but the scope still filters by tenant id, because a row may target one
+     * shop. On a central route there is no tenant, and only the global notices apply.
+     *
+     * @return list<array{id: int, title: string, body: string, level: string}>
+     */
+    private function announcements(): array
+    {
+        $rows = Announcement::query()
+            ->visibleTo(app(TenantContext::class)->id())
+            ->limit(3)
+            ->get(['id', 'title', 'body', 'level']);
+
+        return array_values($rows->map(static fn (Announcement $a): array => [
+            'id' => $a->id,
+            'title' => $a->title,
+            'body' => $a->body,
+            'level' => $a->level,
+        ])->all());
+    }
+
     private function flash(Request $request, string $key): ?string
     {
         $value = $request->session()->get($key);

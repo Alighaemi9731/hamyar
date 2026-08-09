@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 
+import { AnnouncementBanner } from '@/components/domain/announcement-banner';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -27,6 +28,8 @@ interface AppShellProps {
  * same markup would mirror correctly if a Latin locale were ever added.
  */
 export function AppShell({ title, actions, children }: AppShellProps) {
+  const { announcements } = usePage<SharedProps>().props;
+
   const { props } = usePage<SharedProps>();
   const { flash, features, tenant, location } = props;
 
@@ -86,6 +89,8 @@ export function AppShell({ title, actions, children }: AppShellProps) {
               {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
           )}
+
+          <AnnouncementBanner announcements={announcements ?? []} />
 
           {children}
         </main>

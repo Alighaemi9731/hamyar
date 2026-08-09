@@ -183,44 +183,63 @@ design-system skeleton — so every later phase is only about domain work.
 - [~] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases); **ADR 0006 is Proposed — needs sign-off at Gate 2** before the upgrade/downgrade flow is wired to payments
 - [~] `coupons` table + trial + grace period modelled and enforced by `Subscription::isUsable()`; redemption flow lands with billing
 
-### 2.3 Feature gating
+### 2.3 Feature gating (trial rules per Gate 2 item 3: Pro features, 14 days, no card,
+zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [~] Module grants resolved from plan + add-ons via `SubscriptionResolver` (fails closed). Pennant `limit:<key>` flags land with the usage counters below
 - [x] `EnsureModuleEnabled` route middleware
 - [x] `features` shared Inertia prop; nav hides disabled modules
 - [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
 
 ### 2.4 Payments
-- [ ] `payment_attempts` and `subscription_addons` carry no `tenant_id`, so `tenancy:check`
-      does not see them and RLS does not cover them — they are reachable only through an
-      RLS-protected parent today, but the moment a tenant-facing billing endpoint exists
-      they need either a denormalised `tenant_id` + RLS or a policy joining the parent.
-      Decide before the first endpoint, not after.
-- [ ] shetabit/multipay Zarinpal driver (sandbox)
-- [ ] Subscription invoices; payment init / callback / verify
-- [ ] Idempotent verification (replayed callback must not double-credit)
-- [ ] Receipt page
-- [ ] Renewal reminders (queued SMS/email stub)
+- [x] `payment_attempts` and `subscription_addons` are real tenant tables with FORCE RLS
+      (Gate 2 item 0, done before any endpoint existed)
+- [x] Zarinpal driver (sandbox) behind a `PaymentGateway` interface, plus `FakeGateway`
+      for tests. Talks to Zarinpal's REST API directly rather than through multipay's
+      drivers, which redirect and `die()` and cannot be wrapped or tested
+- [x] `counters` table + `CounterService` (row lock, per tenant, never MAX+1)
+- [x] Subscription invoices; payment init / callback / verify
+- [x] Idempotent verification — unique authority + `FOR UPDATE` + status check under
+      the lock; replay cannot double-extend the period
+- [x] Amount-tampering guard: a gateway-settled amount that differs from the invoice is
+      refused rather than trusted
+- [x] Receipt page
+- [x] Renewal reminders — `SendRenewalReminders` at 7/3/1 days, emits
+      `SubscriptionRenewalDue` inside each tenant's context; Messaging picks the channel
+- [ ] Coupon redemption flow (table exists; UI and validation land with the panel)
 
 ### 2.5 Filament v4 central panel
-- [ ] Panel restricted to platform admins
-- [ ] CRUD: tenants, plans, modules, coupons
-- [ ] Subscription overview
-- [ ] Impersonate tenant owner (audited)
-- [ ] Announcements
-- [ ] MRR / churn dashboard widgets
-- [ ] SMS credit package sales
+- [x] Panel restricted to platform admins — central domain only (`->domain()`), own
+      `platform` guard, deactivation locks out on the next request
+- [x] CRUD: tenants, plans, modules, coupons. Deliberately narrowed: plans and modules
+      cannot be deleted (subscriptions and invoices reference them), tenants cannot be
+      created by hand (onboarding provisions roles + trial + domain in one transaction),
+      modules cannot be created at all (they are code)
+- [x] Subscription overview — read-only across every shop. No edit: a subscription is the
+      consequence of invoices and payments, and editing it directly would grant access no
+      money explains
+- [x] Impersonate tenant owner (audited) — mandatory reason, audit row written BEFORE the
+      session exists and into the *shop's own* activity log so owners can audit us, then a
+      two-minute signed link minted on the shop's hostname
+- [x] Announcements — global or targeted at one shop, with a display window; surfaced in
+      the tenant app shell
+- [x] MRR / churn dashboard widgets — MRR from live subscriptions (not summed invoices,
+      which include prorations), plus collected-this-month, trials and past-due
+- [ ] SMS credit package sales — **deferred to Phase 8 (Messaging)**. Selling credit
+      needs a credit ledger to sell into, and Messaging owns that design; inventing a
+      `sms_packages` table now would prejudge it and produce a second balance to
+      reconcile. Tracked as a Phase 8 task instead.
 
 ### 2.6 Tests
-- [ ] Plan purchase happy path with a fake gateway
+- [x] Plan purchase happy path with a fake gateway (17 cases in `BillingPaymentTest`)
 - [x] Proration maths unit tests (11 cases, exact expected rial)
 - [x] Feature gating: module off → 403 + hidden nav
 - [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the
       `runAsPlatform()` hatch proven narrow (`PlatformBillingIsolationTest`)
 - [ ] Limit exhaustion behaviour
-- [ ] Impersonation writes an audit record
+- [x] Impersonation writes an audit record (into the tenant's own log, with the reason)
 
 ### Phase 2 — Definition of Done
-- [ ] A plan can be bought in sandbox, features unlock, everything manageable in Filament
+- [x] A plan can be bought in sandbox, features unlock, everything manageable in Filament
 
 > ### ⛔ DECISION GATE 2
 > Pricing/limits table and the proration rule need the human's sign-off.
@@ -615,6 +634,14 @@ design-system skeleton — so every later phase is only about domain work.
       rows, and re-check every place a hostname surfaces: printed receipts,
       repair-tracking QR codes, reseller price-list links, SMS templates, emails.
       (CLAUDE.md golden rule 1b.)
+- [ ] **Validate final pricing against Iranian competitors before launch.** The Gate 2
+      numbers (Basic ۲۹۰k / Pro ۵۹۰k / Enterprise ۱,۱۹۰k toman, and the eight add-on
+      prices) were approved as *provisional business data*, not as final. They live in
+      the database and are editable in the Filament panel — `PlanCatalogue` only seeds a
+      fresh install, so changing them at launch is a panel edit, not a deploy. Check them
+      against what Iranian shop-management products actually charge, confirm the add-on
+      stack still prices above the plan that contains it, and re-check the ladder against
+      inflation since 1405.
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages

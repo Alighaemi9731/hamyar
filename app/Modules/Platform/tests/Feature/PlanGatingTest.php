@@ -50,6 +50,32 @@ it('syncs the catalogue idempotently', function (): void {
     expect(Plan::query()->count())->toBe($plans);
 });
 
+it('does not overwrite a price edited in the panel', function (): void {
+    // Gate 2: prices are provisional business data and live in Filament. A seeder that
+    // rewrote them on every deploy would revert the owner's change silently, which is
+    // the worst possible failure mode for a number that decides what customers pay.
+    $basic = Plan::query()->where('code', 'basic')->firstOrFail();
+    $basic->update(['price' => 3_450_000]);
+
+    app(PlanCatalogueSeeder::class)->sync();
+
+    expect($basic->fresh()?->price)->toBe(3_450_000);
+});
+
+it('still corrects module structure the code owns', function (): void {
+    // The other half of the same rule: nobody may mark a module addonable in the panel
+    // if the application cannot actually sell it separately.
+    $sales = Module::query()->where('code', 'sales')->firstOrFail();
+    $sales->update(['is_core' => false, 'is_addonable' => true]);
+
+    app(PlanCatalogueSeeder::class)->sync();
+
+    $sales->refresh();
+
+    expect($sales->is_core)->toBeTrue();
+    expect($sales->is_addonable)->toBeFalse();
+});
+
 it('stores plan prices as integer rial', function (): void {
     $basic = Plan::query()->where('code', 'basic')->firstOrFail();
 
@@ -84,12 +110,13 @@ it('grants a module bought as an add-on', function (): void {
 
     $repairs = Module::query()->where('code', 'repairs')->firstOrFail();
 
-    SubscriptionAddon::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn () => SubscriptionAddon::query()->create([
+        'tenant_id' => $this->tenant->getKey(),
         'subscription_id' => $subscription->getKey(),
         'module_id' => $repairs->getKey(),
         'price' => $repairs->addon_price ?? 0,
         'starts_at' => now()->subDay(),
-    ]);
+    ]));
 
     app(TenantContext::class)->runFor(
         $this->tenant,
@@ -101,14 +128,15 @@ it('stops granting an add-on after it ends', function (): void {
     $subscription = subscribe($this->tenant, 'basic');
     $repairs = Module::query()->where('code', 'repairs')->firstOrFail();
 
-    SubscriptionAddon::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn () => SubscriptionAddon::query()->create([
+        'tenant_id' => $this->tenant->getKey(),
         'subscription_id' => $subscription->getKey(),
         'module_id' => $repairs->getKey(),
         'price' => 0,
         'starts_at' => now()->subMonth(),
         // Removed add-ons run to period end rather than being deleted (ADR 0006).
         'ends_at' => now()->subDay(),
-    ]);
+    ]));
 
     app(TenantContext::class)->runFor(
         $this->tenant,
@@ -185,6 +213,70 @@ it('shares every module as a feature flag, including the disabled ones', functio
             ->where('features.module:sales', true)
             ->where('features.module:repairs', false)
         );
+});
+
+/* --------------------------------------------------------------- trial -- */
+
+it('caps a Pro trial at Basic invoice volume', function (): void {
+    // Gate 2 item 3: generous on features, tight on quotas.
+    subscribe($this->tenant, 'pro', [
+        'status' => Subscription::STATUS_TRIALING,
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+
+    app(TenantContext::class)->runFor($this->tenant, function (): void {
+        $resolver = ($this->resolve)();
+
+        // Pro itself allows 5,000; the trial borrows Basic's 500.
+        expect($resolver->limit('invoices_per_month'))->toBe(500);
+        // But the FEATURES stay Pro — that is the whole point of the trial.
+        expect($resolver->grants('repairs'))->toBeTrue();
+        expect($resolver->grants('installments'))->toBeTrue();
+    });
+});
+
+it('grants zero bonus SMS during a trial', function (): void {
+    // The one quota that costs us cash per unit. Bought, never granted.
+    subscribe($this->tenant, 'pro', [
+        'status' => Subscription::STATUS_TRIALING,
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+
+    app(TenantContext::class)->runFor(
+        $this->tenant,
+        fn () => expect(($this->resolve)()->limit('sms_credit_bonus'))->toBe(0)
+    );
+});
+
+it('restores the real plan limits once the trial converts', function (): void {
+    subscribe($this->tenant, 'pro', [
+        'status' => Subscription::STATUS_ACTIVE,
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    app(TenantContext::class)->runFor($this->tenant, function (): void {
+        $resolver = ($this->resolve)();
+
+        expect($resolver->limit('invoices_per_month'))->toBe(5_000);
+        expect($resolver->limit('sms_credit_bonus'))->toBe(500);
+    });
+});
+
+it('never lets a trial exceed the plan it borrows from', function (): void {
+    // If someone makes Basic unlimited in the panel, the trial must not inherit that.
+    Plan::query()->where('code', 'basic')->firstOrFail()
+        ->limits()->where('key', 'invoices_per_month')->update(['value' => null]);
+
+    subscribe($this->tenant, 'pro', [
+        'status' => Subscription::STATUS_TRIALING,
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+
+    app(TenantContext::class)->runFor(
+        $this->tenant,
+        // Falls back to Pro's own 5,000 rather than becoming unlimited.
+        fn () => expect(($this->resolve)()->limit('invoices_per_month'))->toBe(5_000)
+    );
 });
 
 /* ---------------------------------------------------------- onboarding -- */

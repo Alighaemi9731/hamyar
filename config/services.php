@@ -37,4 +37,24 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Payments
+    |--------------------------------------------------------------------------
+    |
+    | `driver` selects the PaymentGateway implementation. `fake` is an in-memory
+    | gateway used by the test suite and safe for local development; it never talks
+    | to the network. Sandbox mode points the real driver at Zarinpal's test host,
+    | which accepts any card.
+    |
+    */
+
+    'payments' => [
+        'driver' => env('PAYMENT_DRIVER', 'zarinpal'),
+
+        'zarinpal' => [
+            'merchant_id' => env('ZARINPAL_MERCHANT_ID'),
+            'sandbox' => (bool) env('ZARINPAL_SANDBOX', true),
+        ],
+    ],
 ];

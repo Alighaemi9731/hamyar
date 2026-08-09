@@ -137,4 +137,22 @@ final class Money
     {
         return intdiv($rial * $percent, 100);
     }
+
+    /**
+     * The wire shape for money crossing into Inertia or an API resource.
+     *
+     * Both halves matter. `value` is the integer rial the frontend does arithmetic and
+     * comparisons on; `formatted` is the string it renders. Sending only the formatted
+     * string forces the client to parse Persian digits back into a number, and sending
+     * only the integer scatters formatting rules across components that will drift.
+     *
+     * @return array{value: int, formatted: string}
+     */
+    public static function toArray(int $rial, string $unit = self::UNIT_TOMAN): array
+    {
+        return [
+            'value' => $rial,
+            'formatted' => self::formatWithUnit($rial, $unit),
+        ];
+    }
 }

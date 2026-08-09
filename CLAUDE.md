@@ -48,7 +48,8 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 5. DATES: store UTC timestamps; render Jalali via helpers. Never store Jalali strings.
 6. MODULES: code lives in `app/Modules/<Name>` (Platform, Identity, Catalog,
    Inventory, Purchasing, Sales, Repairs, CRM, Treasury, Cheques, Installments,
-   Messaging, Reporting, Files, Settings, Hamta, Moadian). Cross-module calls only
+   Messaging, Reporting, Files, Settings, Storefront, Hamta, Moadian) — 18 in all.
+   Cross-module calls only
    via events or public service interfaces. Pest arch tests enforce this.
 7. GATING: module availability = Pennant features resolved from the tenant's plan
    + purchased add-ons. Guard both routes (middleware) and UI (shared Inertia props).
