@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { DataTable } from '@/components/domain/data-table';
@@ -9,8 +9,10 @@ import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
+import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -89,7 +91,8 @@ export default function DesignGallery() {
         <StatCardSection alt />
         <ImeiSection />
         <DataTableSection alt />
-        <StateSection />
+        <PickerSection />
+        <StateSection alt />
       </div>
     </AppShell>
   );
@@ -880,6 +883,193 @@ function DataTableSection({ alt = false }: { alt?: boolean }) {
           caption="بی‌نتیجه"
           search={{ value: 'گوشی نایاب', onChange: () => undefined }}
         />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * PartyPicker & UnitPicker — the two lookups every document starts with.
+ *
+ * Both talk to a module endpoint in the product; here they are driven by fixtures, so
+ * the states that are hardest to reach against a real database — still loading, no
+ * results, request failed — can actually be reviewed.
+ *
+ * What to check: open each one (the panel only exists while open), then confirm the
+ * IMEI reads left-to-right inside the right-to-left row, the balance says
+ * بدهکار/بستانکار rather than carrying a minus sign, and the panel matches the trigger
+ * width at 390px instead of overflowing it.
+ */
+function PickerSection({ alt = false }: { alt?: boolean }) {
+  const PARTIES: PartyOption[] = [
+    {
+      id: 1,
+      name: 'محمدرضا کریمی‌نژاد',
+      company_name: 'موبایل کریمی',
+      kind: 'colleague',
+      kind_label: 'همکار',
+      mobile: '09121112233',
+      balance: { value: 128_500_000, formatted: '۱۲٬۸۵۰٬۰۰۰ تومان' },
+    },
+    {
+      id: 2,
+      name: 'سمیرا احمدی',
+      company_name: null,
+      kind: 'customer',
+      kind_label: 'مشتری',
+      mobile: '09351234567',
+      balance: { value: 0, formatted: '۰ تومان' },
+    },
+    {
+      id: 3,
+      name: 'پخش قطعات جنوب شرق تهران',
+      company_name: 'شرکت تجارت الکترونیک آریا',
+      kind: 'supplier',
+      kind_label: 'تأمین‌کننده',
+      mobile: '02133445566',
+      balance: { value: -46_200_000, formatted: '۴٬۶۲۰٬۰۰۰- تومان' },
+    },
+  ];
+
+  const UNITS: UnitOption[] = [
+    {
+      id: 11,
+      imei1: '356938035643809',
+      imei2: '356938035643817',
+      serial: null,
+      product_name: 'آیفون ۱۵ پرو مکس',
+      variant_name: 'تیتانیوم طبیعی · ۲۵۶ گیگ',
+      status: 'in_stock',
+      condition_label: 'نو',
+      grade: null,
+      warehouse_name: 'انبار فروشگاه مرکزی',
+      cost: { value: 780_000_000, formatted: '۷۸٬۰۰۰٬۰۰۰ تومان' },
+    },
+    {
+      id: 12,
+      imei1: '352099001761481',
+      imei2: null,
+      serial: null,
+      product_name: 'گلکسی S24 اولترا',
+      variant_name: 'مشکی · ۵۱۲ گیگ',
+      status: 'reserved',
+      condition_label: 'دست‌دوم',
+      grade: 'A',
+      warehouse_name: 'انبار شعبه ونک',
+      cost: { value: 412_000_000, formatted: '۴۱٬۲۰۰٬۰۰۰ تومان' },
+    },
+  ];
+
+  const [party, setParty] = useState<PartyOption | null>(null);
+  const [chosenParty, setChosenParty] = useState<PartyOption | null>(PARTIES[0] ?? null);
+  const [unit, setUnit] = useState<UnitOption | null>(null);
+  const [chosenUnit, setChosenUnit] = useState<UnitOption | null>(UNITS[0] ?? null);
+
+  /** Resolves after a beat, the way a real request does. */
+  const found = useCallback(
+    <TRow,>(rows: TRow[]) =>
+      () =>
+        new Promise<TRow[]>((resolve) => window.setTimeout(() => resolve(rows), 220)),
+    []
+  );
+
+  const parties = useMemo(() => found(PARTIES)(), [found]);
+  const partySearch = useCallback(() => parties, [parties]);
+  const unitsPromise = useMemo(() => found(UNITS)(), [found]);
+  const unitSearch = useCallback(() => unitsPromise, [unitsPromise]);
+  const noResults = useCallback(() => Promise.resolve([]), []);
+  // Never settles — the only honest way to hold a component in its loading state.
+  const pending = useCallback(() => new Promise<never[]>(() => undefined), []);
+  const failing = useCallback(() => Promise.reject(new Error('gallery fixture')), []);
+
+  return (
+    <Section
+      alt={alt}
+      title="PartyPicker / UnitPicker"
+      note="هر دو پیکر با داده نمونه کار می‌کنند. برای دیدن پنل، روی فیلد کلیک کنید. حالت‌های «در حال بارگذاری»، «بی‌نتیجه» و «خطا» هم اینجا ساخته شده‌اند."
+    >
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>انتخاب طرف حساب — خالی</Label>
+            <PartyPicker value={party} onChange={setParty} search={partySearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>انتخاب‌شده، با مانده حساب</Label>
+            <PartyPicker value={chosenParty} onChange={setChosenParty} search={partySearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>بدون دسترسی به مانده حساب</Label>
+            <PartyPicker
+              value={{ ...(PARTIES[1] as PartyOption), balance: null }}
+              onChange={() => undefined}
+              search={partySearch}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>خطای فرم</Label>
+            <PartyPicker value={null} onChange={() => undefined} invalid search={partySearch} />
+            <p className="text-sm text-danger">انتخاب طرف حساب برای فاکتور اعتباری الزامی است.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>غیرفعال</Label>
+            <PartyPicker
+              value={PARTIES[2] as PartyOption}
+              onChange={() => undefined}
+              disabled
+              search={partySearch}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>اسکن دستگاه — خالی</Label>
+            <UnitPicker value={unit} onChange={setUnit} search={unitSearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>انتخاب‌شده</Label>
+            <UnitPicker value={chosenUnit} onChange={setChosenUnit} search={unitSearch} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>خطای فرم</Label>
+            <UnitPicker value={null} onChange={() => undefined} invalid search={unitSearch} />
+            <p className="text-sm text-danger">این دستگاه پیش‌تر در فاکتور دیگری ثبت شده است.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>غیرفعال</Label>
+            <UnitPicker
+              value={UNITS[1] as UnitOption}
+              onChange={() => undefined}
+              disabled
+              search={unitSearch}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="space-y-2">
+          <Label>در حال بارگذاری</Label>
+          <PartyPicker value={null} onChange={() => undefined} search={pending} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>بی‌نتیجه</Label>
+          <UnitPicker value={null} onChange={() => undefined} search={noResults} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>خطای شبکه</Label>
+          <PartyPicker value={null} onChange={() => undefined} search={failing} />
+        </div>
       </div>
     </Section>
   );

@@ -71,7 +71,8 @@ export interface SharedProps {
  * never does money arithmetic and never sees a float (golden rule 2).
  */
 export interface MoneyValue {
-  amount: number;
+  /** Integer rial. The only number the client compares or does arithmetic on. */
+  value: number;
   formatted: string;
 }
 

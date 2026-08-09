@@ -9,6 +9,7 @@ use App\Modules\CRM\Models\LedgerEntry;
 use App\Modules\CRM\Models\Party;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -92,6 +93,57 @@ final class LedgerService
         }
 
         return $party->opening_balance + $this->netOf($query);
+    }
+
+    /**
+     * Balances for many parties in one query, keyed by party id.
+     *
+     * The list-screen counterpart to `partyBalance()`, for the same reason
+     * `StockLedger::onHandForMany()` exists: a picker showing twelve customers with
+     * their balances would otherwise fire twelve aggregate queries per keystroke.
+     *
+     * Every requested id comes back, including parties with no entries at all — their
+     * balance is the opening figure, and a missing key would read as zero somewhere
+     * downstream.
+     *
+     * @param  Collection<int, Party>  $parties
+     * @return array<int, int>
+     */
+    public function partyBalances(Collection $parties): array
+    {
+        if ($parties->isEmpty()) {
+            return [];
+        }
+
+        $rows = LedgerEntry::query()
+            ->selectRaw('party_id, coalesce(sum(debit), 0) - coalesce(sum(credit), 0) as net')
+            ->whereIn('party_id', $parties->modelKeys())
+            ->groupBy('party_id')
+            ->get();
+
+        $net = [];
+
+        foreach ($rows as $row) {
+            /** @var int|numeric-string $partyId */
+            $partyId = $row->getAttribute('party_id');
+            /** @var int|numeric-string $value */
+            $value = $row->getAttribute('net');
+
+            $net[(int) $partyId] = (int) $value;
+        }
+
+        $balances = [];
+
+        foreach ($parties as $party) {
+            /** @var int|numeric-string $id */
+            $id = $party->getKey();
+
+            // A party with no entries is absent from the group-by; its balance is the
+            // opening figure, which is not the same statement as "unknown".
+            $balances[(int) $id] = $party->opening_balance + ($net[(int) $id] ?? 0);
+        }
+
+        return $balances;
     }
 
     /**
