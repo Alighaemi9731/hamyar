@@ -32,3 +32,4 @@ Homestead.yaml
 .phpactor.json
 .DS_Store
 Thumbs.db
+/.playwright-mcp/

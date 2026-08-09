@@ -188,4 +188,20 @@ is written in English but the business calendar is Jalali.
   recorded rather than smoothed over. Counts are blind by default — a number on the
   screen is a number people count towards — and uncounted lines are skipped, because an
   unvisited shelf is not an empty shelf.
+- **2026-08-09** — Phase 3.9a: the domain components the Phase 3 screens need —
+  `StatCard`, `ImeiInput`, `DataTable` — plus their state matrices on `/design`, per the
+  skill's rule that a component appears in the gallery before a feature page uses it.
+  Verified in a real browser at 1280 and 390, light and dark, RTL. That verification
+  earned its place immediately — it found three bugs no test would have:
+  (1) a nine-digit toman figure needs ~270px and a quarter-width dashboard card gives
+  158, so the number overflowed and was overlapped by the neighbouring card. `Money`
+  gained `unitPlacement="block"`; wrapping alone did not help because a figure and its
+  unit have no break opportunity between them.
+  (2) `ImeiInput`'s validity icon used `end-3` while the input carried `dir="ltr"`. The
+  logical utility was correct and the *direction context* was not, so the icon resolved
+  to the left — the side where LTR digits start — and sat on top of the number. Fixed by
+  putting `dir="ltr"` on the wrapper, not just the field.
+  (3) A server error rendered a green tick beside red error text, because local Luhn
+  validity ignored it. A syntactically perfect IMEI can still be rejected for already
+  being registered; the error now outranks it.
 

@@ -1,12 +1,15 @@
 import { Head } from '@inertiajs/react';
-import { PlusIcon, SearchIcon, SmartphoneIcon, WrenchIcon } from 'lucide-react';
+import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -83,7 +86,10 @@ export default function DesignGallery() {
         <FormSection />
         <OverlaySection alt />
         <TableSection />
-        <StateSection alt />
+        <StatCardSection alt />
+        <ImeiSection />
+        <DataTableSection alt />
+        <StateSection />
       </div>
     </AppShell>
   );
@@ -713,6 +719,166 @@ function StateSection({ alt }: { alt?: boolean }) {
               پاک کردن فیلترها
             </Button>
           }
+        />
+      </div>
+    </Section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * StatCard — one number with just enough context.
+ *
+ * The row below is the review case that matters: `invertTrend` on the last card. A
+ * rising overdue balance rendering green is worse than showing no trend at all.
+ */
+function StatCardSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="StatCard"
+      note="عدد + زمینه. روند صعودی همیشه خوب نیست — کارت آخر با invertTrend."
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="فروش امروز" value={128_500_000} isMoney trend={12} icon={TrendingUpIcon} />
+        <StatCard label="دستگاه موجود" value={47} hint="در ۲ انبار" icon={SmartphoneIcon} />
+        <StatCard
+          label="در انتظار قطعه"
+          value={6}
+          tone="warning"
+          icon={WrenchIcon}
+          hint="بیش از ۳ روز"
+        />
+        <StatCard
+          label="مطالبات معوق"
+          value={94_000_000}
+          isMoney
+          trend={8}
+          invertTrend
+          tone="danger"
+          hint="۵ طرف حساب"
+        />
+      </div>
+
+      <p className="mt-6 text-sm text-muted-foreground">بدون روند و بدون توضیح:</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <StatCard label="تعداد کاربران" value={3} />
+        <StatCard label="اعتبار پیامک" value={0} hint="نیاز به شارژ" tone="warning" />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * IMEIInput — the field the product turns on.
+ *
+ * States to review: empty, partial, valid, invalid checksum, server error, disabled.
+ * Note the LTR digits inside an RTL form, and that Persian digits are accepted.
+ */
+function ImeiSection({ alt = false }: { alt?: boolean }) {
+  const [partial, setPartial] = useState('35693803');
+  const [valid, setValid] = useState('356938035643809');
+  const [invalid, setInvalid] = useState('356938035643801');
+  const [persian, setPersian] = useState('۳۵۶۹۳۸۰۳۵۶۴۳۸۰۹');
+
+  return (
+    <Section
+      alt={alt}
+      title="IMEIInput"
+      note="ارقام LTR داخل فرم RTL. ارقام فارسی پذیرفته و به لاتین تبدیل می‌شوند."
+    >
+      <div className="grid gap-6 md:grid-cols-2">
+        <ImeiInput value={partial} onChange={setPartial} label="در حال تایپ" />
+        <ImeiInput value={valid} onChange={setValid} label="معتبر" />
+        <ImeiInput value={invalid} onChange={setInvalid} label="رقم کنترلی نامعتبر" />
+        <ImeiInput value={persian} onChange={setPersian} label="ورودی با ارقام فارسی" />
+        <ImeiInput value="" onChange={() => undefined} label="IMEI دوم" optional />
+        <ImeiInput
+          value="356938035643809"
+          onChange={() => undefined}
+          label="خطای سرور"
+          error="این IMEI قبلاً در فروشگاه شما ثبت شده است."
+        />
+        <ImeiInput value="356938035643809" onChange={() => undefined} label="غیرفعال" disabled />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * DataTable — the one table.
+ *
+ * Review at 390px: the secondary column disappears rather than the table cramping, and
+ * the wrapper scrolls instead of the page.
+ */
+function DataTableSection({ alt = false }: { alt?: boolean }) {
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('name');
+
+  const rows = [
+    {
+      id: 1,
+      name: 'آیفون ۱۵ پرو ۲۵۶',
+      imei: '356938035643809',
+      price: 890_000_000,
+      status: 'in_stock',
+    },
+    { id: 2, name: 'گلکسی A54', imei: '351234567890123', price: 128_000_000, status: 'reserved' },
+    { id: 3, name: 'ردمی نوت ۱۳', imei: '352099001761481', price: 74_500_000, status: 'sold' },
+  ];
+
+  const columns = [
+    { key: 'name', header: 'کالا', sortable: true, cell: (r: (typeof rows)[0]) => r.name },
+    {
+      key: 'imei',
+      header: 'IMEI',
+      secondary: true,
+      cell: (r: (typeof rows)[0]) => <Num value={r.imei} variant="ltr" />,
+    },
+    {
+      key: 'price',
+      header: 'قیمت',
+      numeric: true,
+      sortable: true,
+      cell: (r: (typeof rows)[0]) => <Money rial={r.price} digits="latin" />,
+    },
+    {
+      key: 'status',
+      header: 'وضعیت',
+      cell: (r: (typeof rows)[0]) => <StatusBadge status={r.status} />,
+    },
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="DataTable"
+      note="در ۳۹۰ پیکسل ستون ثانویه حذف می‌شود؛ اسکرول افقی داخل جدول است نه صفحه."
+    >
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        caption="نمونه فهرست کالا"
+        search={{ value: search, onChange: setSearch, placeholder: 'نام یا IMEI…' }}
+        sort={{ key: sortKey, direction: 'asc', onChange: setSortKey }}
+      />
+
+      <p className="mt-8 text-sm text-muted-foreground">در حال بارگذاری:</p>
+      <div className="mt-3">
+        <DataTable columns={columns} rows={[]} rowKey={(r) => r.id} caption="نمونه" loading />
+      </div>
+
+      <p className="mt-8 text-sm text-muted-foreground">خالی، و «جستجوی بی‌نتیجه»:</p>
+      <div className="mt-3 space-y-4">
+        <DataTable columns={columns} rows={[]} rowKey={(r) => r.id} caption="خالی" />
+        <DataTable
+          columns={columns}
+          rows={[]}
+          rowKey={(r) => r.id}
+          caption="بی‌نتیجه"
+          search={{ value: 'گوشی نایاب', onChange: () => undefined }}
         />
       </div>
     </Section>
