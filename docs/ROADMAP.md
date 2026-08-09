@@ -366,19 +366,29 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [ ] GRN print — lands with the UI pass
 
 ### 3.6 Movement operations
-- [ ] Transfers between warehouses/branches — dispatch + receive confirmation
-- [ ] Stock count sessions (blind count option) → adjustment movements
+- [x] Two-step transfers — stock leaves on dispatch, arrives on receipt, and belongs to
+      neither in between. A one-step transfer makes a van full of phones sellable in two
+      shops at once
+- [x] A shortfall on receipt is **recorded**, not reconciled away — five dispatched and
+      three received is something to investigate
+- [x] Serialized transfers move the unit (reserved in transit, relocated on arrival) and
+      deliberately write **no** stock movement; a phone counted in both the unit register
+      and the quantity ledger is counted twice
+- [x] Stock count sessions, **blind by default** — a number on the screen is a number
+      people count towards. Expected quantity is snapshotted per line; uncounted lines
+      are skipped rather than written off
 
 ### 3.7 Labels
-- [ ] Price/barcode labels, single + batch, printable HTML at label sizes
+- [ ] Price/barcode labels, single + batch, printable HTML at label sizes — lands with
+      the 3.9 UI pass, since it is entirely a print-layout concern
 
 ### 3.8 Tests
-- [ ] Ledger invariants (no negative stock unless the allow-flag is set)
-- [ ] Unit state transitions incl. illegal ones
+- [x] Ledger invariants (no negative stock unless the allow-flag is set)
+- [x] Unit state transitions incl. illegal ones
 - [ ] IMEI uniqueness per tenant
-- [ ] Two-step transfer flow
-- [ ] Price-level resolution
-- [ ] Purchase cost maths including landed costs
+- [x] Two-step transfer flow
+- [x] Price-level resolution
+- [x] Purchase cost maths including landed costs
 - [ ] Cross-tenant isolation for every new endpoint
 
 ### 3.9 UI pass — one coherent pass, after 4.1–4.2 and 3.5

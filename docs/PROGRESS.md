@@ -176,4 +176,16 @@ is written in English but the business calendar is Jalali.
   Landed-cost remainders go to the largest line so the allocation sums to the charge
   exactly; dropping them would leave the books a few rial short per invoice, which
   accumulates into a discrepancy nobody can explain.
+- **2026-08-09** — Phase 3.6 transfers and stock counts. 407 tests green.
+  A test caught me contradicting my own design: `stock_movements`' migration says
+  serialized goods do not live in the quantity ledger — a phone's location is
+  `product_units.warehouse_id` — but `TransferService` was writing a movement for every
+  line, serialized included. That double-counts each handset, once in the unit register
+  and once in the ledger, and every stock report would have disagreed with the shelf by
+  exactly the number of phones transferred. Fixed, with a regression test that asserts
+  zero movements for a serialized transfer.
+  Transfers are two-step because the van journey is real; a shortfall on receipt is
+  recorded rather than smoothed over. Counts are blind by default — a number on the
+  screen is a number people count towards — and uncounted lines are skipped, because an
+  unvisited shelf is not an empty shelf.
 
