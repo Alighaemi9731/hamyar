@@ -138,14 +138,17 @@ return new class extends Migration
              check (num_nonnulls(product_variant_id, product_unit_id) >= 1)'
         );
 
-        // One handset cannot be on two live invoice lines. This is the database half of
-        // the double-sell guard; the service takes a row lock as well, because a unique
-        // index reports the collision only after both sides have done their work.
-        DB::statement(
-            'create unique index sales_invoice_items_unit_unique
-             on sales_invoice_items (product_unit_id)
-             where product_unit_id is not null'
-        );
+        // NO unique index on `product_unit_id`, deliberately — and the reasoning is
+        // worth keeping, because it looks like an obvious safeguard.
+        //
+        // A handset sold, returned, and sold again to somebody else legitimately
+        // appears on two invoices. A unique index cannot tell that case apart from a
+        // double-sale, because "which of these invoices is still live" lives in another
+        // table and a partial index cannot reach it.
+        //
+        // So the guard is where it can see the state that matters: a `SELECT … FOR
+        // UPDATE` on the unit inside the finalisation transaction, backed by
+        // `UnitStateMachine` refusing `sold → sold`. See FinaliseInvoice.
 
         Schema::create('invoice_payments', function (Blueprint $table): void {
             $table->id();

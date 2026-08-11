@@ -96,6 +96,62 @@ final class StockLedger
     }
 
     /**
+     * What a unit of this variant costs on average, right now.
+     *
+     * The cost side of a standard-goods sale (golden rule 3's counterpart for money):
+     * weighted by quantity over every movement that brought stock *in*, so a hundred
+     * chargers bought at 50,000 and ten at 90,000 average to 53,636 — not to 70,000,
+     * which is what a naive mean of the two prices would say.
+     *
+     * Outward movements are excluded rather than netted. Selling stock does not change
+     * what the remaining stock cost, and letting a sale move the average is how a
+     * shop's margin drifts every time it has a busy day.
+     *
+     * Returns 0 when nothing was ever received — a variant with no purchase history has
+     * no cost to report, and inventing one would put a fictional margin on the first
+     * sale.
+     */
+    public function weightedAverageCost(int $variantId, ?int $warehouseId = null): int
+    {
+        $query = StockMovement::query()
+            ->selectRaw('sum(quantity) as total_quantity, sum(quantity * unit_cost) as total_value')
+            ->where('product_variant_id', $variantId)
+            // Inbound only, and only movements that carry a cost: a transfer in
+            // re-states stock the shop already owned and would double-count it.
+            ->where('quantity', '>', 0)
+            ->whereIn('type', [
+                MovementType::Purchase->value,
+                MovementType::Return->value,
+                MovementType::Adjustment->value,
+            ]);
+
+        if ($warehouseId !== null) {
+            $query->where('warehouse_id', $warehouseId);
+        }
+
+        $row = $query->first();
+
+        if ($row === null) {
+            return 0;
+        }
+
+        /** @var int|numeric-string|null $quantity */
+        $quantity = $row->getAttribute('total_quantity');
+        /** @var int|numeric-string|null $value */
+        $value = $row->getAttribute('total_value');
+
+        $quantity = (int) ($quantity ?? 0);
+
+        if ($quantity <= 0) {
+            return 0;
+        }
+
+        // intdiv, never a float: money is integer rial, and a fractional cost would be
+        // the one place a float crept into the profit calculation.
+        return intdiv((int) ($value ?? 0), $quantity);
+    }
+
+    /**
      * Record a movement.
      *
      * @param  int  $quantity  signed — positive in, negative out
