@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Sales\Services;
 
-use App\Modules\Sales\Enums\RoundingDirection;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
 use App\Support\Money;
+use App\Support\Settings\RoundingDirection;
 
 /**
  * The arithmetic of an invoice, in one place.

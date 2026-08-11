@@ -16,6 +16,7 @@ A decision marked **Binding** cannot be changed without a new ADR that supersede
 | 0006 | Subscription proration formula | *Pending — Phase 2, Decision Gate 2* |
 | [0007](0007-tenant-session-variable.md) | `set_config(..., false)` rather than `SET LOCAL` for `app.tenant_id` | Accepted |
 | [0008](0008-visual-language.md) | Visual language: calm neutral ground, one blue, pill actions | Accepted |
+| [0009](0009-invoice-rounding.md) | Invoice rounding: whole toman, floor VAT, round the total once | Accepted |
 
 ## Writing a new one
 

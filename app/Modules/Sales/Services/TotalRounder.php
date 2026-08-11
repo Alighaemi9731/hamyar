@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Sales\Services;
 
-use App\Modules\Sales\Enums\RoundingDirection;
+use App\Support\Settings\RoundingDirection;
 
 /**
  * Rounding the grand total to something a counter can actually settle.

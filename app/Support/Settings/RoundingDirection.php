@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Sales\Enums;
+namespace App\Support\Settings;
 
 /**
  * Which way a rounded total moves.
  *
  * A commercial decision, not an arithmetic one, which is why it is a shop setting and
- * not a constant. Iranian counters routinely round the last few hundred rial away
+ * not a constant. It lives in the shared kernel rather than in Sales because it is a
+ * *setting* — Settings owns storing it, Sales owns applying it, and neither may import
+ * the other (ADR 0003). Iranian counters routinely round the last few hundred rial away
  * rather than hand over coins nobody carries — but *which* way they round is the shop's
  * choice, and it is worth real money over a year.
  */
