@@ -6,6 +6,7 @@ namespace App\Modules\CRM\Services;
 
 use App\Modules\CRM\Models\LedgerEntry;
 use App\Modules\CRM\Models\LoyaltyEntry;
+use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyFollowUp;
 use App\Modules\CRM\Models\PartyNote;
 use App\Support\Timeline\TimelineEntry;
@@ -31,11 +32,50 @@ final class PartyTimeline
     public function for(int $partyId, ?CarbonImmutable $from = null, ?CarbonImmutable $to = null): array
     {
         return [
+            ...$this->opening($partyId, $from, $to),
             ...$this->money($partyId, $from, $to),
             ...$this->notes($partyId, $from, $to),
             ...$this->followUps($partyId, $from, $to),
             ...$this->loyalty($partyId, $from, $to),
         ];
+    }
+
+    /**
+     * The figure the shop carried in from whatever they used before.
+     *
+     * It lives in a column rather than as a ledger row, so nothing else would put it on
+     * the timeline — and a customer page reading "he owes you 12,850,000" above "nothing
+     * has ever happened" contradicts itself. Dated to when the record was created,
+     * which is when the shop asserted it.
+     *
+     * @return list<TimelineEntry>
+     */
+    private function opening(int $partyId, ?CarbonImmutable $from, ?CarbonImmutable $to): array
+    {
+        $party = Party::query()->find($partyId);
+
+        if (! $party instanceof Party || $party->opening_balance === 0) {
+            return [];
+        }
+
+        $at = $party->created_at;
+
+        if (! $at instanceof CarbonImmutable) {
+            return [];
+        }
+
+        if (($from instanceof CarbonImmutable && $at->isBefore($from))
+            || ($to instanceof CarbonImmutable && $at->isAfter($to))) {
+            return [];
+        }
+
+        return [new TimelineEntry(
+            occurredAt: $at,
+            kind: 'opening',
+            title: 'مانده اولیه',
+            description: 'مبلغی که هنگام ثبت این طرف حساب از دفتر قبلی منتقل شد.',
+            amount: $party->opening_balance,
+        )];
     }
 
     /**

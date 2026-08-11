@@ -774,6 +774,14 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
         <StatCard label="تعداد کاربران" value={3} />
         <StatCard label="اعتبار پیامک" value={0} hint="نیاز به شارژ" tone="warning" />
       </div>
+
+      <p className="mt-6 text-sm text-muted-foreground">
+        صفر در برابر «تعیین‌نشده» — دو چیز متفاوت‌اند و نباید یک‌شکل دیده شوند:
+      </p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <StatCard label="سقف اعتبار" value={0} isMoney hint="سقف صفر: اعتباری ندارد" />
+        <StatCard label="سقف اعتبار" value={null} hint="تعیین نشده" />
+      </div>
     </Section>
   );
 }

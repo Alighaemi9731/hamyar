@@ -298,7 +298,9 @@ function Finances({ finance }: { finance: Finance }) {
           hint="فروش اعتباری بیش از این، هشدار می‌دهد اما بسته نمی‌شود"
         />
       ) : (
-        <StatCard label="سقف اعتبار" value={0} hint="تعیین نشده" />
+        // Null, not zero: nobody has set a limit, which is not the same as a limit of
+        // nothing — and the card would otherwise state a decision the shop never made.
+        <StatCard label="سقف اعتبار" value={null} hint="تعیین نشده" />
       )}
     </div>
   );

@@ -38,6 +38,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $birthday
  * @property bool $is_active
  * @property string|null $notes
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 final class Party extends Model
 {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\CRM\Enums\PartyKind;
 use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Services\PartyImporter;
+use App\Support\Digits;
 use App\Support\Money;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use App\Support\Tenancy\TenantContext;
@@ -66,7 +67,7 @@ final class PartyImportController extends Controller
 
         if (! $readers->supports($extension)) {
             return response()->json([
-                'message' => 'این نوع فایل پشتیبانی نمی‌شود. فایل را با فرمت CSV ذخیره کنید.',
+                'message' => 'این نوع فایل پشتیبانی نمی‌شود. فایل اکسل (xlsx) یا CSV بفرستید.',
             ], 422);
         }
 
@@ -130,7 +131,8 @@ final class PartyImportController extends Controller
 
         return redirect()
             ->route('crm.parties.index')
-            ->with('success', "{$created} طرف حساب ثبت و {$updated} مورد تکمیل شد.");
+            ->with('success', Digits::toPersian((string) $created).' طرف حساب ثبت و '
+                .Digits::toPersian((string) $updated).' مورد تکمیل شد.');
     }
 
     /**

@@ -454,14 +454,17 @@ converging on them later.
       make
 
 ### 4.4 Import
-- [~] Customer import with column-mapping wizard + dry-run report. Upload → guessed
-      mapping → per-row verdict → commit, with the dry run being the import itself
-      stopped before the write, so what it reports and what happens cannot differ.
-      Handles what a real shop sends: Persian digits, a UTF-8 BOM, a semicolon
-      delimiter from a Persian Windows Excel, the same person twice, and a nameless row.
-      **CSV only for now** — `maatwebsite/excel` is named in CLAUDE.md's stack but is
-      not installed, so the parser sits behind a `SpreadsheetReader` contract and `.xlsx`
-      is one more reader whenever that dependency is added
+- [x] Excel customer import with column-mapping wizard + dry-run report. Upload →
+      guessed mapping → per-row verdict → commit, with the dry run being the import
+      itself stopped before the write, so what it reports and what happens cannot
+      differ. Handles what a real shop sends: Persian digits, a UTF-8 BOM, a semicolon
+      delimiter from a Persian Windows Excel, a mobile number Excel stored as a float,
+      the same person twice, and a nameless row
+- [x] `maatwebsite/excel` installed (2026-08-10), realising the stack declaration that
+      has been in CLAUDE.md since day one. Both readers sit behind a
+      `SpreadsheetReader` contract with a registry, so the import service knows about
+      neither format — and a `.csv` and an `.xlsx` of the same data are asserted to
+      produce identical results
 
 ### 4.5 Tests
 - [x] Ledger maths: statement closing figure asserted equal to `partyBalance()`, and the
@@ -474,11 +477,19 @@ converging on them later.
       token cannot be pointed at another shop's upload or escaped with `../`
 
 ### Phase 4 — Definition of Done
-- [~] Customer page shows a true balance and full timeline; a 500-row sheet imports
-      cleanly. **Both proven by test** (513 green, including a real 500-row import).
-      Not ticked yet: the Phase 4 screens have not had their browser pass, and Phase 3
-      set the precedent that a DoD is only ticked after one — that pass found three
-      defects no test had caught
+- [x] Customer page shows a true balance and full timeline; a 500-row sheet imports
+      cleanly.
+      **Walked end-to-end in a real browser on 2026-08-10.** The customer page shows a
+      balance summed from the ledger with its statement beside it, and a timeline
+      carrying the opening balance, a note written on the page, and a follow-up created
+      through the Jalali picker. A real `.xlsx` of deliberately messy Persian data was
+      dragged through the wizard: headers guessed, dry run reporting 3 new / 1
+      duplicate-in-file (naming the line it duplicates) / 1 error, then committed — and
+      the three created parties verified, with `۰۹۱۲۳۳۳۴۴۵۵` normalised to
+      `09123334455`, `0912-777-8899` stripped to `09127778899`, `۲٬۵۰۰٬۰۰۰` toman
+      stored as 25,000,000 rial, and the ZWNJ half-space in «کوروش‌ زند» preserved.
+      Checked at 390 and 1280, light and dark, RTL, zero horizontal overflow.
+      Five defects found and fixed — see PROGRESS 4.6
 
 ---
 

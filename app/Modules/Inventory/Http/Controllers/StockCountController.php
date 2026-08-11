@@ -12,6 +12,7 @@ use App\Modules\Inventory\Models\StockCountItem;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\StockCountService;
 use App\Support\Counters\CounterService;
+use App\Support\Digits;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\RedirectResponse;
@@ -190,7 +191,7 @@ final class StockCountController extends Controller
             $service->addLine($count, $variant->id);
         }
 
-        return back()->with('success', $variants->count().' ردیف به برگه شمارش اضافه شد.');
+        return back()->with('success', Digits::toPersian((string) $variants->count()).' ردیف به برگه شمارش اضافه شد.');
     }
 
     /**
@@ -237,7 +238,7 @@ final class StockCountController extends Controller
             'success',
             $written === 0
                 ? 'انبارگردانی بسته شد. هیچ اختلافی پیدا نشد.'
-                : "انبارگردانی بسته شد و {$written} تعدیل ثبت شد."
+                : 'انبارگردانی بسته شد و '.Digits::toPersian((string) $written).' تعدیل ثبت شد.'
         );
     }
 

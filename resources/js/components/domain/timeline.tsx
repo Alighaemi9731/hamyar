@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
   BanknoteIcon,
   BellIcon,
+  FileClockIcon,
   type LucideIcon,
   MessageSquareIcon,
   PencilLineIcon,
@@ -51,6 +52,7 @@ const KINDS: Record<string, { icon: LucideIcon; tone: string }> = {
   sale: { icon: ReceiptIcon, tone: 'text-success' },
   payment: { icon: BanknoteIcon, tone: 'text-success' },
   charge: { icon: BanknoteIcon, tone: 'text-warning' },
+  opening: { icon: FileClockIcon, tone: 'text-muted-foreground' },
   device: { icon: SmartphoneIcon, tone: 'text-info' },
   repair: { icon: WrenchIcon, tone: 'text-info' },
   sms: { icon: MessageSquareIcon, tone: 'text-muted-foreground' },
@@ -125,7 +127,11 @@ export function Timeline({
                   )}
                 >
                   {item.amount > 0 ? 'بدهکار ' : 'بستانکار '}
-                  <Money rial={Math.abs(item.amount)} digits="latin" />
+                  {/* No `digits="latin"`: a timeline is prose, not a table, and the
+                      stat cards above it follow the tenant's digit setting. Forcing
+                      Latin here put the same figure on the page twice in two digit
+                      systems. */}
+                  <Money rial={Math.abs(item.amount)} />
                 </span>
               )}
             </>

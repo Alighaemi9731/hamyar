@@ -75,6 +75,63 @@ Emits: `PartyCreated`, `CreditLimitExceeded`, `FollowUpDue`, `LedgerEntryPosted`
 Listens: `InvoiceFinalised`, `PaymentReceived`, `ChequeStatusChanged`,
 `InstallmentCollected`, `TicketDelivered` — all of which post ledger entries.
 
+## The timeline contract — how other modules contribute
+
+**Implemented 2026-08-10.** Phase 5 (Sales), 6 (Repairs) and 8 (Messaging) implement
+their contributors against this; nothing in CRM changes when they do.
+
+The customer page shows what happened with a party, and most of that is owned by other
+modules. CRM may not import them (ADR 0003), so contribution is inverted: each module
+registers a contributor for its own records with
+`App\Support\Timeline\TimelineRegistry`, and the page asks the registry.
+
+### The rules
+
+1. **Register in your own service provider's `boot()`**, keyed by module name:
+
+   ```php
+   $this->app->make(TimelineRegistry::class)->contribute(
+       'Sales',
+       static function (int $partyId, ?CarbonImmutable $from, ?CarbonImmutable $to): array {
+           // → list<TimelineEntry>
+       }
+   );
+   ```
+
+2. **You are handed a party id, never a `Party`.** The model is a CRM class and is
+   exactly the dependency this exists to avoid. If you need more than the id, you need
+   an event, not a timeline entry.
+
+3. **Honour the window and cap yourself.** `$from`/`$to` may be null; return at most
+   ~60 rows. The registry sorts and slices the union, but a contributor that returns
+   ten thousand rows makes every customer page slow for everyone.
+
+4. **Only things that happened.** A draft invoice is a document someone is still
+   writing. `PurchaseInvoice` contributes only when `received`, and the same test
+   applies to a sale that is not final or a ticket not yet intaken.
+
+5. **`amount` is signed integer rial from the party's point of view** — positive means
+   they owe the shop more — matching the ledger convention so a page showing both does
+   not reconcile two conventions. Null for anything that is not money.
+
+6. **`kind` is a stable key**, mapped to an icon and a tone once in
+   `resources/js/components/domain/timeline.tsx`. Add a key there when you add one here;
+   do not colour anything from a page.
+
+### Failure is named, never silent
+
+A contributor that throws is caught, reported, and its **module name is returned in
+`failed[]` and shown on the page**. Two things follow, and both are deliberate:
+
+- A customer page that cannot render because one module had a bad day is worse than the
+  same page missing that module's lines.
+- A page *silently* missing its repair history is how somebody concludes a device was
+  never brought in. The gap has to be visible to be safe.
+
+So a contributor must not swallow its own errors to look tidy — let it throw and be
+named.
+
+
 ## Acceptance
 
 - Party statement closing balance equals `SUM(debit) − SUM(credit)`, exactly.

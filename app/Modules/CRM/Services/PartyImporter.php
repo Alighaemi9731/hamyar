@@ -163,7 +163,7 @@ final class PartyImporter
             if ($duplicateOf !== null) {
                 $rows[] = $row + [
                     'outcome' => self::OUTCOME_DUPLICATE,
-                    'message' => "همین شخص در سطر {$duplicateOf} همین فایل هم هست.",
+                    'message' => 'همین شخص در سطر '.Digits::toPersian((string) $duplicateOf).' همین فایل هم هست.',
                 ];
                 $counts[self::OUTCOME_DUPLICATE]++;
 

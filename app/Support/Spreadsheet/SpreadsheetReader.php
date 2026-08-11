@@ -10,7 +10,8 @@ namespace App\Support\Spreadsheet;
  * An interface rather than a direct call into a parser, for two reasons that both bite
  * later: the file arrives as `.csv` or `.xlsx` depending on who exported it, and the
  * xlsx parser is a heavyweight third-party dependency whose API we do not want spread
- * through the import service.
+ * through the import service. Both readers exist ({@see CsvReader}, {@see XlsxReader})
+ * and the import service knows about neither.
  *
  * Implementations must be **streaming** — `rows()` returns an iterable, never an array.
  * A 5,000-row sheet read into memory as arrays of strings is survivable; the same sheet

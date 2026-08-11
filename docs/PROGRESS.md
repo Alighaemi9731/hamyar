@@ -341,3 +341,43 @@ is written in English but the business calendar is Jalali.
   is CSV-only today. The parser sits behind a `SpreadsheetReader` contract with a
   registry, so `.xlsx` is one more reader and no change to the import service.
   Not done: the Phase 4 screens have had no browser pass, so the DoD is left unticked.
+- **2026-08-10** — Phase 4.6: `maatwebsite/excel` installed and the Phase 4 browser
+  pass. Phase 4 closed.
+  The package was declared in CLAUDE.md's stack from day one, so installing it realises
+  an existing decision rather than adding a dependency. `XlsxReader` joins `CsvReader`
+  behind the `SpreadsheetReader` contract; the import service knows about neither
+  format and asks the registry for whatever opens the file it was handed. A `.csv` and
+  an `.xlsx` of the same data are asserted to produce identical headers and mapping —
+  one shape, one set of bugs, or the file format becomes a hidden variable in every
+  support call.
+  The xlsx reader normalises cells to strings at the boundary, which is where the
+  interesting bug lives: a mobile number with no leading zero is stored by Excel as a
+  *number* and comes back as `9.1211122e+9`. Rendered naively that is what lands in the
+  customer record. It is now rendered digit-by-digit, with a test.
+  The browser pass found five defects, none of which any test would have caught:
+  (1) **A big «۰» where the truth was "nobody decided".** The unset credit limit
+  rendered as zero on the customer page — the exact null-vs-zero distinction the column,
+  the request and the service all take care to preserve, undone at the last step by the
+  UI. `StatCard` now takes `number | null` and renders an em-dash for null.
+  (2) **The page contradicted itself.** It showed a balance of 12,850,000 above a
+  timeline reading "nothing has ever happened", because the opening balance lives in a
+  column rather than as a ledger row and so nothing put it on the timeline. It is now a
+  timeline entry of its own, dated to when the record was created.
+  (3) **The same figure in two digit systems on one page.** The stat cards followed the
+  tenant's Persian-digit setting while the timeline forced Latin. A timeline is prose,
+  not a table; the forced Latin is gone.
+  (4) **Counts inside Persian sentences carried Latin digits.** «همین شخص در سطر 2 همین
+  فایل هم هست» — server-composed strings interpolate a raw int and bypass `<Num/>`
+  entirely. Six such messages across four modules now convert at the point of
+  composition. Document numbers (`CNT-000001`) deliberately stay Latin: they are
+  identifiers, not quantities.
+  (5) **A toggle labelled with its current state**, which reads as an action and sends
+  people the wrong way. The follow-up desk button now names where it goes and the
+  heading carries which list you are on.
+  Also fixed on the way: Pint's `strict_comparison` rewrote a float/int comparison in
+  the new reader into a branch that could never run. The dead branch is gone and the
+  reason is in a comment, because the next person to write `$float === (int) $float`
+  will get the same "fix".
+  The timeline contract is now written into docs/specs/crm.md — contributors
+  self-register, are handed a party id rather than a `Party`, and a failing module is
+  named on the page. Phase 5, 6 and 8 implement against it.

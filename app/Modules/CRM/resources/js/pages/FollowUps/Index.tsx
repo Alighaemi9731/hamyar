@@ -45,7 +45,7 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
 
   return (
     <AppShell
-      title="میز پیگیری"
+      title={filters.done ? 'میز پیگیری — انجام‌شده' : 'میز پیگیری'}
       actions={
         <>
           <Button
@@ -54,11 +54,11 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
           >
             فقط موارد من
           </Button>
-          <Button
-            variant={filters.done ? 'default' : 'outline'}
-            onClick={() => visit({ done: !filters.done })}
-          >
-            {filters.done ? 'انجام‌شده‌ها' : 'بازها'}
+          {/* The label names where the button GOES, not where you are — a toggle
+              labelled with its current state reads as an action and sends people the
+              wrong way. Which list you are on is carried by the heading below. */}
+          <Button variant="outline" onClick={() => visit({ done: !filters.done })}>
+            {filters.done ? 'نمایش بازها' : 'نمایش انجام‌شده‌ها'}
           </Button>
         </>
       }
