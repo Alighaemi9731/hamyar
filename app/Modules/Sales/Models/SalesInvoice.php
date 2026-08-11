@@ -46,6 +46,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $discount_amount
  * @property int $vat_amount
  * @property int $shipping_amount
+ * @property int $rounding_adjustment
  * @property int $total
  * @property int $paid_total
  * @property array<string, mixed>|null $settings_snapshot
@@ -64,7 +65,8 @@ final class SalesInvoice extends Model
     protected $fillable = [
         'tenant_id', 'branch_id', 'party_id', 'salesperson_id', 'number',
         'type', 'status', 'issued_at', 'voided_at', 'voided_by', 'void_reason',
-        'subtotal', 'discount_amount', 'vat_amount', 'shipping_amount', 'total',
+        'subtotal', 'discount_amount', 'vat_amount', 'shipping_amount',
+        'rounding_adjustment', 'total',
         'paid_total', 'settings_snapshot', 'notes',
     ];
 
@@ -81,6 +83,7 @@ final class SalesInvoice extends Model
             'discount_amount' => 'integer',
             'vat_amount' => 'integer',
             'shipping_amount' => 'integer',
+            'rounding_adjustment' => 'integer',
             'total' => 'integer',
             'paid_total' => 'integer',
             'settings_snapshot' => 'array',

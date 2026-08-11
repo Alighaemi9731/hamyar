@@ -70,6 +70,13 @@ return new class extends Migration
             $table->unsignedBigInteger('discount_amount')->default(0);
             $table->unsignedBigInteger('vat_amount')->default(0);
             $table->unsignedBigInteger('shipping_amount')->default(0);
+
+            // What rounding the grand total moved it by. Signed, and stored rather
+            // than absorbed: an invoice whose lines sum to one number and whose total
+            // is another, with nothing explaining the gap, is one a customer argues
+            // with and a shop cannot reconcile.
+            $table->bigInteger('rounding_adjustment')->default(0);
+
             $table->unsignedBigInteger('total')->default(0);
             $table->unsignedBigInteger('paid_total')->default(0);
 

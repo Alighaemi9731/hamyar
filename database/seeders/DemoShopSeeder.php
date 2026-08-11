@@ -11,6 +11,8 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Catalog\Services\PriceResolver;
 use App\Modules\Catalog\Services\VariantMatrix;
+use App\Modules\CRM\Enums\PartyKind;
+use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyContact;
 use App\Modules\Identity\Models\User;
@@ -24,6 +26,11 @@ use App\Modules\Purchasing\Models\PurchaseInvoice;
 use App\Modules\Purchasing\Models\PurchaseInvoiceItem;
 use App\Modules\Purchasing\Models\PurchaseUnitItem;
 use App\Modules\Purchasing\Services\ReceivePurchaseInvoice;
+use App\Modules\Sales\Enums\InvoiceStatus;
+use App\Modules\Sales\Enums\PaymentMethod;
+use App\Modules\Sales\Models\SalesInvoice;
+use App\Modules\Sales\Services\FinaliseInvoice;
+use App\Modules\Sales\Services\InvoiceTotals;
 use App\Support\Imei;
 use App\Support\Money;
 use App\Support\Tenancy\TenantContext;
@@ -62,6 +69,7 @@ class DemoShopSeeder extends Seeder
             $this->seedParties();
             $this->seedShipment();
             $this->seedDeviceLives();
+            $this->seedSale();
         });
 
         app(TenantContext::class)->forget();
@@ -284,6 +292,91 @@ class DemoShopSeeder extends Seeder
         $machine->transition($sold, UnitStatus::Sold, null, 'فروش نقدی');
 
         $pendingHamta->update(['hamta_status' => ProductUnit::HAMTA_PENDING]);
+    }
+
+    /**
+     * A sale that exercises every part of the printed invoice.
+     *
+     * Built by driving the real services, not by inserting rows: the totals come from
+     * `InvoiceTotals` (including the discount distribution and the rounding), and the
+     * finalisation is the same one a till performs — so what the print templates render
+     * is what a shop would actually get, down to the rial.
+     *
+     * Deliberately awkward: a product name long enough to wrap, a serialized line with
+     * an IMEI and a warranty, a per-line discount, an invoice-level discount that does
+     * not divide evenly, VAT, and a payment split three ways with a balance left owing.
+     */
+    private function seedSale(): void
+    {
+        $branch = Branch::query()->where('is_default', true)->firstOrFail();
+        $warehouse = Warehouse::query()->where('branch_id', $branch->id)->where('is_sellable', true)->firstOrFail();
+        $customer = Party::query()->where('kind', PartyKind::Customer)->firstOrFail();
+        $salesperson = User::query()->firstOrFail();
+        $cash = Account::query()->where('type', Account::TYPE_CASH)->firstOrFail();
+
+        $handset = ProductUnit::query()
+            ->where('warehouse_id', $warehouse->id)
+            ->where('status', UnitStatus::InStock)
+            ->firstOrFail();
+
+        $accessory = ProductVariant::query()
+            ->whereHas('product', fn ($query) => $query->where('type', 'standard'))
+            ->firstOrFail();
+
+        $invoice = SalesInvoice::query()->create([
+            'branch_id' => $branch->id,
+            'party_id' => $customer->id,
+            'salesperson_id' => $salesperson->id,
+            'status' => InvoiceStatus::Draft,
+            // An invoice-level discount that does not divide evenly across the lines,
+            // so the remainder rule is visible on the paper.
+            'discount_amount' => 1_500_000,
+            'settings_snapshot' => [
+                'rounding_step' => 10_000,
+                'rounding_direction' => 'nearest',
+            ],
+            'notes' => 'گارانتی دستگاه نزد فروشگاه ثبت شد. برای پیگیری، شماره فاکتور را همراه داشته باشید.',
+        ]);
+
+        $invoice->items()->create([
+            'product_variant_id' => $handset->product_variant_id,
+            'product_unit_id' => $handset->id,
+            'description' => 'گوشی موبایل اپل آیفون ۱۵ پرو مکس ظرفیت ۲۵۶ گیگابایت تیتانیوم طبیعی',
+            'quantity' => 1,
+            'unit_price' => 892_000_000,
+            'discount_amount' => 12_000_000,
+            'vat_rate' => 10,
+            'line_total' => 0,
+            'warranty_months' => 18,
+        ]);
+
+        $invoice->items()->create([
+            'product_variant_id' => $accessory->id,
+            'description' => 'کابل شارژ تایپ‌سی به لایتنینگ اورجینال یک متری',
+            'quantity' => 2,
+            'unit_price' => 4_850_000,
+            'vat_rate' => 10,
+            'line_total' => 0,
+        ]);
+
+        app(InvoiceTotals::class)->recalculate($invoice->refresh());
+
+        // Split three ways, with a balance the customer will settle later — the shape
+        // an Iranian counter produces far more often than a single cash payment.
+        $invoice->payments()->create([
+            'method' => PaymentMethod::Cash,
+            'account_id' => $cash->id,
+            'amount' => 300_000_000,
+        ]);
+
+        $invoice->payments()->create([
+            'method' => PaymentMethod::PosTerminal,
+            'account_id' => $cash->id,
+            'amount' => 400_000_000,
+            'reference' => '۸۲۳۹۴۵',
+        ]);
+
+        app(FinaliseInvoice::class)->finalise($invoice->refresh(), $salesperson->id);
     }
 
     private function imei(): string
