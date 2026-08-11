@@ -428,21 +428,57 @@ converging on them later.
 ### 4.2 Ledger engine — **relocated to Phase 3, ahead of 3.5**
 
 ### 4.3 Engagement
-- [ ] 360° timeline component (sales, repairs, sms, payments, notes)
-- [ ] Follow-up reminders (assignee, due date, done)
-- [ ] Loyalty points table + earn-rule stub
+- [x] Party screens: list, customer page, create/edit. The customer page is what the
+      phase is for — balance, statement, timeline, notes, follow-ups and points on one
+      screen, because a shop opens it to answer one of three questions
+- [x] 360° timeline component (sales, repairs, sms, payments, notes) — assembled through
+      a `TimelineRegistry` in the shared kernel, the same shape as `DocumentRegistry`:
+      each module contributes its own events and CRM imports none of them (ADR 0003).
+      CRM, Purchasing and Inventory contribute today; Sales and Repairs are one
+      `contribute()` call each when those phases land, with no change to CRM.
+      A contributor that throws is **named on the page**, not swallowed — a customer
+      page quietly missing its repair history is how somebody concludes a device was
+      never brought in
+- [x] Follow-up reminders (assignee, due date, done) + the follow-up desk. `done_at` is
+      a timestamp, not a boolean: "when was this dealt with" is the question that gets
+      asked. A reminder that only appears on one customer's page is a reminder nobody
+      sees, so the cross-party desk is the primary screen
+- [x] Loyalty points ledger + earn-rule stub. Golden rule 3 applied to points: the
+      balance is `SUM(points)` and expiry writes a negative entry rather than deleting
+      a positive one. One active rule per shop (partial unique index) — the earn
+      calculation has to have exactly one answer. Redemption refuses to overdraw:
+      points are not credit
+- [x] `crm.manage_loyalty` added to the permission catalogue. Granting points is worth
+      money and Salesperson holds `crm.update`, so the two cannot share a permission —
+      the same separation `inventory.view_cost` and `repairs.reveal_passcode` already
+      make
 
 ### 4.4 Import
-- [ ] Excel customer import with column-mapping wizard + dry-run report
+- [~] Customer import with column-mapping wizard + dry-run report. Upload → guessed
+      mapping → per-row verdict → commit, with the dry run being the import itself
+      stopped before the write, so what it reports and what happens cannot differ.
+      Handles what a real shop sends: Persian digits, a UTF-8 BOM, a semicolon
+      delimiter from a Persian Windows Excel, the same person twice, and a nameless row.
+      **CSV only for now** — `maatwebsite/excel` is named in CLAUDE.md's stack but is
+      not installed, so the parser sits behind a `SpreadsheetReader` contract and `.xlsx`
+      is one more reader whenever that dependency is added
 
 ### 4.5 Tests
-- [ ] Ledger maths: statement equals the sum of entries
-- [ ] Credit-limit block flag on over-limit credit sale
-- [ ] Import edge cases (duplicate mobiles, bad-row report)
-- [ ] Cross-tenant isolation
+- [x] Ledger maths: statement closing figure asserted equal to `partyBalance()`, and the
+      page's headline balance asserted equal to the statement's first row
+- [x] Credit-limit warning on an over-limit party — a warning with data, never a block
+      (spec), asserted as such
+- [x] Import edge cases: duplicate mobiles within one file, bad rows, BOM, semicolons,
+      Persian digits, matching an existing customer without overwriting them
+- [x] Cross-tenant isolation for every new endpoint, including one proving an import
+      token cannot be pointed at another shop's upload or escaped with `../`
 
 ### Phase 4 — Definition of Done
-- [ ] Customer page shows a true balance and full timeline; a 500-row sheet imports cleanly
+- [~] Customer page shows a true balance and full timeline; a 500-row sheet imports
+      cleanly. **Both proven by test** (513 green, including a real 500-row import).
+      Not ticked yet: the Phase 4 screens have not had their browser pass, and Phase 3
+      set the precedent that a DoD is only ticked after one — that pass found three
+      defects no test had caught
 
 ---
 

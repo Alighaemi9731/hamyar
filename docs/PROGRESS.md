@@ -299,3 +299,45 @@ is written in English but the business calendar is Jalali.
   The demo seeder gained a second branch (شعبه ونک). Provisioning gives a new shop one
   branch and one warehouse, which is right for a real signup and leaves a transfer with
   nowhere to go.
+- **2026-08-10** — Phase 4.3–4.5: the customer page, the 360° timeline, follow-ups,
+  loyalty points and the bulk import.
+  The timeline is the piece with a design decision in it. Most of what a shop wants on a
+  customer page belongs to other modules — what they bought (Sales), what was repaired
+  (Repairs), what the shop bought *from* them (Purchasing) — and CRM may not import any
+  of it (ADR 0003). So `TimelineRegistry` sits in the shared kernel, the same shape as
+  `DocumentRegistry`: each module registers a contributor for its own records keyed by
+  module name, and the page asks the registry. Contributors are handed a party **id**,
+  never a `Party` object, because the object is the dependency the registry exists to
+  avoid. Adding Sales in Phase 5 is one `contribute()` call and no change to CRM.
+  A contributor that throws is caught, reported and **named on the page**: a customer
+  page that cannot render because the SMS module had a bad day is worse than the same
+  page missing its SMS lines, and a page silently missing its repair history is how
+  somebody concludes a device was never brought in.
+  Loyalty follows golden rule 3 — points are a ledger, the balance is `SUM(points)`, and
+  expiry writes a negative entry rather than deleting a positive one, so a customer
+  asking why their points vanished can be shown the line that took them. Redemption
+  refuses to overdraw: points are not credit, and there is nothing to collect from
+  someone who spends points they do not have.
+  The import's dry run is the import itself stopped before the write, the same guarantee
+  `BulkPriceUpdater` makes — an import that reports one outcome and performs another is
+  discovered weeks later in the balances. It handles what a real shop actually sends: a
+  UTF-8 BOM (which otherwise becomes part of the first header and makes that column
+  unselectable), a semicolon delimiter from a Persian Windows Excel (which otherwise
+  reads the whole file as one column), Persian digits, and the same person twice. An
+  existing customer is matched and their **gaps filled, never overwritten** — the sheet
+  is an import, not a source of truth, and a name corrected in the app last week must
+  not be undone by a stale export.
+  Two things the work turned up:
+  (1) **`Party::tags()` was broken for eager loading.** It read `$this->tenant_id` inside
+  `withPivotValue()`, and eager loading builds a relation on a fresh attribute-less
+  instance — so `with('tags')` threw while a lazy `$party->tags` worked. Nothing had
+  eager-loaded it until the customer page did. The pivot value now comes from the tenant
+  context.
+  (2) **Loyalty adjustment could not ride on `crm.update`.** Salesperson holds that
+  permission, and granting points is granting something worth money. Added
+  `crm.manage_loyalty`, which lands on Owner and Manager only — the same capability
+  separation `inventory.view_cost` and `repairs.reveal_passcode` already make.
+  `maatwebsite/excel` is named in CLAUDE.md's stack but is not installed, so the import
+  is CSV-only today. The parser sits behind a `SpreadsheetReader` contract with a
+  registry, so `.xlsx` is one more reader and no change to the import service.
+  Not done: the Phase 4 screens have had no browser pass, so the DoD is left unticked.

@@ -9,8 +9,8 @@ use App\Modules\CRM\Models\LedgerEntry;
 use App\Modules\CRM\Models\Party;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -106,7 +106,9 @@ final class LedgerService
      * balance is the opening figure, and a missing key would read as zero somewhere
      * downstream.
      *
-     * @param  Collection<int, Party>  $parties
+     * @param  Collection<int, Party>  $parties  any collection of parties — a paginator
+     *                                           hands back a Support collection, a
+     *                                           plain `get()` an Eloquent one
      * @return array<int, int>
      */
     public function partyBalances(Collection $parties): array
@@ -117,7 +119,7 @@ final class LedgerService
 
         $rows = LedgerEntry::query()
             ->selectRaw('party_id, coalesce(sum(debit), 0) - coalesce(sum(credit), 0) as net')
-            ->whereIn('party_id', $parties->modelKeys())
+            ->whereIn('party_id', $this->keysOf($parties))
             ->groupBy('party_id')
             ->get();
 
@@ -144,6 +146,26 @@ final class LedgerService
         }
 
         return $balances;
+    }
+
+    /**
+     * Primary keys as plain ints. `getKey()` is mixed, and level 8 will not cast it blind.
+     *
+     * @param  Collection<int, Party>  $parties
+     * @return list<int>
+     */
+    private function keysOf(Collection $parties): array
+    {
+        $keys = [];
+
+        foreach ($parties as $party) {
+            /** @var int|numeric-string $key */
+            $key = $party->getKey();
+
+            $keys[] = (int) $key;
+        }
+
+        return $keys;
     }
 
     /**

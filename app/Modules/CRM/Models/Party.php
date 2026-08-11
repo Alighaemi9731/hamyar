@@ -7,6 +7,7 @@ namespace App\Modules\CRM\Models;
 use App\Modules\Catalog\Models\PriceLevel;
 use App\Modules\CRM\Enums\PartyKind;
 use App\Support\Tenancy\BelongsToTenant;
+use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -83,13 +84,25 @@ final class Party extends Model
     }
 
     /**
+     * Tags, with `tenant_id` filled on the pivot when one is attached.
+     *
+     * The id comes from the tenant **context**, not from `$this->tenant_id`. Eager
+     * loading builds the relation on a fresh, attribute-less instance
+     * (`Relation::noConstraints`), so reading it off the model produced null and
+     * `withPivotValue` threw — which meant `with('tags')` blew up while a lazy
+     * `$party->tags` worked, and nothing eager-loaded it until the customer page did.
+     *
      * @return BelongsToMany<PartyTag, $this>
      */
     public function tags(): BelongsToMany
     {
-        return $this->belongsToMany(PartyTag::class, 'party_tag_assignments')
-            ->withPivotValue('tenant_id', $this->tenant_id)
-            ->withTimestamps();
+        $relation = $this->belongsToMany(PartyTag::class, 'party_tag_assignments')->withTimestamps();
+
+        $tenantId = app(TenantContext::class)->id() ?? $this->tenant_id;
+
+        // Reads are confined by RLS and the pivot's own scope regardless; this only
+        // decides what an attach() writes.
+        return $tenantId === null ? $relation : $relation->withPivotValue('tenant_id', $tenantId);
     }
 
     /**
@@ -98,6 +111,32 @@ final class Party extends Model
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class);
+    }
+
+    /**
+     * Dated notes, newest first — the conversation, not the description.
+     *
+     * @return HasMany<PartyNote, $this>
+     */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(PartyNote::class)->latest('created_at');
+    }
+
+    /**
+     * @return HasMany<PartyFollowUp, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(PartyFollowUp::class);
+    }
+
+    /**
+     * @return HasMany<LoyaltyEntry, $this>
+     */
+    public function loyaltyEntries(): HasMany
+    {
+        return $this->hasMany(LoyaltyEntry::class);
     }
 
     /**

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Support\Documents\DocumentRegistry;
+use App\Support\Spreadsheet\CsvReader;
+use App\Support\Spreadsheet\SpreadsheetReaders;
+use App\Support\Timeline\TimelineRegistry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -22,6 +25,20 @@ class AppServiceProvider extends ServiceProvider
         // documents here, and screens that must name another module's document read
         // from it — so neither side imports the other (ADR 0003).
         $this->app->singleton(DocumentRegistry::class);
+
+        // Same shape, one level up: modules contribute what they know about a party and
+        // the CRM customer page renders the union without importing any of them.
+        $this->app->singleton(TimelineRegistry::class);
+
+        // Customer lists arrive as whatever the sender's Excel exported. CSV needs no
+        // dependency and is registered here; an xlsx reader registers alongside it
+        // without the import service learning either format exists.
+        $this->app->singleton(SpreadsheetReaders::class, function (): SpreadsheetReaders {
+            $readers = new SpreadsheetReaders;
+            $readers->register(new CsvReader);
+
+            return $readers;
+        });
     }
 
     public function boot(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Policies;
 
+use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\User;
 
 /**
@@ -24,7 +25,7 @@ final class PartyPolicy
         return $actor->can('crm.view');
     }
 
-    public function view(User $actor): bool
+    public function view(User $actor, Party $party): bool
     {
         return $actor->can('crm.view');
     }
@@ -34,7 +35,7 @@ final class PartyPolicy
         return $actor->can('crm.create');
     }
 
-    public function update(User $actor): bool
+    public function update(User $actor, Party $party): bool
     {
         return $actor->can('crm.update');
     }
@@ -42,5 +43,30 @@ final class PartyPolicy
     public function viewBalance(User $actor): bool
     {
         return $actor->can('crm.view_balance');
+    }
+
+    /**
+     * Adjusting someone's points by hand.
+     *
+     * Separate from `update` for the same reason `inventory.view_cost` and
+     * `repairs.reveal_passcode` are separate: editing a customer's phone number and
+     * granting them something worth money are different acts of trust, and
+     * Salesperson holds `crm.update` by default.
+     */
+    public function manageLoyalty(User $actor): bool
+    {
+        return $actor->can('crm.manage_loyalty');
+    }
+
+    /**
+     * Bulk import.
+     *
+     * Its own permission rather than `create`: one form adds one customer someone is
+     * looking at, the other writes five hundred rows nobody has read. Shops hand the
+     * first to the counter and keep the second.
+     */
+    public function import(User $actor): bool
+    {
+        return $actor->can('crm.import');
     }
 }

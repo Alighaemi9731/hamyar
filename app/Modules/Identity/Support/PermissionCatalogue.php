@@ -91,6 +91,7 @@ final class PermissionCatalogue
                 'create' => 'ثبت مشتری',
                 'update' => 'ویرایش مشتری',
                 'view_balance' => 'مشاهده مانده حساب',
+                'manage_loyalty' => 'تغییر دستی امتیاز وفاداری',
                 'import' => 'ورود گروهی از اکسل',
             ],
             'treasury' => [

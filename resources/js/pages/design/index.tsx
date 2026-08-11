@@ -14,6 +14,7 @@ import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
+import { type TimelineItem, Timeline } from '@/components/domain/timeline';
 import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1227,6 +1228,97 @@ function PrintSection({ alt = false }: { alt?: boolean }) {
           </div>
         </div>
       </div>
+    </Section>
+  );
+}
+
+/**
+ * Timeline — the 360° customer history.
+ *
+ * Assembled from every module, so the review case that matters is a *mixed* list: the
+ * icons and tones have to stay distinguishable when six kinds of event sit next to each
+ * other, and the money lines have to read correctly in both directions without a bare
+ * minus sign.
+ *
+ * Also check the failure notice: a module that could not answer is named, because a
+ * customer page quietly missing its repair history is how somebody concludes a device
+ * was never brought in.
+ */
+function TimelineSection({ alt = false }: { alt?: boolean }) {
+  const items: TimelineItem[] = [
+    {
+      occurred_at: '2026-08-09T08:15:00Z',
+      kind: 'payment',
+      title: 'پرداخت / بستانکار شد',
+      description: 'نقدی بابت فاکتور ۱۴۰۵-۰۰۱۲',
+      amount: -45_000_000,
+      url: null,
+      actor: 'سمیرا احمدی',
+    },
+    {
+      occurred_at: '2026-08-08T11:40:00Z',
+      kind: 'device',
+      title: 'دستگاه از این طرف حساب خریداری شد',
+      description: 'آیفون ۱۵ پرو مکس · 356938035643809',
+      amount: null,
+      url: '#unit',
+      actor: null,
+    },
+    {
+      occurred_at: '2026-08-07T09:05:00Z',
+      kind: 'charge',
+      title: 'بدهکار شد',
+      description: 'فروش اعتباری',
+      amount: 128_500_000,
+      url: null,
+      actor: null,
+    },
+    {
+      occurred_at: '2026-08-05T14:20:00Z',
+      kind: 'follow_up',
+      title: 'پیگیری: تماس برای تحویل گارانتی',
+      description: null,
+      amount: null,
+      url: null,
+      actor: 'محمدرضا کریمی',
+    },
+    {
+      occurred_at: '2026-08-04T10:00:00Z',
+      kind: 'note',
+      title: 'یادداشت',
+      description: 'گفت هفته آینده برای تعویض باتری می‌آید.',
+      amount: null,
+      url: null,
+      actor: 'مالک',
+    },
+    {
+      occurred_at: '2026-08-01T07:30:00Z',
+      kind: 'loyalty',
+      title: 'کسب امتیاز',
+      description: 'بابت خرید مرداد',
+      amount: null,
+      url: null,
+      actor: null,
+    },
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="Timeline"
+      note="ریل عمودی از لبه شروعِ خواندن. مبلغ‌ها با کلمه «بدهکار/بستانکار» جهت می‌گیرند، نه با علامت منها."
+    >
+      <Row label="رویدادهای ترکیبی">
+        <Timeline items={items} className="w-full" />
+      </Row>
+
+      <Row label="یک ماژول پاسخ نداد">
+        <Timeline items={items.slice(0, 2)} failed={['Repairs']} className="w-full" />
+      </Row>
+
+      <Row label="خالی">
+        <Timeline items={[]} className="w-full" />
+      </Row>
     </Section>
   );
 }
