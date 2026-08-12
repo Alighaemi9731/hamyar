@@ -23,7 +23,9 @@ declare(strict_types=1);
  * width that is merely too small.
  *
  * **When browser testing lands, replace this with a rendered assertion** that loads the
- * seeded invoice and checks no two cells in a row overlap.
+ * seeded invoice and checks no two cells in a row overlap. That replacement is not a
+ * someday note: it is a tracked task in `docs/ROADMAP.md` § 11.1b, which owns wiring
+ * Pest 4 browser testing into CI and converting this file.
  */
 
 /**

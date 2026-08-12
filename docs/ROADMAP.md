@@ -773,6 +773,29 @@ converging on them later.
 - [ ] Encrypted-columns inventory (device passcodes!)
 - [ ] Impersonation & RLS re-verification
 
+### 11.1b Browser testing in CI — pay off the mechanism-level layout guards
+- [ ] **Wire Pest 4 browser testing into CI** (`tests/Browser/`, a headless Chrome in the
+      GitHub Actions job, the `_test` Postgres already there). Until this lands, any test
+      that needs a rendered box cannot exist, so the guards below are stuck asserting
+      source instead of outcome.
+- [ ] **Replace `app/Modules/Sales/tests/Feature/InvoicePrintLayoutTest.php` with the
+      rendered assertion its own docblock names**: load a seeded invoice whose product
+      name is a realistic long Persian one — «گوشی موبایل اپل آیفون ۱۵ پرو مکس ظرفیت ۲۵۶
+      گیگابایت تیتانیوم طبیعی» — and assert **no two cells in a row overlap** by
+      measuring their boxes. The defect this replaces was real and shipped-adjacent:
+      an `auto` table layout ran three money figures together as
+      `96,636,7981,200,00089,200,0001`. The current test asserts the *mechanism* (the
+      fixed layout and the explicit column widths are still in the source) and is honest
+      in its docblock that it cannot catch a width that is merely too small. That gap is
+      accepted for now — **this task is its owner and its date.**
+- [ ] Audit for other mechanism-level guards standing in for rendered ones and convert
+      them in the same pass (`grep -rn "asserts the \*mechanism\*" app/Modules`); each
+      conversion deletes the "when browser testing lands" caveat from its docblock rather
+      than leaving both tests in place.
+- [ ] Once rendered assertions exist, fold the recurring manual Playwright pass (zero
+      horizontal overflow, no console errors, 390 + 1280, light + dark, RTL) into CI as
+      a smoke suite, so it stops depending on somebody remembering to walk it
+
 ### 11.2 Performance
 - [ ] Seed 50 tenants × realistic volumes
 - [ ] Load test top 10 endpoints (k6 or artisan bench)
