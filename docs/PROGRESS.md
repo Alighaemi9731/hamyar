@@ -642,3 +642,53 @@ passed, and both for the same reason: the tests exercised the path that works. A
 that submits successfully never flashes old input; a fixture that buys at a round price
 never meets the rounding guard. Worth testing the *failing* path of anything that handles
 a secret or a computed figure.
+
+---
+
+## 2026-08-13 (later) — the Phase 6 DoD walk, and what walking it found
+
+Two conventions captured first, both generalised from Phase 6 mistakes: secret-bearing
+forms get a *failed*-submission test asserting the secret is absent from session storage,
+flashed input and the error payload (`docs/testing.md`); and a roadmap box for
+user-facing behaviour only ticks when a route and a screen reach it (`docs/ROADMAP.md`,
+`CLAUDE.md`).
+
+Then the walk: intake with checklist and photo at 390px → thermal receipt → Kanban →
+approval link → parts → delivery signed with a finger → tracking as a stranger.
+Screenshots in `docs/walks/phase-6/`.
+
+It found five defects in a suite that was entirely green, and four of them were invisible
+for the same structural reason — **the tests exercise the paths that work**.
+
+**The camera never attached a photo.** A React functional updater read `e.target.files`
+lazily, after the next line had cleared the input. Every intake posted with zero photos,
+silently. That is the intake screen's whole purpose: three weeks later, when the customer
+says the back glass was fine, the shop has a checklist and no picture. Server-side tests
+passed because they build `UploadedFile` arrays in PHP and never touch the handler.
+
+**Nothing could ask a customer for approval.** `QuoteApproval::request()` and
+`approveByPhone()` had no route. The public `/a/{token}` pages could answer a question the
+application had no way to ask — no quote, no link to send, no way to record a yes given
+over the phone, which is how most Iranian shops settle this. The box was ticked. This was
+the second instance of the rule captured an hour earlier, which is why it is now a
+convention rather than a lesson.
+
+**Tracking told customers they owed money they had already paid.** `amount_due` was
+approved-minus-prepaid always, because a ticket could not find the invoice that settled
+it. Delivery now records `sales_invoice_id`.
+
+**An approval link outlived the job.** Quote, no answer, ticket rejected, phone handed
+back — and the SMS link stayed live. Whoever held it could authorise work on a device that
+had left the shop. Fixed at both layers.
+
+**The public throttles were one bucket with two labels.** Laravel keys guest throttles on
+`sha1($domain.'|'.$ip)` with no URI, so ten tracking refreshes spent the approval
+allowance and the customer's link answered 429.
+
+The adversarial sweep of the public surfaces raised 11 claims; 2 survived three
+independent refuters each (the stale token and the shared bucket). The nine that died
+were killed on reachability or consequence, which is the refuters doing their job.
+
+**Carrying forward.** The failing path is where a rejected request puts things it was
+never asked to keep, and the un-walked screen is where a green service turns out to have
+no door. Both are now written down. Neither would have been found by more unit tests.
