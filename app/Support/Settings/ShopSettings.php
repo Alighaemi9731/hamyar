@@ -24,4 +24,13 @@ interface ShopSettings
      * at issue so a reprint rounds the way it did on the day.
      */
     public function rounding(): RoundingSettings;
+
+    /**
+     * The VAT rate, and whether this shop charges it at all.
+     *
+     * Snapshotted onto the invoice beside the rounding policy, for the same reason: an
+     * invoice reprinted after the shop registers for VAT must still show the tax it
+     * actually charged on the day, which was none.
+     */
+    public function vat(): VatSettings;
 }

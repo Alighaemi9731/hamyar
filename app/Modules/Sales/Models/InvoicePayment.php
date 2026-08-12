@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property PaymentMethod $method
  * @property int|null $account_id
  * @property int $amount
+ * @property int|null $tendered_amount
  * @property string|null $reference
  * @property int|null $cheque_id
  * @property CarbonImmutable $received_at
@@ -37,7 +38,7 @@ final class InvoicePayment extends Model
 
     protected $fillable = [
         'tenant_id', 'sales_invoice_id', 'method', 'account_id',
-        'amount', 'reference', 'cheque_id', 'received_at', 'actor_id',
+        'amount', 'tendered_amount', 'reference', 'cheque_id', 'received_at', 'actor_id',
     ];
 
     /**
@@ -48,6 +49,7 @@ final class InvoicePayment extends Model
         return [
             'method' => PaymentMethod::class,
             'amount' => 'integer',
+            'tendered_amount' => 'integer',
             'received_at' => 'immutable_datetime',
         ];
     }
@@ -74,5 +76,16 @@ final class InvoicePayment extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');
+    }
+
+    /**
+     * What went back across the counter, in rial.
+     *
+     * Zero for every method except cash, and usually zero for that too. A null
+     * `tendered_amount` means the payment was for its exact amount — see the migration.
+     */
+    public function change(): int
+    {
+        return max(0, ($this->tendered_amount ?? $this->amount) - $this->amount);
     }
 }

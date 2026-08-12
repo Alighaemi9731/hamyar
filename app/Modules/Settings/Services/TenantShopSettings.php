@@ -7,6 +7,7 @@ namespace App\Modules\Settings\Services;
 use App\Support\Settings\RoundingDirection;
 use App\Support\Settings\RoundingSettings;
 use App\Support\Settings\ShopSettings;
+use App\Support\Settings\VatSettings;
 use App\Support\Tenancy\TenantContext;
 
 /**
@@ -27,6 +28,12 @@ final class TenantShopSettings implements ShopSettings
 
     public const DEFAULT_ROUNDING_DIRECTION = RoundingDirection::Nearest;
 
+    /**
+     * The statutory Iranian rate. Carried even while VAT is switched off, so a shop that
+     * registers only has to tick the box.
+     */
+    public const DEFAULT_VAT_RATE = 10;
+
     public function __construct(private readonly TenantContext $context) {}
 
     public function rounding(): RoundingSettings
@@ -41,6 +48,22 @@ final class TenantShopSettings implements ShopSettings
             direction: is_string($direction)
                 ? (RoundingDirection::tryFrom($direction) ?? self::DEFAULT_ROUNDING_DIRECTION)
                 : self::DEFAULT_ROUNDING_DIRECTION,
+        );
+    }
+
+    public function vat(): VatSettings
+    {
+        $tenant = $this->context->tenant();
+
+        $rate = $tenant?->setting('vat.rate');
+        $enabled = $tenant?->setting('vat.enabled');
+
+        return new VatSettings(
+            // Clamped rather than trusted: this is a percent, and a settings document
+            // carrying 1000 would multiply an invoice by eleven.
+            rate: is_int($rate) && $rate >= 0 && $rate <= 100 ? $rate : self::DEFAULT_VAT_RATE,
+            // Defaults to off — see VatSettings. Only an explicit `true` turns it on.
+            enabled: $enabled === true,
         );
     }
 }

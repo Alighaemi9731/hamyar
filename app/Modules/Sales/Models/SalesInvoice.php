@@ -51,6 +51,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $paid_total
  * @property array<string, mixed>|null $settings_snapshot
  * @property string|null $notes
+ * @property CarbonImmutable|null $created_at
  * @property-read Branch $branch
  */
 final class SalesInvoice extends Model

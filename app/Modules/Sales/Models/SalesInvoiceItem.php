@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $line_total
  * @property int $cost_snapshot
  * @property int|null $warranty_months
+ * @property-read ProductUnit|null $unit
  */
 final class SalesInvoiceItem extends Model
 {
