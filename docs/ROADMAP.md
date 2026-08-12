@@ -7,6 +7,16 @@ file, take the next unchecked `[ ]` task top-to-bottom, implement it, run
 Rules that override convenience:
 
 - A task is only ticked when `composer test` is green (Pint + Larastan L8 + Pest).
+- **A box describing user-facing behaviour ticks only when a route and a screen reach
+  it.** A green service is not a shipped feature. Phase 6 nearly closed with
+  `TicketParts` — reserve, consume, release, and the cross-module test proving a reserved
+  screen is invisible to the till, all passing — and *no HTTP route at all*. The only way
+  to plan a part into a job was `php artisan tinker`. The tests were honest; the
+  checkbox would not have been. Ask "can a shopkeeper do this?", and if the answer needs
+  a terminal, the box stays open.
+- A box that stays open gets a reason and a phase written beside it, not silence. Three
+  did in Phase 6 — the checklist template builder, the labour catalogue, outsourcing —
+  each deferred to where its missing infrastructure lands.
 - Every tenant-scoped endpoint ships with a cross-tenant isolation test.
 - **DECISION GATE** tasks stop the session. Present the summary, ask the human, wait.
 

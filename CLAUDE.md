@@ -101,6 +101,10 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    (`git push -u origin <branch>`); pushing a work-in-progress branch is normal and
    costs nothing, since only `main` is protected.
 Never mark a task done with failing tests. Never skip the isolation test.
+**Never tick a box for user-facing behaviour that no route and no screen reach** — a
+service whose tests pass but which only Tinker can call is not a shipped feature, and the
+checkbox would be claiming something the tests never said. Ask whether a shopkeeper can
+do the thing; if the answer needs a terminal, the box stays open with a reason beside it.
 
 ## Domain terms (fa → en)
 فاکتور=invoice · پیش‌فاکتور=quote · حواله=transfer · انبارگردانی=stock count ·

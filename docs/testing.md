@@ -157,6 +157,57 @@ unset($payload['accessories'], $payload['checklist']);
 $this->actingAs($user)->post($url, $payload)->assertSessionHasNoErrors();
 ```
 
+**A secret-bearing form is tested on its FAILING submission.** Every form that carries a
+secret — a device passcode, a password, a recovery code, a card number — gets a test that
+posts a payload which *fails validation*, and asserts the secret appears in none of the
+three places a rejected request leaves its input:
+
+1. the session store (`session()->all()`, and the bytes `serialize()` hands the driver),
+2. the flashed old input (`session()->getOldInput('…')`),
+3. the validation error payload returned to the client.
+
+And the field is named explicitly in `dontFlash` in `bootstrap/app.php`. The framework
+default covers `password`, `current_password` and `password_confirmation` and nothing
+else; every other secret is opt-in, and the opt-in is invisible until somebody looks.
+
+This is not hypothetical. The repair intake had four layers protecting the customer's
+unlock code — encrypted at rest, hidden from serialisation, permission-gated on reveal,
+audited on every read — and all four guard the value *after it reaches the model*. A
+failed submission never gets that far. Laravel redirects with
+`withInput(Arr::except($request->input(), $dontFlash))`, and with `SESSION_DRIVER=database`
+and `SESSION_ENCRYPT=false` the code lands in `sessions.payload` in plaintext: in the same
+database the encrypted column exists to protect, one table over, visible to any dump,
+replica or backup. A photo one megabyte over the limit was enough to trigger it.
+
+Eight passing passcode tests missed it, and they missed it for a structural reason worth
+generalising: **every one of them posted an intake that succeeded.** A form that submits
+cleanly never flashes old input, so the entire failure path — where a rejected request
+puts things it was never asked to keep — had no coverage at all. The same blindness hides
+the round-number assumptions in computed figures: a fixture that buys stock at exactly
+200,000 never meets the rounding guard that real weighted-average cost trips on the first
+search.
+
+Test the path that fails, not only the path that works.
+
+```php
+it('does not flash the passcode when the intake fails validation', function (): void {
+    $response = $this->actingAs($user)->post($url, [
+        ...$payload,
+        'device_passcode' => SECRET,
+        'device_model' => '',   // the trigger, not the point
+    ]);
+
+    $response->assertSessionHasErrors('device_model');
+
+    // The form comes back populated — that is what old input is for...
+    expect(session()->getOldInput('device_brand'))->toBe('اپل');
+
+    // ...but not with this field, and not in the bytes a driver would persist.
+    expect(session()->getOldInput('device_passcode'))->toBeNull();
+    expect(serialize(session()->all()))->not->toContain(SECRET);
+});
+```
+
 **A form has somewhere to show an error that belongs to no field.** The companion to the
 rule above, and the reason that bug was invisible rather than merely wrong: the intake
 page rendered errors only beside `device_model` and `reported_issue`, so a failure on
