@@ -190,6 +190,12 @@ final class PermissionCatalogue
                 'name_fa' => 'فروشنده',
                 'permissions' => [
                     'sales.view', 'sales.create',
+                    // Writing an instalment contract is a counter act — it happens while
+                    // the customer is standing there agreeing terms — so it rides on
+                    // `sales.create`. Reading one back has to come with it, or the person
+                    // who just wrote the contract cannot open it to print it. Collecting
+                    // instalments is a different job and stays with Cashier/Accountant.
+                    'installments.view',
                     'crm.view', 'crm.create', 'crm.update',
                     'catalog.view', 'inventory.view',
                     'repairs.view', 'repairs.create',

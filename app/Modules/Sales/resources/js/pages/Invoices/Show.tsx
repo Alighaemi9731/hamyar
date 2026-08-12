@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { BanIcon, PrinterIcon, RotateCcwIcon } from 'lucide-react';
+import { BanIcon, CalendarClockIcon, PrinterIcon, RotateCcwIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Money } from '@/components/domain/money';
@@ -86,6 +86,7 @@ interface Props {
       agreed_price: MoneyValue;
       grade: string | null;
     } | null;
+    installment_plan: { id: number; number: string } | null;
   };
   profit: {
     revenue: MoneyValue;
@@ -148,6 +149,29 @@ export default function InvoiceShow({ invoice, profit, party_balance: partyBalan
                 </a>
               </Button>
             </>
+          )}
+
+          {/* Only when there is something left to schedule. A settled invoice has
+              nothing to pay in instalments, and offering the wizard there sends
+              somebody down a form that refuses them at the end. */}
+          {isFinal &&
+            can.create &&
+            invoice.totals.outstanding.value > 0 &&
+            !invoice.installment_plan && (
+              <Button asChild variant="outline">
+                <Link href={`/installments/invoices/${invoice.id}/plan/create`}>
+                  <CalendarClockIcon className="size-4" aria-hidden />
+                  فروش اقساطی
+                </Link>
+              </Button>
+            )}
+
+          {invoice.installment_plan && (
+            <Button asChild variant="outline">
+              <Link href={`/installments/plans/${invoice.installment_plan.id}`}>
+                قرارداد {invoice.installment_plan.number}
+              </Link>
+            </Button>
           )}
 
           {isFinal && can.return && (

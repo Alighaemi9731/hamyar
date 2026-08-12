@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Installments\Providers;
 
+use App\Modules\Installments\Models\InstallmentPlan;
+use App\Modules\Installments\Policies\InstallmentPlanPolicy;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Installments module.
@@ -22,5 +25,12 @@ final class InstallmentsServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(InstallmentPlan::class, InstallmentPlanPolicy::class);
     }
 }

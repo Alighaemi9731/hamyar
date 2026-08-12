@@ -6,6 +6,7 @@ namespace App\Modules\Sales\Models;
 
 use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\User;
+use App\Modules\Installments\Models\InstallmentPlan;
 use App\Modules\Inventory\Models\Branch;
 use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Support\Tenancy\BelongsToTenant;
@@ -148,6 +149,20 @@ final class SalesInvoice extends Model
     public function tradeIn(): HasOne
     {
         return $this->hasOne(TradeIn::class);
+    }
+
+    /**
+     * The instalment contract written against this sale, if there is one.
+     *
+     * A relation across a module boundary, which is allowed for the same reason
+     * `FinaliseInvoice` may call `LedgerService`: Installments owns the schedule, Sales
+     * only needs to know whether one exists and link to it (ADR 0003).
+     *
+     * @return HasOne<InstallmentPlan, $this>
+     */
+    public function installmentPlan(): HasOne
+    {
+        return $this->hasOne(InstallmentPlan::class);
     }
 
     /**

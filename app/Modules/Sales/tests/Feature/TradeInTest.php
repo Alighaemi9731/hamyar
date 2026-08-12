@@ -349,7 +349,10 @@ it('refuses a trade-in with no catalogue line to file the device under', functio
         payments: [['method' => 'cash', 'amount' => 40_000_000, 'account_id' => $this->cash->id]],
     );
 
-    unset($payload['trade_in']['product_variant_id']);
+    /** @var array<string, mixed> $tradeIn */
+    $tradeIn = $payload['trade_in'];
+    unset($tradeIn['product_variant_id']);
+    $payload['trade_in'] = $tradeIn;
 
     $this->actingAs($this->owner)
         ->post($this->url.'/sales/pos', $payload)

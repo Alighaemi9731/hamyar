@@ -121,6 +121,7 @@ final class InvoiceController extends Controller
             'salesperson:id,name',
             'returns.items',
             'tradeIn',
+            'installmentPlan:id,number,sales_invoice_id',
         ]);
 
         $user = $request->user();
@@ -278,6 +279,10 @@ final class InvoiceController extends Controller
                 'reason' => $return->reason,
                 'returned_at' => $return->returned_at->toIso8601String(),
             ])->all(),
+            'installment_plan' => $invoice->installmentPlan === null ? null : [
+                'id' => $invoice->installmentPlan->id,
+                'number' => $invoice->installmentPlan->number,
+            ],
             'trade_in' => $invoice->tradeIn === null ? null : [
                 'device_name' => $invoice->tradeIn->device_name,
                 'imei1' => $invoice->tradeIn->imei1,
