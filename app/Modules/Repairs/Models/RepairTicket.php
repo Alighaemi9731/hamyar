@@ -227,6 +227,14 @@ final class RepairTicket extends Model
     }
 
     /**
+     * @return HasMany<TicketPart, $this>
+     */
+    public function parts(): HasMany
+    {
+        return $this->hasMany(TicketPart::class);
+    }
+
+    /**
      * @return HasMany<TicketChecklistAnswer, $this>
      */
     public function checklistAnswers(): HasMany
