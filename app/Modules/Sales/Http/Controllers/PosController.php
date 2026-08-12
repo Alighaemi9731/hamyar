@@ -158,9 +158,9 @@ final class PosController extends Controller
             'party_id' => $request->integer('party_id') ?: null,
             'salesperson_id' => $request->integer('salesperson_id') ?: $user->id,
             'type' => SalesInvoice::TYPE_INVOICE,
-            // Stated rather than left to the column default: the default applies in the
-            // database, and the in-memory model would carry a null status straight into
-            // `isDraft()` — which reads as "not a draft" and refuses its own new invoice.
+            // Stated rather than inferred, even though the model now defaults it: what
+            // this endpoint creates is a draft, and saying so here is what makes the
+            // two-step (write the basket, then finalise) readable.
             'status' => InvoiceStatus::Draft,
             'discount_amount' => $request->invoiceDiscount(),
             'shipping_amount' => $request->shipping(),

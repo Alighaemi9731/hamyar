@@ -42,6 +42,7 @@ beforeEach(function (): void {
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 
+    /** @var array{User, User, Warehouse, Account} $fixtures */
     $fixtures = inTenantContext($this->tenant, function (): array {
         $owner = User::factory()->create();
         $owner->assignRole('Owner');
@@ -117,6 +118,12 @@ function shelvedGoods(Tenant $tenant, Warehouse $warehouse, int $quantity, int $
  *
  * @param  list<array<string, mixed>>  $lines
  * @param  list<array<string, mixed>>  $payments
+ * @return array<string, mixed>
+ */
+/**
+ * @param  list<array<string, mixed>>  $lines
+ * @param  list<array<string, mixed>>  $payments
+ * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function posPayload(int $branchId, array $lines, array $payments = [], array $overrides = []): array
@@ -219,8 +226,8 @@ it('sells a handset and a quantity line in one basket', function (): void {
         // Cost snapshots: the device's own cost, and the weighted average for the goods.
         $items = $invoice->items()->orderBy('id')->get();
 
-        expect($items[0]->cost_snapshot)->toBe(40_000_000)
-            ->and($items[1]->cost_snapshot)->toBe(200_000);
+        expect($items->firstOrFail()->cost_snapshot)->toBe(40_000_000)
+            ->and($items->last()?->cost_snapshot)->toBe(200_000);
     });
 });
 

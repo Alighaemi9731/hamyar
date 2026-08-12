@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Sales\Http\Controllers\InvoiceController;
 use App\Modules\Sales\Http\Controllers\InvoicePrintController;
 use App\Modules\Sales\Http\Controllers\PosController;
+use App\Modules\Sales\Http\Controllers\SalesReturnController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,6 +64,16 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:sales'])
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])
             ->whereNumber('invoice')
             ->name('invoices.destroy');
+
+        /* ------------------------------------------------------------ return -- */
+
+        Route::get('/invoices/{invoice}/returns/create', [SalesReturnController::class, 'create'])
+            ->whereNumber('invoice')
+            ->name('returns.create');
+
+        Route::post('/invoices/{invoice}/returns', [SalesReturnController::class, 'store'])
+            ->whereNumber('invoice')
+            ->name('returns.store');
 
         // `{paper}` is constrained here as well as validated in the controller: an
         // unconstrained segment would route every typo into a 500 rather than a 404.

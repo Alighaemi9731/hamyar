@@ -63,6 +63,32 @@ final class SalesInvoice extends Model
 
     public const TYPE_QUOTE = 'quote';
 
+    /**
+     * The column defaults, restated in PHP.
+     *
+     * The database already defaults all of these, but a default only applies on INSERT —
+     * a freshly `create()`d model carries **null** for anything the caller did not name,
+     * and every one of these is read before the row is re-fetched. That bit twice in one
+     * afternoon: a null `status` made a brand-new invoice fail its own `isDraft()` check,
+     * and a null `discount_amount` reached `InvoiceTotals` as an int argument.
+     *
+     * Stating them here makes the in-memory model agree with the row it is about to
+     * become, which is what every caller already assumes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'type' => self::TYPE_INVOICE,
+        'status' => 'draft',
+        'subtotal' => 0,
+        'discount_amount' => 0,
+        'vat_amount' => 0,
+        'shipping_amount' => 0,
+        'rounding_adjustment' => 0,
+        'total' => 0,
+        'paid_total' => 0,
+    ];
+
     protected $fillable = [
         'tenant_id', 'branch_id', 'party_id', 'salesperson_id', 'number',
         'type', 'status', 'issued_at', 'voided_at', 'voided_by', 'void_reason',
