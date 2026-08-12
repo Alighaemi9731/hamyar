@@ -304,3 +304,216 @@ it('does not let one shop reservations affect another shop till', function (): v
         expect(app(StockReservations::class)->available($variant->id, $warehouse->id))->toBe(10);
     });
 });
+
+/* ------------------------------------------------------ from the bench -- */
+
+/*
+| The service layer above is reachable from a screen, which is the difference between a
+| feature and a class nobody can use. These drive the HTTP routes a technician's fingers
+| actually hit.
+*/
+
+it('lets a technician search for a part and see what may be claimed', function (): void {
+    $ticket = repairTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        app(TicketParts::class)->reserve($ticket, $this->variant->id, $this->warehouse->id, 4, 900_000, $this->owner->id);
+    });
+
+    $response = $this->actingAs($this->owner)
+        ->getJson($this->url."/repairs/tickets/{$ticket->id}/parts/search?q=گلس");
+
+    $response->assertOk();
+
+    // Six, not ten. The number a bench needs is what is left after every other job's
+    // holds — the same figure the till is quoted, for the same reason.
+    expect($response->json('results.0.available'))->toBe(6)
+        ->and($response->json('results.0.variant_id'))->toBe($this->variant->id);
+});
+
+it('keeps handsets out of the parts picker', function (): void {
+    $ticket = repairTicket();
+
+    ($this->inTenant)(function (): void {
+        $phone = Product::factory()->create(['name' => 'گلس‌دار آیفون', 'type' => 'serialized']);
+        ProductVariant::factory()->for($phone)->create(['barcode' => '6260000001111']);
+    });
+
+    $response = $this->actingAs($this->owner)
+        ->getJson($this->url."/repairs/tickets/{$ticket->id}/parts/search?q=گلس");
+
+    $response->assertOk();
+
+    // A phone is stock the shop sells, not a component. Fitting one to somebody else's
+    // handset would strand its IMEI history halfway through a repair.
+    $names = array_column($response->json('results'), 'product_name');
+
+    expect($names)->toContain('گلس محافظ صفحه')
+        ->and($names)->not->toContain('گلس‌دار آیفون');
+});
+
+it('reserves a part from the ticket page and holds the stock', function (): void {
+    $ticket = repairTicket();
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+            'variant_id' => $this->variant->id,
+            'quantity' => 2,
+            'unit_price' => 900_000,
+        ])
+        ->assertRedirect();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        expect(TicketPart::query()->where('repair_ticket_id', $ticket->id)->count())->toBe(1)
+            // Nothing has moved off the shelf yet — a hold is not a movement.
+            ->and(app(StockLedger::class)->onHand($this->variant->id, $this->warehouse->id))->toBe(10)
+            ->and(app(StockReservations::class)->available($this->variant->id, $this->warehouse->id))->toBe(8);
+    });
+});
+
+it('refuses more than the shop can spare, with a sentence the shopkeeper can act on', function (): void {
+    $ticket = repairTicket();
+
+    $response = $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+            'variant_id' => $this->variant->id,
+            'quantity' => 40,
+            'unit_price' => 900_000,
+        ]);
+
+    // Not a 500. The message belongs beside the parts panel, where the person who typed
+    // 40 is looking.
+    $response->assertRedirect()->assertSessionHasErrors('parts');
+
+    ($this->inTenant)(fn () => expect(TicketPart::query()->count())->toBe(0));
+});
+
+it('writes the one stock movement when the part is fitted', function (): void {
+    $ticket = repairTicket();
+
+    $this->actingAs($this->owner)->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+        'variant_id' => $this->variant->id,
+        'quantity' => 2,
+        'unit_price' => 900_000,
+    ]);
+
+    /** @var TicketPart $part */
+    $part = ($this->inTenant)(fn (): TicketPart => TicketPart::query()->firstOrFail());
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/parts/{$part->id}/consume")
+        ->assertRedirect();
+
+    ($this->inTenant)(function (): void {
+        expect(app(StockLedger::class)->onHand($this->variant->id, $this->warehouse->id))->toBe(8)
+            ->and(StockMovement::query()->where('type', MovementType::RepairConsume->value)->count())->toBe(1)
+            // Cost snapshotted at the moment it left the shelf, not at reservation.
+            ->and(TicketPart::query()->firstOrFail()->unit_cost)->toBe(200_000);
+    });
+});
+
+it('puts a released part back on the shelf without a movement', function (): void {
+    $ticket = repairTicket();
+
+    $this->actingAs($this->owner)->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+        'variant_id' => $this->variant->id,
+        'quantity' => 3,
+        'unit_price' => 900_000,
+    ]);
+
+    /** @var TicketPart $part */
+    $part = ($this->inTenant)(fn (): TicketPart => TicketPart::query()->firstOrFail());
+
+    $this->actingAs($this->owner)
+        ->delete($this->url."/repairs/tickets/{$ticket->id}/parts/{$part->id}")
+        ->assertRedirect();
+
+    ($this->inTenant)(function (): void {
+        expect(app(StockReservations::class)->available($this->variant->id, $this->warehouse->id))->toBe(10)
+            // It never left the shelf. A pair of offsetting movements would be a lie
+            // told twice.
+            ->and(StockMovement::query()->where('type', MovementType::RepairConsume->value)->count())->toBe(0);
+    });
+});
+
+it('will not consume a part through a ticket it does not belong to', function (): void {
+    $ticket = repairTicket();
+    $other = repairTicket();
+
+    $this->actingAs($this->owner)->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+        'variant_id' => $this->variant->id,
+        'quantity' => 1,
+        'unit_price' => 900_000,
+    ]);
+
+    /** @var TicketPart $part */
+    $part = ($this->inTenant)(fn (): TicketPart => TicketPart::query()->firstOrFail());
+
+    // The nested route reads as though ownership were checked. Nothing but the
+    // controller checks it, so this is the test that says it does.
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$other->id}/parts/{$part->id}/consume")
+        ->assertNotFound();
+
+    ($this->inTenant)(fn () => expect(TicketPart::query()->firstOrFail()->state)->toBe(TicketPart::STATE_RESERVED));
+});
+
+it('will not let another shop touch our parts', function (): void {
+    $ticket = repairTicket();
+
+    $this->actingAs($this->owner)->post($this->url."/repairs/tickets/{$ticket->id}/parts", [
+        'variant_id' => $this->variant->id,
+        'quantity' => 1,
+        'unit_price' => 900_000,
+    ]);
+
+    $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    /** @var User $intruder */
+    $intruder = inTenantContext($other, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $this->actingAs($intruder)
+        ->getJson(tenantUrl($other)."/repairs/tickets/{$ticket->id}/parts/search?q=گلس")
+        ->assertNotFound();
+
+    $this->actingAs($intruder)
+        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/parts", [
+            'variant_id' => $this->variant->id,
+            'quantity' => 1,
+        ])
+        ->assertNotFound();
+});
+
+it('answers a search on stock whose average cost is not a round number, and sends no cost at all', function (): void {
+    $ticket = repairTicket();
+
+    // A second purchase at an awkward price. The weighted average is now 214,285.71…
+    // rial — not a whole number of toman, which `Money::toArray` refuses outright.
+    //
+    // The first version of this endpoint formatted the cost into the response and 500'd
+    // on real seeded data while every test passed, because the fixture happened to buy
+    // at exactly 200,000. The figure is gone now for a better reason than the crash:
+    // what the shop paid is gated behind `inventory.view_cost` at the till, and a parts
+    // picker is not the place to hand it to everybody who can edit a ticket.
+    ($this->inTenant)(function (): void {
+        app(StockLedger::class)->record(
+            $this->variant->id, $this->warehouse->id, 4, MovementType::Purchase, unitCost: 250_001,
+        );
+    });
+
+    $response = $this->actingAs($this->owner)
+        ->getJson($this->url."/repairs/tickets/{$ticket->id}/parts/search?q=گلس");
+
+    $response->assertOk();
+
+    expect($response->json('results.0.available'))->toBe(14)
+        ->and($response->json('results.0'))->not->toHaveKey('cost');
+});

@@ -6,6 +6,7 @@ use App\Modules\Repairs\Http\Controllers\PasscodeController;
 use App\Modules\Repairs\Http\Controllers\PublicApprovalController;
 use App\Modules\Repairs\Http\Controllers\PublicTrackingController;
 use App\Modules\Repairs\Http\Controllers\TicketController;
+use App\Modules\Repairs\Http\Controllers\TicketPartsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,30 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
         Route::post('/tickets/{ticket}/transition', [TicketController::class, 'transition'])
             ->whereNumber('ticket')
             ->name('tickets.transition');
+
+        /*
+        | Parts on a job.
+        |
+        | Nested under the ticket rather than sitting at `/repairs/parts/{part}`, because
+        | a part has no meaning apart from the job it is planned into — and the nesting
+        | gives the controller an ownership check to make, which a flat route would
+        | silently not have.
+        */
+        Route::get('/tickets/{ticket}/parts/search', [TicketPartsController::class, 'search'])
+            ->whereNumber('ticket')
+            ->name('tickets.parts.search');
+
+        Route::post('/tickets/{ticket}/parts', [TicketPartsController::class, 'store'])
+            ->whereNumber('ticket')
+            ->name('tickets.parts.store');
+
+        Route::post('/tickets/{ticket}/parts/{part}/consume', [TicketPartsController::class, 'consume'])
+            ->whereNumber(['ticket', 'part'])
+            ->name('tickets.parts.consume');
+
+        Route::delete('/tickets/{ticket}/parts/{part}', [TicketPartsController::class, 'destroy'])
+            ->whereNumber(['ticket', 'part'])
+            ->name('tickets.parts.destroy');
 
         /*
         | The device passcode.

@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PartsPanel } from '../../pos/parts-panel';
+
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -47,6 +49,14 @@ interface Props {
     /** A boolean. The code itself is never in these props — see the docblock below. */
     has_passcode: boolean;
     checklist: Array<{ label: string; answer: string; note: string | null }>;
+    parts: Array<{
+      id: number;
+      name: string;
+      variant_name: string | null;
+      quantity: number;
+      state: string;
+      unit_price: MoneyValue;
+    }>;
     history: Array<{
       id: number;
       from: string | null;
@@ -58,6 +68,7 @@ interface Props {
   };
   transitions: Array<{ value: string; label: string }>;
   can: { update: boolean; reveal_passcode: boolean; deliver: boolean };
+  errors: Record<string, string>;
 }
 
 /**
@@ -74,7 +85,7 @@ interface Props {
  * it, so a page left open on a counter does not keep somebody's unlock code alive in a
  * tab for the rest of the afternoon.
  */
-export default function TicketShow({ ticket, transitions, can }: Props) {
+export default function TicketShow({ ticket, transitions, can, errors }: Props) {
   const move = useForm<{ status: string; note: string }>({ status: '', note: '' });
 
   return (
@@ -106,6 +117,15 @@ export default function TicketShow({ ticket, transitions, can }: Props) {
               </div>
             </section>
           )}
+
+          <PartsPanel
+            ticketId={ticket.id}
+            parts={ticket.parts}
+            // A closed ticket still shows what was fitted — the customer paid for those
+            // parts and the record has to survive — but nothing on it can be moved.
+            editable={can.update && transitions.length > 0}
+            error={errors.parts}
+          />
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold">تاریخچه</h2>

@@ -12,6 +12,7 @@ use App\Modules\Repairs\Exceptions\IllegalTicketTransition;
 use App\Modules\Repairs\Http\Requests\TicketDeliveryRequest;
 use App\Modules\Repairs\Http\Requests\TicketIntakeRequest;
 use App\Modules\Repairs\Models\RepairTicket;
+use App\Modules\Repairs\Models\TicketPart;
 use App\Modules\Repairs\Models\TicketStatusHistory;
 use App\Modules\Repairs\Services\DeliverTicket;
 use App\Modules\Repairs\Services\TicketIntake;
@@ -306,6 +307,7 @@ final class TicketController extends Controller
             'branch:id,name',
             'checklistAnswers',
             'histories.actor:id,name',
+            'parts.variant.product:id,name',
         ]);
 
         /** @var User $user */
@@ -334,6 +336,22 @@ final class TicketController extends Controller
                     'answer' => $a->answer,
                     'note' => $a->note,
                 ])->values()->all(),
+                'parts' => $ticket->parts->map(function (TicketPart $p): array {
+                    $variant = $p->variant;
+                    $productName = $variant?->product->name;
+                    $variantName = $variant?->displayName();
+
+                    return [
+                        'id' => $p->id,
+                        'name' => $productName ?? 'قطعه',
+                        // Suppressed when it would only repeat the product name — see
+                        // {@see \App\Modules\Repairs\Services\PartLookup}.
+                        'variant_name' => $variantName === $productName ? null : $variantName,
+                        'quantity' => $p->quantity,
+                        'state' => $p->state,
+                        'unit_price' => Money::toArray($p->unit_price),
+                    ];
+                })->values()->all(),
                 'history' => $ticket->histories->map(fn (TicketStatusHistory $h): array => [
                     'id' => $h->id,
                     'from' => $h->from_status?->labelFa(),
