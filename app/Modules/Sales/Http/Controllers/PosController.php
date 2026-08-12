@@ -184,11 +184,20 @@ final class PosController extends Controller
             ],
         ]);
 
+        $tradeIn = $isQuote ? null : $request->tradeIn();
+
         try {
             // A quote takes no payments: nobody has paid anything against a promise.
             // Silently dropping them beats refusing the submit, because the payment box
             // may simply have been left half-filled when somebody chose «پیش‌فاکتور».
-            $writer->write($invoice, $request->lines(), $isQuote ? [] : $request->payments(), $user->id);
+            $writer->write(
+                $invoice,
+                $request->lines(),
+                // The trade-in rides in as an ordinary tender so the writer can order and
+                // clamp the whole set together — see DraftInvoiceWriter.
+                $isQuote ? [] : $this->tenders($invoice, $request->payments(), $tradeIn),
+                $user->id,
+            );
 
             if ($isQuote) {
                 // Numbered on creation, unlike a draft: this one gets printed and handed
@@ -230,6 +239,59 @@ final class PosController extends Controller
         return redirect()
             ->route('sales.invoices.show', $invoice)
             ->with('success', "فاکتور {$invoice->number} ثبت شد.");
+    }
+
+    /**
+     * Record the معاوضه, and add the tender that settles part of the sale with it.
+     *
+     * The tender is built here rather than accepted from the browser because it must
+     * equal the agreed price exactly: a customer who is told their phone is worth
+     * 20,000,000 and gets 19,000,000 off is a customer arguing at the counter, and the
+     * same figure living in two places is how the two drift apart.
+     *
+     * The invoice total is untouched — a trade-in is a tender, not a discount, so VAT
+     * still follows the price of the handset actually being sold.
+     *
+     * @param  list<array{method: string, amount: int, tendered_amount: int|null, account_id: int|null, reference: string|null}>  $payments
+     * @param  array{device_name: string, product_variant_id: int, imei1: string|null, grade: string|null, agreed_price: int, hamta_ack: bool}|null  $tradeIn
+     * @return list<array{method: string, amount: int, tendered_amount: int|null, account_id: int|null, reference: string|null}>
+     */
+    private function tenders(SalesInvoice $invoice, array $payments, ?array $tradeIn): array
+    {
+        if ($tradeIn === null) {
+            return $payments;
+        }
+
+        if ($invoice->party_id === null) {
+            // Golden rule 4: a handset's passport has to answer "bought from whom".
+            throw ValidationException::withMessages([
+                'trade_in.device_name' => 'برای ثبت معاوضه باید مشتری را انتخاب کنید — دستگاه از او خریداری می‌شود.',
+            ]);
+        }
+
+        $invoice->tradeIn()->create([
+            'party_id' => $invoice->party_id,
+            'device_name' => $tradeIn['device_name'],
+            'product_variant_id' => $tradeIn['product_variant_id'],
+            'imei1' => $tradeIn['imei1'],
+            'condition' => 'used',
+            'grade' => $tradeIn['grade'],
+            'agreed_price' => $tradeIn['agreed_price'],
+            'hamta_ack' => $tradeIn['hamta_ack'],
+        ]);
+
+        return [
+            [
+                'method' => PaymentMethod::TradeIn->value,
+                'amount' => $tradeIn['agreed_price'],
+                'tendered_amount' => null,
+                'account_id' => null,
+                // The IMEI, so the payment row on a printed invoice names the device that
+                // settled it rather than just saying «معاوضه».
+                'reference' => $tradeIn['imei1'],
+            ],
+            ...$payments,
+        ];
     }
 
     /**

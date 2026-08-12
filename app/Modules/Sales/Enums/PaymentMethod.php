@@ -7,7 +7,7 @@ namespace App\Modules\Sales\Enums;
 /**
  * How the money arrived.
  *
- * Five methods because an Iranian shop routinely splits one sale across several: part
+ * Six methods because an Iranian shop routinely splits one sale across several: part
  * cash, part card-to-card to the owner's personal account, the rest on a post-dated
  * cheque. Collapsing them into "paid" loses the cash-box reconciliation, the trace
  * number the bank will ask for, and the cheque that has to be chased in two months.
@@ -29,6 +29,17 @@ enum PaymentMethod: string
      */
     case Credit = 'credit';
 
+    /**
+     * معاوضه — the customer paid with their old phone.
+     *
+     * A tender rather than a discount, and the distinction is not cosmetic. A discount
+     * reduces the price of the new handset, which would compute VAT on a smaller base
+     * and understate both the sale and the tax. What actually happened is two
+     * transactions on one piece of paper: the shop sold a phone at full price and bought
+     * one at an agreed price, and the second settles part of the first.
+     */
+    case TradeIn = 'trade_in';
+
     public function labelFa(): string
     {
         return match ($this) {
@@ -37,6 +48,7 @@ enum PaymentMethod: string
             self::CardToCard => 'کارت به کارت',
             self::Cheque => 'چک',
             self::Credit => 'نسیه',
+            self::TradeIn => 'معاوضه',
         };
     }
 
@@ -52,7 +64,10 @@ enum PaymentMethod: string
     {
         return match ($this) {
             self::Cash, self::PosTerminal, self::CardToCard => true,
-            self::Cheque, self::Credit => false,
+            // A trade-in settles the invoice but puts no money in a cash box — it puts a
+            // handset on the shelf. The value is real and the ledger records it against
+            // inventory instead (see FinaliseInvoice).
+            self::Cheque, self::Credit, self::TradeIn => false,
         };
     }
 

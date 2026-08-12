@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { MoneyField } from '../../pos/money-field';
 import { PaymentBox } from '../../pos/payment-box';
 import { ScanBox, type ScanBoxHandle } from '../../pos/scan-box';
+import { type TradeInDraft, TradeInBox } from '../../pos/trade-in-box';
 import type {
   AccountOption,
   BasketLine,
@@ -118,6 +119,7 @@ export default function PosIndex({
   const [invoiceDiscount, setInvoiceDiscount] = useState(invoice?.discount_amount ?? 0);
   const [shipping, setShipping] = useState(invoice?.shipping_amount ?? 0);
   const [vatApplied, setVatApplied] = useState(invoice?.vat_applied ?? vat.enabled);
+  const [tradeIn, setTradeIn] = useState<TradeInDraft | null>(null);
   const [notes, setNotes] = useState(invoice?.notes ?? '');
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -235,6 +237,17 @@ export default function PosIndex({
           discount_amount: line.discount_amount,
           warranty_months: line.warranty_months,
         })),
+        trade_in:
+          tradeIn === null
+            ? null
+            : {
+                device_name: tradeIn.device_name.trim(),
+                product_variant_id: tradeIn.variant?.id ?? null,
+                imei1: tradeIn.imei1.replace(/\D/g, '') || null,
+                grade: tradeIn.grade || null,
+                agreed_price: tradeIn.agreed_price,
+                hamta_ack: tradeIn.hamta_ack,
+              },
         payments: payments.map((payment) => ({
           method: payment.method,
           amount: payment.amount,
@@ -499,12 +512,24 @@ export default function PosIndex({
             </div>
           </dl>
 
+          {/* Sits with the payments, not the discounts: a trade-in is a tender. */}
+          <TradeInBox
+            value={tradeIn}
+            onChange={setTradeIn}
+            toman={toman}
+            hasParty={party !== null}
+            errors={errors}
+          />
+
           <PaymentBox
             payments={payments}
             onChange={setPayments}
             methods={methods}
             accounts={accounts}
             total={totals.total}
+            // What the customer's old phone already covers. The payment box shows what
+            // is left after it, which is the figure the cashier is about to collect.
+            tradedIn={tradeIn?.agreed_price ?? 0}
             toman={toman}
             hasParty={party !== null}
           />

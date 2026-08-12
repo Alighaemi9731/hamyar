@@ -23,6 +23,8 @@ interface PaymentBoxProps {
   accounts: AccountOption[];
   /** The invoice total, in rial. What the payments have to add up to. */
   total: number;
+  /** Rial already covered by a معاوضه, which settles without money moving. */
+  tradedIn?: number;
   /** True when the shop displays toman; the inputs are typed in the display unit. */
   toman: boolean;
   /** A credit sale needs somebody to owe it. */
@@ -62,10 +64,11 @@ export function PaymentBox({
   methods,
   accounts,
   total,
+  tradedIn = 0,
   toman,
   hasParty,
 }: PaymentBoxProps) {
-  const settled = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const settled = payments.reduce((sum, payment) => sum + payment.amount, 0) + tradedIn;
   const due = Math.max(0, total - settled);
 
   const tendered = payments.reduce(
@@ -233,6 +236,15 @@ export function PaymentBox({
       </ul>
 
       <dl className="space-y-1 rounded-control bg-muted/40 px-3 py-3 text-sm">
+        {tradedIn > 0 && (
+          <div className="flex items-baseline justify-between">
+            <dt className="text-muted-foreground">بابت معاوضه</dt>
+            <dd data-testid="pos-traded-in">
+              <Money rial={tradedIn} digits="latin" withUnit />
+            </dd>
+          </div>
+        )}
+
         <div className="flex items-baseline justify-between">
           <dt className="text-muted-foreground">پرداخت‌شده</dt>
           <dd data-testid="pos-settled">

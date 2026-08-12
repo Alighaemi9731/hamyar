@@ -206,19 +206,40 @@ final class DraftInvoiceWriter
 
         $applied = 0;
 
-        foreach ($payments as $payment) {
+        // A معاوضه settles first, and is never clamped.
+        //
+        // Both halves of that matter. **First**, because at a real counter the old phone
+        // is valued and agreed before anybody counts cash — applying it last let a
+        // mistyped cash figure consume the whole invoice and stack the trade-in on top.
+        // **Unclamped**, because the agreed price is an exact figure the customer was
+        // told: capping it at the invoice total would silently pay them less than agreed
+        // when their phone is worth more than the one they are buying, which is a real
+        // and ordinary sale.
+        $ordered = [
+            ...array_filter($payments, fn (array $payment): bool => ($payment['method'] ?? '') === PaymentMethod::TradeIn->value),
+            ...array_filter($payments, fn (array $payment): bool => ($payment['method'] ?? '') !== PaymentMethod::TradeIn->value),
+        ];
+
+        foreach ($ordered as $payment) {
             $method = PaymentMethod::tryFrom($this->stringOrNull($payment['method'] ?? null) ?? '');
 
             if (! $method instanceof PaymentMethod) {
                 throw new RuntimeException('روش پرداخت نامعتبر است.');
             }
 
-            $tendered = max(0, $this->intOrZero($payment['tendered_amount'] ?? $payment['amount'] ?? 0));
+            // Tendered is only ever what the cashier explicitly recorded as handed over.
+            // Inferring it from an over-large `amount` conflates two different claims —
+            // "this settles X" and "the customer gave me X" — and would turn a slipped
+            // zero in the amount field into a receipt promising 360,000,000 in change.
+            $tendered = max(0, $this->intOrZero($payment['tendered_amount'] ?? 0));
             $requested = max(0, $this->intOrZero($payment['amount'] ?? 0));
 
-            // Never settle more than is left owing. A customer handing over a round note
-            // is the ordinary case, and the difference is change, not revenue.
-            $amount = min($requested, max(0, $invoice->total - $applied));
+            // Never settle more than is left owing — a customer handing over a round
+            // note is the ordinary case, and the difference is change, not revenue. The
+            // trade-in is exempt, per the ordering note above.
+            $amount = $method === PaymentMethod::TradeIn
+                ? $requested
+                : min($requested, max(0, $invoice->total - $applied));
 
             // A zero-value tender is not a payment. Dropped rather than refused: the POS
             // keeps an empty row in the payment box while the operator decides, and

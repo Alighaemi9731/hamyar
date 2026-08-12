@@ -73,6 +73,7 @@ final class FinaliseInvoice
         private readonly LedgerService $ledger,
         private readonly CounterService $counters,
         private readonly TenantContext $context,
+        private readonly TradeInIntake $tradeIns,
     ) {}
 
     /**
@@ -115,7 +116,13 @@ final class FinaliseInvoice
                 $this->releaseStock($invoice, $item, $lockedUnits, $warehouse, $at, $actorId);
             }
 
-            // 5 — Money.
+            // 5 — The customer's old phone, if there is one. Inside this transaction on
+            // purpose: the shop acquires it at the moment it sells the other handset,
+            // and a trade-in surviving a rolled back sale is a device on the shelf that
+            // nobody paid for.
+            $this->receiveTradeIn($invoice, $actorId);
+
+            // 6 — Money.
             $this->assertPaymentsAddUp($invoice);
             $this->postToLedger($invoice, $at, $actorId);
 
@@ -273,6 +280,25 @@ final class FinaliseInvoice
     }
 
     /**
+     * Turn a معاوضه row into a real used handset on the shelf.
+     */
+    private function receiveTradeIn(SalesInvoice $invoice, ?int $actorId): void
+    {
+        $tradeIn = $invoice->tradeIn()->first();
+
+        if ($tradeIn === null) {
+            return;
+        }
+
+        // Idempotent: a retried finalisation must not mint the customer's phone twice.
+        if ($tradeIn->product_unit_id !== null) {
+            return;
+        }
+
+        $this->tradeIns->receive($tradeIn, $invoice, $actorId);
+    }
+
+    /**
      * The payments must not exceed the invoice, and a credit line must have somebody
      * to owe it.
      */
@@ -281,7 +307,19 @@ final class FinaliseInvoice
         $paid = $this->paidTotal($invoice);
 
         if ($paid > $invoice->total) {
-            throw new RuntimeException('مجموع پرداخت‌ها از مبلغ فاکتور بیشتر است.');
+            // One legitimate way to overpay: the customer's old phone is worth more than
+            // the new one, and the shop owes them the difference. Every other way is a
+            // typo, and letting a mistyped cash figure through would put money in the
+            // drawer that is not there.
+            $fromTradeIn = $invoice->payments
+                ->filter(fn (InvoicePayment $payment): bool => $payment->method === PaymentMethod::TradeIn)
+                ->sum(fn (InvoicePayment $payment): int => $payment->amount);
+
+            $overpaid = $paid - $invoice->total;
+
+            if ($fromTradeIn < $overpaid || $invoice->party_id === null) {
+                throw new RuntimeException('مجموع پرداخت‌ها از مبلغ فاکتور بیشتر است.');
+            }
         }
 
         $onCredit = $invoice->payments
@@ -314,6 +352,28 @@ final class FinaliseInvoice
             ];
         }
 
+        // A trade-in settles the invoice without money moving: what arrives is a handset,
+        // so the debit lands on inventory. Without this the entry would not balance and
+        // the shop's stock would be worth less on paper than on the shelf.
+        $tradedIn = (int) $invoice->payments
+            ->filter(fn (InvoicePayment $payment): bool => $payment->method === PaymentMethod::TradeIn)
+            ->sum(fn (InvoicePayment $payment): int => $payment->amount);
+
+        if ($tradedIn > 0) {
+            $inventory = Account::query()->where('type', Account::TYPE_INVENTORY)->first();
+
+            if (! $inventory instanceof Account) {
+                throw new RuntimeException('حساب موجودی کالا تعریف نشده است؛ دستگاه معاوضه‌ای جایی برای ثبت ندارد.');
+            }
+
+            $lines[] = [
+                'account_id' => $inventory->id,
+                'branch_id' => $invoice->branch_id,
+                'debit' => $tradedIn,
+                'description' => "معاوضه در فاکتور {$invoice->number}",
+            ];
+        }
+
         $settled = array_sum(array_column($lines, 'debit'));
         $owed = $invoice->total - $settled;
 
@@ -328,6 +388,18 @@ final class FinaliseInvoice
             ];
         }
 
+        // The trade-in was worth more than the new phone. The shop owes the difference,
+        // and says so on the customer's account rather than quietly keeping it — paying
+        // it out is a Treasury act (Phase 7).
+        if ($owed < 0 && $invoice->party_id !== null) {
+            $lines[] = [
+                'party_id' => $invoice->party_id,
+                'branch_id' => $invoice->branch_id,
+                'credit' => -$owed,
+                'description' => "مابه‌التفاوت معاوضه فاکتور {$invoice->number}",
+            ];
+        }
+
         if ($lines === []) {
             return;
         }
@@ -338,12 +410,16 @@ final class FinaliseInvoice
             throw new RuntimeException('حساب فروش تعریف نشده است؛ بدون آن درآمد جایی ثبت نمی‌شود.');
         }
 
-        // The credit side: one revenue line for the whole invoice, so debits and
-        // credits balance exactly.
+        // The credit side: whatever the debits add up to, less anything already credited
+        // above. Computed from the lines rather than from `$invoice->total` so the entry
+        // balances by construction — an over-value trade-in makes the two differ.
+        $debits = (int) array_sum(array_column($lines, 'debit'));
+        $credits = (int) array_sum(array_column($lines, 'credit'));
+
         $lines[] = [
             'account_id' => $sales->id,
             'branch_id' => $invoice->branch_id,
-            'credit' => (int) array_sum(array_column($lines, 'debit')),
+            'credit' => $debits - $credits,
             'description' => "فروش فاکتور {$invoice->number}",
         ];
 

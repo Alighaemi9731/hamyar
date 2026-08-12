@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $sales_invoice_id
  * @property int|null $party_id
  * @property string $device_name
+ * @property int|null $product_variant_id
  * @property string|null $imei1
  * @property string $condition
  * @property string|null $grade
@@ -41,7 +42,7 @@ final class TradeIn extends Model
     use BelongsToTenant;
 
     protected $fillable = [
-        'tenant_id', 'sales_invoice_id', 'party_id', 'device_name', 'imei1',
+        'tenant_id', 'sales_invoice_id', 'party_id', 'device_name', 'product_variant_id', 'imei1',
         'condition', 'grade', 'agreed_price', 'product_unit_id',
         'id_scan_media_id', 'hamta_ack',
     ];

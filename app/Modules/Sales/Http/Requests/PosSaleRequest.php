@@ -75,6 +75,20 @@ final class PosSaleRequest extends FormRequest
             'payments.*.tendered_amount' => ['nullable', 'integer', 'min:0', 'max:99999999999'],
             'payments.*.account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'payments.*.reference' => ['nullable', 'string', 'max:120'],
+
+            /*
+            | معاوضه — the customer's old phone, taken in part-payment. Absent on almost
+            | every sale, so every field is nullable and the whole block is optional.
+            */
+            'trade_in' => ['nullable', 'array'],
+            'trade_in.device_name' => ['required_with:trade_in', 'string', 'max:180'],
+            'trade_in.product_variant_id' => ['required_with:trade_in', 'integer', 'exists:product_variants,id'],
+            'trade_in.imei1' => ['nullable', 'string', 'max:30'],
+            'trade_in.grade' => ['nullable', 'string', 'max:10'],
+            'trade_in.agreed_price' => ['required_with:trade_in', 'integer', 'min:1', 'max:99999999999'],
+            // Checked in `after()` rather than with `accepted`, which fails on an absent
+            // value and so refused every ordinary sale that carries no trade-in at all.
+            'trade_in.hamta_ack' => ['nullable', 'boolean'],
         ];
     }
 
@@ -116,6 +130,11 @@ final class PosSaleRequest extends FormRequest
 
                 /** @var array<int, array<string, mixed>> $payments */
                 $payments = $this->array('payments');
+
+                // The HAMTA tick, only when there is a trade-in to tick it for.
+                if (is_array($this->input('trade_in')) && ($this->input('trade_in.hamta_ack') ?? false) !== true) {
+                    $validator->errors()->add('trade_in.hamta_ack', 'تأیید انتقال مالکیت همتا الزامی است.');
+                }
 
                 foreach ($payments as $index => $payment) {
                     $method = PaymentMethod::tryFrom($this->stringFrom($payment['method'] ?? null) ?? '');
@@ -209,6 +228,30 @@ final class PosSaleRequest extends FormRequest
     }
 
     /**
+     * The trade-in, in rial, or null when the customer is not swapping anything.
+     *
+     * @return array{device_name: string, product_variant_id: int, imei1: string|null, grade: string|null, agreed_price: int, hamta_ack: bool}|null
+     */
+    public function tradeIn(): ?array
+    {
+        if (! $this->has('trade_in') || ! is_array($this->input('trade_in'))) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $tradeIn */
+        $tradeIn = $this->input('trade_in');
+
+        return [
+            'device_name' => $this->stringFrom($tradeIn['device_name'] ?? null) ?? '',
+            'product_variant_id' => $this->intFrom($tradeIn['product_variant_id'] ?? null),
+            'imei1' => $this->stringFrom($tradeIn['imei1'] ?? null),
+            'grade' => $this->stringFrom($tradeIn['grade'] ?? null),
+            'agreed_price' => $this->rial($this->intFrom($tradeIn['agreed_price'] ?? 0)),
+            'hamta_ack' => ($tradeIn['hamta_ack'] ?? false) === true,
+        ];
+    }
+
+    /**
      * Coerce one submitted value to an integer.
      *
      * The validator has already refused anything non-numeric; these exist so the
@@ -253,6 +296,9 @@ final class PosSaleRequest extends FormRequest
             'lines.required' => 'فاکتور خالی است؛ دست‌کم یک کالا اسکن کنید.',
             'lines.min' => 'فاکتور خالی است؛ دست‌کم یک کالا اسکن کنید.',
             'lines.*.unit_price.required' => 'قیمت این ردیف را وارد کنید.',
+            'trade_in.product_variant_id.required_with' => 'مدل دستگاه معاوضه‌ای را از فهرست کالاها انتخاب کنید.',
+            'trade_in.agreed_price.required_with' => 'مبلغ توافق‌شده معاوضه را وارد کنید.',
+            'trade_in.agreed_price.min' => 'مبلغ توافق‌شده معاوضه باید بیشتر از صفر باشد.',
         ];
     }
 }
