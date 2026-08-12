@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settings\Services;
 
+use App\Support\Settings\PrintSettings;
 use App\Support\Settings\RoundingDirection;
 use App\Support\Settings\RoundingSettings;
 use App\Support\Settings\ShopSettings;
@@ -49,6 +50,34 @@ final class TenantShopSettings implements ShopSettings
                 ? (RoundingDirection::tryFrom($direction) ?? self::DEFAULT_ROUNDING_DIRECTION)
                 : self::DEFAULT_ROUNDING_DIRECTION,
         );
+    }
+
+    public function print(): PrintSettings
+    {
+        $tenant = $this->context->tenant();
+
+        $logo = $tenant?->setting('print.logo_url');
+        $terms = $tenant?->setting('print.footer_terms');
+        $showQr = $tenant?->setting('print.show_qr');
+
+        return new PrintSettings(
+            logoUrl: $this->nonEmptyString($logo),
+            footerTerms: $this->nonEmptyString($terms),
+            // Defaults ON. Only an explicit `false` turns it off — a missing setting
+            // meaning "no QR" would quietly drop the feature for every existing shop.
+            showQr: $showQr !== false,
+        );
+    }
+
+    private function nonEmptyString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     public function vat(): VatSettings

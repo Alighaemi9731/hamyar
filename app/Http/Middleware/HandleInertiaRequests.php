@@ -47,7 +47,9 @@ final class HandleInertiaRequests extends Middleware
             // Resolved from the tenant's plan + add-ons. Hiding nav with these is
             // convenience only — the route is guarded independently by
             // EnsureModuleEnabled (golden rule 7).
-            'features' => fn (): array => $this->features(),
+            //
+            // Staff-only, like `announcements` below: see `isStaff()`.
+            'features' => fn (): array => $this->isStaff($request) ? $this->features() : [],
 
             'flash' => [
                 'success' => fn (): ?string => $this->flash($request, 'success'),
@@ -60,10 +62,34 @@ final class HandleInertiaRequests extends Middleware
             // actually read it — this is on every request in the app shell, and an
             // eager query here would tax the POS screen for a banner that is usually
             // absent.
-            'announcements' => fn (): array => $this->announcements(),
+            'announcements' => fn (): array => $this->isStaff($request) ? $this->announcements() : [],
 
             'location' => $request->getPathInfo(),
         ];
+    }
+
+    /**
+     * Whether this request is a signed-in member of the shop's staff.
+     *
+     * Not every Inertia page in this app is behind `auth`. The public invoice view
+     * (`/i/{invoice}`) is opened by a customer's phone from a QR code on a receipt, and
+     * it renders through the same middleware — so anything shared unconditionally here
+     * is shared with a stranger holding a piece of paper.
+     *
+     * Two props are genuinely staff-only and are gated on this:
+     *
+     * - `announcements` are platform notices written for shop owners. "Your subscription
+     *   expires in three days" on a customer's receipt page is somebody else's business.
+     * - `features` describes which modules the shop pays for, which is commercial
+     *   information about the shop rather than about the invoice.
+     *
+     * `tenant` deliberately stays: it is the shop's name and its digit/currency display
+     * preference, both of which the public page needs to render money the way the
+     * receipt in the customer's hand does.
+     */
+    private function isStaff(Request $request): bool
+    {
+        return $request->user() instanceof User;
     }
 
     /**

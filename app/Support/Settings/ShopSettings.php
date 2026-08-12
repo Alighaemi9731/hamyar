@@ -33,4 +33,12 @@ interface ShopSettings
      * actually charged on the day, which was none.
      */
     public function vat(): VatSettings;
+
+    /**
+     * The shop's own mark and wording on printed documents.
+     *
+     * Snapshotted onto the invoice like the other two: a reprint has to carry the terms
+     * that were in force on the day, not the ones the shop rewrote last week.
+     */
+    public function print(): PrintSettings;
 }

@@ -6,6 +6,7 @@ use App\Modules\Sales\Http\Controllers\DailyCloseController;
 use App\Modules\Sales\Http\Controllers\InvoiceController;
 use App\Modules\Sales\Http\Controllers\InvoicePrintController;
 use App\Modules\Sales\Http\Controllers\PosController;
+use App\Modules\Sales\Http\Controllers\PublicInvoiceController;
 use App\Modules\Sales\Http\Controllers\QuoteController;
 use App\Modules\Sales\Http\Controllers\SalesReturnController;
 use Illuminate\Support\Facades\Route;
@@ -95,3 +96,29 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:sales'])
             ->whereIn('paper', ['thermal80', 'a5', 'a4'])
             ->name('invoices.print');
     });
+
+/*
+|--------------------------------------------------------------------------
+| Sales — the public invoice view
+|--------------------------------------------------------------------------
+|
+| Outside the `auth` group on purpose: this is what a customer's phone opens when they
+| scan the QR on their receipt, and they have no account here.
+|
+| `tenant` still applies, so the shop is resolved from the hostname and RLS confines the
+| lookup to it — a signed link minted for one shop cannot address another's invoice even
+| if the ids happen to line up.
+|
+| `signed` is the whole access control. Without it the path is `/i/{id}`, which anybody
+| can walk. Rate-limited as well, because a signature can be brute-forced in theory and
+| a public endpoint on a shop's own domain should not be a free amplifier.
+|
+| It is deliberately NOT behind `module:sales`: a shop that lets its subscription lapse
+| has still issued paper that is in customers' pockets, and a receipt that 403s months
+| later makes the customer think the shop has vanished.
+*/
+
+Route::middleware(['tenant', 'signed', 'throttle:60,1'])
+    ->get('/i/{invoice}', [PublicInvoiceController::class, 'show'])
+    ->whereNumber('invoice')
+    ->name('sales.invoices.public');

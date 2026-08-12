@@ -293,7 +293,11 @@ final class DraftInvoiceWriter
         }
 
         if ($unit instanceof ProductUnit) {
-            return trim("{$unit->variant->product->name} {$unit->imei1}");
+            // The product name only. The IMEI is NOT put in here: every screen and print
+            // layout renders it from `product_unit_id`, so embedding it duplicated it on
+            // the paper — and it then travelled into the public invoice page, which is
+            // the one place a serial number must never appear (PublicInvoiceController).
+            return $unit->variant->product->name;
         }
 
         return 'کالا';

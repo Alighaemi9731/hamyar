@@ -8,7 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Modules\Sales\Models\InvoicePayment;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
+use App\Modules\Sales\Services\PublicInvoiceLink;
 use App\Support\Money;
+use App\Support\QrRenderer;
+use App\Support\Settings\PrintSettings;
+use App\Support\Settings\ShopSettings;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,6 +31,12 @@ use Inertia\Response;
  */
 final class InvoicePrintController extends Controller
 {
+    public function __construct(
+        private readonly ShopSettings $settings,
+        private readonly PublicInvoiceLink $links,
+        private readonly QrRenderer $qr,
+    ) {}
+
     public function show(SalesInvoice $invoice, string $paper): Response
     {
         $this->authorize('view', $invoice);
@@ -42,8 +52,19 @@ final class InvoicePrintController extends Controller
             'salesperson:id,name',
         ]);
 
+        $template = $this->template($invoice);
+        $publicUrl = $template->showQr ? $this->links->for($invoice) : null;
+
         return Inertia::render('Sales::Invoices/Print', [
             'paper' => $paper,
+            'template' => [
+                'logo_url' => $template->logoUrl,
+                'footer_terms' => $template->footerTerms,
+                'public_url' => $publicUrl,
+                // Rendered server-side so what a camera reads is exactly what we meant
+                // to encode — the same reasoning as the Code 128 labels in Catalog.
+                'qr_svg' => $publicUrl === null ? null : $this->qr->svg($publicUrl),
+            ],
             'invoice' => [
                 'id' => $invoice->id,
                 'number' => $invoice->number,
@@ -93,5 +114,31 @@ final class InvoicePrintController extends Controller
                 'reference' => $payment->reference,
             ])->values()->all(),
         ]);
+    }
+
+    /**
+     * The template this invoice prints with.
+     *
+     * The invoice's own snapshot wins whenever it has one: a reprint of a year-old
+     * invoice has to carry the terms that were in force on the day, because those are
+     * the ones that govern the argument being had about it. Only an invoice issued
+     * before this feature existed falls through to the shop's current settings.
+     */
+    private function template(SalesInvoice $invoice): PrintSettings
+    {
+        $snapshot = $invoice->settings_snapshot ?? [];
+
+        if (! array_key_exists('print_footer_terms', $snapshot)) {
+            return $this->settings->print();
+        }
+
+        $logo = $snapshot['print_logo_url'] ?? null;
+        $terms = $snapshot['print_footer_terms'] ?? null;
+
+        return new PrintSettings(
+            logoUrl: is_string($logo) && $logo !== '' ? $logo : null,
+            footerTerms: is_string($terms) && $terms !== '' ? $terms : null,
+            showQr: ($snapshot['print_show_qr'] ?? true) !== false,
+        );
     }
 }

@@ -30,8 +30,23 @@ interface Payment {
   reference: string | null;
 }
 
+/**
+ * The shop's own mark and wording, plus the link back to the online copy.
+ *
+ * Read from the invoice's `settings_snapshot` where it has one, so a reprint carries the
+ * terms that were in force on the day rather than the ones the shop rewrote last week.
+ */
+interface Template {
+  logo_url: string | null;
+  footer_terms: string | null;
+  public_url: string | null;
+  /** Server-rendered inline SVG. Null when the shop has switched the QR off. */
+  qr_svg: string | null;
+}
+
 interface Props {
   paper: 'thermal80' | 'a5' | 'a4';
+  template: Template;
   invoice: {
     id: number;
     number: string | null;
@@ -74,6 +89,7 @@ interface Props {
  */
 export default function InvoicePrint({
   paper,
+  template,
   invoice,
   party,
   branch,
@@ -99,11 +115,13 @@ export default function InvoicePrint({
         salesperson={salesperson}
         items={items}
         payments={payments}
+        template={template}
       />
     ) : (
       <PaperInvoice
         paper={paper}
         invoice={invoice}
+        template={template}
         party={party}
         branch={branch}
         salesperson={salesperson}
@@ -130,6 +148,7 @@ export default function InvoicePrint({
 /* --------------------------------------------------------------- thermal -- */
 
 function ThermalReceipt({
+  template,
   invoice,
   party,
   branch,
@@ -140,6 +159,7 @@ function ThermalReceipt({
   return (
     <div className="px-[3mm] py-[4mm] text-[8.5pt] leading-[1.5] text-black">
       <header className="text-center">
+        <ShopLogo url={template.logo_url} className="mb-[2mm] max-h-[12mm]" />
         <p className="text-[11pt] font-bold">{branch.name}</p>
         {branch.phone && (
           <p className="text-[8pt]">
@@ -211,8 +231,80 @@ function ThermalReceipt({
 
       {invoice.notes && <p className="mt-[3mm] text-center text-[7.5pt]">{invoice.notes}</p>}
 
-      <p className="mt-[4mm] text-center text-[8pt] font-bold">با تشکر از خرید شما</p>
+      <FooterTerms terms={template.footer_terms} className="mt-[3mm] text-[7pt]" />
+
+      <p className="mt-[3mm] text-center text-[8pt] font-bold">با تشکر از خرید شما</p>
+
+      {/* Last on the roll: a thermal receipt is torn off at the end, and a QR any
+          higher up gets a fold through it. 22mm square survives a fading ribbon. */}
+      <div className="mt-[3mm]">
+        <InvoiceQr svg={template.qr_svg} url={template.public_url} size="size-[22mm]" />
+      </div>
     </div>
+  );
+}
+
+/**
+ * The shop's logo, when they have set one.
+ *
+ * `crossOrigin="anonymous"` is deliberately absent and the image is never required: a
+ * logo that fails to load must leave a gap on a receipt, not block the print dialog.
+ * `print-exact` forces the browser to render it rather than dropping images to save ink,
+ * which is the default in most print stacks.
+ */
+function ShopLogo({ url, className }: { url: string | null; className?: string }) {
+  if (url === null) {
+    return null;
+  }
+
+  return (
+    <img
+      src={url}
+      alt=""
+      aria-hidden
+      className={cn('print-exact mx-auto max-h-[14mm] w-auto object-contain', className)}
+    />
+  );
+}
+
+/**
+ * The QR that points at the online copy of this invoice.
+ *
+ * The SVG arrives from the server already rendered — what a camera reads has to be
+ * exactly what we meant to encode, and a client-side encoder is a second implementation
+ * of the same standard waiting to disagree with the first.
+ *
+ * `dangerouslySetInnerHTML` is safe here in the strict sense that matters: the string is
+ * built by `QrRenderer` out of integers from an encoder, never out of user input.
+ */
+function InvoiceQr({ svg, url, size }: { svg: string | null; url: string | null; size: string }) {
+  if (svg === null || url === null) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-[1mm]">
+      <div className={cn('print-exact', size)} dangerouslySetInnerHTML={{ __html: svg }} />
+      <span className="text-[6.5pt] text-black/60">برای مشاهده نسخه آنلاین، اسکن کنید</span>
+    </div>
+  );
+}
+
+/**
+ * The shop's warranty and returns wording.
+ *
+ * Whitespace is preserved: shops write these as short numbered lines, and collapsing
+ * them into one paragraph is how a three-clause warranty becomes an unreadable run-on.
+ */
+function FooterTerms({ terms, className }: { terms: string | null; className?: string }) {
+  if (terms === null) {
+    return null;
+  }
+
+  return (
+    <p className={cn('whitespace-pre-line text-center leading-relaxed text-black/70', className)}>
+      {terms}
+    </p>
   );
 }
 
@@ -227,7 +319,16 @@ function Line({ label, children }: { label: string; children: React.ReactNode })
 
 /* ----------------------------------------------------------------- paper -- */
 
-function PaperInvoice({ paper, invoice, party, branch, salesperson, items, payments }: Props) {
+function PaperInvoice({
+  paper,
+  template,
+  invoice,
+  party,
+  branch,
+  salesperson,
+  items,
+  payments,
+}: Props) {
   // A5 is the half-page most shops actually hand over; A4 is the one that gets filed.
   const small = paper === 'a5';
 
@@ -235,6 +336,10 @@ function PaperInvoice({ paper, invoice, party, branch, salesperson, items, payme
     <div className={cn('text-black', small ? 'p-[8mm] text-[8.5pt]' : 'p-[12mm] text-[10pt]')}>
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-black/25 pb-3">
         <div>
+          {/* Start-aligned on paper rather than centred: an A4 letterhead puts the mark
+              above the shop's own name, and `mx-auto` from the thermal default would
+              float it into the middle of the header row. */}
+          <ShopLogo url={template.logo_url} className="mx-0 mb-2 max-h-[16mm]" />
           <p className={cn('font-bold', small ? 'text-[12pt]' : 'text-[15pt]')}>{branch.name}</p>
           {branch.address && <p className="mt-1 text-[8pt] text-black/70">{branch.address}</p>}
           {branch.phone && (
@@ -376,8 +481,16 @@ function PaperInvoice({ paper, invoice, party, branch, salesperson, items, payme
         </p>
       )}
 
-      <div className="mt-[14mm] flex justify-between text-[8.5pt]">
+      <FooterTerms terms={template.footer_terms} className="mt-4 text-[7.5pt]" />
+
+      <div className="mt-[10mm] flex items-end justify-between gap-6 text-[8.5pt]">
         <span>مهر و امضای فروشنده: ....................</span>
+
+        {/* Between the signatures rather than in a corner: it is the one part of the
+            page a customer is meant to interact with, and 20mm is comfortably above the
+            scannable floor for a printed code at arm's length. */}
+        <InvoiceQr svg={template.qr_svg} url={template.public_url} size="size-[20mm]" />
+
         <span>امضای خریدار: ....................</span>
       </div>
     </div>

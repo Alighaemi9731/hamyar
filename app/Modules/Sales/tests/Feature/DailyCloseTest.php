@@ -108,8 +108,10 @@ function closeReport(): array
     $owner = test()->owner;
     /** @var string $url */
     $url = test()->url;
+    /** @var string $today */
+    $today = test()->today;
 
-    $response = test()->actingAs($owner)->get($url.'/sales/close?date='.test()->today);
+    $response = test()->actingAs($owner)->get($url.'/sales/close?date='.$today);
 
     $response->assertSuccessful();
 
@@ -117,6 +119,46 @@ function closeReport(): array
     $props = $response->viewData('page')['props']['report'];
 
     return $props;
+}
+
+/**
+ * One rial figure out of the report.
+ *
+ * The props cross as `mixed`, and reaching into `['net']['value']` at twenty call sites
+ * would need a cast at every one. Narrowed here instead, so a shape change surfaces as
+ * one failing helper rather than twenty unreadable analyser errors.
+ *
+ * @param  array<string, mixed>  $report
+ */
+function reportRial(array $report, string $key): int
+{
+    $value = $report[$key] ?? null;
+
+    if (! is_array($value) || ! is_int($value['value'] ?? null)) {
+        throw new RuntimeException("Report key [{$key}] is not a money value.");
+    }
+
+    return $value['value'];
+}
+
+/**
+ * One payment-method row.
+ *
+ * @param  array<string, mixed>  $report
+ * @return array<string, mixed>
+ */
+function paymentRow(array $report, string $method): array
+{
+    /** @var list<array<string, mixed>> $rows */
+    $rows = is_array($report['payments'] ?? null) ? $report['payments'] : [];
+
+    foreach ($rows as $row) {
+        if (($row['method'] ?? null) === $method) {
+            return $row;
+        }
+    }
+
+    throw new RuntimeException("No payment row for [{$method}].");
 }
 
 /* --------------------------------------------------------- expected cash -- */
@@ -129,8 +171,8 @@ it('expects only the cash in the drawer, not the card takings', function (): voi
 
     // Eight million was sold; three million is in the drawer. A single "collected"
     // figure would reconcile against neither pile.
-    expect($report['net']['value'])->toBe(8_000_000)
-        ->and($report['expected_cash']['value'])->toBe(3_000_000);
+    expect(reportRial($report, 'net'))->toBe(8_000_000)
+        ->and(reportRial($report, 'expected_cash'))->toBe(3_000_000);
 });
 
 it('keeps a cheque out of the drawer while still counting the sale', function (): void {
@@ -145,12 +187,12 @@ it('keeps a cheque out of the drawer while still counting the sale', function ()
 
     // A cheque in hand is an asset, not cash on hand — treating it as cash overstates
     // the till every time one bounces.
-    expect($report['net']['value'])->toBe(4_000_000)
-        ->and($report['expected_cash']['value'])->toBe(1_000_000);
+    expect(reportRial($report, 'net'))->toBe(4_000_000)
+        ->and(reportRial($report, 'expected_cash'))->toBe(1_000_000);
 
-    $cheque = collect($report['payments'])->firstWhere('method', 'cheque');
+    $cheque = paymentRow($report, 'cheque');
 
-    expect($cheque['amount']['value'])->toBe(3_000_000)
+    expect(reportRial($cheque, 'amount'))->toBe(3_000_000)
         ->and($cheque['settles_now'])->toBeFalse();
 });
 
@@ -170,8 +212,8 @@ it('subtracts a cash refund to a walk-in, and shows it', function (): void {
 
     // The money left the drawer, so the expected figure has to come down — and the
     // refund has to be visible, or a till that is 3,000,000 short has no explanation.
-    expect($report['refunded']['value'])->toBe(3_000_000)
-        ->and($report['expected_cash']['value'])->toBe(0)
+    expect(reportRial($report, 'refunded'))->toBe(3_000_000)
+        ->and(reportRial($report, 'expected_cash'))->toBe(0)
         ->and($report['return_count'])->toBe(1);
 });
 
@@ -193,8 +235,8 @@ it('does not subtract a refund that was credited to a customer account', functio
 
     // Nothing came out of the drawer — the customer is in credit instead. Subtracting it
     // would make the till look short by exactly the refund.
-    expect($report['refunded']['value'])->toBe(0)
-        ->and($report['expected_cash']['value'])->toBe(3_000_000);
+    expect(reportRial($report, 'refunded'))->toBe(0)
+        ->and(reportRial($report, 'expected_cash'))->toBe(3_000_000);
 });
 
 /* ------------------------------------------------------------- the rest -- */
@@ -206,7 +248,7 @@ it('reports credit extended today', function (): void {
 
     $report = closeReport();
 
-    expect($report['credit_extended']['value'])->toBe(4_000_000);
+    expect(reportRial($report, 'credit_extended'))->toBe(4_000_000);
 });
 
 it('counts voided invoices rather than hiding them', function (): void {
@@ -222,7 +264,7 @@ it('counts voided invoices rather than hiding them', function (): void {
     // The money is gone from the totals, but "we voided one invoice today" is exactly
     // what an owner wants to see — hiding it is how a till gets quietly abused.
     expect($report['void_count'])->toBe(1)
-        ->and($report['net']['value'])->toBe(0)
+        ->and(reportRial($report, 'net'))->toBe(0)
         ->and($report['invoice_count'])->toBe(0);
 });
 
@@ -232,7 +274,15 @@ it('breaks the takings down by account', function (): void {
 
     $report = closeReport();
 
-    $accounts = collect($report['accounts'])->pluck('amount.value', 'name')->all();
+    /** @var list<array<string, mixed>> $rows */
+    $rows = is_array($report['accounts'] ?? null) ? $report['accounts'] : [];
+
+    $accounts = [];
+
+    foreach ($rows as $row) {
+        $name = $row['name'] ?? '';
+        $accounts[is_string($name) ? $name : ''] = reportRial($row, 'amount');
+    }
 
     expect($accounts['صندوق فروشگاه'])->toBe(3_000_000)
         ->and($accounts['کارتخوان ملت'])->toBe(5_000_000);
@@ -243,8 +293,11 @@ it('lists every payment method, including the ones nobody used today', function 
 
     $report = closeReport();
 
+    /** @var list<array<string, mixed>> $rows */
+    $rows = is_array($report['payments'] ?? null) ? $report['payments'] : [];
+
     // A row that vanishes on a day with no cheques is a row people stop looking for.
-    expect(collect($report['payments'])->pluck('method')->all())
+    expect(array_map(fn (array $row): mixed => $row['method'], $rows))
         ->toBe(['cash', 'pos_terminal', 'card_to_card', 'cheque', 'credit', 'trade_in']);
 });
 
