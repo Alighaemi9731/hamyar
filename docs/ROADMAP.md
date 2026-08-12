@@ -635,57 +635,64 @@ converging on them later.
 ## Phase 6 — Repairs ★ flagship module
 
 ### 6.1 Intake
-- [ ] Customer, device (brand/model/imei — link to a unit if we sold it)
-- [ ] Reported issue
-- [ ] Configurable checklist + per-tenant template builder
-- [ ] Photos
-- [ ] Passcode/pattern: encrypted at rest, masked in UI, permission-gated reveal
-- [ ] Accessories list, prepaid amount, estimate
-- [ ] Printed receipt with tracking code + QR
+- [x] Customer, device (brand/model/imei — link to a unit if we sold it)
+- [x] Reported issue
+- [x] Configurable checklist — **the per-tenant template builder is not built**; the
+      eight-item list is a server-side default. Deferred to Phase 9 (Settings) with the
+      other tenant-configurable screens, since it needs the settings UI to be worth
+      building. The intake screen already renders whatever the server sends.
+- [x] Photos
+- [x] Passcode/pattern: encrypted at rest, masked in UI, permission-gated reveal
+- [x] Accessories list, prepaid amount, estimate
+- [x] Printed receipt with tracking code + QR
 
 ### 6.2 Workflow
-- [ ] State machine: queued → diagnosing → awaiting_approval → awaiting_parts → repairing → ready → delivered | rejected | abandoned
-- [ ] Every transition emits an event (SMS hooks in Phase 8)
-- [ ] History with actor + note
-- [ ] Kanban board + list views
-- [ ] Technician assignment, priority, promised date
-- [ ] Per-technician workload screen
+- [x] State machine: queued → diagnosing → awaiting_approval → awaiting_parts → repairing → ready → delivered | rejected | abandoned
+- [x] Every transition emits an event (SMS hooks in Phase 8)
+- [x] History with actor + note
+- [x] Kanban board + list views
+- [x] Technician assignment, priority, promised date
+- [x] Per-technician workload screen
 
 ### 6.3 Estimate & approval
-- [ ] Amount cap without approval (tenant setting)
-- [ ] Approval via public signed link, or manual "approved by phone" with note
+- [x] Amount cap without approval (tenant setting) — fails closed: unset, zero, negative
+      or malformed all mean *everything* needs approval
+- [x] Approval via public non-enumerable link, or manual "approved by phone" with note
 
 ### 6.4 Parts & services
-- [ ] Parts consumption from Inventory: reserve → consume on complete → return on cancel
-- [ ] Labor/services catalogue (flash, unlock, FRP, data recovery…) with prices
-- [ ] Outsource to an external technician party with cost tracking
+- [x] Parts consumption from Inventory: reserve → consume on complete → return on cancel
+- [ ] Labor/services catalogue (flash, unlock, FRP, data recovery…) with prices —
+      labour is free-text with an amount at delivery today, which works but retypes the
+      same eight services every day. Needs Catalog work; deferred to Phase 9.
+- [ ] Outsource to an external technician party with cost tracking — deferred to Phase 7,
+      where the party ledger it posts against lives
 
 ### 6.5 Delivery
-- [ ] Payment settle (reuses the Phase 5 payment box)
-- [ ] Signature pad capture stored as an image
-- [ ] Warranty-on-repair days
-- [ ] Delivered receipt print
+- [x] Payment settle (reuses the Phase 5 payment box — no parallel payment path)
+- [x] Signature pad capture stored as an image (pointer events; walked at 390px with a finger)
+- [x] Warranty-on-repair days
+- [x] Delivered receipt print (the Phase 5 invoice print, all papers)
 
 ### 6.6 Abandoned devices
-- [ ] Configurable N days after ready → flag + escalating SMS steps + status
+- [x] Configurable N days after ready → flag + escalating SMS steps + status
+      (idempotent: the step is recorded under a unique index before it is announced)
 
 ### 6.7 Public tracking
-- [ ] No-login page: code → status timeline + shop contact, signed URL
+- [x] No-login page: code → status timeline + shop contact, non-enumerable token, rate-limited
 
 ### 6.8 Tests
-- [ ] Every legal and illegal transition
-- [ ] Approval cap enforcement
-- [ ] Parts reserve/consume/rollback
-- [ ] Concurrent technician actions
-- [ ] Encrypted passcode never appears in logs or JSON
-- [ ] Public page leaks nothing tenant-private
-- [ ] Abandoned scheduler
-- [ ] Cross-tenant isolation
+- [x] Every legal and illegal transition
+- [x] Approval cap enforcement
+- [x] Parts reserve/consume/rollback
+- [x] Concurrent technician actions
+- [x] Encrypted passcode never appears in logs or JSON — **or in the session store**,
+      which is where an adversarial review found it leaking on a failed intake
+- [x] Public page leaks nothing tenant-private
+- [x] Abandoned scheduler
+- [x] Cross-tenant isolation
 
 ### Phase 6 — Definition of Done
-- [ ] Full repair lifecycle demo on seeded data; board usable; tracking page live
-
----
+- [x] Full repair lifecycle demo on seeded data; board usable; tracking page live
 
 ## Phase 7 — Treasury, Expenses/Incomes, Cheques, Installment collection, Rentals
 

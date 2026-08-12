@@ -576,3 +576,69 @@ that gets edited to look correct in hindsight is not a log.
 An ADR's whole value is that a later reader can trust what it says was agreed. A status
 nobody can trace manufactures consent that was never given, and the next person to
 disagree with the decision ends up arguing with a ghost.
+
+---
+
+## 2026-08-13 — Phase 6 (Repairs) complete: parts reach the bench, and a review finds three ways money leaks
+
+Closed the phase. Kanban, delivery, the abandoned sweep and the DoD walk all landed as
+planned; what the plan did not contain is most of what this entry is about.
+
+**The service with no door.** `TicketParts` had been green since the parts commit —
+reserve, consume, release, and the cross-module test proving a reserved screen is
+invisible to the till. It had no route. The only way to plan a part into a job was
+Tinker, and the phase would have shipped ticking a box for a feature no shopkeeper could
+reach. Three routes now, one per decision, because a bench often plans two possible
+fixes and fits one: consuming automatically on «آماده» would take a screen off the ledger
+while it sits in the drawer.
+
+The picker is not the POS scanner. That one resolves handsets by IMEI, applies reseller
+price levels and gates cost on the till's permission — none of which a bench wants. A
+technician fitting a screen is asking a stock question, so `PartLookup` depends on
+Inventory instead, and quotes **available** rather than on-hand.
+
+It also returns no cost. The first version formatted the weighted average into the
+response, passed every test, and 500'd on the first real search: the test fixture bought
+at exactly 200,000 while seeded stock averages 1,914,285 rial, which is not a whole
+number of toman and which `Money::toArray` refuses. The crash is how it was found; it is
+gone for a better reason. Cost is gated behind `inventory.view_cost` at the till, and a
+parts picker must not hand it to everybody who can edit a ticket.
+
+**The review.** An adversarial fan-out over the Phase 6 surface, every claim handed to
+independent refuters. Three survived, and each was somewhere the module looked correct.
+
+*The passcode leaked through the session, not the model.* Four layers guard an unlock
+code and all four protect it once it has reached the model. A failed intake never gets
+there: Laravel redirects with the old input, the framework's `dontFlash` covers only the
+password fields, and `SESSION_DRIVER=database` with `SESSION_ENCRYPT` off puts the
+customer's code in the clear one table away from the encrypted column that exists to hide
+it. A photo one megabyte too large is enough. Every passcode test posted an intake that
+*succeeded*, which is exactly why none of them saw it.
+
+*A fitted part cost the shop nothing, as far as the books knew.* Repair lines are service
+lines — that is what stops a part being deducted twice — but finalisation snapshots cost
+by looking up a variant, and a service line has none. A screen bought for 200,000 and
+billed at 900,000 read as 900,000 of margin. The overstated Z report is the smaller half:
+commission derives from that margin, so the technician was quietly paid a percentage of
+the customer's whole bill. On the walked example that is 508,570 rather than 700,000 —
+191,430 rial on one repair, and nobody would notice until a year of payroll was
+reconciled.
+
+*Two tills could deliver the same device.* The service-line design removed the very lock
+that protects the till from a double sell: `FinaliseInvoice` locks units, and a repair
+invoice has none. A probe reproduced it — two invoices, the cash posted twice. The status
+flip also sat *after* the invoice commit, which opened the same hole with no concurrency
+at all: a process dying in between left a finalised, paid invoice on a ticket still
+marked `ready`, and the natural retry wrote a second one.
+
+**Left undone, on purpose and in writing.** The per-tenant checklist template builder,
+the labour/services catalogue and outsourcing to an external technician are unticked on
+the roadmap with a reason and a phase each. All three want infrastructure that arrives
+later (Settings UI, Catalog, the party ledger), and building them here would mean
+building them twice.
+
+**What to carry forward.** Two of the three findings were invisible to tests that all
+passed, and both for the same reason: the tests exercised the path that works. A form
+that submits successfully never flashes old input; a fixture that buys at a round price
+never meets the rounding guard. Worth testing the *failing* path of anything that handles
+a secret or a computed figure.
