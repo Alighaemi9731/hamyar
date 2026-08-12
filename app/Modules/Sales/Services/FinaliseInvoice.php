@@ -236,6 +236,10 @@ final class FinaliseInvoice
             }
 
             if ($item->product_variant_id === null) {
+                // A service line. There is no stock subject to price, so whatever the
+                // writer put here stands — zero for labour, the consumed part's own cost
+                // for a repair. Overwriting it with a lookup that cannot succeed would
+                // erase the only cost figure a repair invoice has.
                 continue;
             }
 

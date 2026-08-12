@@ -239,3 +239,84 @@ it('will not hand another shop the passcode', function (): void {
         ->getJson(tenantUrl($other).'/repairs/tickets/'.$ticket->id.'/passcode')
         ->assertNotFound();
 });
+
+/*
+| The fifth way out, and the one every earlier test missed.
+|
+| Layers one to four all guard the passcode once it has reached the model. This one
+| never gets that far: the intake form fails validation, Laravel redirects with the old
+| input, and the framework's `dontFlash` default covers only the password fields. The
+| session driver is `database` and `SESSION_ENCRYPT` is off, so the code lands in
+| `sessions.payload` — in the clear, in the same database the encrypted column exists to
+| protect, one table over.
+|
+| Found by an adversarial review of Phase 6, not by these tests, because every test above
+| posted an intake that succeeded.
+*/
+
+/**
+ * An intake that will be rejected, carrying the secret.
+ *
+ * @return array<string, mixed>
+ */
+function rejectedIntake(int $branchId): array
+{
+    return [
+        'branch_id' => $branchId,
+        'unit' => 'rial',
+        'device_brand' => 'اپل',
+        // Empty, so the FormRequest refuses the whole post. The trigger, not the point.
+        'device_model' => '',
+        'device_passcode' => SECRET,
+        'reported_issue' => 'روشن نمی‌شود',
+        'priority' => 2,
+        'estimate_amount' => 3_000_000,
+        'prepaid_amount' => 0,
+    ];
+}
+
+it('does not flash the passcode into the session when the intake fails validation', function (): void {
+    $response = $this->actingAs($this->owner)->post(
+        $this->url.'/repairs/intake',
+        rejectedIntake($this->warehouse->branch_id)
+    );
+
+    $response->assertSessionHasErrors('device_model');
+
+    // The form comes back populated, which is the whole reason old input exists...
+    $this->assertSame('اپل', session()->getOldInput('device_brand'));
+
+    // ...but not with this field.
+    expect(session()->getOldInput('device_passcode'))->toBeNull();
+    expect(json_encode(session()->all(), JSON_UNESCAPED_UNICODE))->not->toContain(SECRET);
+});
+
+it('keeps the passcode out of the bytes a session driver would persist', function (): void {
+    $this->actingAs($this->owner)->post(
+        $this->url.'/repairs/intake',
+        rejectedIntake($this->warehouse->branch_id)
+    );
+
+    /*
+    | The companion to the test above, one layer down.
+    |
+    | That one asserts the value never entered the session array. This one asserts on
+    | the bytes — because in production `SESSION_DRIVER=database` and `SESSION_ENCRYPT`
+    | is false, so whatever is in that array is written verbatim into `sessions.payload`
+    | and is what a database dump, a read replica or a nightly backup would show.
+    |
+    | `serialize()` is exactly what `Illuminate\Session\Store::prepareForStorage` hands
+    | the driver, so this is the real payload rather than an approximation. The suite runs
+    | on the `array` driver, and swapping `session.driver` mid-test does not help: the
+    | manager resolved its driver when the request began, so the row that appears in
+    | `sessions` belongs to no request in this test. Asserting on the serialised array
+    | is the honest version of the same claim.
+    */
+    $payload = serialize(session()->all());
+
+    expect($payload)->not->toContain(SECRET);
+
+    // ...and the payload really does carry the old input, or the assertion above would
+    // be passing on an empty session and proving nothing.
+    expect($payload)->toContain('_old_input')->toContain('device_model');
+});

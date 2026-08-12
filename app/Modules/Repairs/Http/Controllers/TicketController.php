@@ -30,6 +30,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Throwable;
 
 /**
  * The bench, as screens.
@@ -467,18 +468,37 @@ final class TicketController extends Controller
         }
 
         // After the sale, and outside its transaction: a slow upload must not hold a
-        // database transaction open, and a signature that fails to store is worth a
-        // missing image rather than an unsettled bill and a customer already out of the
-        // door with their phone.
+        // database transaction open.
+        //
+        // And it CANNOT be allowed to fail the request. By this line the device has been
+        // handed over, the invoice is numbered and the money is posted — all committed.
+        // Letting a storage error surface as a 500 tells the operator the delivery failed
+        // when it did not, so they press the button again and meet a refusal about a
+        // ticket that is already delivered. A missing signature image is worth a warning;
+        // it is not worth making somebody think they lost the sale.
+        //
+        // Found by walking this in a browser: the S3 adapter was not installed, the
+        // upload threw, and a completed delivery rendered as an error page.
         $signature = $request->file('signature');
+        $signatureFailed = false;
 
         if ($signature instanceof UploadedFile) {
-            $files->attach($ticket, $signature, 'signature', $user->id);
+            try {
+                $files->attach($ticket, $signature, 'signature', $user->id);
+            } catch (Throwable $exception) {
+                report($exception);
+                $signatureFailed = true;
+            }
         }
 
         return redirect()
             ->route('sales.invoices.show', $invoice)
-            ->with('success', "دستگاه تیکت {$ticket->code} تحویل شد.");
+            ->with(
+                $signatureFailed ? 'warning' : 'success',
+                $signatureFailed
+                    ? "دستگاه تیکت {$ticket->code} تحویل شد، اما امضا ذخیره نشد."
+                    : "دستگاه تیکت {$ticket->code} تحویل شد.",
+            );
     }
 
     public function transition(Request $request, RepairTicket $ticket, TicketStateMachine $machine): RedirectResponse

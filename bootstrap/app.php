@@ -74,5 +74,45 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        /*
+        | Never flash a secret back into the session.
+        |
+        | On a validation failure Laravel redirects with `->withInput(Arr::except(
+        | $request->input(), $dontFlash))`, and the framework default covers only the
+        | password fields. Everything else — including a customer's device unlock code —
+        | is written to the session store verbatim.
+        |
+        | That matters here more than in most apps. `SESSION_DRIVER` is `database` and
+        | `SESSION_ENCRYPT` is false, so the flashed value lands in `sessions.payload` as
+        | plaintext and survives into the next request as `_flash.old`. A device passcode
+        | is encrypted at rest in `repair_tickets` precisely so a database dump, a read
+        | replica or a backup on somebody's laptop shows nothing — and a single failed
+        | intake (a photo one megabyte too large is enough) would put it in the clear in
+        | the very same database, one table over.
+        |
+        | Found by an adversarial review of Phase 6. The passcode tests covered the
+        | model, the API, the logs and the reveal endpoint; none of them posted a form
+        | that failed validation.
+        |
+        | The list is deliberately broader than "the one field that bit us": anything
+        | named like a secret gets the same treatment, because the next one will be added
+        | by somebody who has never read this comment.
+        */
+        $exceptions->dontFlash([
+            'current_password',
+            'password',
+            'password_confirmation',
+            // Repairs — the customer's unlock code or pattern.
+            'device_passcode',
+            // Identity — TOTP enrolment and recovery.
+            'two_factor_secret',
+            'two_factor_recovery_codes',
+            'code',
+            'otp',
+            'token',
+            // Payments — a card or account number typed into a reference field.
+            'card_number',
+            'iban',
+            'account_number',
+        ]);
     })->create();

@@ -74,10 +74,34 @@ final class DeliverTicket
         int $warrantyDays = 0,
         ?int $actorId = null,
     ): SalesInvoice {
+        // Checked once cheaply so an obviously-closed ticket fails without opening a
+        // transaction. The check that actually decides is inside, under the lock.
         $this->guardDeliverable($ticket);
 
         /** @var SalesInvoice $invoice */
         $invoice = $this->connection->transaction(function () use ($ticket, $labour, $payments, $warrantyDays, $actorId): SalesInvoice {
+            /*
+            | Lock the ticket FIRST, then re-read and re-check.
+            |
+            | Two tills pressing "deliver" on the same device at the same moment both
+            | hold a stale instance from route-model binding: both read `ready`, both
+            | pass the guard above, and both bill the customer. A review probe did
+            | exactly that and produced two invoices and a doubled cash posting.
+            |
+            | The lock is taken before anything is written, and released only when the
+            | invoice, the payments and the status change have all committed together —
+            | so the loser re-reads `delivered` and is refused.
+            */
+            $locked = RepairTicket::query()->lockForUpdate()->find($ticket->getKey());
+
+            if (! $locked instanceof RepairTicket) {
+                throw new RuntimeException('این تیکت دیگر در سیستم نیست.');
+            }
+
+            $ticket->setRawAttributes($locked->getRawOriginal(), true);
+
+            $this->guardDeliverable($ticket);
+
             $lines = $this->lines($ticket, $labour);
 
             if ($lines === []) {
@@ -107,17 +131,21 @@ final class DeliverTicket
 
             $ticket->forceFill(['warranty_days' => max(0, $warrantyDays)])->save();
 
+            // INSIDE the transaction, and inside the lock. If the status moved after the
+            // commit, the loser of a race would re-read `ready` and bill the customer a
+            // second time — which is precisely the bug this whole block exists to stop.
+            //
+            // The machine dispatches its event via `afterCommit`, so nothing is
+            // announced until this transaction lands.
+            $this->machine->transition(
+                $ticket,
+                TicketStatus::Delivered,
+                $actorId,
+                "تحویل شد — فاکتور {$invoice->number}",
+            );
+
             return $invoice;
         });
-
-        // Outside the transaction: the ticket moving is what fires the customer SMS, and
-        // a text about a device that then rolled back is a phone call the shop has to make.
-        $this->machine->transition(
-            $ticket,
-            TicketStatus::Delivered,
-            $actorId,
-            "تحویل شد — فاکتور {$invoice->number}",
-        );
 
         // Anything still merely reserved goes back on the shelf. The device is out of the
         // door; a hold on a part nobody fitted would quietly shrink what the till may sell
@@ -150,7 +178,7 @@ final class DeliverTicket
      * deduct the same screen twice.
      *
      * @param  list<array{description: string, amount: int, quantity?: int}>  $labour
-     * @return list<array{unit_id: null, variant_id: null, is_service: true, description: string, quantity: int, unit_price: int, discount_amount: int}>
+     * @return list<array{unit_id: null, variant_id: null, is_service: true, description: string, quantity: int, unit_price: int, discount_amount: int, cost_snapshot: int}>
      */
     private function lines(RepairTicket $ticket, array $labour): array
     {
@@ -178,6 +206,12 @@ final class DeliverTicket
                 'quantity' => $part->quantity,
                 'unit_price' => $part->unit_price,
                 'discount_amount' => 0,
+                // What the part actually cost, snapshotted when it was fitted. Without
+                // it the line reads as pure profit: the Z report overstates the day and
+                // the technician is paid commission on the customer's whole bill rather
+                // than on what the shop made. Finalisation cannot supply this — a service
+                // line has no variant to look a weighted average up from.
+                'cost_snapshot' => $part->unit_cost,
             ];
         }
 
@@ -194,6 +228,9 @@ final class DeliverTicket
                 'quantity' => max(1, $charge['quantity'] ?? 1),
                 'unit_price' => $charge['amount'],
                 'discount_amount' => 0,
+                // Labour genuinely costs the shop nothing in goods. The technician's
+                // wage is an operating expense, not a cost of what was sold.
+                'cost_snapshot' => 0,
             ];
         }
 

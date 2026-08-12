@@ -54,7 +54,7 @@ final class DraftInvoiceWriter
     /**
      * Write a basket onto a draft invoice and recompute every figure.
      *
-     * @param  list<array{unit_id?: int|null, variant_id?: int|null, is_service?: bool, description?: string|null, quantity?: int, unit_price?: int, discount_amount?: int, warranty_months?: int|null}>  $lines
+     * @param  list<array{unit_id?: int|null, variant_id?: int|null, is_service?: bool, description?: string|null, quantity?: int, unit_price?: int, discount_amount?: int, cost_snapshot?: int, warranty_months?: int|null}>  $lines
      * @param  list<array{method: string, amount: int, tendered_amount?: int|null, account_id?: int|null, reference?: string|null}>  $payments
      */
     public function write(SalesInvoice $invoice, array $lines, array $payments, ?int $actorId = null): SalesInvoice
@@ -129,11 +129,27 @@ final class DraftInvoiceWriter
                 'unit_price' => max(0, $this->intOrZero($line['unit_price'] ?? 0)),
                 'discount_amount' => max(0, $this->intOrZero($line['discount_amount'] ?? 0)),
                 'vat_rate' => $vatRate,
-                // Both filled by InvoiceTotals immediately after; cost is filled at
-                // finalisation, from the ledger, and never by the browser.
+                // Totals are filled by InvoiceTotals immediately after.
+                //
+                // Cost is filled at finalisation from the ledger and never by the
+                // browser — with one exception, and the exception is why the ternary
+                // below is guarded on `$isService` rather than just reading the key.
+                //
+                // A service line has no stock subject, so finalisation has nothing to
+                // look the cost up FROM and leaves it at zero. For a labour charge that
+                // is right. For a repair part it is not: the part was consumed off the
+                // shelf at a real cost, and billing it as a service line with no cost
+                // made the whole repair look like pure profit — overstating margin and,
+                // worse, paying the technician commission on turnover instead of margin.
+                //
+                // So a service line may carry a cost its caller already knows. That is
+                // only safe because `is_service` is settable by server-side code alone
+                // (today: {@see DeliverTicket}); no FormRequest accepts it. Should a
+                // request ever be allowed to, this guard must move, not widen — a
+                // browser that can name its own cost can name its own commission.
                 'vat_amount' => 0,
                 'line_total' => 0,
-                'cost_snapshot' => 0,
+                'cost_snapshot' => $isService ? max(0, $this->intOrZero($line['cost_snapshot'] ?? 0)) : 0,
                 'warranty_months' => $this->intOrNull($line['warranty_months'] ?? null),
             ]);
         }

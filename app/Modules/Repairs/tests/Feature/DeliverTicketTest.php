@@ -25,7 +25,10 @@ use App\Modules\Repairs\Services\TicketParts;
 use App\Modules\Repairs\Services\TicketStateMachine;
 use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Modules\Sales\Models\SalesInvoice;
+use App\Modules\Sales\Services\ProfitEngine;
+use App\Support\Files\AttachmentStore;
 use App\Support\Tenancy\TenantContext;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Handing the device back, and the bill going through Sales rather than around it.
@@ -331,6 +334,76 @@ it('delivers through the form and lands on the invoice', function (): void {
     ($this->inTenant)(fn () => expect($ticket->fresh()?->status)->toBe(TicketStatus::Delivered));
 });
 
+it('bills the customer once when two tills deliver the same device at once', function (): void {
+    $ticket = readyTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        // Two separately loaded instances — exactly what two concurrent HTTP requests
+        // hold after route-model binding. Both read `ready`, and before the lock was
+        // added both passed the guard, both created an invoice and the customer was
+        // charged twice. An adversarial review probe found this by doing precisely this.
+        /** @var RepairTicket $first */
+        $first = RepairTicket::query()->findOrFail($ticket->getKey());
+        /** @var RepairTicket $second */
+        $second = RepairTicket::query()->findOrFail($ticket->getKey());
+
+        $delivery = app(DeliverTicket::class);
+
+        $delivery->deliver(
+            $first,
+            [['description' => 'دستمزد', 'amount' => 1_500_000]],
+            [['method' => 'cash', 'amount' => 2_400_000, 'account_id' => $this->cash->id]],
+            0,
+            $this->owner->id,
+        );
+
+        // The loser re-reads `delivered` under the lock and is refused.
+        expect(fn () => $delivery->deliver(
+            $second,
+            [['description' => 'دستمزد', 'amount' => 1_500_000]],
+            [['method' => 'cash', 'amount' => 2_400_000, 'account_id' => $this->cash->id]],
+            0,
+            $this->owner->id,
+        ))->toThrow(RuntimeException::class, 'قبلاً تحویل داده شده');
+
+        // One invoice, one cash posting, one history row. The three things that were
+        // each doubled before.
+        expect(SalesInvoice::query()->count())->toBe(1)
+            ->and((int) App\Modules\CRM\Models\LedgerEntry::query()
+                ->where('account_id', $this->cash->id)->sum('debit'))->toBe(2_400_000)
+            ->and($ticket->histories()->where('to_status', TicketStatus::Delivered->value)->count())->toBe(1);
+    });
+});
+
+it('still delivers when the signature cannot be stored', function (): void {
+    $ticket = readyTicket();
+
+    // The storage layer is unavailable — the exact failure a missing S3 adapter
+    // produced during the Phase 6 browser walk.
+    $this->mock(AttachmentStore::class, function ($mock): void {
+        $mock->shouldReceive('attach')->andThrow(new RuntimeException('disk unavailable'));
+    });
+
+    $response = $this->actingAs($this->owner)
+        ->post($this->url.'/repairs/tickets/'.$ticket->id.'/deliver', [
+            'unit' => 'rial',
+            'warranty_days' => 30,
+            'labour' => [['description' => 'دستمزد', 'amount' => 1_500_000]],
+            'payments' => [['method' => 'cash', 'amount' => 2_400_000, 'account_id' => $this->cash->id]],
+            'signature' => UploadedFile::fake()->image('signature.png'),
+        ]);
+
+    // By the time the signature is stored the device is handed over, the invoice is
+    // numbered and the money is posted. A 500 here would tell the operator the delivery
+    // failed when it did not — and they would press the button again.
+    $response->assertRedirect()->assertSessionHas('warning');
+
+    ($this->inTenant)(function () use ($ticket): void {
+        expect($ticket->fresh()?->status)->toBe(TicketStatus::Delivered)
+            ->and(SalesInvoice::query()->count())->toBe(1);
+    });
+});
+
 it('will not let another shop deliver this device', function (): void {
     $ticket = readyTicket();
 
@@ -353,4 +426,79 @@ it('will not let another shop deliver this device', function (): void {
             'labour' => [['description' => 'دستمزد', 'amount' => 100_000]],
         ])
         ->assertNotFound();
+});
+
+/* ------------------------------------------ THE COST OF A FITTED PART -- */
+
+/*
+| A repair bill is not pure profit, and the technician is not paid as if it were.
+|
+| Every line on a repair invoice is a service line, which is what stops the fitted part
+| being deducted from stock twice. But finalisation snapshots cost by looking up a
+| variant, and a service line has none — so the parts came through at cost zero. The
+| screen the shop bought for 200,000 and billed at 900,000 read as 900,000 of margin.
+|
+| Two things break at once, and the second is worse than the first. The Z report and the
+| profit engine overstate the day, which is a wrong number. Commission is computed from
+| that margin, so the technician is silently paid a percentage of the customer's whole
+| bill rather than of what the shop actually made — which is money out of the till, every
+| repair, until somebody reconciles a year of payroll.
+|
+| Found by an adversarial review, not by the tests above: every one of them checked stock
+| movements and totals, and none looked at `cost_snapshot`.
+*/
+
+it('carries the fitted part cost onto the invoice, so repair profit is margin not turnover', function (): void {
+    $ticket = readyTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        $invoice = app(DeliverTicket::class)->deliver(
+            $ticket,
+            [['description' => 'دستمزد', 'amount' => 1_500_000]],
+            [['method' => 'cash', 'amount' => 2_400_000, 'account_id' => $this->cash->id]],
+            30,
+            $this->owner->id,
+        );
+
+        $items = $invoice->refresh()->items;
+
+        $part = $items->firstWhere('description', 'گلس');
+        $labour = $items->firstWhere('description', 'دستمزد');
+
+        // The part carries what it cost the shop, snapshotted when it was fitted.
+        expect($part?->cost_snapshot)->toBe(200_000);
+
+        // Labour costs the shop no goods. The technician's wage is an operating
+        // expense, not a cost of what was sold.
+        expect($labour?->cost_snapshot)->toBe(0);
+
+        // 2,400,000 billed, 200,000 of it goods.
+        $profit = app(ProfitEngine::class)->forInvoice($invoice->refresh());
+
+        expect($profit['cost'])->toBe(200_000)
+            ->and($profit['profit'])->toBe(2_200_000);
+    });
+});
+
+it('pays commission on the repair margin, not on the whole bill', function (): void {
+    $this->tenant->forceFill(['settings' => ['commission' => ['rate' => 5], 'repairs' => ['approval_cap' => 999_999_999]]])->save();
+    app(TenantContext::class)->forget();
+
+    $ticket = readyTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        $invoice = app(DeliverTicket::class)->deliver(
+            $ticket,
+            [['description' => 'دستمزد', 'amount' => 1_500_000]],
+            [['method' => 'cash', 'amount' => 2_400_000, 'account_id' => $this->cash->id]],
+            30,
+            $this->owner->id,
+        );
+
+        // 5% of (2,400,000 − 200,000) = 110,000.
+        //
+        // Before the cost reached the line this was 120,000 — 5% of the full turnover.
+        // Ten thousand rial a repair does not look like much until it is a year of them.
+        expect($invoice->refresh()->commission_amount)->toBe(110_000);
+    });
 });

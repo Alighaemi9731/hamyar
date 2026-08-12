@@ -12,6 +12,7 @@ use App\Modules\Repairs\Models\TicketStatusHistory;
 use App\Support\Settings\ShopSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -67,6 +68,26 @@ final class TicketStateMachine
         ?int $actorId = null,
         ?string $note = null,
     ): RepairTicket {
+        /*
+        | Re-read under a row lock before deciding anything.
+        |
+        | `$ticket->status` is whatever was loaded when the request began, and two
+        | concurrent requests both hold their own stale copy — route-model binding gives
+        | each of them one. Both would read `ready`, both would pass the map check, and
+        | both would move the ticket. That is the same shape as the serialized double-sell
+        | in Sales, and it gets the same treatment.
+        |
+        | Found by an adversarial review probe that delivered one device twice and
+        | charged the customer for both.
+        */
+        $locked = RepairTicket::query()->lockForUpdate()->find($ticket->getKey());
+
+        if (! $locked instanceof RepairTicket) {
+            throw new RuntimeException('این تیکت دیگر در سیستم نیست.');
+        }
+
+        $ticket->setRawAttributes($locked->getRawOriginal(), true);
+
         $from = $ticket->status;
 
         if ($from === $to) {
@@ -105,8 +126,13 @@ final class TicketStateMachine
             return $ticket;
         });
 
-        // After commit, on purpose — see the class docblock.
-        TicketStatusChanged::dispatch($moved, $from, $to, $actorId);
+        // After commit, on purpose — see the class docblock. `afterCommit` rather than
+        // "after this method's transaction", because a caller may have wrapped this in
+        // an outer one (delivery does), and firing at the inner boundary would announce
+        // a status the outer transaction can still roll back.
+        DB::afterCommit(
+            fn () => TicketStatusChanged::dispatch($moved, $from, $to, $actorId)
+        );
 
         return $moved;
     }
