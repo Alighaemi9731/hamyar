@@ -496,56 +496,110 @@ converging on them later.
 ## Phase 5 — Sales, POS, Trade-in, Installment creation ★ revenue-critical
 
 ### 5.1 Invoices
-- [ ] Lifecycle draft → final → void
-- [ ] Scan-first POS screen (barcode/IMEI box autofocus, Enter submits)
-- [ ] Line types: variant + qty | serialized unit picker (only `in_stock` units of this branch)
-- [ ] Per-line discount and warranty months
-- [ ] Invoice-level discount, VAT toggle, shipping
-- [ ] Salesperson field + commission accrual entry
-- [ ] Numbering per tenant+branch via the `counters` row-lock service
+- [x] Lifecycle draft → final → void. Void reverses rather than deletes: mirror ledger
+      entries, opposite stock movements, and the handset walks `sold → returned →
+      in_stock` because the state machine refuses to let a status flip pretend a sale
+      was not a sale. The number survives — a missing tax-invoice number is a gap
+      somebody has to explain
+- [x] Scan-first POS screen. **One** box, not two pickers: `PosScanner` resolves an
+      IMEI, a serial, a barcode, an SKU or a typed product name, because the person
+      holding the reader does not know which of those our schema calls it. Exact matches
+      win outright, and a sold or reserved handset resolves **with its reason attached**
+      rather than to nothing
+- [x] Line types: variant + qty | serialized unit, both from the same scan box, resolved
+      against the branch's sellable warehouse
+- [x] Per-line discount and warranty months
+- [x] Invoice-level discount (distributed across lines by value, remainder to the largest
+      line), VAT toggle, shipping. VAT is now a per-shop setting defaulting to **off** —
+      most small shops are not registered, and collecting ten percent a shop cannot remit
+      is discovered by the customer, at the counter
+- [~] Salesperson field recorded on every invoice. **Commission accrual is deliberately
+      not built**: the rule (percent of sale? of margin? tiered? per-salesperson?) is a
+      business decision nobody has made, and inventing one would prejudge it and produce
+      a second set of numbers to reconcile — the same reasoning that deferred SMS credit
+      packages in 2.5. Raise it at Gate 3
+- [x] Numbering per tenant+branch via the `counters` row-lock service
 
 ### 5.2 Payments
-- [ ] Split payments: cash / POS terminal / card-to-card / cheque ref / customer credit
-- [ ] Change calculation
-- [ ] Partial payment → unpaid balance posts to the party ledger automatically
+- [x] Split payments: cash / POS terminal / card-to-card / cheque ref / customer credit,
+      each row carrying the evidence its method leaves behind
+- [x] Change calculation. The drawer keeps the **settled** amount; the tendered figure is
+      stored beside it (new column, with a CHECK that tendered never falls below settled)
+      so a reprint next week still says what change was given
+- [x] Partial payment → unpaid balance posts to the party ledger automatically
 
 ### 5.3 Returns & quotes
-- [ ] Returns full/partial; serialized return flips unit returned → in_stock with grade re-check
-- [ ] Quotes → convert to invoice
+- [x] Returns full/partial. A return is a **new numbered credit document**, never an edit
+      of the sale — the sale happened, and a closed month must keep saying so. A returned
+      handset goes to `returned`, not straight back on the shelf: it becomes sellable
+      only when somebody ticks that they have checked it, and records the grade. Void is
+      refused on an invoice that has returns against it
+- [x] Quotes → convert to invoice, carrying the quote's own settings snapshot
 
 ### 5.4 Trade-in
-- [ ] "Buy customer device" line inside POS → mini-intake (model, imei, condition, agreed price, ID scan, HAMTA transfer checklist ack)
-- [ ] Creates a purchase + `product_unit` (used) and offsets the invoice total
+- [x] "Buy customer device" inside POS → mini-intake (model, catalogue variant, IMEI with
+      Luhn validation, grade, agreed price, HAMTA transfer checklist ack)
+- [x] Creates a used `product_unit` costed at the agreed price, acquired from the buyer,
+      and offsets the invoice as a **tender, not a discount** — a discount would compute
+      VAT on a smaller base and understate both the sale and the tax
+- [ ] ID scan on the trade-in intake — blocked on the Files module wiring, exactly like
+      the seller-ID attachment in 3.3. The HAMTA acknowledgement and the identity check
+      are recorded; the image is not yet stored
 
 ### 5.5 Installment sale
-- [ ] Mark invoice as installment → wizard (down payment, count, interval, flat profit %, first due Jalali)
-- [ ] Generates `installment_plan` + rows; last row absorbs rounding remainder
-- [ ] Optional guarantor party
-- [ ] Contract print
+- [x] Mark invoice as installment → wizard (down payment, count, interval, flat profit %,
+      first due Jalali), live-previewing the schedule as it is typed
+- [x] Generates `installment_plan` + rows; last row absorbs the rounding remainder so the
+      rows sum to the contract total exactly
+- [x] Optional guarantor party
+- [x] Contract print — one `ScheduleTable` shared by the screen and the paper, because the
+      whole point of a contract is that the two say the same thing
 
 ### 5.6 Printing
-- [ ] Thermal 80mm receipt
-- [ ] A5 / A4 official invoice
-- [ ] QR to a public invoice view
-- [ ] Template settings (logo, footer terms)
+- [x] Thermal 80mm receipt
+- [x] A5 / A4 official invoice
+- [x] QR to a public invoice view. Signed and deliberately never expiring — a customer
+      photographs their receipt and opens it eight months later. The hostname comes from
+      the shop's own `domains` row, never a literal apex (golden rule 1b)
+- [x] Template settings (logo, footer terms, QR on/off), snapshotted onto the invoice with
+      rounding and VAT so a reprint carries the terms that were in force on the day
 
 ### 5.7 Profit engine
-- [ ] Serialized = exact unit cost; standard goods = weighted-average cost at sale time
-- [ ] Cost snapshot stored on the invoice line
-- [ ] Daily Z-report (cash session close)
+- [x] Serialized = that device's own cost; standard goods = weighted average at sale time
+- [x] Cost snapshot stored on the invoice line, written once at finalisation and never
+      recomputed — under Iranian inflation, a report quoting today's cost for last
+      month's sale is not a report with a small error in it, it is a fabrication
+- [x] Daily Z-report (cash session close). Built around **one** question — how much cash
+      should be in this drawer — so the takings break down by method *and* by account,
+      cheques and trade-ins are reported but kept out of the expected-cash figure, cash
+      refunds are subtracted and shown, and voided invoices are counted rather than hidden
 
 ### 5.8 Tests
-- [ ] Full POS happy path
-- [ ] Split payment maths incl. change and ledger postings
-- [ ] Serialized double-sell race: two parallel finalises → one wins, other gets a clean error
-- [ ] Trade-in creates the unit and the totals are correct
-- [ ] Installment schedule maths and rounding rule
-- [ ] Return restores stock and reverses the ledger
-- [ ] Numbering: no gaps/dupes under 50 parallel finalises
-- [ ] Cross-tenant isolation
+- [x] Full POS happy path (`PosSaleTest`, 17 cases through real HTTP)
+- [x] Split payment maths incl. change and ledger postings
+- [x] Serialized double-sell race: two parallel finalises → one wins, the other gets a
+      Persian sentence naming the device
+- [x] Trade-in creates the unit and the totals are correct
+- [x] Installment schedule maths and rounding rule
+- [x] Return restores stock and reverses the ledger
+- [x] Numbering: no gaps/dupes under 50 parallel finalises, and per-branch sequences
+- [x] Cross-tenant isolation on every new endpoint, including the public invoice page
 
 ### Phase 5 — Definition of Done
-- [ ] End-to-end: buy plan → receive stock → sell a phone with trade-in + 3 cheques + installments → print all papers → every ledger/stock figure reconciles
+- [x] End-to-end walked in a real browser on 2026-08-12, not asserted from services.
+      An iPhone 15 Pro Max scanned by IMEI at ۱۰۰٬۰۰۰٬۰۰۰ تومان → سمیرا احمدی selected →
+      her old iPhone 13 taken in معاوضه at ۳۵٬۰۰۰٬۰۰۰ (creating unit #11, grade B, costed
+      at the agreed price, acquired from her) → three cheques of ۱۵٬۰۰۰٬۰۰۰ with their
+      serials → `INV-000002` issued → the ۲۰٬۰۰۰٬۰۰۰ remainder put on `INS-000001`, six
+      monthly instalments at 12% flat, ۳٬۷۳۳٬۳۳۳ × 5 and ۳٬۷۳۳٬۳۳۵ on the last row →
+      thermal, A5, A4 and the contract all printed, and the receipt's QR scanned through
+      to the public page on a 390px viewport.
+      **Every figure reconciles**: payments sum to `paid_total`; `total − paid` equals
+      outstanding; the line's `cost_snapshot` equals the device's own cost; the plan's
+      principal equals the invoice's outstanding balance; its rows sum to its total; the
+      invoice's own ledger batch balances (Dr inventory ۳۵٬۰۰۰٬۰۰۰ + Dr party
+      ۶۵٬۰۰۰٬۰۰۰ = Cr sales ۱۰۰٬۰۰۰٬۰۰۰); and the whole ledger balances to the rial.
+      Three defects found and fixed — see PROGRESS 5.9
 
 > ### ⛔ DECISION GATE 3
 > Review invoice print templates and rounding rules with the human.

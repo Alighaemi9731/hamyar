@@ -381,3 +381,111 @@ is written in English but the business calendar is Jalali.
   The timeline contract is now written into docs/specs/crm.md — contributors
   self-register, are handed a party id rather than a `Party`, and a failing module is
   named on the page. Phase 5, 6 and 8 implement against it.
+
+## 2026-08-12 — Phase 5: sales, the POS, trade-in, installments, Z-report
+
+**5.1–5.2 The till.** The screen a shopkeeper sees a hundred times a day, so the design
+constraint is latency and the keyboard, not features. One scan box, not two pickers:
+`PosScanner` resolves an IMEI, a serial, a barcode, an SKU or a typed product name,
+because the person holding the reader does not know which of those our schema calls it.
+Exact matches win outright — a fifteen-digit number that also appears inside some
+product's name must not turn a finished scan into a list — and a sold or reserved handset
+resolves *with its reason attached* rather than to nothing, so nobody goes to the shelf
+hunting a phone that left yesterday.
+
+The basket lives in the browser and posts once. A request per scanned line means waiting
+on the network once per item, which on a shop's connection is the pause that loses to a
+paper notebook. The cost is a deliberate mirror of `InvoiceTotals` in TypeScript;
+`resources/js/lib/invoice-totals.ts` documents why that is defensible and names the
+browser pass as the thing that keeps the two honest. The server still recomputes VAT and
+cost and re-locks stock: the browser may name a **price** (it is negotiated at the
+counter) but never a tax rate or a cost.
+
+Change is stored, not just displayed. The drawer keeps the settled amount; the tendered
+figure rides along in a new column so a reprint next week still says what change was
+given. A CHECK constraint stops tendered falling below settled.
+
+**5.3 Returns, and the void boundary.** A return is a new numbered credit document, never
+an edit of the sale — the sale happened, and a closed month must keep saying so. A
+returned handset goes to `returned`, not straight back on the shelf: nine days in
+somebody's pocket changes what a phone is worth, so it becomes sellable only when
+somebody ticks that they have checked it and records the grade. Void is refused outright
+on an invoice that has returns against it, because voiding one would tell the ledger a
+customer was never charged while they are standing outside holding a refund.
+
+**5.4 معاوضه as a tender, not a discount.** The distinction is not cosmetic: a discount
+reduces the price of the new handset, which computes VAT on a smaller base and understates
+both the sale and the tax. What actually happened is two transactions on one piece of
+paper — the shop sold a phone at full price and bought one at an agreed price, and the
+second settles part of the first. So the trade-in debits inventory and the invoice total
+never moves.
+
+**5.5 Installments.** Flat profit on the financed principal, Jalali months (not
+thirty-day steps), and the last row absorbs the division remainder so the schedule sums
+to the contract total exactly. One `ScheduleTable` component serves the screen and the
+printed contract, because the whole point of a contract is that the paper and the screen
+say the same thing.
+
+**5.6 The QR, and what a stranger may read.** The public invoice link is signed and
+deliberately never expires — a customer photographs their receipt and opens it eight
+months later to check a warranty date. `QrRenderer` walks the encoded matrix itself
+rather than using Bacon's SVG writer, which needs `ext-dom`; a deploy should not fail on
+a missing PHP extension for a square of dots.
+
+Writing its tests turned up three genuine security defects. **An enumeration oracle**:
+`SubstituteBindings` runs in the `web` group ahead of a route's own `signed` middleware,
+so a bound `{invoice}` 404'd before the signature was examined — making 403-vs-404 answer
+"has this shop issued invoice 4,000 yet?" with no signature at all. **An IMEI leak**:
+`DraftInvoiceWriter`'s fallback description embedded the IMEI, which then travelled to the
+public page — the one place a serial number must never appear, since that is what a
+stolen-handset check keys on. **Staff props to strangers**: the public page renders
+through the same shared-prop middleware as the app, so platform announcements and the
+shop's plan flags were being served to anyone with the link.
+
+**5.7 Profit and گزارش Z.** The whole profit engine is one stored column,
+`cost_snapshot`, written once at finalisation and never recomputed — under Iranian
+inflation a report quoting today's cost for last month's sale is not a report with a
+small error in it, it is a fabrication. Revenue is net of VAT, because tax collected is
+the state's money briefly held and counting it would inflate every margin by the rate.
+
+The Z-report answers exactly one question — how much cash should be in this drawer — and
+every figure is chosen to make that comparison possible or to explain a difference in it.
+Takings break down by method *and* by account; cheques and trade-ins are reported so the
+day adds up but kept out of the expected-cash figure; cash refunds are subtracted **and
+shown**, because a till that is 3,000,000 short needs the refund that explains it; and
+voided invoices are counted rather than hidden, since that is how a till gets quietly
+abused.
+
+**5.9 The DoD walk, and the three defects it found.** Walked end-to-end in a real browser
+on 2026-08-12 — an iPhone scanned by IMEI, a trade-in taken, three cheques, the remainder
+on a six-month plan, every paper printed, the receipt's QR followed to the public page on
+a 390px viewport. Every figure reconciled to the rial. Three things no test had asked
+about:
+
+(1) **A cheque booked against the cash box.** The POS pre-fills every payment row with the
+default cash account and then hides the field once the operator picks چک, so the id rode
+along on a payment that puts nothing in the drawer — and the Z-report showed صندوق
+۱۱۵٬۰۰۰٬۰۰۰ directly beneath an expected-cash figure of ۳۰٬۰۰۰٬۰۰۰. Two numbers
+contradicting each other on one screen is how the person closing the till stops trusting
+both. Fixed at the source, in the browser, and in the report query.
+
+(2) **A money field that ate its own input.** `MoneyField` rewrote its value on focus to
+strip separators, which re-renders the input while the browser holds a selection — and a
+re-render collapses that selection, so typing over a selected «۶۵٬۰۰۰٬۰۰۰» appended
+instead of replacing and the box showed ۶٬۵۰۰٬۰۰۰٬۰۱۵٬۰۰۰٬۰۰۰. The stripping also defeated
+its own purpose, since changing the value on focus moves the caret to the end. The Catalog
+price grid never had an `onFocus` for exactly this reason; this now matches it.
+
+(3) **Every instalment badged «نزدیک سررسید»**, including one due six months out, because
+the table mapped `pending` to `due_soon` unconditionally. A contract where every line is
+urgent is a contract where no line is. The reading is now derived from the due date.
+
+The IMEI Luhn guard also refused a made-up trade-in number mid-walk, which is the guard
+working as designed.
+
+**Deliberately not built.** Commission accrual (5.1): the rule — percent of sale, of
+margin, tiered, per-salesperson — is a business decision nobody has made, and inventing
+one would prejudge it and produce a second set of numbers to reconcile. The trade-in ID
+scan (5.4) stays blocked on the Files module wiring, exactly like the seller-ID
+attachment in 3.3; the identity check and the HAMTA acknowledgement are recorded, the
+image is not yet stored. Both are for Gate 3.
