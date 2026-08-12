@@ -267,6 +267,40 @@ it('treats a cap of zero as every job needs approval', function (): void {
     )->toThrow(RuntimeException::class));
 });
 
+it('exempts nothing under a zero cap, not even an unquoted ticket', function (): void {
+    // The hole the obvious `$estimate <= $cap` leaves: with the default cap of zero, a
+    // ticket quoted at zero satisfies `0 <= 0` and work begins with nobody's permission.
+    // An estimate of zero is not a free job — it is a job nobody has quoted yet, which
+    // needs a customer's say-so more than a quoted one, not less.
+    $ticket = ticketAt(TicketStatus::Diagnosing, estimate: 0);
+
+    ($this->inTenant)(fn () => expect(
+        fn () => app(TicketStateMachine::class)->transition($ticket, TicketStatus::Repairing)
+    )->toThrow(RuntimeException::class, 'تا ثبت تأیید مشتری'));
+});
+
+it('fails closed on a malformed cap', function (TicketStatus $unused, mixed $cap): void {
+    /** @var Tenant $tenant */
+    $tenant = test()->tenant;
+
+    // Anything that is not a positive integer resolves to zero, and zero exempts
+    // nothing. The safe direction to be wrong in when the money belongs to somebody else.
+    $tenant->forceFill(['settings' => ['repairs' => ['approval_cap' => $cap]]])->save();
+    app(TenantContext::class)->forget();
+
+    $ticket = ticketAt(TicketStatus::Diagnosing, estimate: 1_000);
+
+    ($this->inTenant)(fn () => expect(
+        fn () => app(TicketStateMachine::class)->transition($ticket, TicketStatus::Repairing)
+    )->toThrow(RuntimeException::class));
+})->with([
+    'a negative cap' => [TicketStatus::Queued, -5_000_000],
+    'a string' => [TicketStatus::Queued, 'خیلی زیاد'],
+    'null' => [TicketStatus::Queued, null],
+    'a float' => [TicketStatus::Queued, 1.5],
+    'an array' => [TicketStatus::Queued, ['cap' => 10]],
+]);
+
 /* -------------------------------------------------------------- events -- */
 
 it('announces the move only after it has committed', function (): void {

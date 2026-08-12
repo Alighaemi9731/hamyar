@@ -62,6 +62,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $approved_via
  * @property int|null $approved_by
  * @property string|null $approval_note
+ * @property string|null $approval_token
+ * @property int|null $approval_quoted_amount
+ * @property CarbonImmutable|null $approval_requested_at
+ * @property CarbonImmutable|null $declined_at
  * @property int $prepaid_amount
  * @property int $warranty_days
  * @property string|null $device_passcode
@@ -122,7 +126,8 @@ final class RepairTicket extends Model
         'device_brand', 'device_model', 'device_imei', 'device_colour',
         'reported_issue', 'status', 'technician_id', 'priority', 'promised_at',
         'estimate_amount', 'approved_amount', 'approved_at', 'approved_via',
-        'approved_by', 'approval_note', 'prepaid_amount', 'warranty_days',
+        'approved_by', 'approval_note', 'approval_token', 'approval_quoted_amount',
+        'approval_requested_at', 'declined_at', 'prepaid_amount', 'warranty_days',
         'device_passcode', 'accessories', 'tracking_token',
         'ready_at', 'delivered_at', 'abandoned_at', 'intake_by',
     ];
@@ -139,6 +144,9 @@ final class RepairTicket extends Model
             'estimate_amount' => 'integer',
             'approved_amount' => 'integer',
             'approved_at' => 'immutable_datetime',
+            'approval_quoted_amount' => 'integer',
+            'approval_requested_at' => 'immutable_datetime',
+            'declined_at' => 'immutable_datetime',
             'prepaid_amount' => 'integer',
             'warranty_days' => 'integer',
             // Ciphertext at rest. A database dump, a replica or a backup shows nothing.
@@ -148,6 +156,14 @@ final class RepairTicket extends Model
             'delivered_at' => 'immutable_datetime',
             'abandoned_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Whether the shop is waiting on a customer's yes right now.
+     */
+    public function isAwaitingApproval(): bool
+    {
+        return $this->approval_token !== null && $this->approved_at === null;
     }
 
     /**

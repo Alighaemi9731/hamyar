@@ -126,13 +126,28 @@ final class TicketStateMachine
 
         $cap = $this->settings->repairs()->approvalCap;
 
-        // A cap of zero means "every job needs approval", which some shops genuinely
-        // want. It is not the same as "no cap" — that is what a huge cap is for.
-        if ($ticket->estimate_amount <= $cap) {
+        // Approval already on file. Checked first, so an approved ticket starts
+        // regardless of what the cap has since been changed to.
+        if ($ticket->approved_at !== null) {
             return;
         }
 
-        if ($ticket->approved_at !== null) {
+        /*
+        | FAIL CLOSED. A cap of zero exempts NOTHING — not even a ticket with no
+        | estimate on it.
+        |
+        | The obvious form of this check is `$estimate <= $cap`, and it has a hole
+        | exactly where it matters: with the default cap of zero, a ticket quoted at
+        | zero satisfies `0 <= 0` and work begins with nobody's permission. An estimate
+        | of zero does not mean the job is free, it means nobody has quoted it yet —
+        | which is the state most needing a customer's say-so, not least.
+        |
+        | So the exemption requires a cap that was deliberately set. An unset,
+        | negative or malformed setting resolves to zero (see RepairSettings) and
+        | therefore to "everything needs approval", which is the safe direction to be
+        | wrong in when the money being spent belongs to somebody else.
+        */
+        if ($cap > 0 && $ticket->estimate_amount <= $cap) {
             return;
         }
 

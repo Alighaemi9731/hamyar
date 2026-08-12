@@ -138,6 +138,31 @@ assertions on money hide exactly the bug they should catch.
 **Factories, not fixtures.** Every model gets a factory. The demo tenant seeder builds
 a realistic Persian dataset used by both the reconciliation tests and manual demos.
 
+**A multipart form is tested with its optional-array keys absent.** A `FormData` body
+cannot express an empty array — an unticked checkbox group is not posted as `[]`, it is
+not posted at all. A payload built in PHP always includes the key, so a suite that only
+ever constructs its own arrays will never see the shape the browser actually sends.
+
+That gap shipped once: `accessories => ['present', 'array']` on the repair intake
+rejected every device handed over without a case or a SIM tray, which is most of them.
+Nine passing tests missed it because all nine built the key. The browser found it in
+about four seconds.
+
+```php
+$payload = intakePayload($branchId);
+
+// What a multipart form actually posts when nobody ticks a box.
+unset($payload['accessories'], $payload['checklist']);
+
+$this->actingAs($user)->post($url, $payload)->assertSessionHasNoErrors();
+```
+
+**A form has somewhere to show an error that belongs to no field.** The companion to the
+rule above, and the reason that bug was invisible rather than merely wrong: the intake
+page rendered errors only beside `device_model` and `reported_issue`, so a failure on
+`accessories` redirected back and changed nothing on screen. Assert the general region
+exists, and assert a field-less error reaches it.
+
 ---
 
 ## 4. Coverage targets

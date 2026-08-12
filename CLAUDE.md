@@ -77,6 +77,16 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
+- **Every form has a home for errors that belong to no field.** A validation failure on
+  `accessories` or `lines` has nowhere to render beside an input, so without a general
+  error region the submit button silently does nothing — and the operator, with a
+  customer at the counter, presses it again and concludes the software is broken. Render
+  every key of the error bag, not just the ones you thought to place.
+- **A multipart form gets a test that posts with its optional-array keys absent.** A
+  `FormData` body cannot express an empty array: an unticked checkbox group is not sent
+  as `[]`, it is not sent at all. So `present`/`required` on an optional array rejects
+  the ordinary case, and only a test that omits the key entirely will catch it —
+  building the payload in PHP always includes it.
 
 ## Workflow every session
 1. Read `docs/ROADMAP.md`; pick the next unchecked `[ ]` task (top to bottom).

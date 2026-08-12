@@ -22,6 +22,13 @@ namespace App\Support\Settings;
  * unimpeded sets a large number; it cannot be expressed by leaving the setting blank,
  * and that asymmetry is the point.
  *
+ * **This fails closed, and the direction is load-bearing.** Unset, negative, a string,
+ * out of range — every malformed value resolves here to zero, and zero exempts nothing
+ * at all. A ticket quoted at zero is not a free job, it is a job nobody has quoted yet,
+ * so it needs approval more than a quoted one does, not less. {@see TicketStateMachine}
+ * enforces that with `$cap > 0 && $estimate <= $cap` rather than the obvious
+ * `$estimate <= $cap`, which would let a zero-quote ticket through a zero cap.
+ *
  * ## The abandonment window
  *
  * How many days a finished device may sit before it is رسوبی. Iranian shops lose real

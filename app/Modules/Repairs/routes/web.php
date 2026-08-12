@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Repairs\Http\Controllers\PasscodeController;
+use App\Modules\Repairs\Http\Controllers\PublicApprovalController;
 use App\Modules\Repairs\Http\Controllers\PublicTrackingController;
 use App\Modules\Repairs\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
@@ -80,3 +81,26 @@ Route::middleware(['tenant', 'throttle:30,1'])
     ->get('/t/{token}', [PublicTrackingController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{48}')
     ->name('repairs.tracking');
+
+/*
+|--------------------------------------------------------------------------
+| Repairs — the public approval page
+|--------------------------------------------------------------------------
+|
+| The same shape as tracking, and worth more: this token authorises spending somebody
+| else's money. So it is minted per request rather than printed on the receipt, texted
+| to the number on the ticket, and cleared the moment it is used.
+|
+| Throttled harder than tracking (10/minute). Tracking is a page a customer refreshes;
+| this is a page they visit once.
+*/
+
+Route::middleware(['tenant', 'throttle:10,1'])
+    ->prefix('a')
+    ->name('repairs.approval.')
+    ->where(['token' => '[A-Za-z0-9]{48}'])
+    ->group(function (): void {
+        Route::get('/{token}', [PublicApprovalController::class, 'show'])->name('show');
+        Route::post('/{token}/approve', [PublicApprovalController::class, 'approve'])->name('approve');
+        Route::post('/{token}/decline', [PublicApprovalController::class, 'decline'])->name('decline');
+    });
