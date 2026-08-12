@@ -18,6 +18,7 @@ use App\Modules\Sales\Services\FinaliseInvoice;
 use App\Modules\Sales\Services\ProfitEngine;
 use App\Modules\Sales\Services\VoidInvoice;
 use App\Support\Money;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -131,13 +132,18 @@ final class InvoiceController extends Controller
             'invoice' => $this->payload($invoice),
             // Withheld entirely for staff without the permission — not zeroed.
             'profit' => $showProfit ? $this->profitPayload($profit->forInvoice($invoice)) : null,
-            // Gated behind `sales.view_profit`, NOT shown to the salesperson who earned
-            // it — which looks wrong until you do the arithmetic. Commission is a known
-            // percentage of margin, so telling somebody their commission tells them the
-            // margin, and Gate 1 was explicit that a Salesperson is blind to cost and
-            // profit. A shop that wants its sellers to see their own numbers grants them
-            // the permission; that is the same per-tenant override Gate 1 allowed.
-            'commission' => $showProfit && $invoice->commission_rate > 0 ? [
+            // Two ways to see this figure, and the second is deliberately narrow.
+            //
+            // `sales.view_profit` is the manager's view: any invoice, anybody's sales.
+            //
+            // `sales.view_own_commission` is the opt-in a shop grants its sellers, and
+            // it is scoped to invoices they themselves sold. It is off by default
+            // because commission is a known percentage of margin, so a seller who can
+            // see it can work out the margin on those sales — and Gate 1 made the
+            // Salesperson blind to margin. Whether that trade is worth making is the
+            // shop's call, not ours; this is the switch, the same way
+            // `inventory.view_cost` is the switch for cost visibility.
+            'commission' => $this->maySeeCommission($invoice, $user) && $invoice->commission_rate > 0 ? [
                 'amount' => Money::toArray($invoice->commission_amount),
                 'rate' => $invoice->commission_rate,
                 'salesperson' => $invoice->salesperson?->name,
@@ -301,6 +307,32 @@ final class InvoiceController extends Controller
                 'grade' => $invoice->tradeIn->grade,
             ],
         ];
+    }
+
+    /**
+     * Whether this viewer may see what the sale earned.
+     *
+     * The own-commission grant is checked against `salesperson_id` rather than trusted
+     * on its own: a permission that revealed every invoice's commission would be
+     * `sales.view_profit` with extra steps, and would hand a seller the margin on their
+     * colleagues' sales as well as their own.
+     */
+    private function maySeeCommission(SalesInvoice $invoice, ?Authenticatable $user): bool
+    {
+        // Narrowed to our own model rather than the contract: the platform guard
+        // resolves a different class entirely, and `salesperson_id` compares against a
+        // tenant user's key.
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        if ($user->can('sales.view_profit')) {
+            return true;
+        }
+
+        return $user->can('sales.view_own_commission')
+            && $invoice->salesperson_id !== null
+            && $invoice->salesperson_id === $user->getKey();
     }
 
     /**

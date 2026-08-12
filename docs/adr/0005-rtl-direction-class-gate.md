@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-07
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** `docs/PROGRESS.md`, 2026-08-07: “ADR 0004 … and ADR 0005 (RTL gate …) written and **approved**”, and `docs/ROADMAP.md` task 0.2 marks it “(approved 2026-08-07)”.
 
 ## Context
 

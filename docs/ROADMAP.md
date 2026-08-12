@@ -180,7 +180,10 @@ design-system skeleton — so every later phase is only about domain work.
 ### 2.2 Subscriptions
 - [x] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
 - [x] Add-on purchases table
-- [~] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases); **ADR 0006 is Proposed — needs sign-off at Gate 2** before the upgrade/downgrade flow is wired to payments
+- [x] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases).
+      **ADR 0006 accepted at Gate 2** (2026-08-08) — truncate to 1 rial, round-half-up
+      considered and rejected. The line above said "Proposed — needs sign-off" for four
+      days after the gate had already signed it off; corrected in the 2026-08-12 ADR audit
 - [~] `coupons` table + trial + grace period modelled and enforced by `Subscription::isUsable()`; redemption flow lands with billing
 
 ### 2.3 Feature gating (trial rules per Gate 2 item 3: Pro features, 14 days, no card,

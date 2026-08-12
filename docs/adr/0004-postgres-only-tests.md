@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-07
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** `docs/PROGRESS.md`, 2026-08-07: “ADR 0004 (Postgres-only tests) and ADR 0005 … written and **approved**”, and `docs/ROADMAP.md` task 0.2 marks it “(approved 2026-08-07)”.
 - **Supersedes nothing.** Implements the verification half of
   [ADR 0002](0002-single-db-tenancy-rls.md).
 

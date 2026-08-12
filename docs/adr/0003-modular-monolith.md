@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-06
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** CLAUDE.md **golden rules 3 and 6**, authored by the project owner — the module list and the ledgers-not-totals rule are both stated there as law.
 
 ## Context
 

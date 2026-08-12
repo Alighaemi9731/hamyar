@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-06
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** CLAUDE.md's **Stack (locked)** section, authored by the project owner before this file existed. The ADR records a decision the owner had already made and made law; it did not propose one.
 
 ## Context
 

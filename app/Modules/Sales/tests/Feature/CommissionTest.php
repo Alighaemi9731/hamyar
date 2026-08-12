@@ -70,7 +70,7 @@ afterEach(fn () => app(TenantContext::class)->forget());
 /**
  * Sell one unit at the given price, optionally with VAT.
  */
-function sellAt(int $price, bool $vat = false): SalesInvoice
+function sellAt(int $price, bool $vat = false, ?int $salespersonId = null): SalesInvoice
 {
     /** @var Warehouse $warehouse */
     $warehouse = test()->warehouse;
@@ -93,7 +93,7 @@ function sellAt(int $price, bool $vat = false): SalesInvoice
     test()->actingAs($owner)->post($url.'/sales/pos', [
         'branch_id' => $warehouse->branch_id,
         'party_id' => $party->id,
-        'salesperson_id' => $owner->id,
+        'salesperson_id' => $salespersonId ?? $owner->id,
         'unit' => 'rial',
         'action' => 'finalise',
         'vat_applied' => $vat,
@@ -197,9 +197,39 @@ it('hides commission from the salesperson who earned it', function (): void {
 
     // Looks wrong until you do the arithmetic: commission is a known percentage of
     // margin, so telling somebody their commission tells them the margin — and Gate 1
-    // was explicit that a Salesperson is blind to cost and profit. A shop that wants
-    // otherwise grants `sales.view_profit`, which is the override Gate 1 allowed.
+    // was explicit that a Salesperson is blind to cost and profit.
     $this->actingAs($this->seller)
         ->get($this->url.'/sales/invoices/'.$invoice->id)
         ->assertInertia(fn ($page) => $page->where('commission', null)->where('profit', null));
+});
+
+it('reveals a seller their own commission once the shop grants it', function (): void {
+    // Sold by the salesperson this time, not the owner.
+    $invoice = sellAt(100_000_000, salespersonId: $this->seller->id);
+
+    // The switch: a per-tenant grant on the shop's own Salesperson role, exactly how
+    // `inventory.view_cost` is opened up. Off until somebody turns it on.
+    ($this->inTenant)(fn () => $this->seller->givePermissionTo('sales.view_own_commission'));
+
+    $this->actingAs($this->seller)
+        ->get($this->url.'/sales/invoices/'.$invoice->id)
+        ->assertInertia(fn ($page) => $page
+            ->where('commission.amount.value', 2_000_000)
+            // Still no profit panel. The grant reveals one figure on their own sales,
+            // not the margin report.
+            ->where('profit', null)
+        );
+});
+
+it('does not reveal a colleague commission to a seller who has the grant', function (): void {
+    // Sold by the owner; the seller had nothing to do with it.
+    $invoice = sellAt(100_000_000, salespersonId: $this->owner->id);
+
+    ($this->inTenant)(fn () => $this->seller->givePermissionTo('sales.view_own_commission'));
+
+    // A grant that showed every invoice's commission would be `sales.view_profit` with
+    // extra steps, and would hand a seller the margin on their colleagues' sales.
+    $this->actingAs($this->seller)
+        ->get($this->url.'/sales/invoices/'.$invoice->id)
+        ->assertInertia(fn ($page) => $page->where('commission', null));
 });

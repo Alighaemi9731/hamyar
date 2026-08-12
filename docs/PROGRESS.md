@@ -530,3 +530,49 @@ allowed for.
 
 Phase 5 is now complete except the trade-in ID scan, which stays blocked on the Files
 module wiring alongside the seller-ID attachment from 3.3.
+
+## 2026-08-12 — Commission opt-in, and an audit of all nine ADRs
+
+**The commission switch.** Gate 3 confirmed that a salesperson does not see their own
+commission, because commission is a known percentage of margin and Gate 1 made the
+Salesperson blind to margin. Pushback on that now has a switch instead of needing a code
+change: `sales.view_own_commission`, off by default, granted per-tenant on the shop's own
+Salesperson role exactly the way `inventory.view_cost` already is.
+
+It is scoped to invoices the grantee actually sold, checked against `salesperson_id`
+rather than trusted on its own — a grant that revealed every invoice's commission would
+be `sales.view_profit` with extra steps, and would hand a seller the margin on their
+colleagues' sales. Two tests pin both halves: their own invoice becomes visible, a
+colleague's stays hidden, and the profit panel stays hidden in both cases.
+
+**The ADR audit.** Prompted by ADR 0009, which was written marked *"Accepted at DECISION
+GATE 3"* — describing an alternative as *"rejected at the gate"* — before that gate had
+been held. All nine were checked against the roadmap's gate blocks and this log.
+
+Two more inconsistencies, in opposite directions:
+
+- **The ADR index called 0006 "Pending — Decision Gate 2"** while the file itself said
+  Accepted at that gate. The gate cleared it on 2026-08-08; the index was never updated.
+- **ROADMAP 2.2 still said "ADR 0006 is Proposed — needs sign-off at Gate 2"**, four days
+  after Gate 2 signed it off, and carried a `[~]` box because of it.
+
+The rest hold up. 0004, 0005 and 0007 name a dated approval; 0006, 0007 and 0009 name a
+cleared gate. 0001–0003 record decisions the project owner had already written into
+CLAUDE.md as law — the ADR documents them rather than proposing them, which is a
+legitimate basis for Accepted and is now stated as such.
+
+**The weakest one is 0008** (visual language). Its approval is an owner *request*
+followed by delivery, with no recorded sign-off. Left Accepted, because nothing in it is
+expensive to reverse — it is tokens in one stylesheet — but the index and the file both
+say plainly that this is the thinnest provenance of the nine rather than dressing it up.
+
+Every ADR now carries an **Approved by** line naming the gate, the PROGRESS entry or the
+CLAUDE.md rule behind it, and `docs/adr/README.md` makes that a requirement for new ones:
+a new ADR starts **Proposed** with its target gate named, and does not become Accepted
+because somebody wrote it. `docs/PROGRESS.md` history was left alone — the 2026-08-08
+line calling 0006 "Proposed pending Gate 2" was true on the day it was written, and a log
+that gets edited to look correct in hindsight is not a log.
+
+An ADR's whole value is that a later reader can trust what it says was agreed. A status
+nobody can trace manufactures consent that was never given, and the next person to
+disagree with the decision ends up arguing with a ghost.

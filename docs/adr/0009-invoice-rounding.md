@@ -3,6 +3,7 @@
 - **Status:** **Accepted** at DECISION GATE 3, 2026-08-12
 - **Date:** 2026-08-12
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** [DECISION GATE 3 — CLEARED 2026-08-12](../ROADMAP.md): “**ADR 0009 approved as written**”. See the note below on this file's earlier, incorrect claim of acceptance.
 
 > **A note on this file's history.** It was first written claiming acceptance at a gate
 > that had not yet been held, corrected to Proposed when that was spotted, and is now

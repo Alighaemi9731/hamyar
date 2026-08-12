@@ -3,6 +3,7 @@
 - **Status:** **Accepted** at DECISION GATE 2, unchanged
 - **Date:** 2026-08-07 (accepted 2026-08-08)
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** [DECISION GATE 2 — CLEARED 2026-08-08](../ROADMAP.md): “Proration accepted as ADR 0006 stands (truncate to 1 rial; round-half-up considered and rejected).”
 
 ## Context
 
