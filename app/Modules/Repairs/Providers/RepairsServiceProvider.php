@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Repairs\Providers;
 
+use App\Modules\Repairs\Models\RepairTicket;
+use App\Modules\Repairs\Policies\RepairTicketPolicy;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Repairs module.
@@ -22,5 +25,12 @@ final class RepairsServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(RepairTicket::class, RepairTicketPolicy::class);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Modules\Settings\Services;
 
 use App\Support\Settings\CommissionSettings;
 use App\Support\Settings\PrintSettings;
+use App\Support\Settings\RepairSettings;
 use App\Support\Settings\RoundingDirection;
 use App\Support\Settings\RoundingSettings;
 use App\Support\Settings\ShopSettings;
@@ -50,6 +51,24 @@ final class TenantShopSettings implements ShopSettings
             direction: is_string($direction)
                 ? (RoundingDirection::tryFrom($direction) ?? self::DEFAULT_ROUNDING_DIRECTION)
                 : self::DEFAULT_ROUNDING_DIRECTION,
+        );
+    }
+
+    /** Sixty days is what an Iranian shop usually answers when asked. */
+    public const DEFAULT_ABANDONED_AFTER_DAYS = 60;
+
+    public function repairs(): RepairSettings
+    {
+        $tenant = $this->context->tenant();
+
+        $cap = $tenant?->setting('repairs.approval_cap');
+        $days = $tenant?->setting('repairs.abandoned_after_days');
+
+        return new RepairSettings(
+            // Zero — every job needs approval — until a shop says otherwise. Guessing
+            // generously here is guessing with a customer's money.
+            approvalCap: is_int($cap) && $cap > 0 ? $cap : 0,
+            abandonedAfterDays: is_int($days) && $days > 0 ? $days : self::DEFAULT_ABANDONED_AFTER_DAYS,
         );
     }
 

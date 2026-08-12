@@ -1,0 +1,302 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Repairs\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Services\BranchAccess;
+use App\Modules\Repairs\Enums\TicketStatus;
+use App\Modules\Repairs\Exceptions\IllegalTicketTransition;
+use App\Modules\Repairs\Http\Requests\TicketIntakeRequest;
+use App\Modules\Repairs\Models\RepairTicket;
+use App\Modules\Repairs\Models\TicketStatusHistory;
+use App\Modules\Repairs\Services\TicketIntake;
+use App\Modules\Repairs\Services\TicketStateMachine;
+use App\Support\Money;
+use App\Support\Settings\ShopSettings;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
+use RuntimeException;
+
+/**
+ * The bench, as screens.
+ *
+ * ## The ticket page never carries the passcode
+ *
+ * `has_passcode` is a boolean and that is all this controller will say. The value lives
+ * behind {@see PasscodeController}, which audits every read. A masked field in a prop is
+ * still a value in the page source, in browser memory and in any screenshot — masking is
+ * a UI affordance, not a protection.
+ */
+final class TicketController extends Controller
+{
+    private const PER_PAGE = 25;
+
+    public function __construct(
+        private readonly BranchAccess $branches,
+        private readonly ShopSettings $settings,
+    ) {}
+
+    public function index(Request $request): Response
+    {
+        $this->authorize('viewAny', RepairTicket::class);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $term = trim($request->string('q')->value());
+
+        $tickets = RepairTicket::query()
+            ->with(['party:id,name', 'technician:id,name', 'branch:id,name'])
+            ->tap(fn ($query) => $this->branches->constrain($query, $user))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->value()))
+            ->when($request->boolean('mine'), fn ($query) => $query->where('technician_id', $user->id))
+            ->when($term !== '', fn ($query) => $query->where(function ($q) use ($term): void {
+                $q->where('code', 'ilike', "%{$term}%")
+                    // The counter usually has the phone, not the paper.
+                    ->orWhere('device_imei', 'ilike', "%{$term}%")
+                    ->orWhere('device_model', 'ilike', "%{$term}%")
+                    ->orWhereHas('party', fn ($p) => $p->where('name', 'ilike', "%{$term}%"));
+            }))
+            // Urgent first, then oldest — a queue that hides the device that has been
+            // waiting longest is a queue that grows a rusty tail.
+            ->orderBy('priority')
+            ->orderBy('created_at')
+            ->paginate(self::PER_PAGE)
+            ->withQueryString();
+
+        return Inertia::render('Repairs::Tickets/Index', [
+            'tickets' => [
+                'rows' => array_map(fn (RepairTicket $ticket): array => $this->row($ticket), $tickets->items()),
+                'links' => $tickets->linkCollection()->toArray(),
+                'total' => $tickets->total(),
+            ],
+            'filters' => [
+                'q' => $term,
+                'status' => $request->string('status')->value() ?: null,
+                'mine' => $request->boolean('mine'),
+            ],
+            'statuses' => $this->statusOptions(),
+            'columns' => array_map(fn (TicketStatus $s): string => $s->value, TicketStatus::boardColumns()),
+            'can' => ['create' => $user->can('repairs.create')],
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        $this->authorize('create', RepairTicket::class);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $branch = $this->branches->defaultFor($user);
+
+        abort_if($branch === null, 409, 'این کاربر به هیچ شعبه‌ای دسترسی ندارد.');
+
+        return Inertia::render('Repairs::Tickets/Intake', [
+            'branch' => ['id' => $branch->id, 'name' => $branch->name],
+            'technicians' => $this->technicianOptions(),
+            'checklist' => $this->checklistTemplate(),
+            'accessories' => $this->accessoryOptions(),
+            'approval_cap' => Money::toArray($this->settings->repairs()->approvalCap),
+        ]);
+    }
+
+    public function store(TicketIntakeRequest $request, TicketIntake $intake): RedirectResponse
+    {
+        $this->authorize('create', RepairTicket::class);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! $this->branches->canUse($user, $request->integer('branch_id'))) {
+            throw ValidationException::withMessages(['branch_id' => 'شما به این شعبه دسترسی ندارید.']);
+        }
+
+        try {
+            $ticket = $intake->take($request->intake(), $user->id);
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages(['device_model' => $exception->getMessage()]);
+        }
+
+        return redirect()
+            ->route('repairs.tickets.show', $ticket)
+            ->with('success', "قبض پذیرش {$ticket->code} ثبت شد.");
+    }
+
+    public function show(Request $request, RepairTicket $ticket): Response
+    {
+        $this->authorize('view', $ticket);
+
+        $ticket->load([
+            'party:id,name',
+            'technician:id,name',
+            'branch:id,name',
+            'checklistAnswers',
+            'histories.actor:id,name',
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        return Inertia::render('Repairs::Tickets/Show', [
+            'ticket' => [
+                ...$this->row($ticket),
+                'reported_issue' => $ticket->reported_issue,
+                'device_brand' => $ticket->device_brand,
+                'device_colour' => $ticket->device_colour,
+                'accessories' => $ticket->accessories ?? [],
+                'estimate_amount' => Money::toArray($ticket->estimate_amount),
+                'approved_amount' => $ticket->approved_amount === null ? null : Money::toArray($ticket->approved_amount),
+                'approved_at' => $ticket->approved_at?->toIso8601String(),
+                'approved_via' => $ticket->approved_via,
+                'prepaid_amount' => Money::toArray($ticket->prepaid_amount),
+                'warranty_days' => $ticket->warranty_days,
+                /*
+                | A boolean, never the value. The UI needs to know whether to offer the
+                | reveal button; it does not need — and must never hold — the code.
+                */
+                'has_passcode' => $ticket->hasPasscode(),
+                'checklist' => $ticket->checklistAnswers->map(fn ($a): array => [
+                    'label' => $a->label,
+                    'answer' => $a->answer,
+                    'note' => $a->note,
+                ])->values()->all(),
+                'history' => $ticket->histories->map(fn (TicketStatusHistory $h): array => [
+                    'id' => $h->id,
+                    'from' => $h->from_status?->labelFa(),
+                    'to' => $h->to_status->labelFa(),
+                    'actor' => $h->actor?->name,
+                    'note' => $h->note,
+                    'at' => $h->created_at?->toIso8601String(),
+                ])->values()->all(),
+            ],
+            'transitions' => array_map(fn (TicketStatus $s): array => [
+                'value' => $s->value,
+                'label' => $s->labelFa(),
+            ], $ticket->status->allowedTransitions()),
+            'can' => [
+                'update' => $user->can('repairs.update'),
+                'reveal_passcode' => $user->can('repairs.reveal_passcode'),
+                'deliver' => $user->can('repairs.deliver'),
+            ],
+        ]);
+    }
+
+    public function transition(Request $request, RepairTicket $ticket, TicketStateMachine $machine): RedirectResponse
+    {
+        $this->authorize('update', $ticket);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'status' => ['required', 'string'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $to = TicketStatus::tryFrom($validated['status']);
+
+        if (! $to instanceof TicketStatus) {
+            throw ValidationException::withMessages(['status' => 'وضعیت نامعتبر است.']);
+        }
+
+        try {
+            $machine->transition($ticket, $to, $user->id, $validated['note'] ?? null);
+        } catch (IllegalTicketTransition|RuntimeException $exception) {
+            // Surfaced on the field the board reads, so a card that springs back says why.
+            throw ValidationException::withMessages(['status' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', "وضعیت تیکت {$ticket->code} به «{$to->labelFa()}» تغییر کرد.");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function row(RepairTicket $ticket): array
+    {
+        return [
+            'id' => $ticket->id,
+            'code' => $ticket->code,
+            'status' => $ticket->status->value,
+            'status_label' => $ticket->status->labelFa(),
+            'device' => trim("{$ticket->device_brand} {$ticket->device_model}"),
+            'device_imei' => $ticket->device_imei,
+            'party_name' => $ticket->party?->name,
+            'technician_name' => $ticket->technician?->name,
+            'branch_name' => $ticket->branch->name,
+            'priority' => $ticket->priority,
+            'promised_at' => $ticket->promised_at?->toIso8601String(),
+            'created_at' => $ticket->created_at?->toIso8601String(),
+            'ready_at' => $ticket->ready_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function statusOptions(): array
+    {
+        return array_map(fn (TicketStatus $s): array => [
+            'value' => $s->value,
+            'label' => $s->labelFa(),
+        ], TicketStatus::cases());
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function technicianOptions(): array
+    {
+        $users = User::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->all();
+
+        return array_values(array_map(
+            fn (User $technician): array => ['id' => $technician->id, 'name' => $technician->name],
+            $users,
+        ));
+    }
+
+    /**
+     * The intake checklist.
+     *
+     * A built-in default for now; the per-tenant template builder is a Settings screen
+     * later in this phase. Shipping the default first means a shop that never opens that
+     * screen still records the condition of the device — which is the thing that settles
+     * «صفحه از قبل شکسته بود» three weeks later.
+     *
+     * @return list<array{item_key: string, label: string, options: list<string>}>
+     */
+    private function checklistTemplate(): array
+    {
+        $condition = ['سالم', 'خط و خش', 'شکسته', 'کار نمی‌کند'];
+
+        return [
+            ['item_key' => 'screen', 'label' => 'صفحه نمایش', 'options' => $condition],
+            ['item_key' => 'body', 'label' => 'بدنه و قاب', 'options' => $condition],
+            ['item_key' => 'camera', 'label' => 'دوربین', 'options' => $condition],
+            ['item_key' => 'battery', 'label' => 'باتری', 'options' => $condition],
+            ['item_key' => 'charge_port', 'label' => 'سوکت شارژ', 'options' => $condition],
+            ['item_key' => 'buttons', 'label' => 'دکمه‌ها', 'options' => $condition],
+            ['item_key' => 'water', 'label' => 'نشانه تماس با آب', 'options' => ['ندارد', 'دارد', 'مشخص نیست']],
+            ['item_key' => 'powers_on', 'label' => 'روشن می‌شود', 'options' => ['بله', 'خیر']],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function accessoryOptions(): array
+    {
+        return ['قاب', 'سیم‌کارت', 'خشاب سیم‌کارت', 'کارت حافظه', 'شارژر', 'کابل', 'هندزفری', 'جعبه'];
+    }
+}
