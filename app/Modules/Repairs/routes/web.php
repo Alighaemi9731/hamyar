@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Repairs\Http\Controllers\PasscodeController;
+use App\Modules\Repairs\Http\Controllers\PublicTrackingController;
 use App\Modules\Repairs\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,10 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
             ->whereNumber('ticket')
             ->name('tickets.show');
 
+        Route::get('/tickets/{ticket}/receipt', [TicketController::class, 'receipt'])
+            ->whereNumber('ticket')
+            ->name('tickets.receipt');
+
         Route::post('/tickets/{ticket}/transition', [TicketController::class, 'transition'])
             ->whereNumber('ticket')
             ->name('tickets.transition');
@@ -48,3 +53,30 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
             ->middleware('throttle:20,1')
             ->name('tickets.passcode');
     });
+
+/*
+|--------------------------------------------------------------------------
+| Repairs — the public tracking page
+|--------------------------------------------------------------------------
+|
+| Outside `auth` on purpose: this is a customer's phone opening the QR from a repair
+| receipt, and they have no account here.
+|
+| The 48-character token IS the access control. There is no id in the path, so unlike
+| the public invoice page there is no pair of responses to compare and nothing to
+| enumerate — every wrong token is an identical 404.
+|
+| Rate-limited hard. A repair status reveals that a named person's device is out of
+| their hands, so a script guessing tokens should exhaust its budget long before it
+| exhausts anything else. 30/minute is generous for a human refreshing a page and
+| useless for a search.
+|
+| Deliberately NOT behind `module:repairs`: a shop whose subscription lapses has still
+| given out paper that is in customers' pockets, and a tracking page that 403s makes the
+| customer think the shop has vanished with their phone.
+*/
+
+Route::middleware(['tenant', 'throttle:30,1'])
+    ->get('/t/{token}', [PublicTrackingController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{48}')
+    ->name('repairs.tracking');

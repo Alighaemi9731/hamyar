@@ -62,14 +62,27 @@ final class TicketIntakeRequest extends FormRequest
             // limit here would invite somebody to paste something else into it.
             'device_passcode' => ['nullable', 'string', 'max:64'],
 
-            'accessories' => ['present', 'array', 'max:20'],
+            /*
+            | `nullable`, not `present`. A multipart body cannot express an empty array —
+            | a form with no accessories ticked simply omits the key — so `present`
+            | rejected every intake where the customer handed over a bare phone, which
+            | is most of them. Found by walking the form in a browser; no test had
+            | posted a body without the key.
+            */
+            'accessories' => ['nullable', 'array', 'max:20'],
             'accessories.*' => ['string', 'max:40'],
 
-            'checklist' => ['present', 'array', 'max:50'],
+            'checklist' => ['nullable', 'array', 'max:50'],
             'checklist.*.item_key' => ['required', 'string', 'max:80'],
             'checklist.*.label' => ['required', 'string', 'max:160'],
             'checklist.*.answer' => ['required', 'string', 'max:40'],
             'checklist.*.note' => ['nullable', 'string', 'max:255'],
+
+            // Straight from a phone camera. HEIC is here because that is what an iPhone
+            // produces by default and a shop photographing a cracked screen should not
+            // have to know what a container format is.
+            'photos' => ['nullable', 'array', 'max:8'],
+            'photos.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,image/heic', 'max:12288'],
         ];
     }
 

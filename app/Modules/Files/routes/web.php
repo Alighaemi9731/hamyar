@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Files\Http\Controllers\AttachmentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -9,16 +10,13 @@ use Illuminate\Support\Facades\Route;
 | Files — web routes
 |--------------------------------------------------------------------------
 |
-| Loaded with the `web` middleware group by the module service provider.
-|
-| Tenant screens belong inside a group carrying the tenant + auth middleware and
-| `module:files` so the plan gates the route as well as the nav (golden rule 7):
-|
-|   Route::middleware(['tenant', 'auth', 'module:files'])
-|       ->prefix('files')
-|       ->name('files.')
-|       ->group(function (): void {
-|           // …
-|       });
+| One route, and only a development machine uses it: MinIO and S3 sign their own URLs,
+| so in production the bytes never pass through PHP. The local driver cannot sign, and
+| falling back to a public path there would build a habit that only holds in production.
 |
 */
+
+Route::middleware(['tenant', 'auth', 'tenant.user'])
+    ->get('/files/{attachment}', [AttachmentController::class, 'show'])
+    ->whereNumber('attachment')
+    ->name('files.show');

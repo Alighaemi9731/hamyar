@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Files\Providers;
 
+use App\Modules\Files\Services\FileStore;
+use App\Support\Files\AttachmentStore;
 use App\Support\Modules\ModuleServiceProvider;
 
 /**
@@ -21,6 +23,8 @@ final class FilesServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
-        //
+        // The shared-kernel contract, bound here. Repairs asks the interface and never
+        // learns this class exists (ADR 0003).
+        $this->app->singleton(AttachmentStore::class, FileStore::class);
     }
 }

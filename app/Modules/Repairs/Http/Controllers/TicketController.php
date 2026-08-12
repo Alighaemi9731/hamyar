@@ -14,10 +14,14 @@ use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Models\TicketStatusHistory;
 use App\Modules\Repairs\Services\TicketIntake;
 use App\Modules\Repairs\Services\TicketStateMachine;
+use App\Modules\Repairs\Services\TrackingLink;
+use App\Support\Files\AttachmentStore;
 use App\Support\Money;
+use App\Support\QrRenderer;
 use App\Support\Settings\ShopSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -107,7 +111,7 @@ final class TicketController extends Controller
         ]);
     }
 
-    public function store(TicketIntakeRequest $request, TicketIntake $intake): RedirectResponse
+    public function store(TicketIntakeRequest $request, TicketIntake $intake, AttachmentStore $files): RedirectResponse
     {
         $this->authorize('create', RepairTicket::class);
 
@@ -124,8 +128,18 @@ final class TicketController extends Controller
             throw ValidationException::withMessages(['device_model' => $exception->getMessage()]);
         }
 
+        // Photos after the ticket exists, and outside its transaction: a slow upload to
+        // MinIO must not hold a database transaction open, and a photo that fails to
+        // store is worth a warning rather than losing the intake the customer just
+        // watched somebody type.
+        foreach ($request->file('photos') ?? [] as $photo) {
+            if ($photo instanceof UploadedFile) {
+                $files->attach($ticket, $photo, 'intake_photos', $user->id);
+            }
+        }
+
         return redirect()
-            ->route('repairs.tickets.show', $ticket)
+            ->route('repairs.tickets.receipt', $ticket)
             ->with('success', "قبض پذیرش {$ticket->code} ثبت شد.");
     }
 
@@ -184,6 +198,53 @@ final class TicketController extends Controller
                 'update' => $user->can('repairs.update'),
                 'reveal_passcode' => $user->can('repairs.reveal_passcode'),
                 'deliver' => $user->can('repairs.deliver'),
+            ],
+        ]);
+    }
+
+    /**
+     * قبض پذیرش — the paper the customer walks out with.
+     *
+     * 80mm thermal, because that is the printer on an Iranian shop counter. The tracking
+     * QR is given real estate rather than tucked in a corner: it is the whole reason the
+     * shop will not get a phone call on Thursday asking whether the phone is ready.
+     */
+    public function receipt(Request $request, RepairTicket $ticket, TrackingLink $links, QrRenderer $qr): Response
+    {
+        $this->authorize('view', $ticket);
+
+        $ticket->load(['party:id,name', 'branch:id,name,address,phone', 'checklistAnswers']);
+
+        $tracking = $links->for($ticket);
+
+        return Inertia::render('Repairs::Tickets/Receipt', [
+            'ticket' => [
+                'code' => $ticket->code,
+                'device' => trim("{$ticket->device_brand} {$ticket->device_model}"),
+                'device_colour' => $ticket->device_colour,
+                'device_imei' => $ticket->device_imei,
+                'reported_issue' => $ticket->reported_issue,
+                'party_name' => $ticket->party?->name,
+                'accessories' => $ticket->accessories ?? [],
+                'estimate_amount' => Money::toArray($ticket->estimate_amount),
+                'prepaid_amount' => Money::toArray($ticket->prepaid_amount),
+                'promised_at' => $ticket->promised_at?->toIso8601String(),
+                'created_at' => $ticket->created_at?->toIso8601String(),
+                'checklist' => $ticket->checklistAnswers->map(fn ($a): array => [
+                    'label' => $a->label,
+                    'answer' => $a->answer,
+                ])->values()->all(),
+            ],
+            'shop' => [
+                'name' => $ticket->branch->name,
+                'address' => $ticket->branch->address,
+                'phone' => $ticket->branch->phone,
+            ],
+            'tracking' => [
+                'url' => $tracking,
+                // Server-rendered, like the invoice QR: what a camera reads has to be
+                // exactly what we meant to encode.
+                'qr_svg' => $tracking === null ? null : $qr->svg($tracking),
             ],
         ]);
     }
