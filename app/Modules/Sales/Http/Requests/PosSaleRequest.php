@@ -51,8 +51,9 @@ final class PosSaleRequest extends FormRequest
             'unit' => ['required', Rule::in([Money::UNIT_RIAL, Money::UNIT_TOMAN])],
 
             // `park` keeps the basket as a draft for a customer who has gone to fetch
-            // money; `finalise` issues it. Nothing else may be asked for.
-            'action' => ['required', Rule::in(['park', 'finalise'])],
+            // money; `quote` issues a numbered پیش‌فاکتور to hand them; `finalise` sells
+            // it. Nothing else may be asked for.
+            'action' => ['required', Rule::in(['park', 'quote', 'finalise'])],
 
             'vat_applied' => ['required', 'boolean'],
             'discount_amount' => ['required', 'integer', 'min:0', 'max:99999999999'],
@@ -200,6 +201,11 @@ final class PosSaleRequest extends FormRequest
     public function shouldFinalise(): bool
     {
         return $this->string('action')->value() === 'finalise';
+    }
+
+    public function isQuote(): bool
+    {
+        return $this->string('action')->value() === 'quote';
     }
 
     /**

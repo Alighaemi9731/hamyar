@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { SaveIcon, ShoppingCartIcon, Trash2Icon } from 'lucide-react';
+import { FileTextIcon, SaveIcon, ShoppingCartIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
@@ -204,7 +204,7 @@ export default function PosIndex({
     );
   }
 
-  function submit(action: 'park' | 'finalise'): void {
+  function submit(action: 'park' | 'quote' | 'finalise'): void {
     if (lines.length === 0 || processing) {
       return;
     }
@@ -268,6 +268,19 @@ export default function PosIndex({
           >
             <SaveIcon className="size-4" aria-hidden />
             ذخیره پیش‌نویس
+          </Button>
+
+          {/* A پیش‌فاکتور is a numbered document the customer takes away, which is what
+              separates it from the parked draft beside it: a draft is the shop's own
+              note to itself and never leaves the building. */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={lines.length === 0 || processing}
+            onClick={() => submit('quote')}
+          >
+            <FileTextIcon className="size-4" aria-hidden />
+            پیش‌فاکتور
           </Button>
 
           {/* The only brand-filled button on the screen (design-system rule 7). */}

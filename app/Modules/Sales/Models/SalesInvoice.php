@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $salesperson_id
  * @property string|null $number
  * @property string $type
+ * @property int|null $converted_to_id
  * @property InvoiceStatus $status
  * @property CarbonImmutable|null $issued_at
  * @property CarbonImmutable|null $voided_at
@@ -91,7 +92,7 @@ final class SalesInvoice extends Model
 
     protected $fillable = [
         'tenant_id', 'branch_id', 'party_id', 'salesperson_id', 'number',
-        'type', 'status', 'issued_at', 'voided_at', 'voided_by', 'void_reason',
+        'type', 'converted_to_id', 'status', 'issued_at', 'voided_at', 'voided_by', 'void_reason',
         'subtotal', 'discount_amount', 'vat_amount', 'shipping_amount',
         'rounding_adjustment', 'total',
         'paid_total', 'settings_snapshot', 'notes',
@@ -186,6 +187,26 @@ final class SalesInvoice extends Model
     public function isQuote(): bool
     {
         return $this->type === self::TYPE_QUOTE;
+    }
+
+    /**
+     * The invoice this پیش‌فاکتور became, if it became one.
+     *
+     * @return BelongsTo<SalesInvoice, $this>
+     */
+    public function convertedTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'converted_to_id');
+    }
+
+    /**
+     * The quote this invoice came from, if it came from one.
+     *
+     * @return HasOne<SalesInvoice, $this>
+     */
+    public function convertedFrom(): HasOne
+    {
+        return $this->hasOne(self::class, 'converted_to_id');
     }
 
     /**

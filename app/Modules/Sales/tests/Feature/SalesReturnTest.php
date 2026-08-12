@@ -77,6 +77,12 @@ function soldBasket(): array
     $made = inTenantContext($tenant, function (): array {
         /** @var Warehouse $warehouse */
         $warehouse = test()->warehouse;
+        /** @var Party $party */
+        $party = test()->party;
+        /** @var Account $cash */
+        $cash = test()->cash;
+        /** @var User $owner */
+        $owner = test()->owner;
 
         $phone = Product::factory()->serialized()->create(['name' => 'آیفون ۱۵ پرو']);
         $phoneVariant = ProductVariant::factory()->for($phone)->create();
@@ -101,7 +107,7 @@ function soldBasket(): array
 
         $invoice = SalesInvoice::query()->create([
             'branch_id' => $warehouse->branch_id,
-            'party_id' => test()->party->id,
+            'party_id' => $party->id,
             'type' => SalesInvoice::TYPE_INVOICE,
             'status' => InvoiceStatus::Draft,
         ]);
@@ -127,11 +133,11 @@ function soldBasket(): array
 
         $invoice->payments()->create([
             'method' => PaymentMethod::Cash,
-            'account_id' => test()->cash->id,
+            'account_id' => $cash->id,
             'amount' => $invoice->refresh()->total,
         ]);
 
-        app(FinaliseInvoice::class)->finalise($invoice->refresh(), test()->owner->id);
+        app(FinaliseInvoice::class)->finalise($invoice->refresh(), $owner->id);
 
         return [$invoice->refresh(), $unit->refresh(), $chargerVariant];
     });

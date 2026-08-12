@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Sales\Http\Controllers\InvoiceController;
 use App\Modules\Sales\Http\Controllers\InvoicePrintController;
 use App\Modules\Sales\Http\Controllers\PosController;
+use App\Modules\Sales\Http\Controllers\QuoteController;
 use App\Modules\Sales\Http\Controllers\SalesReturnController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,14 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:sales'])
         Route::get('/pos/{invoice}', [PosController::class, 'create'])
             ->whereNumber('invoice')
             ->name('pos.resume');
+
+        /* ------------------------------------------------------------- quote -- */
+
+        Route::get('/quotes', [QuoteController::class, 'index'])->name('quotes.index');
+
+        Route::post('/quotes/{invoice}/convert', [QuoteController::class, 'convert'])
+            ->whereNumber('invoice')
+            ->name('quotes.convert');
 
         /* ------------------------------------------------------------ invoice -- */
 

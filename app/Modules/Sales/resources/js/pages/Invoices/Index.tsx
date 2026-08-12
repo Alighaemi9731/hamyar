@@ -56,14 +56,20 @@ export default function InvoicesIndex({ invoices, filters, statuses, can }: Prop
     <AppShell
       title="فاکتورهای فروش"
       actions={
-        can.create && (
-          <Button asChild>
-            <Link href="/sales/pos">
-              <PlusIcon className="size-4" aria-hidden />
-              فروش جدید
-            </Link>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/sales/quotes">پیش‌فاکتورها</Link>
           </Button>
-        )
+
+          {can.create && (
+            <Button asChild>
+              <Link href="/sales/pos">
+                <PlusIcon className="size-4" aria-hidden />
+                فروش جدید
+              </Link>
+            </Button>
+          )}
+        </div>
       }
     >
       <Head title="فاکتورهای فروش" />

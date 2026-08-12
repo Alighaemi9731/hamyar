@@ -18,8 +18,10 @@ use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Services\DraftInvoiceWriter;
 use App\Modules\Sales\Services\FinaliseInvoice;
 use App\Modules\Sales\Services\PosScanner;
+use App\Support\Counters\CounterService;
 use App\Support\Money;
 use App\Support\Settings\ShopSettings;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +50,7 @@ final class PosController extends Controller
     public function __construct(
         private readonly BranchAccess $branches,
         private readonly ShopSettings $settings,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -135,8 +138,12 @@ final class PosController extends Controller
      * operator can retry freely, and finalisation takes stock, a number and a ledger
      * entry, and must be all-or-nothing on its own.
      */
-    public function store(PosSaleRequest $request, DraftInvoiceWriter $writer, FinaliseInvoice $finaliser): RedirectResponse
-    {
+    public function store(
+        PosSaleRequest $request,
+        DraftInvoiceWriter $writer,
+        FinaliseInvoice $finaliser,
+        CounterService $counters,
+    ): RedirectResponse {
         $this->authorize('create', SalesInvoice::class);
 
         /** @var User $user */
@@ -153,11 +160,13 @@ final class PosController extends Controller
             ]);
         }
 
+        $isQuote = $request->isQuote();
+
         $invoice = SalesInvoice::query()->create([
             'branch_id' => $branch->id,
             'party_id' => $request->integer('party_id') ?: null,
             'salesperson_id' => $request->integer('salesperson_id') ?: $user->id,
-            'type' => SalesInvoice::TYPE_INVOICE,
+            'type' => $isQuote ? SalesInvoice::TYPE_QUOTE : SalesInvoice::TYPE_INVOICE,
             // Stated rather than inferred, even though the model now defaults it: what
             // this endpoint creates is a draft, and saying so here is what makes the
             // two-step (write the basket, then finalise) readable.
@@ -176,7 +185,27 @@ final class PosController extends Controller
         ]);
 
         try {
-            $writer->write($invoice, $request->lines(), $request->payments(), $user->id);
+            // A quote takes no payments: nobody has paid anything against a promise.
+            // Silently dropping them beats refusing the submit, because the payment box
+            // may simply have been left half-filled when somebody chose «پیش‌فاکتور».
+            $writer->write($invoice, $request->lines(), $isQuote ? [] : $request->payments(), $user->id);
+
+            if ($isQuote) {
+                // Numbered on creation, unlike a draft: this one gets printed and handed
+                // over, and the customer quotes the number back a week later.
+                $invoice->forceFill([
+                    'number' => $counters->nextFormatted(
+                        $this->context->idOrFail(),
+                        'sales_quote',
+                        'QUO',
+                        $branch->id,
+                    ),
+                ])->save();
+
+                return redirect()
+                    ->route('sales.invoices.show', $invoice)
+                    ->with('success', "پیش‌فاکتور {$invoice->number} ثبت شد.");
+            }
 
             if (! $request->shouldFinalise()) {
                 return redirect()
