@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $sales_invoice_id
  * @property int|null $product_variant_id
  * @property int|null $product_unit_id
+ * @property bool $is_service
  * @property string $description
  * @property int $quantity
  * @property int $unit_price
@@ -42,7 +43,7 @@ final class SalesInvoiceItem extends Model
     use BelongsToTenant;
 
     protected $fillable = [
-        'tenant_id', 'sales_invoice_id', 'product_variant_id', 'product_unit_id',
+        'tenant_id', 'sales_invoice_id', 'product_variant_id', 'product_unit_id', 'is_service',
         'description', 'quantity', 'unit_price', 'discount_amount',
         'vat_rate', 'vat_amount', 'line_total', 'cost_snapshot', 'warranty_months',
     ];
@@ -53,6 +54,7 @@ final class SalesInvoiceItem extends Model
     protected function casts(): array
     {
         return [
+            'is_service' => 'boolean',
             'quantity' => 'integer',
             'unit_price' => 'integer',
             'discount_amount' => 'integer',

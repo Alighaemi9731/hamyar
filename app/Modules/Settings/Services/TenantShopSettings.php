@@ -57,6 +57,14 @@ final class TenantShopSettings implements ShopSettings
     /** Sixty days is what an Iranian shop usually answers when asked. */
     public const DEFAULT_ABANDONED_AFTER_DAYS = 60;
 
+    /**
+     * A reminder at a week, a warning at a month, a last notice at seven weeks — and
+     * then رسوبی at sixty days.
+     *
+     * @var list<int>
+     */
+    public const DEFAULT_ESCALATION_DAYS = [7, 30, 50];
+
     public function repairs(): RepairSettings
     {
         $tenant = $this->context->tenant();
@@ -69,7 +77,42 @@ final class TenantShopSettings implements ShopSettings
             // generously here is guessing with a customer's money.
             approvalCap: is_int($cap) && $cap > 0 ? $cap : 0,
             abandonedAfterDays: is_int($days) && $days > 0 ? $days : self::DEFAULT_ABANDONED_AFTER_DAYS,
+            escalationDays: $this->escalationDays($tenant?->setting('repairs.escalation_days')),
         );
+    }
+
+    /**
+     * The nudge ladder, sanitised.
+     *
+     * A settings document is user input by the time it reaches here, so anything that is
+     * not a list of positive integers falls back to the default rather than producing a
+     * ladder that fires on day zero or in a random order. Sorted and de-duplicated
+     * because a shop editing JSON by hand will eventually write `[7, 7, 3]`.
+     *
+     * @return list<int>
+     */
+    private function escalationDays(mixed $configured): array
+    {
+        if (! is_array($configured)) {
+            return self::DEFAULT_ESCALATION_DAYS;
+        }
+
+        $days = [];
+
+        foreach ($configured as $value) {
+            if (is_int($value) && $value > 0) {
+                $days[] = $value;
+            }
+        }
+
+        if ($days === []) {
+            return self::DEFAULT_ESCALATION_DAYS;
+        }
+
+        $days = array_values(array_unique($days));
+        sort($days);
+
+        return $days;
     }
 
     public function commission(): CommissionSettings

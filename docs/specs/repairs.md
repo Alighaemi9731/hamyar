@@ -70,6 +70,53 @@ Above it, the ticket must pass through `awaiting_approval`, and work cannot star
 until approval is recorded — either by the customer on a signed public link, or
 manually as "approved by phone" with the staff member's note and timestamp.
 
+**The cap fails closed.** Unset, negative, malformed or zero all mean *everything needs
+approval*, never *nothing does*. A shop that has not told us what is safe to spend on
+somebody else's phone has not authorised any amount, and guessing generously is guessing
+with a customer's money. Note the consequence in the implementation: the check is
+`cap > 0 && estimate <= cap`, not the obvious `estimate <= cap` — under a zero cap the
+latter lets a ticket quoted at zero through, and a zero quote is not a free job, it is a
+job nobody has priced yet.
+
+### The consent pattern: a customer approves a frozen figure, never a live record
+
+**This shape recurs, and it is the general rule rather than a detail of repairs.**
+Whenever the product asks a customer to agree to something through a link, the thing
+they agree to is captured at the moment the link is minted — never read live from the
+record when they answer.
+
+The failure it prevents, concretely: a shop quotes ۴٬۵۰۰٬۰۰۰ and texts an approval link.
+Before the customer taps it, somebody edits the estimate to ۹٬۰۰۰٬۰۰۰. The customer taps
+approve. If approval copied the *current* estimate, they have just agreed to a number
+they were never shown — and the shop has a signed-looking record of consent that the
+customer would not recognise.
+
+So the rule has three parts, and all three are load-bearing:
+
+1. **Freeze the figure with the token.** `approval_quoted_amount` is written when the
+   request is made; the public page renders that field and the approval records it.
+   Nothing in the consent path reads the live estimate.
+2. **Changing the offer mints a new token and invalidates the old one.** A re-quote is a
+   *new question*, not a substitution inside an old one. The previous link 404s, which is
+   the honest outcome — better a customer who has to re-open a fresh message than one who
+   approves a figure that changed under them.
+3. **The token is single-use and separate from any other link.** Cleared the moment it is
+   used, so a forwarded message or a photographed screen cannot re-authorise. It is not
+   the tracking token: tracking is printed on a receipt that lives in a pocket, while
+   this authorises spending.
+
+**Where this returns:**
+
+- **Installment contracts** (Phase 5.5, and collection in 7.4). A customer agreeing to a
+  schedule must agree to the rows they were shown, not to whatever the plan says when
+  they tap. Re-scheduling is a new contract.
+- **Any future customer-consent link** — quote acceptance on a storefront order, a
+  price-list link a reseller acts on, a Moadian correction a customer acknowledges.
+
+If you are adding a link that asks a customer to say yes, copy this shape. The test that
+matters is the one that edits the record after minting the link and asserts the customer
+still approved the original figure.
+
 ### Parts
 
 Reserved when planned, consumed on completion, returned to stock if the job is

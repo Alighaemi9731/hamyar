@@ -26,3 +26,17 @@ Schedule::job(new SendRenewalReminders)
     // second reminder — so an overrun must skip rather than stack.
     ->withoutOverlapping()
     ->onOneServer();
+
+// Late morning, after the renewal reminders and well inside shop hours: «دستگاه شما
+// آماده است، لطفاً مراجعه کنید» arriving at 02:00 reads as spam and gets muted, which
+// costs the shop the very customer it was trying to reach.
+//
+// `withoutOverlapping` and `onOneServer` are belt and braces here rather than the
+// guarantee. The sweep is idempotent by design — every step is recorded under a unique
+// index before it is announced (see AbandonedSweep) — precisely because a scheduler is
+// a thing that runs twice, and neither of these flags survives a manual run.
+Schedule::command('repairs:sweep-abandoned')
+    ->dailyAt('10:00')
+    ->timezone('Asia/Tehran')
+    ->withoutOverlapping()
+    ->onOneServer();

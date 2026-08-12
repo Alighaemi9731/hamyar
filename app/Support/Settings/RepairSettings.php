@@ -42,7 +42,38 @@ final readonly class RepairSettings
         public int $approvalCap,
         /** Days after `ready` before a device is flagged رسوبی. */
         public int $abandonedAfterDays,
+        /**
+         * The nudge ladder: days after `ready` at which each reminder fires, ascending.
+         *
+         * Configurable because shops differ enormously — a phone shop in a bazaar chases
+         * after a week, a service centre with a storeroom waits a month. The default is
+         * a gentle three: a reminder, a warning, and a last notice before the device is
+         * treated as رسوبی.
+         *
+         * @var list<int>
+         */
+        public array $escalationDays,
     ) {}
+
+    /**
+     * Which step number applies to a device ready this many days ago, or null.
+     *
+     * Returns the LAST step whose threshold has passed rather than the first, so a sweep
+     * that has not run for a fortnight lands on the step the shop is actually at instead
+     * of sending three messages on three consecutive days to catch up.
+     */
+    public function stepFor(int $daysReady): ?int
+    {
+        $step = null;
+
+        foreach ($this->escalationDays as $index => $days) {
+            if ($daysReady >= $days) {
+                $step = $index + 1;
+            }
+        }
+
+        return $step;
+    }
 
     /**
      * The shape stored on a ticket, so a reprint reflects the day.

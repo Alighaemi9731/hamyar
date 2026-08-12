@@ -25,7 +25,10 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
     ->group(function (): void {
         Route::get('/', [TicketController::class, 'index'])->name('tickets.index');
 
-        // Fixed segments before `{ticket}`, or `intake` binds as an id and 404s.
+        // Fixed segments before `{ticket}`, or these bind as an id and 404.
+        Route::get('/board', [TicketController::class, 'board'])->name('tickets.board');
+        Route::get('/workload', [TicketController::class, 'workload'])->name('tickets.workload');
+
         Route::get('/intake', [TicketController::class, 'create'])->name('tickets.create');
         Route::post('/intake', [TicketController::class, 'store'])->name('tickets.store');
 

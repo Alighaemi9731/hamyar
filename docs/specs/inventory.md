@@ -91,6 +91,51 @@ it is append-only.
 **Quantity on hand is a `SUM`, never a column.** Covering index
 `(tenant_id, product_variant_id, warehouse_id)`.
 
+### `stock_reservations` — stock that has not moved
+
+`product_variant_id`, `warehouse_id`, polymorphic `holder`, `quantity`, `state`
+(`active` · `consumed` · `released`), `closed_at`.
+
+**A hold is not a movement.** A screen protector set aside for tomorrow's repair is
+physically on the shelf: a stock count finds it, and writing a `stock_movement` for it
+would make the ledger disagree with the shelf — the one thing the quantity ledger exists
+to prevent (golden rule 3). It would also have to be reversed on cancellation, leaving
+two movements describing an event that never happened. The movement is written **once**,
+on consumption, when the goods actually leave.
+
+So the two questions are answered by two methods, and the distinction is deliberate:
+
+| | answers | used by |
+|---|---|---|
+| `onHand()` | what is physically in the building | stock counts, valuation, reconciliation |
+| `available()` | what may be promised to somebody | the POS, and anything that offers stock |
+
+`available()` is `onHand()` minus active holds, floored at zero.
+
+**Why this table lives in Inventory rather than in the module that needed it first.**
+Repairs needed holds first, but a hold is one shape with several sources:
+
+- a **repair** with parts planned but not yet fitted (Phase 6.4, the first consumer);
+- a **parked sale** — a POS basket saved as a draft while a customer fetches money, whose
+  lines should not be sellable to the next person through the door (Phase 5.1 does not
+  reserve today; see below);
+- an **in-transit transfer**, dispatched from one warehouse and not yet received at the
+  other (Phase 3.6 currently handles this by moving the stock in two steps, which is
+  correct for quantities and could equally be expressed as a hold);
+- a **held storefront order** awaiting payment (Phase 10.2).
+
+If each of those invented its own table, the POS would have to know about repairs, sales
+drafts, transfers and the storefront in order to answer "what may I sell" — and the day
+somebody adds a fifth, the till silently starts over-promising. One table, one
+definition, one place the answer comes from.
+
+**The contract is deliberately generic**, so Phase 5's parked-sale case can adopt it
+with no schema change: the holder is polymorphic (`holder_type`/`holder_id`), nothing
+in the table or the service references a repair, and `StockReservations::reserve()`
+takes any Eloquent model. Making a draft invoice reserve its lines is a call to the
+same service with a `SalesInvoice` as the holder — the decision to do that is a product
+question about whether parking a basket should hold stock, not a technical one.
+
 ### `transfers`, `transfer_items`
 
 Two-step: `dispatched` → `received`. Stock leaves the source on dispatch and arrives
@@ -138,6 +183,23 @@ without two salespeople selling the same IMEI. Reservations expire.
 - Luhn check on entry, with a clear Persian message on failure.
 - Persian/Arabic digits normalised to Latin before validation.
 - Searching any IMEI field finds the unit from anywhere in the app.
+
+### Reservations
+
+Reserve when the work is planned, consume when it happens, release if it does not.
+
+```
+  active ──consume──▶ consumed     one stock movement, written here and nowhere else
+     │
+     └────release───▶ released     no movement in either direction; nothing ever moved
+```
+
+Reserving is refused when it would exceed `available()`, checked under a row lock against
+the holds it is about to join — two benches claiming the last screen at the same moment
+is the same race as the serialized double-sell in Sales, and gets the same treatment.
+
+Closed rows are kept rather than deleted. "Why did the shop think it had two of these
+last Tuesday" is a question somebody asks.
 
 ### Negative stock
 

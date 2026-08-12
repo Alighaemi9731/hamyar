@@ -41,6 +41,16 @@ final class TicketController extends Controller
 {
     private const PER_PAGE = 25;
 
+    /**
+     * Cards rendered per board column.
+     *
+     * A shop with three hundred queued tickets has a problem no amount of DOM will fix,
+     * and rendering them all makes the board unusable for the shops that do not. The
+     * count above each column is the true total, and the column says when it is showing
+     * fewer — a board that silently truncates lies about the size of the queue.
+     */
+    private const BOARD_COLUMN_LIMIT = 50;
+
     public function __construct(
         private readonly BranchAccess $branches,
         private readonly ShopSettings $settings,
@@ -88,6 +98,141 @@ final class TicketController extends Controller
             'statuses' => $this->statusOptions(),
             'columns' => array_map(fn (TicketStatus $s): string => $s->value, TicketStatus::boardColumns()),
             'can' => ['create' => $user->can('repairs.create')],
+        ]);
+    }
+
+    /**
+     * The board.
+     *
+     * A column per bench state, `delivered` and `rejected` deliberately absent — a board
+     * is a picture of work in the shop, and a column that only grows is one nobody reads.
+     *
+     * Capped per column and told when it capped. A shop with three hundred queued
+     * tickets has a different problem than a rendering one, and a board that silently
+     * shows the first fifty is a board that lies about the size of the queue.
+     */
+    public function board(Request $request): Response
+    {
+        $this->authorize('viewAny', RepairTicket::class);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $columns = TicketStatus::boardColumns();
+
+        $tickets = RepairTicket::query()
+            ->with(['party:id,name', 'technician:id,name'])
+            ->whereIn('status', array_map(fn (TicketStatus $s): string => $s->value, $columns))
+            ->tap(fn ($query) => $this->branches->constrain($query, $user))
+            ->when($request->boolean('mine'), fn ($query) => $query->where('technician_id', $user->id))
+            ->orderBy('priority')
+            ->orderBy('created_at')
+            ->get();
+
+        $counts = [];
+        $grouped = [];
+
+        foreach ($columns as $column) {
+            $inColumn = $tickets->where('status', $column)->values();
+
+            $counts[$column->value] = $inColumn->count();
+            $grouped[$column->value] = $inColumn
+                ->take(self::BOARD_COLUMN_LIMIT)
+                ->map(fn (RepairTicket $ticket): array => $this->row($ticket))
+                ->values()
+                ->all();
+        }
+
+        return Inertia::render('Repairs::Tickets/Board', [
+            'columns' => array_map(fn (TicketStatus $s): array => [
+                'value' => $s->value,
+                'label' => $s->labelFa(),
+                // The board only ever offers moves the machine will accept, so a card
+                // cannot be dragged somewhere that springs it back.
+                'allows' => array_map(
+                    fn (TicketStatus $to): string => $to->value,
+                    $s->allowedTransitions(),
+                ),
+            ], $columns),
+            'tickets' => $grouped,
+            'counts' => $counts,
+            'limit' => self::BOARD_COLUMN_LIMIT,
+            'filters' => ['mine' => $request->boolean('mine')],
+            'can' => [
+                'create' => $user->can('repairs.create'),
+                'update' => $user->can('repairs.update'),
+            ],
+        ]);
+    }
+
+    /**
+     * Who is carrying what.
+     *
+     * Open work only — `ready` is finished from the bench's point of view, and counting
+     * it against a technician's load would make somebody with ten collected-tomorrow
+     * devices look busier than somebody with two broken ones.
+     */
+    public function workload(Request $request): Response
+    {
+        $this->authorize('viewAny', RepairTicket::class);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $open = array_map(
+            fn (TicketStatus $s): string => $s->value,
+            array_values(array_filter(TicketStatus::cases(), fn (TicketStatus $s): bool => $s->isOpenWork())),
+        );
+
+        $tickets = RepairTicket::query()
+            ->with('technician:id,name')
+            ->whereIn('status', $open)
+            ->tap(fn ($query) => $this->branches->constrain($query, $user))
+            ->get();
+
+        $rows = [];
+
+        foreach ($tickets as $ticket) {
+            $key = $ticket->technician_id ?? 0;
+
+            $technician = $ticket->technician;
+
+            $rows[$key] ??= [
+                'id' => $ticket->technician_id,
+                // Unassigned is a row, not an omission: it is the pile nobody owns, and
+                // it is the first thing a manager should be looking at.
+                'name' => $technician === null ? 'تخصیص‌نیافته' : $technician->name,
+                'open' => 0,
+                'urgent' => 0,
+                'overdue' => 0,
+            ];
+
+            $rows[$key]['open']++;
+
+            if ($ticket->priority === RepairTicket::PRIORITY_URGENT) {
+                $rows[$key]['urgent']++;
+            }
+
+            if ($ticket->promised_at !== null && $ticket->promised_at->isPast()) {
+                $rows[$key]['overdue']++;
+            }
+        }
+
+        // Unassigned first, then the heaviest load.
+        uasort($rows, function (array $a, array $b): int {
+            if ($a['id'] === null) {
+                return -1;
+            }
+
+            if ($b['id'] === null) {
+                return 1;
+            }
+
+            return $b['open'] <=> $a['open'];
+        });
+
+        return Inertia::render('Repairs::Tickets/Workload', [
+            'rows' => array_values($rows),
         ]);
     }
 
