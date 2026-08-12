@@ -248,13 +248,26 @@ final class DraftInvoiceWriter
                 continue;
             }
 
-            if ($method->needsAccount() && $this->intOrNull($payment['account_id'] ?? null) === null) {
+            $accountId = $this->intOrNull($payment['account_id'] ?? null);
+
+            if ($method->needsAccount() && $accountId === null) {
                 throw new RuntimeException("برای پرداخت {$method->labelFa()} باید صندوق یا حساب مقصد را انتخاب کنید.");
+            }
+
+            // Dropped for a method that does not settle into an account. The POS
+            // pre-fills every new payment row with the default cash box and then hides
+            // the field when the operator picks چک — so the id rode along on a cheque
+            // that puts nothing in the drawer, and the Z-report's by-account panel added
+            // 45,000,000 of post-dated cheques to a till holding 30,000,000 in notes.
+            // Cleared here rather than only in the browser: the server decides what a
+            // payment row means.
+            if (! $method->needsAccount()) {
+                $accountId = null;
             }
 
             $invoice->payments()->create([
                 'method' => $method,
-                'account_id' => $this->intOrNull($payment['account_id'] ?? null),
+                'account_id' => $accountId,
                 'amount' => $amount,
                 // Only worth keeping when it differs; a null reads as "exact".
                 'tendered_amount' => $tendered > $amount ? $tendered : null,

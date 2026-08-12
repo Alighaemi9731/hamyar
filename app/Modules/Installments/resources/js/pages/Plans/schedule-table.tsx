@@ -30,6 +30,54 @@ export interface InstallmentPlanPayload {
   }>;
 }
 
+/** How close a due date has to be before a shop starts chasing it. */
+const DUE_SOON_DAYS = 7;
+
+/**
+ * What to badge an unpaid instalment.
+ *
+ * The stored status is just `pending` — the row carries no opinion about the calendar,
+ * and it should not: "overdue" is a fact about today, not about the row, and baking it
+ * into the record would need a nightly job to keep true.
+ *
+ * So the reading is derived here, from the due date:
+ *
+ * - past its date → **معوق**, the one a shop acts on
+ * - within a week → **نزدیک سررسید**
+ * - anything further out → **در انتظار پرداخت**
+ *
+ * The previous version mapped every `pending` row to «نزدیک سررسید» unconditionally,
+ * which badged an instalment due in six months as due soon. A contract where every line
+ * is urgent is a contract where no line is.
+ */
+function readingFor(status: string, dueAt: string): string {
+  if (status !== 'pending') {
+    return status;
+  }
+
+  const due = new Date(dueAt);
+
+  if (Number.isNaN(due.getTime())) {
+    return 'pending';
+  }
+
+  // Compared date-to-date, not instant-to-instant: an instalment due today is due
+  // today all day, not overdue from one second past midnight.
+  const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const days = Math.round(
+    (startOfDueDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (days < 0) {
+    return 'overdue';
+  }
+
+  return days <= DUE_SOON_DAYS ? 'due_soon' : 'pending';
+}
+
 /**
  * The schedule, shared by the screen and the printed contract.
  *
@@ -81,7 +129,7 @@ export function ScheduleTable({
               </td>
               {withStatus && (
                 <td className="p-3">
-                  <StatusBadge status={row.status === 'pending' ? 'due_soon' : row.status} />
+                  <StatusBadge status={readingFor(row.status, row.due_at)} />
                 </td>
               )}
             </tr>

@@ -134,7 +134,21 @@ export function PaymentBox({
                   </Label>
                   <Select
                     value={payment.method}
-                    onValueChange={(value) => update(payment.id, { method: value })}
+                    onValueChange={(value) => {
+                      const picked = methods.find((option) => option.value === value);
+
+                      update(payment.id, {
+                        method: value,
+                        // A method that settles nowhere carries no account. The row was
+                        // pre-filled with the default cash box, and the field is hidden
+                        // for چک — so without this the id stayed in state and a
+                        // post-dated cheque was reported against the till.
+                        account_id: picked?.needs_account ? payment.account_id : null,
+                        // Likewise the reference: a trace number typed for a terminal
+                        // payment is not the serial of the cheque it just became.
+                        reference: picked?.needs_reference ? payment.reference : '',
+                      });
+                    }}
                   >
                     <SelectTrigger id={`method-${payment.id}`} className="w-full">
                       <SelectValue />

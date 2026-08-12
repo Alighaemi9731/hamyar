@@ -268,6 +268,46 @@ it('counts voided invoices rather than hiding them', function (): void {
         ->and($report['invoice_count'])->toBe(0);
 });
 
+it('does not book a cheque against the cash box it never reached', function (): void {
+    $party = ($this->inTenant)(fn () => Party::factory()->create());
+
+    // What the POS actually posts: every payment row is pre-filled with the default
+    // cash account, and the account field is then hidden when the operator picks چک —
+    // so the id rides along on a payment that puts nothing in the drawer.
+    sellToday(4_000_000, [
+        ['method' => 'cash', 'amount' => 1_000_000, 'account_id' => $this->cash->id],
+        ['method' => 'cheque', 'amount' => 3_000_000, 'account_id' => $this->cash->id, 'reference' => '778899'],
+    ], $party->id);
+
+    ($this->inTenant)(function (): void {
+        $cheque = App\Modules\Sales\Models\InvoicePayment::query()
+            ->where('method', 'cheque')
+            ->firstOrFail();
+
+        // Stripped on the way in, by the server rather than only by the browser.
+        expect($cheque->account_id)->toBeNull();
+    });
+
+    $report = closeReport();
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = is_array($report['accounts'] ?? null) ? $report['accounts'] : [];
+
+    $cash = null;
+
+    foreach ($rows as $row) {
+        if (($row['name'] ?? null) === 'صندوق فروشگاه') {
+            $cash = reportRial($row, 'amount');
+        }
+    }
+
+    // The by-account panel sits directly under the expected-cash figure. If a cheque
+    // lands in it, the two contradict each other on the same screen — which is how the
+    // person closing the till stops trusting either number.
+    expect($cash)->toBe(1_000_000)
+        ->and(reportRial($report, 'expected_cash'))->toBe(1_000_000);
+});
+
 it('breaks the takings down by account', function (): void {
     sellToday(3_000_000, [['method' => 'cash', 'amount' => 3_000_000, 'account_id' => $this->cash->id]]);
     sellToday(5_000_000, [['method' => 'pos_terminal', 'amount' => 5_000_000, 'account_id' => $this->terminal->id]]);

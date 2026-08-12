@@ -21,16 +21,22 @@ interface MoneyFieldProps {
 /**
  * An amount, typed at the till.
  *
- * ## Grouped when you are reading it, raw while you are typing
+ * ## Grouped at rest, raw once you start typing
  *
  * `82000000` and `82,000,000` are the same number and only one of them can be read at a
  * glance. On a till, misreading a price by a factor of ten is the most expensive mistake
  * the screen can invite, so the separators have to be there.
  *
- * They cannot be there *while typing*, though: reformatting on every keystroke moves the
+ * They cannot be there *while typing*, though: re-grouping on every keystroke moves the
  * caret to the end of the field, so correcting the middle of a number becomes
- * impossible. So the box shows grouped digits at rest and drops to raw on focus — the
- * same trade the Catalog price grid makes, for the same reason.
+ * impossible. So the box holds grouped digits until the first keystroke, shows raw
+ * digits from then on, and re-groups on blur — the same trade the Catalog price grid
+ * makes, for the same reason.
+ *
+ * Note what does NOT happen: the value is untouched on **focus**. Rewriting it there
+ * re-renders the input while the browser has a selection in it, and a re-render
+ * collapses that selection — so typing over a selected figure appends to it instead of
+ * replacing it. See the comment on `onFocus`.
  *
  * ## The value changes on every keystroke anyway
  *
@@ -80,11 +86,17 @@ export function MoneyField({
       placeholder={placeholder}
       className={cn('tabular', className)}
       value={draft}
-      onFocus={(event) => {
-        setFocused(true);
-        // Raw while editing, so the caret can sit anywhere in the number.
-        setDraft(toLatinDigits(event.target.value).replace(/[^\d]/g, ''));
-      }}
+      // Focus records that somebody is editing — and deliberately does NOT touch the
+      // value. Stripping the separators here re-rendered the input mid-focus, which
+      // collapses the browser's selection to the end of the field: typing over a
+      // selected "65,000,000" then appended instead of replacing it, and the payment
+      // box showed 6,500,000,015,000,000. Found in a browser pass, not by a test.
+      //
+      // It also defeated its own purpose. The point was to let the caret sit anywhere
+      // in the number, but changing the value on focus moves the caret to the end,
+      // which is exactly what it was trying to avoid. The Catalog price grid never had
+      // an onFocus for the same reason; this now matches it.
+      onFocus={() => setFocused(true)}
       onBlur={() => {
         setFocused(false);
         setDraft(grouped(value));

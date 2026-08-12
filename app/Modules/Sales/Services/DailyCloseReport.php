@@ -195,6 +195,12 @@ final class DailyCloseReport
             ->leftJoin('accounts', 'accounts.id', '=', 'invoice_payments.account_id')
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNotNull('invoice_payments.account_id')
+            // Only the methods that actually put money in the named account. A cheque
+            // carrying a stale account id would otherwise be added to the cash box it
+            // never reached, and this panel sits directly under the expected-cash
+            // figure it would then contradict. `DraftInvoiceWriter` already strips
+            // those ids; this is the second lock on the same door.
+            ->whereIn('invoice_payments.method', $this->settlingMethods())
             ->whereBetween('invoice_payments.received_at', [$from, $to])
             ->when($branchId !== null, fn ($query) => $query->where('sales_invoices.branch_id', $branchId))
             ->groupBy('invoice_payments.account_id', 'accounts.name')
@@ -215,6 +221,19 @@ final class DailyCloseReport
                 'amount' => $this->intFrom($values, 'amount'),
             ];
         }, $rows));
+    }
+
+    /**
+     * The methods that put money somewhere nameable, as raw values for a query.
+     *
+     * @return list<string>
+     */
+    private function settlingMethods(): array
+    {
+        return array_values(array_map(
+            fn (PaymentMethod $method): string => $method->value,
+            array_filter(PaymentMethod::cases(), fn (PaymentMethod $method): bool => $method->settlesImmediately()),
+        ));
     }
 
     /**
