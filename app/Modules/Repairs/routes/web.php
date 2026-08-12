@@ -40,6 +40,14 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
             ->whereNumber('ticket')
             ->name('tickets.receipt');
 
+        Route::get('/tickets/{ticket}/deliver', [TicketController::class, 'deliveryForm'])
+            ->whereNumber('ticket')
+            ->name('tickets.deliver');
+
+        Route::post('/tickets/{ticket}/deliver', [TicketController::class, 'deliver'])
+            ->whereNumber('ticket')
+            ->name('tickets.deliver.store');
+
         Route::post('/tickets/{ticket}/transition', [TicketController::class, 'transition'])
             ->whereNumber('ticket')
             ->name('tickets.transition');

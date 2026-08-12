@@ -9,12 +9,16 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Services\BranchAccess;
 use App\Modules\Repairs\Enums\TicketStatus;
 use App\Modules\Repairs\Exceptions\IllegalTicketTransition;
+use App\Modules\Repairs\Http\Requests\TicketDeliveryRequest;
 use App\Modules\Repairs\Http\Requests\TicketIntakeRequest;
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Models\TicketStatusHistory;
+use App\Modules\Repairs\Services\DeliverTicket;
 use App\Modules\Repairs\Services\TicketIntake;
+use App\Modules\Repairs\Services\TicketParts;
 use App\Modules\Repairs\Services\TicketStateMachine;
 use App\Modules\Repairs\Services\TrackingLink;
+use App\Modules\Sales\Services\PaymentOptions;
 use App\Support\Files\AttachmentStore;
 use App\Support\Money;
 use App\Support\QrRenderer;
@@ -54,6 +58,9 @@ final class TicketController extends Controller
     public function __construct(
         private readonly BranchAccess $branches,
         private readonly ShopSettings $settings,
+        // Payment is a Sales concept; the delivery screen consumes it as a public
+        // service rather than growing its own copy (ADR 0003).
+        private readonly PaymentOptions $options,
     ) {}
 
     public function index(Request $request): Response
@@ -392,6 +399,86 @@ final class TicketController extends Controller
                 'qr_svg' => $tracking === null ? null : $qr->svg($tracking),
             ],
         ]);
+    }
+
+    /**
+     * The delivery screen.
+     */
+    public function deliveryForm(Request $request, RepairTicket $ticket, TicketParts $parts): Response
+    {
+        $this->authorize('deliver', $ticket);
+
+        if ($ticket->status->isClosed()) {
+            abort(404);
+        }
+
+        $ticket->load(['party:id,name', 'parts.variant.product:id,name']);
+
+        return Inertia::render('Repairs::Tickets/Deliver', [
+            'ticket' => [
+                'id' => $ticket->id,
+                'code' => $ticket->code,
+                'device' => trim("{$ticket->device_brand} {$ticket->device_model}"),
+                'party_name' => $ticket->party?->name,
+                'status' => $ticket->status->value,
+                'can_deliver' => $ticket->status->canTransitionTo(TicketStatus::Delivered),
+                'prepaid_amount' => Money::toArray($ticket->prepaid_amount),
+                'approved_amount' => $ticket->approved_amount === null
+                    ? null
+                    : Money::toArray($ticket->approved_amount),
+                'estimate_amount' => Money::toArray($ticket->estimate_amount),
+                'parts' => $ticket->parts
+                    ->where('state', 'consumed')
+                    ->map(fn ($part): array => [
+                        'name' => $part->variant?->product->name ?? 'قطعه',
+                        'quantity' => $part->quantity,
+                        'unit_price' => Money::toArray($part->unit_price),
+                    ])->values()->all(),
+            ],
+            'accounts' => $this->options->accounts(),
+            'payment_methods' => $this->options->methods(),
+        ]);
+    }
+
+    public function deliver(
+        TicketDeliveryRequest $request,
+        RepairTicket $ticket,
+        DeliverTicket $delivery,
+        AttachmentStore $files,
+    ): RedirectResponse {
+        $this->authorize('deliver', $ticket);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        try {
+            $invoice = $delivery->deliver(
+                $ticket,
+                $request->labour(),
+                $request->payments(),
+                $request->integer('warranty_days'),
+                $user->id,
+            );
+        } catch (RuntimeException $exception) {
+            // On the general region, not a field — the failures here are about the
+            // ticket's state and the payment total, neither of which belongs beside an
+            // input (CLAUDE.md convention).
+            throw ValidationException::withMessages(['delivery' => $exception->getMessage()]);
+        }
+
+        // After the sale, and outside its transaction: a slow upload must not hold a
+        // database transaction open, and a signature that fails to store is worth a
+        // missing image rather than an unsettled bill and a customer already out of the
+        // door with their phone.
+        $signature = $request->file('signature');
+
+        if ($signature instanceof UploadedFile) {
+            $files->attach($ticket, $signature, 'signature', $user->id);
+        }
+
+        return redirect()
+            ->route('sales.invoices.show', $invoice)
+            ->with('success', "دستگاه تیکت {$ticket->code} تحویل شد.");
     }
 
     public function transition(Request $request, RepairTicket $ticket, TicketStateMachine $machine): RedirectResponse

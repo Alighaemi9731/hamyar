@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Models\Branch;
@@ -17,6 +16,7 @@ use App\Modules\Sales\Http\Requests\PosSaleRequest;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Services\DraftInvoiceWriter;
 use App\Modules\Sales\Services\FinaliseInvoice;
+use App\Modules\Sales\Services\PaymentOptions;
 use App\Modules\Sales\Services\PosScanner;
 use App\Support\Counters\CounterService;
 use App\Support\Money;
@@ -51,6 +51,7 @@ final class PosController extends Controller
         private readonly BranchAccess $branches,
         private readonly ShopSettings $settings,
         private readonly TenantContext $context,
+        private readonly PaymentOptions $options,
     ) {}
 
     /**
@@ -79,8 +80,8 @@ final class PosController extends Controller
             ],
             'branches' => $this->branchOptions($user),
             'salesperson' => ['id' => $user->id, 'name' => $user->name],
-            'accounts' => $this->accountOptions(),
-            'payment_methods' => $this->paymentMethodOptions(),
+            'accounts' => $this->options->accounts(),
+            'payment_methods' => $this->options->methods(),
             'vat' => [
                 'rate' => $vat->rate,
                 'enabled' => $vat->enabled,
@@ -360,51 +361,6 @@ final class PosController extends Controller
             fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name],
             $branches,
         ));
-    }
-
-    /**
-     * Where money can land — cash boxes, terminals and banks.
-     *
-     * The internal accounts are excluded on purpose: `inventory` and `sales` are
-     * bookkeeping subjects, not places a customer's money goes, and offering them at the
-     * till would let a cashier post a sale's cash straight into revenue twice.
-     *
-     * @return list<array{id: int, name: string, type: string, is_default: bool}>
-     */
-    private function accountOptions(): array
-    {
-        $accounts = Account::query()
-            ->where('is_active', true)
-            ->whereIn('type', [Account::TYPE_CASH, Account::TYPE_BANK, Account::TYPE_POS_TERMINAL])
-            ->orderByDesc('is_default')
-            ->orderBy('name')
-            ->get(['id', 'name', 'type', 'is_default'])
-            ->all();
-
-        return array_values(array_map(fn (Account $account): array => [
-            'id' => $account->id,
-            'name' => $account->name,
-            'type' => $account->type,
-            'is_default' => $account->is_default,
-        ], $accounts));
-    }
-
-    /**
-     * @return list<array{value: string, label: string, needs_account: bool, needs_reference: bool}>
-     */
-    private function paymentMethodOptions(): array
-    {
-        return array_map(fn (PaymentMethod $method): array => [
-            'value' => $method->value,
-            'label' => $method->labelFa(),
-            'needs_account' => $method->needsAccount(),
-            // The evidence the shop is asked for when a payment is disputed weeks later.
-            'needs_reference' => in_array(
-                $method,
-                [PaymentMethod::PosTerminal, PaymentMethod::CardToCard, PaymentMethod::Cheque],
-                true,
-            ),
-        ], PaymentMethod::cases());
     }
 
     /**
