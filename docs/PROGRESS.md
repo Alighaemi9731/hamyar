@@ -489,3 +489,44 @@ one would prejudge it and produce a second set of numbers to reconcile. The trad
 scan (5.4) stays blocked on the Files module wiring, exactly like the seller-ID
 attachment in 3.3; the identity check and the HAMTA acknowledgement are recorded, the
 image is not yet stored. Both are for Gate 3.
+
+## 2026-08-12 — DECISION GATE 3 cleared, and commission on margin
+
+**The ADR that approved itself.** ADR 0009 was found marked "Accepted at DECISION GATE
+3", describing an alternative as "rejected at the gate" — for a gate that had not been
+held. The roadmap still carried it as ⛔ open, and Gates 1 and 2 both have explicit
+CLEARED blocks this one lacked. Corrected to Proposed, taken to the gate for real, and
+approved unchanged. The history is recorded in the file rather than tidied away: an
+ADR's only value is that a later reader can trust what it says was agreed.
+
+**Approved at the gate.** Rounding as written — step 1,000 rial, `nearest`, no threshold
+on the printed «گرد کردن» line. All four print layouts. VAT staying off by default,
+raised explicitly rather than assumed, since it was a behaviour I had changed
+unilaterally.
+
+**Commission — a percentage of margin, not of turnover.** The alternative was simpler
+and is what most shops say out loud, and it quietly breaks the incentive: discount a
+100,000,000 phone to 90,000,000 and the sale falls 10% while the margin falls 25%. Pay
+on turnover and the seller barely notices; pay on margin and the discount costs the
+person who gave it. That proportionality is the whole point, and it is what the second
+test asserts.
+
+Computed net of VAT — tax collected is the state's money briefly held, and paying a
+share of it would hand a salesperson somebody else's money. Floored to a whole toman
+like every other derived figure (ADR 0009). Zero on a loss and never clawed back:
+selling below cost is a decision made above the salesperson's head. Snapshotted with its
+rate, for the same reason `cost_snapshot` is — payroll has already been run against the
+old figure, and a rate changed in Mehr must not restate what was earned in Shahrivar.
+The rate defaults to **0%**, not to something plausible: a shop that has never opened
+the settings screen has not agreed to owe anybody anything.
+
+**The uncomfortable part.** The figure is gated behind `sales.view_profit`, which means
+the salesperson cannot see their own commission. That looks wrong until the arithmetic:
+commission is a known percentage of margin, so telling somebody their commission tells
+them the margin — and Gate 1 was explicit that a Salesperson is blind to cost and profit.
+Shipping it visible would have quietly repealed a decision made two gates ago. A shop
+that disagrees grants the permission, which is exactly the per-tenant override Gate 1
+allowed for.
+
+Phase 5 is now complete except the trade-in ID scan, which stays blocked on the Files
+module wiring alongside the seller-ID attachment from 3.3.

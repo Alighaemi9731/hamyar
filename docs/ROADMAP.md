@@ -513,11 +513,19 @@ converging on them later.
       line), VAT toggle, shipping. VAT is now a per-shop setting defaulting to **off** —
       most small shops are not registered, and collecting ten percent a shop cannot remit
       is discovered by the customer, at the counter
-- [~] Salesperson field recorded on every invoice. **Commission accrual is deliberately
-      not built**: the rule (percent of sale? of margin? tiered? per-salesperson?) is a
-      business decision nobody has made, and inventing one would prejudge it and produce
-      a second set of numbers to reconcile — the same reasoning that deferred SMS credit
-      packages in 2.5. Raise it at Gate 3
+- [x] Salesperson field + commission accrual entry. **A percentage of margin, not of
+      turnover** (Gate 3): a seller paid on turnover has no reason to hold a price —
+      discount a 100,000,000 phone to 90,000,000 and the sale falls 10% while the margin
+      falls 25%, and the commission has to fall with the margin or the incentive points
+      the wrong way. Computed net of VAT (tax collected is the state's money, not a
+      share to pay out), floored to a whole toman, zero on a loss and never clawed back,
+      and snapshotted with its rate so a rate changed in Mehr cannot restate what was
+      earned in Shahrivar. Defaults to **0%** — a shop that never opened the settings
+      screen has not agreed to owe anybody anything.
+      Shown only to `sales.view_profit`, **including to the seller who earned it**:
+      commission is a known percentage of margin, so revealing one reveals the other,
+      and Gate 1 made Salesperson blind to cost and profit. A shop that disagrees grants
+      the permission — the same per-tenant override Gate 1 allowed
 - [x] Numbering per tenant+branch via the `counters` row-lock service
 
 ### 5.2 Payments
@@ -601,8 +609,23 @@ converging on them later.
       ۶۵٬۰۰۰٬۰۰۰ = Cr sales ۱۰۰٬۰۰۰٬۰۰۰); and the whole ledger balances to the rial.
       Three defects found and fixed — see PROGRESS 5.9
 
-> ### ⛔ DECISION GATE 3
-> Review invoice print templates and rounding rules with the human.
+> ### ✅ DECISION GATE 3 — CLEARED 2026-08-12
+> - **ADR 0009 approved as written**: step 1,000 rial (100 toman), direction `nearest`
+>   (half-up), per-shop configurable. Every figure floors to a whole toman, the grand
+>   total rounds once at the very end and never a line, and «گرد کردن» prints at any
+>   non-zero amount with **no threshold** — the paper has to add up in front of the
+>   customer. The ADR's status was corrected to Proposed first: it had been written
+>   claiming acceptance at this gate before the gate was held.
+> - **All four print layouts approved**: thermal 80mm, A5, A4, and the installment
+>   contract — with the shop's logo, footer terms and the QR to the signed public copy.
+> - **Commission = a percentage of margin**, closing the last open item in 5.1. See the
+>   task above for the full rule and why the seller does not see their own figure.
+> - **VAT default confirmed as off**, flagged at the gate rather than assumed: most
+>   small mobile shops are not registered, and collecting ten percent a shop cannot
+>   remit is discovered by the customer, at the counter. The 10% rate is carried ready
+>   to tick.
+> - **Still open, and not part of this gate**: the trade-in ID scan, blocked on the
+>   Files module wiring exactly like the seller-ID attachment in 3.3.
 
 ---
 

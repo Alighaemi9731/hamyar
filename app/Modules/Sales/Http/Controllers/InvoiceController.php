@@ -131,6 +131,17 @@ final class InvoiceController extends Controller
             'invoice' => $this->payload($invoice),
             // Withheld entirely for staff without the permission — not zeroed.
             'profit' => $showProfit ? $this->profitPayload($profit->forInvoice($invoice)) : null,
+            // Gated behind `sales.view_profit`, NOT shown to the salesperson who earned
+            // it — which looks wrong until you do the arithmetic. Commission is a known
+            // percentage of margin, so telling somebody their commission tells them the
+            // margin, and Gate 1 was explicit that a Salesperson is blind to cost and
+            // profit. A shop that wants its sellers to see their own numbers grants them
+            // the permission; that is the same per-tenant override Gate 1 allowed.
+            'commission' => $showProfit && $invoice->commission_rate > 0 ? [
+                'amount' => Money::toArray($invoice->commission_amount),
+                'rate' => $invoice->commission_rate,
+                'salesperson' => $invoice->salesperson?->name,
+            ] : null,
             'party_balance' => $invoice->party !== null && ($user?->can('crm.view_balance') ?? false)
                 ? Money::toArray($ledger->partyBalance($invoice->party))
                 : null,

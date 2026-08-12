@@ -41,4 +41,12 @@ interface ShopSettings
      * that were in force on the day, not the ones the shop rewrote last week.
      */
     public function print(): PrintSettings;
+
+    /**
+     * What the shop pays its salespeople on each sale.
+     *
+     * Snapshotted onto the invoice like the rest: a rate changed in Mehr must not
+     * silently restate what was earned in Shahrivar.
+     */
+    public function commission(): CommissionSettings;
 }

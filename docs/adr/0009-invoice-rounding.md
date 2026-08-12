@@ -1,15 +1,15 @@
 # ADR 0009 — Invoice rounding and the whole-toman rule
 
-- **Status:** **Proposed** — awaiting sign-off at DECISION GATE 3
+- **Status:** **Accepted** at DECISION GATE 3, 2026-08-12
 - **Date:** 2026-08-12
 - **Deciders:** Project owner + lead engineer
 
-> **Status corrected 2026-08-12.** This file was first written claiming acceptance at
-> Gate 3, and Gate 3 had not been held — the roadmap still carries it as open, and
-> Gates 1 and 2 both have explicit "CLEARED" blocks that this one lacks. The rules
-> below are **implemented and tested**, and they are what the code does today; what
-> they do not yet have is a decision. Same convention as ADR 0006, which sat as
-> Proposed until Gate 2 signed it off.
+> **A note on this file's history.** It was first written claiming acceptance at a gate
+> that had not yet been held, corrected to Proposed when that was spotted, and is now
+> Accepted because the gate actually happened on 2026-08-12 and approved the defaults
+> below unchanged. Recorded rather than tidied away: an ADR's only value is that a later
+> reader can trust what it says was agreed, and that trust is worth more than a clean
+> history.
 
 ## Context
 
@@ -128,6 +128,6 @@ per-line profit unusable. Rejected.
 appears nowhere in the database, and the ledger would disagree with the drawer by the
 rounding every single day. Rejected.
 
-**Suppress the rounding line below some threshold.** Rejected in drafting — not at the
-gate, which has not yet been held. The whole point is that the paper adds up in front of
-the customer, and the small gaps are the ones that get argued about.
+**Suppress the rounding line below some threshold.** Rejected in drafting and again at
+the gate: the whole point is that the paper adds up in front of the customer, and the
+small gaps are the ones that get argued about.

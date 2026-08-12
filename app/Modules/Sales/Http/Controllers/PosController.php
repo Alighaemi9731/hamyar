@@ -181,6 +181,7 @@ final class PosController extends Controller
                 ...$this->settings->rounding()->toSnapshot(),
                 ...$this->settings->vat()->toSnapshot(),
                 ...$this->settings->print()->toSnapshot(),
+                ...$this->settings->commission()->toSnapshot(),
                 'vat_enabled' => $request->boolean('vat_applied'),
             ],
         ]);

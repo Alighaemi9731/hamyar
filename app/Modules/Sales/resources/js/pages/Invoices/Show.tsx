@@ -101,6 +101,12 @@ interface Props {
       profit: MoneyValue;
     }>;
   } | null;
+  /**
+   * Absent for anyone without `sales.view_profit` — including the salesperson who
+   * earned it. Commission is a known percentage of margin, so showing it shows the
+   * margin (Gate 1).
+   */
+  commission: { amount: MoneyValue; rate: number; salesperson: string | null } | null;
   party_balance: MoneyValue | null;
   can: { void: boolean; return: boolean; create: boolean };
 }
@@ -115,7 +121,13 @@ interface Props {
  *
  * Profit is absent, not zeroed, for staff without `sales.view_profit`.
  */
-export default function InvoiceShow({ invoice, profit, party_balance: partyBalance, can }: Props) {
+export default function InvoiceShow({
+  invoice,
+  profit,
+  commission,
+  party_balance: partyBalance,
+  can,
+}: Props) {
   const [voiding, setVoiding] = useState(false);
   const voidForm = useForm({ reason: '' });
 
@@ -478,6 +490,18 @@ export default function InvoiceShow({ invoice, profit, party_balance: partyBalan
                   <Num value={profit.margin_percent} variant="table" />٪
                 </dd>
               </div>
+
+              {commission && (
+                <div className="flex items-baseline justify-between border-t border-border pt-2 text-2xs">
+                  <dt className="text-muted-foreground">
+                    پورسانت {commission.salesperson ?? 'فروشنده'} (
+                    <Num value={commission.rate} variant="table" />٪ سود)
+                  </dt>
+                  <dd data-testid="invoice-commission">
+                    <Money rial={commission.amount.value} digits="latin" />
+                  </dd>
+                </div>
+              )}
             </dl>
           )}
 

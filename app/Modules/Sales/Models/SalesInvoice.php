@@ -53,6 +53,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $paid_total
  * @property array<string, mixed>|null $settings_snapshot
  * @property string|null $notes
+ * @property int $commission_amount
+ * @property int $commission_rate
  * @property CarbonImmutable|null $created_at
  * @property-read Branch $branch
  */
@@ -89,6 +91,8 @@ final class SalesInvoice extends Model
         'rounding_adjustment' => 0,
         'total' => 0,
         'paid_total' => 0,
+        'commission_amount' => 0,
+        'commission_rate' => 0,
     ];
 
     protected $fillable = [
@@ -96,7 +100,7 @@ final class SalesInvoice extends Model
         'type', 'converted_to_id', 'status', 'issued_at', 'voided_at', 'voided_by', 'void_reason',
         'subtotal', 'discount_amount', 'vat_amount', 'shipping_amount',
         'rounding_adjustment', 'total',
-        'paid_total', 'settings_snapshot', 'notes',
+        'paid_total', 'commission_amount', 'commission_rate', 'settings_snapshot', 'notes',
     ];
 
     /**
@@ -115,6 +119,8 @@ final class SalesInvoice extends Model
             'rounding_adjustment' => 'integer',
             'total' => 'integer',
             'paid_total' => 'integer',
+            'commission_amount' => 'integer',
+            'commission_rate' => 'integer',
             'settings_snapshot' => 'array',
         ];
     }

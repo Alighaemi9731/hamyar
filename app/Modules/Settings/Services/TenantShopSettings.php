@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settings\Services;
 
+use App\Support\Settings\CommissionSettings;
 use App\Support\Settings\PrintSettings;
 use App\Support\Settings\RoundingDirection;
 use App\Support\Settings\RoundingSettings;
@@ -49,6 +50,17 @@ final class TenantShopSettings implements ShopSettings
             direction: is_string($direction)
                 ? (RoundingDirection::tryFrom($direction) ?? self::DEFAULT_ROUNDING_DIRECTION)
                 : self::DEFAULT_ROUNDING_DIRECTION,
+        );
+    }
+
+    public function commission(): CommissionSettings
+    {
+        $rate = $this->context->tenant()?->setting('commission.rate');
+
+        return new CommissionSettings(
+            // Clamped, and zero unless the shop said otherwise — see CommissionSettings
+            // for why a default rate would be a liability nobody agreed to.
+            rate: is_int($rate) && $rate > 0 && $rate <= 100 ? $rate : 0,
         );
     }
 

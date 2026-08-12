@@ -20,6 +20,8 @@ use App\Modules\Sales\Models\InvoicePayment;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
 use App\Support\Counters\CounterService;
+use App\Support\Settings\CommissionSettings;
+use App\Support\Settings\ShopSettings;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
@@ -74,6 +76,7 @@ final class FinaliseInvoice
         private readonly CounterService $counters,
         private readonly TenantContext $context,
         private readonly TradeInIntake $tradeIns,
+        private readonly ShopSettings $settings,
     ) {}
 
     /**
@@ -130,6 +133,10 @@ final class FinaliseInvoice
                 'status' => InvoiceStatus::Final,
                 'issued_at' => $at,
                 'paid_total' => $this->paidTotal($invoice),
+                // 7 — What the salesperson earned. After the cost snapshots, because it
+                // is a share of the margin they produced, and margin is not known until
+                // cost is.
+                ...$this->accrueCommission($invoice),
             ]);
 
             return $invoice;
@@ -425,6 +432,56 @@ final class FinaliseInvoice
 
         /** @var list<array{party_id?: int|null, account_id?: int|null, debit?: int, credit?: int, description?: string|null, branch_id?: int|null}> $lines */
         $this->ledger->post($lines, reference: $invoice, occurredAt: $at, actorId: $actorId);
+    }
+
+    /**
+     * The salesperson's share of what this sale made.
+     *
+     * Approved at DECISION GATE 3: a percentage of **margin**, not of turnover, so that
+     * a discount costs the person who gave it. See {@see CommissionSettings}.
+     *
+     * Margin is revenue net of VAT less cost — the same figure {@see ProfitEngine} uses,
+     * deliberately. Tax collected is the state's money briefly held, and paying
+     * commission on it would pay a salesperson a share of somebody else's money.
+     *
+     * The rate is read from the invoice's own snapshot where it has one, so a rate
+     * changed next month does not restate what was earned this one; a shop that has set
+     * no rate accrues nothing at all.
+     *
+     * @return array{commission_amount: int, commission_rate: int}
+     */
+    private function accrueCommission(SalesInvoice $invoice): array
+    {
+        // Nobody to pay. A walk-in sale rung up by an owner who is not on commission is
+        // the ordinary case, not an omission to correct.
+        if ($invoice->salesperson_id === null) {
+            return ['commission_amount' => 0, 'commission_rate' => 0];
+        }
+
+        $snapshot = $invoice->settings_snapshot ?? [];
+        $snapshotRate = $snapshot['commission_rate'] ?? null;
+
+        $commission = is_int($snapshotRate)
+            ? new CommissionSettings($snapshotRate)
+            : $this->settings->commission();
+
+        if (! $commission->isEnabled()) {
+            return ['commission_amount' => 0, 'commission_rate' => 0];
+        }
+
+        $margin = 0;
+
+        foreach ($invoice->items as $item) {
+            // Per line, then summed — not on the invoice's net margin. They are the same
+            // number today, and they stop being the same the day a shop wants a
+            // different rate for accessories than for handsets.
+            $margin += ($item->line_total - $item->vat_amount) - ($item->cost_snapshot * $item->quantity);
+        }
+
+        return [
+            'commission_amount' => $commission->on($margin),
+            'commission_rate' => $commission->rate,
+        ];
     }
 
     private function paidTotal(SalesInvoice $invoice): int
