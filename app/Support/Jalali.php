@@ -110,6 +110,41 @@ final class Jalali
     }
 
     /**
+     * The same day of the month, N Jalali months later.
+     *
+     * ## Why this is not `addMonths()` on the underlying Carbon instance
+     *
+     * A Jalali year is six months of 31 days, five of 30, and one of 29 or 30. An
+     * instalment due on ۱۵ اردیبهشت and the next one due "a month later" fall 31 days
+     * apart; the pair after that, 31 again; the ones in the second half of the year, 30.
+     * Adding a fixed number of days drifts, and adding Gregorian months lands on the
+     * wrong Jalali day — by the twelfth instalment of a year-long plan the schedule is
+     * days away from the date on the contract the customer signed.
+     *
+     * The month arithmetic therefore happens in the Jalali calendar and the result comes
+     * back as a UTC instant, which is what gets stored (golden rule 5).
+     *
+     * A day that does not exist in the target month — the 31st of a 30-day month, or ۳۰
+     * اسفند in an ordinary year — clamps to the last day of that month, which is what
+     * `Jalalian` does and what a shop means by "the same date next month".
+     */
+    public static function addMonths(DateTimeInterface|string|int $value, int $months): CarbonImmutable
+    {
+        // Zero is the ordinary case for the first row of a schedule, and `Jalalian`
+        // asserts a positive count — so it is answered here rather than making every
+        // caller special-case its own first iteration.
+        if ($months === 0) {
+            return CarbonImmutable::instance(self::toDisplayTime($value))->utc();
+        }
+
+        $jalalian = self::jalalian($value);
+
+        return CarbonImmutable::instance(
+            ($months > 0 ? $jalalian->addMonths($months) : $jalalian->subMonths(-$months))->toCarbon()
+        )->utc();
+    }
+
+    /**
      * Today in the shop's timezone, as a Jalali string. Used for date-picker defaults.
      */
     public static function today(string $format = self::DATE, bool $persianDigits = true): string

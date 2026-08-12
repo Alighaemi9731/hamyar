@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-06
 - **Deciders:** Project owner + lead engineer
+- **Approved by:** CLAUDE.md **golden rule 1**, authored by the project owner. Amended and re-confirmed at [DECISION GATE 1](../ROADMAP.md) (2026-08-07), which approved the `set_config` refinement in [ADR 0007](0007-tenant-session-variable.md) and rewrote golden rule 1 to match.
 
 ## Context
 

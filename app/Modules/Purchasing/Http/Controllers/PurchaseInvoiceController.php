@@ -18,6 +18,7 @@ use App\Modules\Purchasing\Models\PurchaseUnitItem;
 use App\Modules\Purchasing\Services\ImeiBatchParser;
 use App\Modules\Purchasing\Services\PurchaseInvoiceDraft;
 use App\Modules\Purchasing\Services\ReceivePurchaseInvoice;
+use App\Support\Digits;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Documents\DocumentType;
 use App\Support\Money;
@@ -207,7 +208,7 @@ final class PurchaseInvoiceController extends Controller
             ]);
         }
 
-        return back()->with('success', "{$outcome['committed']} دستگاه به این فاکتور اضافه شد.");
+        return back()->with('success', Digits::toPersian((string) $outcome['committed']).' دستگاه به این فاکتور اضافه شد.');
     }
 
     public function storeLine(PurchaseLineRequest $request, PurchaseInvoice $invoice, PurchaseInvoiceDraft $draft): RedirectResponse

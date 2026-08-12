@@ -13,6 +13,7 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Catalog\Services\CategoryTree;
 use App\Modules\Catalog\Services\VariantMatrix;
+use App\Support\Digits;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -154,7 +155,7 @@ final class ProductController extends Controller
 
         $variants = $matrix->generate($product, $request->axes());
 
-        return back()->with('success', count($variants).' تنوع فعال است.');
+        return back()->with('success', Digits::toPersian((string) count($variants)).' تنوع فعال است.');
     }
 
     public function destroy(Product $product): RedirectResponse

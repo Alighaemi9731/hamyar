@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-07
 - **Deciders:** Lead engineer (raised at Decision Gate 1)
+- **Approved by:** [DECISION GATE 1 — CLEARED 2026-08-07](../ROADMAP.md): “**ADR 0007 approved**; CLAUDE.md golden rule 1 amended to match the implementation.”
 - **Refines** [ADR 0002](0002-single-db-tenancy-rls.md).
 
 ## Context

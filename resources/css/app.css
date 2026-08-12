@@ -511,5 +511,20 @@
       padding: 0 !important;
       margin: 0 !important;
     }
+
+    /* The two things on a printed page that MUST keep their own colours.
+
+       The rule above forces black-on-white, which is right for text and catastrophic
+       for a QR code: a scanner needs dark modules on a light ground, and a browser
+       "saving ink" by dropping the fill renders an empty square. Shop logos lose their
+       mark the same way.
+
+       Applied by class rather than to `img` and `svg` generally, because the barcode
+       SVGs on a label sheet genuinely do want the ink-on-white treatment. */
+    .print-exact,
+    .print-exact * {
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
   }
 }

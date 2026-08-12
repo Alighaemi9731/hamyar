@@ -9,8 +9,15 @@ export type StatTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 export interface StatCardProps {
   label: string;
-  /** Integer RIAL when the figure is money; a plain count otherwise. */
-  value: number;
+  /**
+   * Integer RIAL when the figure is money; a plain count otherwise.
+   *
+   * **Null is not zero.** A card for a figure nobody has decided yet — an unset credit
+   * limit, an unmeasured target — renders an em-dash. Printing `۰` there states a
+   * decision the shop never made, which is the same null-vs-zero distinction the
+   * columns behind these cards are careful to keep.
+   */
+  value: number | null;
   /** Renders through `<Money/>` instead of `<Num/>`. */
   isMoney?: boolean;
   /** Short qualifier under the figure — "۱۲ فروشگاه فعال". */
@@ -86,7 +93,15 @@ export function StatCard({
         did not help; the unit has to leave the line.
       */}
       <p className="mt-3 text-xl font-semibold tracking-tight">
-        {isMoney ? <Money rial={value} withUnit unitPlacement="block" /> : <Num value={value} />}
+        {value === null ? (
+          <span className="text-muted-foreground" aria-label="تعیین نشده">
+            —
+          </span>
+        ) : isMoney ? (
+          <Money rial={value} withUnit unitPlacement="block" />
+        ) : (
+          <Num value={value} />
+        )}
       </p>
 
       {hint || hasTrend ? (

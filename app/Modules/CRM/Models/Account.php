@@ -56,6 +56,16 @@ final class Account extends Model
      */
     public const TYPE_INVENTORY = 'inventory';
 
+    /**
+     * Where revenue is recognised.
+     *
+     * The credit side of every sale. Like {@see self::TYPE_INVENTORY} this is a
+     * placeholder for the real chart of accounts in Phase 7 — but without it a sale
+     * would have nowhere to post its income, and the ledger's balancing rule would
+     * reject the entry outright.
+     */
+    public const TYPE_SALES = 'sales';
+
     protected $fillable = [
         'tenant_id', 'branch_id', 'name', 'type', 'bank_name', 'account_number',
         'iban', 'terminal_number', 'opening_balance', 'is_default', 'is_active',

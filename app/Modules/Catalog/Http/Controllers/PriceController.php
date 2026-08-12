@@ -14,6 +14,7 @@ use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Catalog\Services\BulkPriceUpdater;
 use App\Modules\Catalog\Services\CategoryTree;
 use App\Modules\Catalog\Services\PriceResolver;
+use App\Support\Digits;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -154,7 +155,7 @@ final class PriceController extends Controller
 
         $written = $updater->apply($rows, $request->integer('price_level_id'));
 
-        return back()->with('success', "قیمت {$written} ردیف به‌روزرسانی شد.");
+        return back()->with('success', 'قیمت '.Digits::toPersian((string) $written).' ردیف به‌روزرسانی شد.');
     }
 
     /**

@@ -84,6 +84,12 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 3. Check the box, append one line to `docs/PROGRESS.md` (date, what, notable decisions).
 4. Architectural decision made? Add `docs/adr/NNNN-*.md`.
 5. Stop at DECISION GATES defined in the roadmap and ask the human before proceeding.
+6. **End every session with a push.** `git push` the working branch before the session
+   closes — always, even mid-phase, even with no PR open and the phase half-built.
+   Unpushed commits exist on exactly one disk. A branch nobody has pushed is not
+   "in progress", it is one hardware failure from gone. Set upstream on first push
+   (`git push -u origin <branch>`); pushing a work-in-progress branch is normal and
+   costs nothing, since only `main` is protected.
 Never mark a task done with failing tests. Never skip the isolation test.
 
 ## Domain terms (fa → en)

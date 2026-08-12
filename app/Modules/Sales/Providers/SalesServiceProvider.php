@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Sales\Providers;
 
+use App\Modules\Sales\Models\SalesInvoice;
+use App\Modules\Sales\Policies\SalesInvoicePolicy;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Sales module.
@@ -22,5 +25,12 @@ final class SalesServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(SalesInvoice::class, SalesInvoicePolicy::class);
     }
 }

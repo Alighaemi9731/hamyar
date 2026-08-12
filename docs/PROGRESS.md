@@ -299,3 +299,280 @@ is written in English but the business calendar is Jalali.
   The demo seeder gained a second branch (شعبه ونک). Provisioning gives a new shop one
   branch and one warehouse, which is right for a real signup and leaves a transfer with
   nowhere to go.
+- **2026-08-10** — Phase 4.3–4.5: the customer page, the 360° timeline, follow-ups,
+  loyalty points and the bulk import.
+  The timeline is the piece with a design decision in it. Most of what a shop wants on a
+  customer page belongs to other modules — what they bought (Sales), what was repaired
+  (Repairs), what the shop bought *from* them (Purchasing) — and CRM may not import any
+  of it (ADR 0003). So `TimelineRegistry` sits in the shared kernel, the same shape as
+  `DocumentRegistry`: each module registers a contributor for its own records keyed by
+  module name, and the page asks the registry. Contributors are handed a party **id**,
+  never a `Party` object, because the object is the dependency the registry exists to
+  avoid. Adding Sales in Phase 5 is one `contribute()` call and no change to CRM.
+  A contributor that throws is caught, reported and **named on the page**: a customer
+  page that cannot render because the SMS module had a bad day is worse than the same
+  page missing its SMS lines, and a page silently missing its repair history is how
+  somebody concludes a device was never brought in.
+  Loyalty follows golden rule 3 — points are a ledger, the balance is `SUM(points)`, and
+  expiry writes a negative entry rather than deleting a positive one, so a customer
+  asking why their points vanished can be shown the line that took them. Redemption
+  refuses to overdraw: points are not credit, and there is nothing to collect from
+  someone who spends points they do not have.
+  The import's dry run is the import itself stopped before the write, the same guarantee
+  `BulkPriceUpdater` makes — an import that reports one outcome and performs another is
+  discovered weeks later in the balances. It handles what a real shop actually sends: a
+  UTF-8 BOM (which otherwise becomes part of the first header and makes that column
+  unselectable), a semicolon delimiter from a Persian Windows Excel (which otherwise
+  reads the whole file as one column), Persian digits, and the same person twice. An
+  existing customer is matched and their **gaps filled, never overwritten** — the sheet
+  is an import, not a source of truth, and a name corrected in the app last week must
+  not be undone by a stale export.
+  Two things the work turned up:
+  (1) **`Party::tags()` was broken for eager loading.** It read `$this->tenant_id` inside
+  `withPivotValue()`, and eager loading builds a relation on a fresh attribute-less
+  instance — so `with('tags')` threw while a lazy `$party->tags` worked. Nothing had
+  eager-loaded it until the customer page did. The pivot value now comes from the tenant
+  context.
+  (2) **Loyalty adjustment could not ride on `crm.update`.** Salesperson holds that
+  permission, and granting points is granting something worth money. Added
+  `crm.manage_loyalty`, which lands on Owner and Manager only — the same capability
+  separation `inventory.view_cost` and `repairs.reveal_passcode` already make.
+  `maatwebsite/excel` is named in CLAUDE.md's stack but is not installed, so the import
+  is CSV-only today. The parser sits behind a `SpreadsheetReader` contract with a
+  registry, so `.xlsx` is one more reader and no change to the import service.
+  Not done: the Phase 4 screens have had no browser pass, so the DoD is left unticked.
+- **2026-08-10** — Phase 4.6: `maatwebsite/excel` installed and the Phase 4 browser
+  pass. Phase 4 closed.
+  The package was declared in CLAUDE.md's stack from day one, so installing it realises
+  an existing decision rather than adding a dependency. `XlsxReader` joins `CsvReader`
+  behind the `SpreadsheetReader` contract; the import service knows about neither
+  format and asks the registry for whatever opens the file it was handed. A `.csv` and
+  an `.xlsx` of the same data are asserted to produce identical headers and mapping —
+  one shape, one set of bugs, or the file format becomes a hidden variable in every
+  support call.
+  The xlsx reader normalises cells to strings at the boundary, which is where the
+  interesting bug lives: a mobile number with no leading zero is stored by Excel as a
+  *number* and comes back as `9.1211122e+9`. Rendered naively that is what lands in the
+  customer record. It is now rendered digit-by-digit, with a test.
+  The browser pass found five defects, none of which any test would have caught:
+  (1) **A big «۰» where the truth was "nobody decided".** The unset credit limit
+  rendered as zero on the customer page — the exact null-vs-zero distinction the column,
+  the request and the service all take care to preserve, undone at the last step by the
+  UI. `StatCard` now takes `number | null` and renders an em-dash for null.
+  (2) **The page contradicted itself.** It showed a balance of 12,850,000 above a
+  timeline reading "nothing has ever happened", because the opening balance lives in a
+  column rather than as a ledger row and so nothing put it on the timeline. It is now a
+  timeline entry of its own, dated to when the record was created.
+  (3) **The same figure in two digit systems on one page.** The stat cards followed the
+  tenant's Persian-digit setting while the timeline forced Latin. A timeline is prose,
+  not a table; the forced Latin is gone.
+  (4) **Counts inside Persian sentences carried Latin digits.** «همین شخص در سطر 2 همین
+  فایل هم هست» — server-composed strings interpolate a raw int and bypass `<Num/>`
+  entirely. Six such messages across four modules now convert at the point of
+  composition. Document numbers (`CNT-000001`) deliberately stay Latin: they are
+  identifiers, not quantities.
+  (5) **A toggle labelled with its current state**, which reads as an action and sends
+  people the wrong way. The follow-up desk button now names where it goes and the
+  heading carries which list you are on.
+  Also fixed on the way: Pint's `strict_comparison` rewrote a float/int comparison in
+  the new reader into a branch that could never run. The dead branch is gone and the
+  reason is in a comment, because the next person to write `$float === (int) $float`
+  will get the same "fix".
+  The timeline contract is now written into docs/specs/crm.md — contributors
+  self-register, are handed a party id rather than a `Party`, and a failing module is
+  named on the page. Phase 5, 6 and 8 implement against it.
+
+## 2026-08-12 — Phase 5: sales, the POS, trade-in, installments, Z-report
+
+**5.1–5.2 The till.** The screen a shopkeeper sees a hundred times a day, so the design
+constraint is latency and the keyboard, not features. One scan box, not two pickers:
+`PosScanner` resolves an IMEI, a serial, a barcode, an SKU or a typed product name,
+because the person holding the reader does not know which of those our schema calls it.
+Exact matches win outright — a fifteen-digit number that also appears inside some
+product's name must not turn a finished scan into a list — and a sold or reserved handset
+resolves *with its reason attached* rather than to nothing, so nobody goes to the shelf
+hunting a phone that left yesterday.
+
+The basket lives in the browser and posts once. A request per scanned line means waiting
+on the network once per item, which on a shop's connection is the pause that loses to a
+paper notebook. The cost is a deliberate mirror of `InvoiceTotals` in TypeScript;
+`resources/js/lib/invoice-totals.ts` documents why that is defensible and names the
+browser pass as the thing that keeps the two honest. The server still recomputes VAT and
+cost and re-locks stock: the browser may name a **price** (it is negotiated at the
+counter) but never a tax rate or a cost.
+
+Change is stored, not just displayed. The drawer keeps the settled amount; the tendered
+figure rides along in a new column so a reprint next week still says what change was
+given. A CHECK constraint stops tendered falling below settled.
+
+**5.3 Returns, and the void boundary.** A return is a new numbered credit document, never
+an edit of the sale — the sale happened, and a closed month must keep saying so. A
+returned handset goes to `returned`, not straight back on the shelf: nine days in
+somebody's pocket changes what a phone is worth, so it becomes sellable only when
+somebody ticks that they have checked it and records the grade. Void is refused outright
+on an invoice that has returns against it, because voiding one would tell the ledger a
+customer was never charged while they are standing outside holding a refund.
+
+**5.4 معاوضه as a tender, not a discount.** The distinction is not cosmetic: a discount
+reduces the price of the new handset, which computes VAT on a smaller base and understates
+both the sale and the tax. What actually happened is two transactions on one piece of
+paper — the shop sold a phone at full price and bought one at an agreed price, and the
+second settles part of the first. So the trade-in debits inventory and the invoice total
+never moves.
+
+**5.5 Installments.** Flat profit on the financed principal, Jalali months (not
+thirty-day steps), and the last row absorbs the division remainder so the schedule sums
+to the contract total exactly. One `ScheduleTable` component serves the screen and the
+printed contract, because the whole point of a contract is that the paper and the screen
+say the same thing.
+
+**5.6 The QR, and what a stranger may read.** The public invoice link is signed and
+deliberately never expires — a customer photographs their receipt and opens it eight
+months later to check a warranty date. `QrRenderer` walks the encoded matrix itself
+rather than using Bacon's SVG writer, which needs `ext-dom`; a deploy should not fail on
+a missing PHP extension for a square of dots.
+
+Writing its tests turned up three genuine security defects. **An enumeration oracle**:
+`SubstituteBindings` runs in the `web` group ahead of a route's own `signed` middleware,
+so a bound `{invoice}` 404'd before the signature was examined — making 403-vs-404 answer
+"has this shop issued invoice 4,000 yet?" with no signature at all. **An IMEI leak**:
+`DraftInvoiceWriter`'s fallback description embedded the IMEI, which then travelled to the
+public page — the one place a serial number must never appear, since that is what a
+stolen-handset check keys on. **Staff props to strangers**: the public page renders
+through the same shared-prop middleware as the app, so platform announcements and the
+shop's plan flags were being served to anyone with the link.
+
+**5.7 Profit and گزارش Z.** The whole profit engine is one stored column,
+`cost_snapshot`, written once at finalisation and never recomputed — under Iranian
+inflation a report quoting today's cost for last month's sale is not a report with a
+small error in it, it is a fabrication. Revenue is net of VAT, because tax collected is
+the state's money briefly held and counting it would inflate every margin by the rate.
+
+The Z-report answers exactly one question — how much cash should be in this drawer — and
+every figure is chosen to make that comparison possible or to explain a difference in it.
+Takings break down by method *and* by account; cheques and trade-ins are reported so the
+day adds up but kept out of the expected-cash figure; cash refunds are subtracted **and
+shown**, because a till that is 3,000,000 short needs the refund that explains it; and
+voided invoices are counted rather than hidden, since that is how a till gets quietly
+abused.
+
+**5.9 The DoD walk, and the three defects it found.** Walked end-to-end in a real browser
+on 2026-08-12 — an iPhone scanned by IMEI, a trade-in taken, three cheques, the remainder
+on a six-month plan, every paper printed, the receipt's QR followed to the public page on
+a 390px viewport. Every figure reconciled to the rial. Three things no test had asked
+about:
+
+(1) **A cheque booked against the cash box.** The POS pre-fills every payment row with the
+default cash account and then hides the field once the operator picks چک, so the id rode
+along on a payment that puts nothing in the drawer — and the Z-report showed صندوق
+۱۱۵٬۰۰۰٬۰۰۰ directly beneath an expected-cash figure of ۳۰٬۰۰۰٬۰۰۰. Two numbers
+contradicting each other on one screen is how the person closing the till stops trusting
+both. Fixed at the source, in the browser, and in the report query.
+
+(2) **A money field that ate its own input.** `MoneyField` rewrote its value on focus to
+strip separators, which re-renders the input while the browser holds a selection — and a
+re-render collapses that selection, so typing over a selected «۶۵٬۰۰۰٬۰۰۰» appended
+instead of replacing and the box showed ۶٬۵۰۰٬۰۰۰٬۰۱۵٬۰۰۰٬۰۰۰. The stripping also defeated
+its own purpose, since changing the value on focus moves the caret to the end. The Catalog
+price grid never had an `onFocus` for exactly this reason; this now matches it.
+
+(3) **Every instalment badged «نزدیک سررسید»**, including one due six months out, because
+the table mapped `pending` to `due_soon` unconditionally. A contract where every line is
+urgent is a contract where no line is. The reading is now derived from the due date.
+
+The IMEI Luhn guard also refused a made-up trade-in number mid-walk, which is the guard
+working as designed.
+
+**Deliberately not built.** Commission accrual (5.1): the rule — percent of sale, of
+margin, tiered, per-salesperson — is a business decision nobody has made, and inventing
+one would prejudge it and produce a second set of numbers to reconcile. The trade-in ID
+scan (5.4) stays blocked on the Files module wiring, exactly like the seller-ID
+attachment in 3.3; the identity check and the HAMTA acknowledgement are recorded, the
+image is not yet stored. Both are for Gate 3.
+
+## 2026-08-12 — DECISION GATE 3 cleared, and commission on margin
+
+**The ADR that approved itself.** ADR 0009 was found marked "Accepted at DECISION GATE
+3", describing an alternative as "rejected at the gate" — for a gate that had not been
+held. The roadmap still carried it as ⛔ open, and Gates 1 and 2 both have explicit
+CLEARED blocks this one lacked. Corrected to Proposed, taken to the gate for real, and
+approved unchanged. The history is recorded in the file rather than tidied away: an
+ADR's only value is that a later reader can trust what it says was agreed.
+
+**Approved at the gate.** Rounding as written — step 1,000 rial, `nearest`, no threshold
+on the printed «گرد کردن» line. All four print layouts. VAT staying off by default,
+raised explicitly rather than assumed, since it was a behaviour I had changed
+unilaterally.
+
+**Commission — a percentage of margin, not of turnover.** The alternative was simpler
+and is what most shops say out loud, and it quietly breaks the incentive: discount a
+100,000,000 phone to 90,000,000 and the sale falls 10% while the margin falls 25%. Pay
+on turnover and the seller barely notices; pay on margin and the discount costs the
+person who gave it. That proportionality is the whole point, and it is what the second
+test asserts.
+
+Computed net of VAT — tax collected is the state's money briefly held, and paying a
+share of it would hand a salesperson somebody else's money. Floored to a whole toman
+like every other derived figure (ADR 0009). Zero on a loss and never clawed back:
+selling below cost is a decision made above the salesperson's head. Snapshotted with its
+rate, for the same reason `cost_snapshot` is — payroll has already been run against the
+old figure, and a rate changed in Mehr must not restate what was earned in Shahrivar.
+The rate defaults to **0%**, not to something plausible: a shop that has never opened
+the settings screen has not agreed to owe anybody anything.
+
+**The uncomfortable part.** The figure is gated behind `sales.view_profit`, which means
+the salesperson cannot see their own commission. That looks wrong until the arithmetic:
+commission is a known percentage of margin, so telling somebody their commission tells
+them the margin — and Gate 1 was explicit that a Salesperson is blind to cost and profit.
+Shipping it visible would have quietly repealed a decision made two gates ago. A shop
+that disagrees grants the permission, which is exactly the per-tenant override Gate 1
+allowed for.
+
+Phase 5 is now complete except the trade-in ID scan, which stays blocked on the Files
+module wiring alongside the seller-ID attachment from 3.3.
+
+## 2026-08-12 — Commission opt-in, and an audit of all nine ADRs
+
+**The commission switch.** Gate 3 confirmed that a salesperson does not see their own
+commission, because commission is a known percentage of margin and Gate 1 made the
+Salesperson blind to margin. Pushback on that now has a switch instead of needing a code
+change: `sales.view_own_commission`, off by default, granted per-tenant on the shop's own
+Salesperson role exactly the way `inventory.view_cost` already is.
+
+It is scoped to invoices the grantee actually sold, checked against `salesperson_id`
+rather than trusted on its own — a grant that revealed every invoice's commission would
+be `sales.view_profit` with extra steps, and would hand a seller the margin on their
+colleagues' sales. Two tests pin both halves: their own invoice becomes visible, a
+colleague's stays hidden, and the profit panel stays hidden in both cases.
+
+**The ADR audit.** Prompted by ADR 0009, which was written marked *"Accepted at DECISION
+GATE 3"* — describing an alternative as *"rejected at the gate"* — before that gate had
+been held. All nine were checked against the roadmap's gate blocks and this log.
+
+Two more inconsistencies, in opposite directions:
+
+- **The ADR index called 0006 "Pending — Decision Gate 2"** while the file itself said
+  Accepted at that gate. The gate cleared it on 2026-08-08; the index was never updated.
+- **ROADMAP 2.2 still said "ADR 0006 is Proposed — needs sign-off at Gate 2"**, four days
+  after Gate 2 signed it off, and carried a `[~]` box because of it.
+
+The rest hold up. 0004, 0005 and 0007 name a dated approval; 0006, 0007 and 0009 name a
+cleared gate. 0001–0003 record decisions the project owner had already written into
+CLAUDE.md as law — the ADR documents them rather than proposing them, which is a
+legitimate basis for Accepted and is now stated as such.
+
+**The weakest one is 0008** (visual language). Its approval is an owner *request*
+followed by delivery, with no recorded sign-off. Left Accepted, because nothing in it is
+expensive to reverse — it is tokens in one stylesheet — but the index and the file both
+say plainly that this is the thinnest provenance of the nine rather than dressing it up.
+
+Every ADR now carries an **Approved by** line naming the gate, the PROGRESS entry or the
+CLAUDE.md rule behind it, and `docs/adr/README.md` makes that a requirement for new ones:
+a new ADR starts **Proposed** with its target gate named, and does not become Accepted
+because somebody wrote it. `docs/PROGRESS.md` history was left alone — the 2026-08-08
+line calling 0006 "Proposed pending Gate 2" was true on the day it was written, and a log
+that gets edited to look correct in hindsight is not a log.
+
+An ADR's whole value is that a later reader can trust what it says was agreed. A status
+nobody can trace manufactures consent that was never given, and the next person to
+disagree with the decision ends up arguing with a ghost.

@@ -9,6 +9,9 @@ use App\Modules\Purchasing\Policies\PurchaseInvoicePolicy;
 use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Timeline\TimelineEntry;
+use App\Support\Timeline\TimelineRegistry;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -48,6 +51,56 @@ final class PurchasingServiceProvider extends ModuleServiceProvider
                     $invoice->id => new DocumentReference('فاکتور خرید '.$invoice->number),
                 ])
                 ->all()
+        );
+
+        $this->contributeToPartyTimeline();
+    }
+
+    /**
+     * What this shop has bought from a party, on that party's customer page.
+     *
+     * The same person routinely sells the shop a trade-in and buys a charger, so the
+     * customer page has to show both sides — and CRM cannot import Purchasing to do it
+     * (ADR 0003). Only *received* shipments appear: a draft is a shopping list someone
+     * is still writing, not something that happened.
+     */
+    private function contributeToPartyTimeline(): void
+    {
+        $this->app->make(TimelineRegistry::class)->contribute(
+            'Purchasing',
+            static function (int $partyId, ?CarbonImmutable $from, ?CarbonImmutable $to): array {
+                $entries = [];
+
+                $invoices = PurchaseInvoice::query()
+                    ->where('party_id', $partyId)
+                    ->where('status', PurchaseInvoice::STATUS_RECEIVED)
+                    ->when($from instanceof CarbonImmutable, fn ($query) => $query->where('received_at', '>=', $from))
+                    ->when($to instanceof CarbonImmutable, fn ($query) => $query->where('received_at', '<=', $to))
+                    ->orderByDesc('received_at')
+                    ->limit(60)
+                    ->get();
+
+                foreach ($invoices as $invoice) {
+                    $receivedAt = $invoice->received_at;
+
+                    if (! $receivedAt instanceof CarbonImmutable) {
+                        continue;
+                    }
+
+                    $entries[] = new TimelineEntry(
+                        occurredAt: $receivedAt,
+                        kind: 'purchase',
+                        title: 'خرید از این طرف حساب',
+                        description: 'فاکتور خرید '.$invoice->number,
+                        // Negative from the party's side, matching the ledger's
+                        // convention: buying from them makes the shop owe them.
+                        amount: -$invoice->total,
+                        url: route('purchasing.invoices.edit', $invoice, absolute: false),
+                    );
+                }
+
+                return $entries;
+            }
         );
     }
 }

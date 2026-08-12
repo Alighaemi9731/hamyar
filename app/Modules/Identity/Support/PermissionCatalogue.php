@@ -76,6 +76,13 @@ final class PermissionCatalogue
                 'discount' => 'اعمال تخفیف دستی',
                 'override_price' => 'تغییر قیمت هنگام فروش',
                 'view_profit' => 'مشاهده سود فاکتور',
+                // The opt-in the Salesperson boundary needs an escape hatch for. Granting
+                // it lets a seller see the commission on THEIR OWN sales and nobody
+                // else's — and, because commission is a known percentage of margin, it
+                // necessarily lets them work out the margin on those sales too. That is
+                // the trade, and it is the shop's to make: some owners run open-book
+                // sales floors, most do not. Off by default (Gate 3).
+                'view_own_commission' => 'مشاهده پورسانت فروش خودش',
             ],
             'repairs' => [
                 'view' => 'مشاهده تعمیرات',
@@ -91,6 +98,7 @@ final class PermissionCatalogue
                 'create' => 'ثبت مشتری',
                 'update' => 'ویرایش مشتری',
                 'view_balance' => 'مشاهده مانده حساب',
+                'manage_loyalty' => 'تغییر دستی امتیاز وفاداری',
                 'import' => 'ورود گروهی از اکسل',
             ],
             'treasury' => [
@@ -149,6 +157,10 @@ final class PermissionCatalogue
      * · **Cost and profit are separated from selling.** A Salesperson can sell but
      *   cannot see `inventory.view_cost` or `sales.view_profit`. Margins are the most
      *   commercially sensitive thing in the shop and staff turnover is high.
+     *   `sales.view_own_commission` is the narrow opt-in for shops that want sellers to
+     *   see what they earned: it exposes one figure, on that seller's own invoices,
+     *   and nothing about anybody else's sales. Still off by default, because it does
+     *   reveal the margin on those invoices to anyone who knows their own rate.
      * · **Device passcodes are their own permission.** `repairs.reveal_passcode` sits
      *   with technicians only, and every use is audited.
      *
@@ -189,6 +201,12 @@ final class PermissionCatalogue
                 'name_fa' => 'فروشنده',
                 'permissions' => [
                     'sales.view', 'sales.create',
+                    // Writing an instalment contract is a counter act — it happens while
+                    // the customer is standing there agreeing terms — so it rides on
+                    // `sales.create`. Reading one back has to come with it, or the person
+                    // who just wrote the contract cannot open it to print it. Collecting
+                    // instalments is a different job and stays with Cashier/Accountant.
+                    'installments.view',
                     'crm.view', 'crm.create', 'crm.update',
                     'catalog.view', 'inventory.view',
                     'repairs.view', 'repairs.create',

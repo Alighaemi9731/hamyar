@@ -180,7 +180,10 @@ design-system skeleton — so every later phase is only about domain work.
 ### 2.2 Subscriptions
 - [x] `subscriptions` (tenant, plan, status trialing/active/past_due/canceled, period_end)
 - [x] Add-on purchases table
-- [~] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases); **ADR 0006 is Proposed — needs sign-off at Gate 2** before the upgrade/downgrade flow is wired to payments
+- [x] Proration formula written and unit-tested (`ProrationCalculator`, 11 cases).
+      **ADR 0006 accepted at Gate 2** (2026-08-08) — truncate to 1 rial, round-half-up
+      considered and rejected. The line above said "Proposed — needs sign-off" for four
+      days after the gate had already signed it off; corrected in the 2026-08-12 ADR audit
 - [~] `coupons` table + trial + grace period modelled and enforced by `Subscription::isUsable()`; redemption flow lands with billing
 
 ### 2.3 Feature gating (trial rules per Gate 2 item 3: Pro features, 14 days, no card,
@@ -428,80 +431,204 @@ converging on them later.
 ### 4.2 Ledger engine — **relocated to Phase 3, ahead of 3.5**
 
 ### 4.3 Engagement
-- [ ] 360° timeline component (sales, repairs, sms, payments, notes)
-- [ ] Follow-up reminders (assignee, due date, done)
-- [ ] Loyalty points table + earn-rule stub
+- [x] Party screens: list, customer page, create/edit. The customer page is what the
+      phase is for — balance, statement, timeline, notes, follow-ups and points on one
+      screen, because a shop opens it to answer one of three questions
+- [x] 360° timeline component (sales, repairs, sms, payments, notes) — assembled through
+      a `TimelineRegistry` in the shared kernel, the same shape as `DocumentRegistry`:
+      each module contributes its own events and CRM imports none of them (ADR 0003).
+      CRM, Purchasing and Inventory contribute today; Sales and Repairs are one
+      `contribute()` call each when those phases land, with no change to CRM.
+      A contributor that throws is **named on the page**, not swallowed — a customer
+      page quietly missing its repair history is how somebody concludes a device was
+      never brought in
+- [x] Follow-up reminders (assignee, due date, done) + the follow-up desk. `done_at` is
+      a timestamp, not a boolean: "when was this dealt with" is the question that gets
+      asked. A reminder that only appears on one customer's page is a reminder nobody
+      sees, so the cross-party desk is the primary screen
+- [x] Loyalty points ledger + earn-rule stub. Golden rule 3 applied to points: the
+      balance is `SUM(points)` and expiry writes a negative entry rather than deleting
+      a positive one. One active rule per shop (partial unique index) — the earn
+      calculation has to have exactly one answer. Redemption refuses to overdraw:
+      points are not credit
+- [x] `crm.manage_loyalty` added to the permission catalogue. Granting points is worth
+      money and Salesperson holds `crm.update`, so the two cannot share a permission —
+      the same separation `inventory.view_cost` and `repairs.reveal_passcode` already
+      make
 
 ### 4.4 Import
-- [ ] Excel customer import with column-mapping wizard + dry-run report
+- [x] Excel customer import with column-mapping wizard + dry-run report. Upload →
+      guessed mapping → per-row verdict → commit, with the dry run being the import
+      itself stopped before the write, so what it reports and what happens cannot
+      differ. Handles what a real shop sends: Persian digits, a UTF-8 BOM, a semicolon
+      delimiter from a Persian Windows Excel, a mobile number Excel stored as a float,
+      the same person twice, and a nameless row
+- [x] `maatwebsite/excel` installed (2026-08-10), realising the stack declaration that
+      has been in CLAUDE.md since day one. Both readers sit behind a
+      `SpreadsheetReader` contract with a registry, so the import service knows about
+      neither format — and a `.csv` and an `.xlsx` of the same data are asserted to
+      produce identical results
 
 ### 4.5 Tests
-- [ ] Ledger maths: statement equals the sum of entries
-- [ ] Credit-limit block flag on over-limit credit sale
-- [ ] Import edge cases (duplicate mobiles, bad-row report)
-- [ ] Cross-tenant isolation
+- [x] Ledger maths: statement closing figure asserted equal to `partyBalance()`, and the
+      page's headline balance asserted equal to the statement's first row
+- [x] Credit-limit warning on an over-limit party — a warning with data, never a block
+      (spec), asserted as such
+- [x] Import edge cases: duplicate mobiles within one file, bad rows, BOM, semicolons,
+      Persian digits, matching an existing customer without overwriting them
+- [x] Cross-tenant isolation for every new endpoint, including one proving an import
+      token cannot be pointed at another shop's upload or escaped with `../`
 
 ### Phase 4 — Definition of Done
-- [ ] Customer page shows a true balance and full timeline; a 500-row sheet imports cleanly
+- [x] Customer page shows a true balance and full timeline; a 500-row sheet imports
+      cleanly.
+      **Walked end-to-end in a real browser on 2026-08-10.** The customer page shows a
+      balance summed from the ledger with its statement beside it, and a timeline
+      carrying the opening balance, a note written on the page, and a follow-up created
+      through the Jalali picker. A real `.xlsx` of deliberately messy Persian data was
+      dragged through the wizard: headers guessed, dry run reporting 3 new / 1
+      duplicate-in-file (naming the line it duplicates) / 1 error, then committed — and
+      the three created parties verified, with `۰۹۱۲۳۳۳۴۴۵۵` normalised to
+      `09123334455`, `0912-777-8899` stripped to `09127778899`, `۲٬۵۰۰٬۰۰۰` toman
+      stored as 25,000,000 rial, and the ZWNJ half-space in «کوروش‌ زند» preserved.
+      Checked at 390 and 1280, light and dark, RTL, zero horizontal overflow.
+      Five defects found and fixed — see PROGRESS 4.6
 
 ---
 
 ## Phase 5 — Sales, POS, Trade-in, Installment creation ★ revenue-critical
 
 ### 5.1 Invoices
-- [ ] Lifecycle draft → final → void
-- [ ] Scan-first POS screen (barcode/IMEI box autofocus, Enter submits)
-- [ ] Line types: variant + qty | serialized unit picker (only `in_stock` units of this branch)
-- [ ] Per-line discount and warranty months
-- [ ] Invoice-level discount, VAT toggle, shipping
-- [ ] Salesperson field + commission accrual entry
-- [ ] Numbering per tenant+branch via the `counters` row-lock service
+- [x] Lifecycle draft → final → void. Void reverses rather than deletes: mirror ledger
+      entries, opposite stock movements, and the handset walks `sold → returned →
+      in_stock` because the state machine refuses to let a status flip pretend a sale
+      was not a sale. The number survives — a missing tax-invoice number is a gap
+      somebody has to explain
+- [x] Scan-first POS screen. **One** box, not two pickers: `PosScanner` resolves an
+      IMEI, a serial, a barcode, an SKU or a typed product name, because the person
+      holding the reader does not know which of those our schema calls it. Exact matches
+      win outright, and a sold or reserved handset resolves **with its reason attached**
+      rather than to nothing
+- [x] Line types: variant + qty | serialized unit, both from the same scan box, resolved
+      against the branch's sellable warehouse
+- [x] Per-line discount and warranty months
+- [x] Invoice-level discount (distributed across lines by value, remainder to the largest
+      line), VAT toggle, shipping. VAT is now a per-shop setting defaulting to **off** —
+      most small shops are not registered, and collecting ten percent a shop cannot remit
+      is discovered by the customer, at the counter
+- [x] Salesperson field + commission accrual entry. **A percentage of margin, not of
+      turnover** (Gate 3): a seller paid on turnover has no reason to hold a price —
+      discount a 100,000,000 phone to 90,000,000 and the sale falls 10% while the margin
+      falls 25%, and the commission has to fall with the margin or the incentive points
+      the wrong way. Computed net of VAT (tax collected is the state's money, not a
+      share to pay out), floored to a whole toman, zero on a loss and never clawed back,
+      and snapshotted with its rate so a rate changed in Mehr cannot restate what was
+      earned in Shahrivar. Defaults to **0%** — a shop that never opened the settings
+      screen has not agreed to owe anybody anything.
+      Shown only to `sales.view_profit`, **including to the seller who earned it**:
+      commission is a known percentage of margin, so revealing one reveals the other,
+      and Gate 1 made Salesperson blind to cost and profit. A shop that disagrees grants
+      the permission — the same per-tenant override Gate 1 allowed
+- [x] Numbering per tenant+branch via the `counters` row-lock service
 
 ### 5.2 Payments
-- [ ] Split payments: cash / POS terminal / card-to-card / cheque ref / customer credit
-- [ ] Change calculation
-- [ ] Partial payment → unpaid balance posts to the party ledger automatically
+- [x] Split payments: cash / POS terminal / card-to-card / cheque ref / customer credit,
+      each row carrying the evidence its method leaves behind
+- [x] Change calculation. The drawer keeps the **settled** amount; the tendered figure is
+      stored beside it (new column, with a CHECK that tendered never falls below settled)
+      so a reprint next week still says what change was given
+- [x] Partial payment → unpaid balance posts to the party ledger automatically
 
 ### 5.3 Returns & quotes
-- [ ] Returns full/partial; serialized return flips unit returned → in_stock with grade re-check
-- [ ] Quotes → convert to invoice
+- [x] Returns full/partial. A return is a **new numbered credit document**, never an edit
+      of the sale — the sale happened, and a closed month must keep saying so. A returned
+      handset goes to `returned`, not straight back on the shelf: it becomes sellable
+      only when somebody ticks that they have checked it, and records the grade. Void is
+      refused on an invoice that has returns against it
+- [x] Quotes → convert to invoice, carrying the quote's own settings snapshot
 
 ### 5.4 Trade-in
-- [ ] "Buy customer device" line inside POS → mini-intake (model, imei, condition, agreed price, ID scan, HAMTA transfer checklist ack)
-- [ ] Creates a purchase + `product_unit` (used) and offsets the invoice total
+- [x] "Buy customer device" inside POS → mini-intake (model, catalogue variant, IMEI with
+      Luhn validation, grade, agreed price, HAMTA transfer checklist ack)
+- [x] Creates a used `product_unit` costed at the agreed price, acquired from the buyer,
+      and offsets the invoice as a **tender, not a discount** — a discount would compute
+      VAT on a smaller base and understate both the sale and the tax
+- [ ] ID scan on the trade-in intake — blocked on the Files module wiring, exactly like
+      the seller-ID attachment in 3.3. The HAMTA acknowledgement and the identity check
+      are recorded; the image is not yet stored
 
 ### 5.5 Installment sale
-- [ ] Mark invoice as installment → wizard (down payment, count, interval, flat profit %, first due Jalali)
-- [ ] Generates `installment_plan` + rows; last row absorbs rounding remainder
-- [ ] Optional guarantor party
-- [ ] Contract print
+- [x] Mark invoice as installment → wizard (down payment, count, interval, flat profit %,
+      first due Jalali), live-previewing the schedule as it is typed
+- [x] Generates `installment_plan` + rows; last row absorbs the rounding remainder so the
+      rows sum to the contract total exactly
+- [x] Optional guarantor party
+- [x] Contract print — one `ScheduleTable` shared by the screen and the paper, because the
+      whole point of a contract is that the two say the same thing
 
 ### 5.6 Printing
-- [ ] Thermal 80mm receipt
-- [ ] A5 / A4 official invoice
-- [ ] QR to a public invoice view
-- [ ] Template settings (logo, footer terms)
+- [x] Thermal 80mm receipt
+- [x] A5 / A4 official invoice
+- [x] QR to a public invoice view. Signed and deliberately never expiring — a customer
+      photographs their receipt and opens it eight months later. The hostname comes from
+      the shop's own `domains` row, never a literal apex (golden rule 1b)
+- [x] Template settings (logo, footer terms, QR on/off), snapshotted onto the invoice with
+      rounding and VAT so a reprint carries the terms that were in force on the day
 
 ### 5.7 Profit engine
-- [ ] Serialized = exact unit cost; standard goods = weighted-average cost at sale time
-- [ ] Cost snapshot stored on the invoice line
-- [ ] Daily Z-report (cash session close)
+- [x] Serialized = that device's own cost; standard goods = weighted average at sale time
+- [x] Cost snapshot stored on the invoice line, written once at finalisation and never
+      recomputed — under Iranian inflation, a report quoting today's cost for last
+      month's sale is not a report with a small error in it, it is a fabrication
+- [x] Daily Z-report (cash session close). Built around **one** question — how much cash
+      should be in this drawer — so the takings break down by method *and* by account,
+      cheques and trade-ins are reported but kept out of the expected-cash figure, cash
+      refunds are subtracted and shown, and voided invoices are counted rather than hidden
 
 ### 5.8 Tests
-- [ ] Full POS happy path
-- [ ] Split payment maths incl. change and ledger postings
-- [ ] Serialized double-sell race: two parallel finalises → one wins, other gets a clean error
-- [ ] Trade-in creates the unit and the totals are correct
-- [ ] Installment schedule maths and rounding rule
-- [ ] Return restores stock and reverses the ledger
-- [ ] Numbering: no gaps/dupes under 50 parallel finalises
-- [ ] Cross-tenant isolation
+- [x] Full POS happy path (`PosSaleTest`, 17 cases through real HTTP)
+- [x] Split payment maths incl. change and ledger postings
+- [x] Serialized double-sell race: two parallel finalises → one wins, the other gets a
+      Persian sentence naming the device
+- [x] Trade-in creates the unit and the totals are correct
+- [x] Installment schedule maths and rounding rule
+- [x] Return restores stock and reverses the ledger
+- [x] Numbering: no gaps/dupes under 50 parallel finalises, and per-branch sequences
+- [x] Cross-tenant isolation on every new endpoint, including the public invoice page
 
 ### Phase 5 — Definition of Done
-- [ ] End-to-end: buy plan → receive stock → sell a phone with trade-in + 3 cheques + installments → print all papers → every ledger/stock figure reconciles
+- [x] End-to-end walked in a real browser on 2026-08-12, not asserted from services.
+      An iPhone 15 Pro Max scanned by IMEI at ۱۰۰٬۰۰۰٬۰۰۰ تومان → سمیرا احمدی selected →
+      her old iPhone 13 taken in معاوضه at ۳۵٬۰۰۰٬۰۰۰ (creating unit #11, grade B, costed
+      at the agreed price, acquired from her) → three cheques of ۱۵٬۰۰۰٬۰۰۰ with their
+      serials → `INV-000002` issued → the ۲۰٬۰۰۰٬۰۰۰ remainder put on `INS-000001`, six
+      monthly instalments at 12% flat, ۳٬۷۳۳٬۳۳۳ × 5 and ۳٬۷۳۳٬۳۳۵ on the last row →
+      thermal, A5, A4 and the contract all printed, and the receipt's QR scanned through
+      to the public page on a 390px viewport.
+      **Every figure reconciles**: payments sum to `paid_total`; `total − paid` equals
+      outstanding; the line's `cost_snapshot` equals the device's own cost; the plan's
+      principal equals the invoice's outstanding balance; its rows sum to its total; the
+      invoice's own ledger batch balances (Dr inventory ۳۵٬۰۰۰٬۰۰۰ + Dr party
+      ۶۵٬۰۰۰٬۰۰۰ = Cr sales ۱۰۰٬۰۰۰٬۰۰۰); and the whole ledger balances to the rial.
+      Three defects found and fixed — see PROGRESS 5.9
 
-> ### ⛔ DECISION GATE 3
-> Review invoice print templates and rounding rules with the human.
+> ### ✅ DECISION GATE 3 — CLEARED 2026-08-12
+> - **ADR 0009 approved as written**: step 1,000 rial (100 toman), direction `nearest`
+>   (half-up), per-shop configurable. Every figure floors to a whole toman, the grand
+>   total rounds once at the very end and never a line, and «گرد کردن» prints at any
+>   non-zero amount with **no threshold** — the paper has to add up in front of the
+>   customer. The ADR's status was corrected to Proposed first: it had been written
+>   claiming acceptance at this gate before the gate was held.
+> - **All four print layouts approved**: thermal 80mm, A5, A4, and the installment
+>   contract — with the shop's logo, footer terms and the QR to the signed public copy.
+> - **Commission = a percentage of margin**, closing the last open item in 5.1. See the
+>   task above for the full rule and why the seller does not see their own figure.
+> - **VAT default confirmed as off**, flagged at the gate rather than assumed: most
+>   small mobile shops are not registered, and collecting ten percent a shop cannot
+>   remit is discovered by the customer, at the counter. The 10% rate is carried ready
+>   to tick.
+> - **Still open, and not part of this gate**: the trade-in ID scan, blocked on the
+>   Files module wiring exactly like the seller-ID attachment in 3.3.
 
 ---
 
@@ -725,6 +852,29 @@ converging on them later.
 - [ ] Secrets hygiene review
 - [ ] Encrypted-columns inventory (device passcodes!)
 - [ ] Impersonation & RLS re-verification
+
+### 11.1b Browser testing in CI — pay off the mechanism-level layout guards
+- [ ] **Wire Pest 4 browser testing into CI** (`tests/Browser/`, a headless Chrome in the
+      GitHub Actions job, the `_test` Postgres already there). Until this lands, any test
+      that needs a rendered box cannot exist, so the guards below are stuck asserting
+      source instead of outcome.
+- [ ] **Replace `app/Modules/Sales/tests/Feature/InvoicePrintLayoutTest.php` with the
+      rendered assertion its own docblock names**: load a seeded invoice whose product
+      name is a realistic long Persian one — «گوشی موبایل اپل آیفون ۱۵ پرو مکس ظرفیت ۲۵۶
+      گیگابایت تیتانیوم طبیعی» — and assert **no two cells in a row overlap** by
+      measuring their boxes. The defect this replaces was real and shipped-adjacent:
+      an `auto` table layout ran three money figures together as
+      `96,636,7981,200,00089,200,0001`. The current test asserts the *mechanism* (the
+      fixed layout and the explicit column widths are still in the source) and is honest
+      in its docblock that it cannot catch a width that is merely too small. That gap is
+      accepted for now — **this task is its owner and its date.**
+- [ ] Audit for other mechanism-level guards standing in for rendered ones and convert
+      them in the same pass (`grep -rn "asserts the \*mechanism\*" app/Modules`); each
+      conversion deletes the "when browser testing lands" caveat from its docblock rather
+      than leaving both tests in place.
+- [ ] Once rendered assertions exist, fold the recurring manual Playwright pass (zero
+      horizontal overflow, no console errors, 390 + 1280, light + dark, RTL) into CI as
+      a smoke suite, so it stops depending on somebody remembering to walk it
 
 ### 11.2 Performance
 - [ ] Seed 50 tenants × realistic volumes

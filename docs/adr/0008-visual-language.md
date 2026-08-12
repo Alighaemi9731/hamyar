@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-07
 - **Deciders:** Project owner (requested) + lead engineer
+- **Approved by:** **Requested** by the project owner, and delivered — `docs/PROGRESS.md`, 2026-08-07 records the change and the two deliberate divergences from the reference. Note the weaker provenance: this is the one Accepted ADR whose approval is an owner *request* followed by delivery, rather than a recorded sign-off. Nothing here is expensive to reverse — it is tokens in one stylesheet — so it was not taken to a gate.
 - **Supersedes** the palette and shape half of the original design brief
   (`docs/03-design-and-claude-setup-fa.md` §1–2). RTL rules, domain components,
   Persian typography rules and every CLAUDE.md golden rule are **unchanged**.
