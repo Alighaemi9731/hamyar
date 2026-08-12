@@ -58,6 +58,10 @@ export default function InvoicesIndex({ invoices, filters, statuses, can }: Prop
       actions={
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
+            <Link href="/sales/close">گزارش Z</Link>
+          </Button>
+
+          <Button asChild variant="outline">
             <Link href="/sales/quotes">پیش‌فاکتورها</Link>
           </Button>
 

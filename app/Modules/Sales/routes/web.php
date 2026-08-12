@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Sales\Http\Controllers\DailyCloseController;
 use App\Modules\Sales\Http\Controllers\InvoiceController;
 use App\Modules\Sales\Http\Controllers\InvoicePrintController;
 use App\Modules\Sales\Http\Controllers\PosController;
@@ -47,6 +48,9 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:sales'])
         Route::get('/pos/{invoice}', [PosController::class, 'create'])
             ->whereNumber('invoice')
             ->name('pos.resume');
+
+        // Fixed segment before `{invoice}`, like the till.
+        Route::get('/close', [DailyCloseController::class, 'show'])->name('close');
 
         /* ------------------------------------------------------------- quote -- */
 
