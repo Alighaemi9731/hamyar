@@ -7,6 +7,7 @@ namespace App\Modules\Repairs\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Models\TicketStatusHistory;
+use App\Modules\Sales\Models\SalesInvoice;
 use App\Support\Money;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -58,7 +59,7 @@ final class PublicTrackingController extends Controller
         abort_if(strlen($token) !== 48, 404);
 
         $ticket = RepairTicket::query()
-            ->with(['branch:id,name,address,phone', 'histories'])
+            ->with(['branch:id,name,address,phone', 'histories', 'salesInvoice'])
             ->where('tracking_token', $token)
             ->first();
 
@@ -78,12 +79,27 @@ final class PublicTrackingController extends Controller
                 'received_at' => $ticket->created_at?->toIso8601String(),
                 'promised_at' => $ticket->promised_at?->toIso8601String(),
                 'ready_at' => $ticket->ready_at?->toIso8601String(),
-                // What they owe on this job. Approved beats estimate: once the customer
-                // has agreed a figure, showing them the old guess invites an argument.
-                'amount_due' => Money::toArray(
-                    max(0, ($ticket->approved_amount ?? $ticket->estimate_amount) - $ticket->prepaid_amount)
-                ),
-                'is_estimate' => $ticket->approved_amount === null,
+                /*
+                | What they owe on this job.
+                |
+                | Three sources, in order of how true they are.
+                |
+                | Once an invoice exists, it is the only honest figure: it knows what was
+                | actually billed and what has actually been paid. Before that, the
+                | approved amount beats the estimate — once a customer has agreed a
+                | number, showing them the old guess invites an argument.
+                |
+                | This used to be estimate-minus-prepaid *always*, including after
+                | delivery, because the ticket had no way to find its invoice. A customer
+                | who paid in full and took their phone home could open this link that
+                | evening and read that they still owed 1,100,000 toman. It was found by
+                | walking the DoD, not by a test: every test asserted on the ticket or on
+                | the invoice, and none asked what the customer sees afterwards.
+                */
+                'amount_due' => Money::toArray($this->amountDue($ticket)),
+                // "This is still a guess" — false the moment a real bill exists, whatever
+                // the approval state was.
+                'is_estimate' => $ticket->salesInvoice === null && $ticket->approved_amount === null,
                 /*
                 | Dates and status labels only. The `note` column is deliberately absent:
                 | staff write things in there like "customer is difficult, quoted high",
@@ -106,5 +122,22 @@ final class PublicTrackingController extends Controller
                 'phone' => $ticket->branch->phone,
             ],
         ]);
+    }
+
+    /**
+     * What this customer still owes, from the truest source available.
+     *
+     * Never negative: an overpayment or a return credit is a conversation with the shop,
+     * not a number to show a stranger on a status page.
+     */
+    private function amountDue(RepairTicket $ticket): int
+    {
+        $invoice = $ticket->salesInvoice;
+
+        if ($invoice instanceof SalesInvoice) {
+            return (int) max(0, $invoice->total - $invoice->paid_total);
+        }
+
+        return (int) max(0, ($ticket->approved_amount ?? $ticket->estimate_amount) - $ticket->prepaid_amount);
     }
 }

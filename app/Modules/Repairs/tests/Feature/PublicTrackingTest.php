@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\CRM\Models\Account;
+use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Platform\Models\Tenant;
@@ -10,10 +12,13 @@ use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Modules\Repairs\Enums\TicketStatus;
 use App\Modules\Repairs\Models\RepairTicket;
+use App\Modules\Repairs\Services\DeliverTicket;
+use App\Modules\Repairs\Services\QuoteApproval;
 use App\Modules\Repairs\Services\TicketIntake;
 use App\Modules\Repairs\Services\TicketStateMachine;
 use App\Modules\Repairs\Services\TrackingLink;
 use App\Support\Tenancy\TenantContext;
+use Inertia\Testing\AssertableInertia;
 
 /**
  * The public tracking page, treated as hostile.
@@ -29,7 +34,14 @@ beforeEach(function (): void {
     $this->url = tenantUrl($this->tenant);
 
     subscribe($this->tenant, 'pro');
+
+    // A cap high enough that these tickets never need approval. The cap fails CLOSED —
+    // unset means everything needs a customer's yes — so without this the fixtures
+    // cannot leave `diagnosing`, which is the guard doing exactly its job.
+    $this->tenant->forceFill(['settings' => ['repairs' => ['approval_cap' => 999_999_999]]])->save();
+
     app(SubscriptionResolver::class)->forget();
+    app(TenantContext::class)->forget();
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 
     /** @var array{User, Warehouse} $fixtures */
@@ -47,7 +59,7 @@ beforeEach(function (): void {
 
 afterEach(fn () => app(TenantContext::class)->forget());
 
-function trackedTicket(): RepairTicket
+function trackedTicket(bool $withParty = false): RepairTicket
 {
     /** @var Tenant $tenant */
     $tenant = test()->tenant;
@@ -59,6 +71,9 @@ function trackedTicket(): RepairTicket
     /** @var RepairTicket $ticket */
     $ticket = inTenantContext($tenant, fn (): RepairTicket => app(TicketIntake::class)->take([
         'branch_id' => $warehouse->branch_id,
+        // Credit has to be owed by somebody: `FinaliseInvoice` refuses an unsettled
+        // invoice with no party, which is the right guard and not this test's subject.
+        'party_id' => $withParty ? Party::factory()->create()->id : null,
         'device_brand' => 'اپل',
         'device_model' => 'آیفون ۱۳',
         'device_imei' => '356938035643809',
@@ -231,4 +246,162 @@ it('gives every ticket a different token', function (): void {
 
     expect($first->tracking_token)->not->toBe($second->tracking_token)
         ->and(strlen($first->tracking_token))->toBe(48);
+});
+
+/* ------------------------------------ what the customer owes, honestly -- */
+
+/*
+| The page told people they owed money they had already paid.
+|
+| `amount_due` was approved-minus-prepaid, always — including after delivery, because a
+| ticket had no way to find the invoice that settled it. A customer who paid in full and
+| walked out with their phone could open the link that evening and read a four-figure
+| balance. Nothing was wrong with the money; the page was simply reciting an estimate
+| that had stopped being the truth an hour earlier.
+|
+| Found by walking the DoD, not by a test. Every test above asserts on the ticket, and
+| the delivery tests assert on the invoice. None of them asked what the customer sees
+| once both exist.
+*/
+
+it('shows nothing owing once the repair has been paid for', function (): void {
+    $ticket = trackedTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        $warehouse = Warehouse::query()->where('is_sellable', true)->firstOr(
+            fn (): Warehouse => Warehouse::factory()->create(['is_sellable' => true, 'is_default' => true])
+        );
+
+        $cash = Account::factory()->create(['type' => Account::TYPE_CASH, 'is_default' => true]);
+        $cashId = (int) $cash->id;
+        Account::factory()->create(['type' => Account::TYPE_SALES]);
+
+        $machine = app(TicketStateMachine::class);
+
+        foreach ([TicketStatus::Diagnosing, TicketStatus::Repairing, TicketStatus::Ready] as $status) {
+            $machine->transition($ticket->fresh() ?? $ticket, $status, $this->owner->id);
+        }
+
+        app(DeliverTicket::class)->deliver(
+            $ticket->fresh() ?? $ticket,
+            [['description' => 'دستمزد', 'amount' => 3_000_000]],
+            [['method' => 'cash', 'amount' => 3_000_000, 'account_id' => $cashId]],
+            30,
+            $this->owner->id,
+        );
+
+        expect($warehouse)->not->toBeNull();
+    });
+
+    $response = $this->get($this->url.'/t/'.$ticket->tracking_token);
+
+    $response->assertOk();
+
+    // Zero, not the 3,000,000 estimate it used to recite.
+    $response->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('ticket.amount_due.value', 0)
+        // And it must not still be labelled a guess: a real bill exists.
+        ->where('ticket.is_estimate', false)
+    );
+});
+
+it('shows what is genuinely still outstanding when the customer paid only part', function (): void {
+    $ticket = trackedTicket(withParty: true);
+
+    ($this->inTenant)(function () use ($ticket): void {
+        $cash = Account::factory()->create(['type' => Account::TYPE_CASH, 'is_default' => true]);
+        $cashId = (int) $cash->id;
+        Account::factory()->create(['type' => Account::TYPE_SALES]);
+
+        $machine = app(TicketStateMachine::class);
+
+        foreach ([TicketStatus::Diagnosing, TicketStatus::Repairing, TicketStatus::Ready] as $status) {
+            $machine->transition($ticket->fresh() ?? $ticket, $status, $this->owner->id);
+        }
+
+        // Billed 3,000,000, paid 1,000,000 in cash and the rest on account.
+        app(DeliverTicket::class)->deliver(
+            $ticket->fresh() ?? $ticket,
+            [['description' => 'دستمزد', 'amount' => 3_000_000]],
+            [['method' => 'cash', 'amount' => 1_000_000, 'account_id' => $cashId]],
+            0,
+            $this->owner->id,
+        );
+    });
+
+    $this->get($this->url.'/t/'.$ticket->tracking_token)
+        ->assertOk()
+        // The real outstanding balance, from the invoice — not from an estimate that
+        // never knew a payment had been made.
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('ticket.amount_due.value', 2_000_000));
+});
+
+it('still shows the estimate while there is no bill yet', function (): void {
+    $ticket = trackedTicket();
+
+    // Nothing has been billed, so the guess is the best the shop can honestly offer.
+    $this->get($this->url.'/t/'.$ticket->tracking_token)
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('ticket.amount_due.value', 3_000_000)
+            ->where('ticket.is_estimate', true)
+        );
+});
+
+it('records which invoice settled the repair', function (): void {
+    $ticket = trackedTicket(withParty: true);
+
+    ($this->inTenant)(function () use ($ticket): void {
+        $cash = Account::factory()->create(['type' => Account::TYPE_CASH, 'is_default' => true]);
+        $cashId = (int) $cash->id;
+        Account::factory()->create(['type' => Account::TYPE_SALES]);
+
+        $machine = app(TicketStateMachine::class);
+
+        foreach ([TicketStatus::Diagnosing, TicketStatus::Repairing, TicketStatus::Ready] as $status) {
+            $machine->transition($ticket->fresh() ?? $ticket, $status, $this->owner->id);
+        }
+
+        $invoice = app(DeliverTicket::class)->deliver(
+            $ticket->fresh() ?? $ticket,
+            [['description' => 'دستمزد', 'amount' => 3_000_000]],
+            [],
+            0,
+            $this->owner->id,
+        );
+
+        // "Has this repair been paid for?" used to be answerable only by parsing the
+        // Persian sentence in the invoice's notes column.
+        expect(($ticket->fresh() ?? $ticket)->sales_invoice_id)->toBe($invoice->getKey());
+    });
+});
+
+/*
+| The tracking page and the approval link have separate budgets.
+|
+| They did not. Laravel's guest rate-limit key is `sha1($domain.'|'.$ip)` — the URI is
+| not in it — so two unnamed `throttle:N,1` groups share ONE counter and merely check it
+| against different ceilings. A customer refreshing their status page ten times spent the
+| whole approval allowance, and the link they had been texted answered 429.
+|
+| Found by an adversarial sweep. Not a security hole — a shared counter can only shrink
+| an attacker's budget — but the routes file documented two independent budgets and had
+| one, and the person it inconveniences is a customer trying to say yes.
+*/
+
+it('does not spend the approval allowance on tracking refreshes', function (): void {
+    $ticket = trackedTicket();
+
+    ($this->inTenant)(fn () => app(QuoteApproval::class)->request($ticket, 3_000_000, $this->owner->id));
+
+    /** @var RepairTicket $quoted */
+    $quoted = ($this->inTenant)(fn (): RepairTicket => $ticket->fresh() ?? $ticket);
+
+    // Well inside tracking's documented 30/minute...
+    foreach (range(1, 12) as $ignored) {
+        $this->get($this->url.'/t/'.$ticket->tracking_token)->assertOk();
+    }
+
+    // ...and the approval link, on its own budget of 10, still answers.
+    $this->get($this->url.'/a/'.$quoted->approval_token)->assertOk();
 });

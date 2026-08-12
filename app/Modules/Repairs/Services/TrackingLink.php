@@ -64,6 +64,35 @@ final class TrackingLink
         return "{$scheme}://{$hostname}/t/{$ticket->tracking_token}";
     }
 
+    /**
+     * The absolute approval URL, or null when there is no live question to answer.
+     *
+     * Null once the token has been used or was never minted — the panel then shows the
+     * recorded answer instead of a dead link, which is the honest thing to put in front
+     * of somebody about to text it to a customer.
+     *
+     * Shares {@see hostname()} with tracking deliberately. There is exactly one place
+     * that decides what host a customer-facing link points at, and it reads a `domains`
+     * row rather than a literal — golden rule 1b, which is the difference between
+     * changing the apex domain by configuration and changing it by grep.
+     */
+    public function approvalFor(RepairTicket $ticket): ?string
+    {
+        if (! is_string($ticket->approval_token) || $ticket->approval_token === '') {
+            return null;
+        }
+
+        $hostname = $this->hostname();
+
+        if ($hostname === null) {
+            return null;
+        }
+
+        $scheme = str_starts_with(config()->string('app.url'), 'https://') ? 'https' : 'http';
+
+        return "{$scheme}://{$hostname}/a/{$ticket->approval_token}";
+    }
+
     private function hostname(): ?string
     {
         $tenantId = $this->context->id();

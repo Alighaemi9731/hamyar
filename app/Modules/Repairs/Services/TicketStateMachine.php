@@ -194,11 +194,26 @@ final class TicketStateMachine
      */
     private function stampsFor(TicketStatus $to, CarbonImmutable $at): array
     {
+        /*
+        | A closed job takes its approval link with it.
+        |
+        | The link outlives the question otherwise, and the ordinary workflow creates
+        | exactly that: quote the job, the customer never answers, the shop hands the
+        | phone back and marks the ticket rejected. The SMS stays in somebody's inbox and
+        | the token stayed live, so whoever held it could authorise work on a device that
+        | had already left the shop.
+        |
+        | {@see QuoteApproval::record()} refuses a closed ticket as well. Both, because
+        | either alone leaves a gap: clearing loses to a request already in flight, and
+        | guarding alone leaves a dead token in the row for something to render.
+        */
+        $closing = $to->isClosed() ? ['approval_token' => null] : [];
+
         return match ($to) {
-            TicketStatus::Ready => ['ready_at' => $at],
-            TicketStatus::Delivered => ['delivered_at' => $at],
-            TicketStatus::Abandoned => ['abandoned_at' => $at],
-            default => [],
+            TicketStatus::Ready => ['ready_at' => $at, ...$closing],
+            TicketStatus::Delivered => ['delivered_at' => $at, ...$closing],
+            TicketStatus::Abandoned => ['abandoned_at' => $at, ...$closing],
+            default => $closing,
         };
     }
 

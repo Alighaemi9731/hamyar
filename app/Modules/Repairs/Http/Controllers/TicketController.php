@@ -297,7 +297,7 @@ final class TicketController extends Controller
             ->with('success', "قبض پذیرش {$ticket->code} ثبت شد.");
     }
 
-    public function show(Request $request, RepairTicket $ticket): Response
+    public function show(Request $request, RepairTicket $ticket, TrackingLink $links): Response
     {
         $this->authorize('view', $ticket);
 
@@ -324,6 +324,17 @@ final class TicketController extends Controller
                 'approved_amount' => $ticket->approved_amount === null ? null : Money::toArray($ticket->approved_amount),
                 'approved_at' => $ticket->approved_at?->toIso8601String(),
                 'approved_via' => $ticket->approved_via,
+                'declined_at' => $ticket->declined_at?->toIso8601String(),
+                'quoted_amount' => $ticket->approval_quoted_amount === null
+                    ? null
+                    : Money::toArray($ticket->approval_quoted_amount),
+                /*
+                | The live link, or null. Built here rather than in the browser: the
+                | hostname comes from a `domains` row, and a URL assembled client-side
+                | from window.location would hardcode whatever host the staff member
+                | happens to be on — which is a different bug on every deployment.
+                */
+                'approval_url' => $links->approvalFor($ticket),
                 'prepaid_amount' => Money::toArray($ticket->prepaid_amount),
                 'warranty_days' => $ticket->warranty_days,
                 /*

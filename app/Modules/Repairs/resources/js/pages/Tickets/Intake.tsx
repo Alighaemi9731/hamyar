@@ -335,7 +335,24 @@ export default function TicketIntake({
             multiple
             className="sr-only"
             onChange={(e) => {
-              setPhotos((current) => [...current, ...Array.from(e.target.files ?? [])]);
+              /*
+              | Read the files NOW, not inside the updater.
+              |
+              | `setPhotos(current => …)` does not run its callback immediately — React
+              | queues it and calls it during the next render. The line below clears the
+              | input first (deliberately, so the same file can be picked twice in a row),
+              | and clearing `value` empties `files`. An updater that read `e.target.files`
+              | would therefore read an empty FileList every time, and `photos` would stay
+              | empty no matter how many pictures were taken.
+              |
+              | It failed silently in exactly the way that costs a shop an argument: no
+              | thumbnail, no error, and an intake posted with zero photos. Found by
+              | walking the screen; every server-side test passed because they build
+              | `UploadedFile` arrays in PHP and never touch this handler.
+              */
+              const picked = Array.from(e.target.files ?? []);
+
+              setPhotos((current) => [...current, ...picked]);
               e.target.value = '';
             }}
           />

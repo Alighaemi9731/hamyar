@@ -144,6 +144,26 @@ final class QuoteApproval
 
     private function record(RepairTicket $ticket, string $via, ?int $actorId, ?string $note): RepairTicket
     {
+        /*
+        | A closed job cannot be authorised.
+        |
+        | `request()` refuses to quote a closed ticket; this refuses to answer one, and
+        | the asymmetry used to be the hole. The ordinary workflow creates it: quote the
+        | job, the customer never answers, the shop hands the phone back and marks the
+        | ticket rejected. The SMS is still in somebody's inbox and the token was still
+        | live, so whoever held it — the customer, whoever else read the message, whoever
+        | has that handset now — could write a binding "yes, do the work at this price"
+        | onto a device that left the shop days ago.
+        |
+        | {@see TicketStateMachine} also clears the token on the way into a terminal
+        | state, so in practice this is never reached. Both, deliberately: clearing alone
+        | loses to a request already in flight, and guarding alone leaves a dead token in
+        | the row for something to render.
+        */
+        if ($ticket->isClosed()) {
+            throw new RuntimeException('این تیکت بسته شده است و تأیید تازه‌ای نمی‌پذیرد.');
+        }
+
         if ($ticket->approved_at !== null) {
             // Not an error worth throwing over: a customer taps a link twice, or says
             // yes on the phone after already tapping. The first answer stands.

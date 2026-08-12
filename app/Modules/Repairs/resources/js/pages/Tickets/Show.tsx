@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ApprovalPanel } from '../../pos/approval-panel';
 import { PartsPanel } from '../../pos/parts-panel';
 
 import { AppShell } from '@/layouts/app-shell';
@@ -44,6 +45,9 @@ interface Props {
     approved_amount: MoneyValue | null;
     approved_at: string | null;
     approved_via: string | null;
+    declined_at: string | null;
+    quoted_amount: MoneyValue | null;
+    approval_url: string | null;
     prepaid_amount: MoneyValue;
     warranty_days: number;
     /** A boolean. The code itself is never in these props — see the docblock below. */
@@ -117,6 +121,19 @@ export default function TicketShow({ ticket, transitions, can, errors }: Props) 
               </div>
             </section>
           )}
+
+          <ApprovalPanel
+            ticketId={ticket.id}
+            estimate={ticket.estimate_amount}
+            quoted={ticket.quoted_amount}
+            approvedAmount={ticket.approved_amount}
+            approvedVia={ticket.approved_via}
+            approvedAt={ticket.approved_at}
+            declinedAt={ticket.declined_at}
+            approvalUrl={ticket.approval_url}
+            editable={can.update && transitions.length > 0}
+            error={errors.approval}
+          />
 
           <PartsPanel
             ticketId={ticket.id}

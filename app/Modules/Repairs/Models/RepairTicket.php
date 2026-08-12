@@ -9,6 +9,7 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Models\Branch;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Repairs\Enums\TicketStatus;
+use App\Modules\Sales\Models\SalesInvoice;
 use App\Support\Tenancy\BelongsToTenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -46,6 +47,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $branch_id
  * @property string $code
  * @property int|null $party_id
+ * @property int|null $sales_invoice_id
  * @property int|null $product_unit_id
  * @property string|null $device_brand
  * @property string $device_model
@@ -122,7 +124,7 @@ final class RepairTicket extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'branch_id', 'code', 'party_id', 'product_unit_id',
+        'tenant_id', 'branch_id', 'code', 'party_id', 'sales_invoice_id', 'product_unit_id',
         'device_brand', 'device_model', 'device_imei', 'device_colour',
         'reported_issue', 'status', 'technician_id', 'priority', 'promised_at',
         'estimate_amount', 'approved_amount', 'approved_at', 'approved_via',
@@ -198,6 +200,21 @@ final class RepairTicket extends Model
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
+    }
+
+    /**
+     * The invoice that settled this repair, if it has been delivered.
+     *
+     * Null for everything before delivery, and for devices handed back unbilled. It is
+     * how the tracking page knows whether "what you owe" is still a guess or a fact —
+     * see {@see \App\Modules\Repairs\Http\Controllers\PublicTrackingController}.
+     */
+    /**
+     * @return BelongsTo<SalesInvoice, $this>
+     */
+    public function salesInvoice(): BelongsTo
+    {
+        return $this->belongsTo(SalesInvoice::class);
     }
 
     /**

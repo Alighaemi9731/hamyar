@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Repairs\Http\Controllers\PasscodeController;
 use App\Modules\Repairs\Http\Controllers\PublicApprovalController;
 use App\Modules\Repairs\Http\Controllers\PublicTrackingController;
+use App\Modules\Repairs\Http\Controllers\TicketApprovalController;
 use App\Modules\Repairs\Http\Controllers\TicketController;
 use App\Modules\Repairs\Http\Controllers\TicketPartsController;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,26 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
             ->name('tickets.transition');
 
         /*
+        | The shop's half of the approval conversation.
+        |
+        | The public pages under /a/{token} are the customer answering. These are the
+        | routes that ask — quoting the job, minting the link, and writing down a yes
+        | given over the phone. They were missing entirely until the Phase 6 DoD walk:
+        | the answer had a door and the question did not.
+        */
+        Route::post('/tickets/{ticket}/approval/request', [TicketApprovalController::class, 'request'])
+            ->whereNumber('ticket')
+            ->name('tickets.approval.request');
+
+        Route::post('/tickets/{ticket}/approval/approve', [TicketApprovalController::class, 'approve'])
+            ->whereNumber('ticket')
+            ->name('tickets.approval.approve');
+
+        Route::post('/tickets/{ticket}/approval/decline', [TicketApprovalController::class, 'decline'])
+            ->whereNumber('ticket')
+            ->name('tickets.approval.decline');
+
+        /*
         | Parts on a job.
         |
         | Nested under the ticket rather than sitting at `/repairs/parts/{part}`, because
@@ -87,7 +108,7 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
         */
         Route::get('/tickets/{ticket}/passcode', [PasscodeController::class, 'show'])
             ->whereNumber('ticket')
-            ->middleware('throttle:20,1')
+            ->middleware('throttle:20,1,repairs-passcode')
             ->name('tickets.passcode');
     });
 
@@ -113,7 +134,7 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
 | customer think the shop has vanished with their phone.
 */
 
-Route::middleware(['tenant', 'throttle:30,1'])
+Route::middleware(['tenant', 'throttle:30,1,repairs-tracking'])
     ->get('/t/{token}', [PublicTrackingController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{48}')
     ->name('repairs.tracking');
@@ -129,9 +150,17 @@ Route::middleware(['tenant', 'throttle:30,1'])
 |
 | Throttled harder than tracking (10/minute). Tracking is a page a customer refreshes;
 | this is a page they visit once.
+|
+| The third argument is the bucket name, and it is not decoration. Laravel's guest
+| rate-limit key is `sha1($route->getDomain().'|'.$request->ip())` — the URI is not in
+| it — so unnamed `throttle:N,1` on two routes gives them ONE shared counter checked
+| against two different ceilings. This file claimed two independent budgets and had one:
+| ten refreshes of the tracking page would spend the whole approval allowance, and a
+| customer who had been reading their own status page could meet a 429 on the link they
+| were texted. Naming the buckets is what makes the comment above true.
 */
 
-Route::middleware(['tenant', 'throttle:10,1'])
+Route::middleware(['tenant', 'throttle:10,1,repairs-approval'])
     ->prefix('a')
     ->name('repairs.approval.')
     ->where(['token' => '[A-Za-z0-9]{48}'])

@@ -129,7 +129,13 @@ final class DeliverTicket
 
             $this->finaliser->finalise($invoice, $actorId);
 
-            $ticket->forceFill(['warranty_days' => max(0, $warrantyDays)])->save();
+            $ticket->forceFill([
+                'warranty_days' => max(0, $warrantyDays),
+                // Recorded inside the same transaction as the invoice it names. Written
+                // afterwards it could be lost while the invoice survived, and the ticket
+                // would be delivered against a bill nothing points at.
+                'sales_invoice_id' => $invoice->getKey(),
+            ])->save();
 
             // INSIDE the transaction, and inside the lock. If the status moved after the
             // commit, the loser of a race would re-read `ready` and bill the customer a

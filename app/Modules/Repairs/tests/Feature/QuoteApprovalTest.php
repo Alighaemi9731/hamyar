@@ -14,6 +14,7 @@ use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Services\QuoteApproval;
 use App\Modules\Repairs\Services\TicketIntake;
 use App\Modules\Repairs\Services\TicketStateMachine;
+use App\Modules\Repairs\Services\TrackingLink;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
@@ -280,5 +281,204 @@ it('refuses to ask for approval of nothing', function (): void {
 
         expect(fn () => app(QuoteApproval::class)->request($ticket, 0, $this->owner->id))
             ->toThrow(RuntimeException::class, 'مبلغ برآورد');
+    });
+});
+
+/* --------------------------------------------- the shop's half of it -- */
+
+/*
+| Everything above drives the service. These drive the routes a shopkeeper's fingers
+| reach, and they exist because the Phase 6 DoD walk found the service had none: the
+| public page could answer a question, and nothing in the application could ask one.
+|
+| A shop could not quote a job, could not produce a link to send, and could not write
+| down a yes given over the phone — which is how most Iranian shops settle this. Every
+| test above passed throughout.
+*/
+
+it('lets the shop quote a job and hands back a link to send', function (): void {
+    $ticket = ($this->inTenant)(fn (): RepairTicket => app(TicketIntake::class)->take([
+        'branch_id' => $this->warehouse->branch_id,
+        'device_model' => 'آیفون ۱۳',
+        'reported_issue' => 'صفحه شکسته',
+    ], $this->owner->id));
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/approval/request", [
+            'quoted_amount' => 4_500_000,
+        ])
+        ->assertRedirect();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        /** @var RepairTicket $fresh */
+        $fresh = $ticket->fresh();
+
+        expect($fresh->status)->toBe(TicketStatus::AwaitingApproval)
+            ->and($fresh->approval_quoted_amount)->toBe(4_500_000)
+            ->and($fresh->approval_token)->toBeString()
+            ->and(strlen((string) $fresh->approval_token))->toBe(48);
+
+        // And the page can actually show it — the URL is built server-side from a
+        // `domains` row, never from whatever host the staff member happens to be on.
+        expect(app(TrackingLink::class)->approvalFor($fresh))
+            ->toContain('/a/'.$fresh->approval_token);
+    });
+});
+
+it('shows no link once the token has been spent', function (): void {
+    $ticket = quotedTicket();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        expect(app(TrackingLink::class)->approvalFor($ticket))->not->toBeNull();
+
+        app(QuoteApproval::class)->approveByLink($ticket->fresh() ?? $ticket);
+
+        // A dead link in front of somebody about to text it to a customer is worse than
+        // no link: they send it, the customer taps it, and gets a 404 from the shop.
+        expect(app(TrackingLink::class)->approvalFor($ticket->fresh() ?? $ticket))->toBeNull();
+    });
+});
+
+it('records a phone approval from the ticket page, with the staff member who took the call', function (): void {
+    $ticket = quotedTicket(4_500_000);
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/approval/approve", [
+            'note' => 'با آقای رضایی تماس گرفته شد',
+        ])
+        ->assertRedirect();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        /** @var RepairTicket $fresh */
+        $fresh = $ticket->fresh();
+
+        expect($fresh->approved_via)->toBe(RepairTicket::APPROVED_VIA_PHONE)
+            ->and($fresh->approved_by)->toBe($this->owner->id)
+            // The frozen figure, not today's estimate.
+            ->and($fresh->approved_amount)->toBe(4_500_000);
+    });
+});
+
+it('records a decline from the ticket page without closing the ticket', function (): void {
+    $ticket = quotedTicket();
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/approval/decline", ['note' => 'گران بود'])
+        ->assertRedirect();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        /** @var RepairTicket $fresh */
+        $fresh = $ticket->fresh();
+
+        // Declining a quote means the work is not authorised. Whether the device goes
+        // back unrepaired, gets re-quoted lower, or is collected as-is is a conversation
+        // the shop still has to have.
+        expect($fresh->declined_at)->not->toBeNull()
+            ->and($fresh->status)->toBe(TicketStatus::AwaitingApproval);
+    });
+});
+
+it('refuses a quote of nothing through the route, on the page rather than a 500', function (): void {
+    $ticket = quotedTicket();
+
+    $this->actingAs($this->owner)
+        ->post($this->url."/repairs/tickets/{$ticket->id}/approval/request", ['quoted_amount' => 0])
+        ->assertRedirect()
+        ->assertSessionHasErrors('quoted_amount');
+});
+
+it('will not let another shop quote our ticket', function (): void {
+    $ticket = quotedTicket();
+
+    $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    /** @var User $intruder */
+    $intruder = inTenantContext($other, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $this->actingAs($intruder)
+        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/approval/request", [
+            'quoted_amount' => 1_000_000,
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($intruder)
+        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/approval/approve", [])
+        ->assertNotFound();
+});
+
+/* ------------------------------ the link outliving the job it was for -- */
+
+/*
+| A token minted for an open job stayed live after the job closed.
+|
+| `request()` refuses to quote a closed ticket. `record()` — the path the public link
+| runs through — checked only whether an answer had already been given, and nothing
+| cleared `approval_token` when a ticket reached a terminal state. So the ordinary
+| workflow left a live link behind: quote the job, the customer does not answer, the shop
+| hands the phone back and marks the ticket rejected. The SMS is still in somebody's
+| inbox, and it still works.
+|
+| Whoever holds it — the customer, whoever else read the message, whoever has the handset
+| the SMS landed on — could write a binding "yes, do the work at this price" onto a
+| device that left the shop days earlier.
+|
+| Found by an adversarial sweep of the public surfaces, and confirmed here.
+*/
+
+it('kills the approval link when the ticket is closed', function (): void {
+    $ticket = quotedTicket(4_500_000);
+    $token = $ticket->approval_token;
+
+    expect($token)->toBeString();
+
+    // The customer never answered, so the shop hands the device back unrepaired.
+    ($this->inTenant)(fn () => app(TicketStateMachine::class)->transition(
+        $ticket->fresh() ?? $ticket,
+        TicketStatus::Rejected,
+        $this->owner->id,
+        'مشتری جواب نداد؛ دستگاه تحویل داده شد',
+    ));
+
+    // The link that is still sitting in somebody's inbox.
+    $this->post($this->url.'/a/'.$token.'/approve')->assertNotFound();
+
+    ($this->inTenant)(function () use ($ticket): void {
+        /** @var RepairTicket $fresh */
+        $fresh = $ticket->fresh();
+
+        expect($fresh->approved_at)->toBeNull()
+            ->and($fresh->approved_amount)->toBeNull()
+            // And the token is gone from the row, so nothing can render it either.
+            ->and($fresh->approval_token)->toBeNull();
+    });
+});
+
+it('refuses to record an approval against a closed ticket even if a token survived', function (): void {
+    $ticket = quotedTicket(4_500_000);
+
+    ($this->inTenant)(function () use ($ticket): void {
+        app(TicketStateMachine::class)->transition(
+            $ticket->fresh() ?? $ticket,
+            TicketStatus::Rejected,
+            $this->owner->id,
+        );
+
+        /** @var RepairTicket $closed */
+        $closed = $ticket->fresh();
+
+        // Belt and braces: put a token back by hand, as a stale row or an interleaved
+        // request could, and prove the service itself still refuses.
+        $closed->forceFill(['approval_token' => str_repeat('a', 48)])->save();
+
+        expect(fn () => app(QuoteApproval::class)->approveByLink($closed))
+            ->toThrow(RuntimeException::class);
     });
 });
