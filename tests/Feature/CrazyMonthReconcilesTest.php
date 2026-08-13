@@ -18,7 +18,10 @@ use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Modules\Treasury\Models\CashTransaction;
 use App\Modules\Treasury\Services\AccountBalances;
+use App\Modules\Treasury\Services\DailyClose;
+use App\Modules\Treasury\Services\ProfitAndLoss;
 use App\Support\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Database\Seeders\CrazyMonthSeeder;
 
 /**
@@ -237,5 +240,63 @@ it('leaves the supplier owed nothing but the difference', function (): void {
         // Owed 300,000,000 for the shipment, settled with 280,000,000 of endorsed paper.
         // Negative means the shop still owes them 20,000,000.
         expect(app(LedgerService::class)->partyBalance($supplier))->toBe(-20_000_000);
+    });
+});
+
+/* ================== THE DEFINITION OF DONE, THROUGH THE REPORTS ================== */
+
+/*
+| Everything above checks the ledger against itself. These check the ledger against the
+| screens an owner actually reads — which is where the DoD lives, because a shop does not
+| audit `ledger_entries`, it reads a P&L and a daily close and believes them.
+*/
+
+it('closes the month on the same figures the treasury page shows', function (): void {
+    ($this->inTenant)(function (): void {
+        $close = app(DailyClose::class)->for(CarbonImmutable::parse(CrazyMonthSeeder::MONTH_END));
+        $balances = app(AccountBalances::class);
+
+        foreach ($close['accounts'] as $row) {
+            /** @var Account $account */
+            $account = Account::query()->findOrFail($row['id']);
+
+            expect($row['closing'])->toBe($balances->balanceOf($account));
+        }
+    });
+});
+
+it('makes the P&L expense rows sum to its own headline', function (): void {
+    ($this->inTenant)(function (): void {
+        $pnl = app(ProfitAndLoss::class)->forPeriod(
+            CarbonImmutable::parse(CrazyMonthSeeder::MONTH_START),
+            CarbonImmutable::parse(CrazyMonthSeeder::MONTH_END),
+        );
+
+        $summed = 0;
+
+        foreach ($pnl['expense_breakdown'] as $row) {
+            $summed += $row['amount'];
+        }
+
+        // Rent 120,000,000 + PSP cut 850,000 + bounce fee 300,000. The last two have no
+        // `cash_transactions` row behind them and must still appear, or the rows stop
+        // adding up to the headline.
+        expect($pnl['operating_costs'])->toBe(121_150_000)
+            ->and($summed)->toBe($pnl['operating_costs']);
+    });
+});
+
+it('accounts for the whole month with one subtraction', function (): void {
+    ($this->inTenant)(function (): void {
+        $pnl = app(ProfitAndLoss::class)->forPeriod(
+            CarbonImmutable::parse(CrazyMonthSeeder::MONTH_START),
+            CarbonImmutable::parse(CrazyMonthSeeder::MONTH_END),
+        );
+
+        // The identity the whole report rests on. If this ever fails, some figure is
+        // being counted twice or not at all.
+        expect($pnl['net_profit'])
+            ->toBe($pnl['gross_margin'] + $pnl['other_income'] - $pnl['operating_costs'])
+            ->and($pnl['gross_margin'])->toBe($pnl['revenue'] - $pnl['cost_of_goods']);
     });
 });
