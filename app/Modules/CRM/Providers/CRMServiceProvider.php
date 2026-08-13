@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Providers;
 
+use App\Modules\CRM\Contracts\NoPartyExposure;
+use App\Modules\CRM\Contracts\PartyExposure;
 use App\Modules\CRM\Listeners\CreateDefaultAccount;
 use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Policies\PartyPolicy;
@@ -33,6 +35,22 @@ final class CRMServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | The default answer, for a deployment with no Cheques module.
+        |
+        | A null object rather than a nullable dependency: every caller would otherwise
+        | carry the same `?? 0`, and the first one to forget it would be the one that
+        | mattered.
+        |
+        | `bindIf`, not `bind`, and that is load-bearing. Module providers are discovered
+        | in directory order, so Cheques may register before or after this one. With
+        | `bind` on both sides the last writer wins and the real implementation is
+        | silently replaced by the null object roughly half the time — a bug that would
+        | show up as a credit check quietly passing. `bindIf` yields to whatever is
+        | already there, so the answer is the same whichever order they load in.
+        */
+        $this->app->bindIf(PartyExposure::class, NoPartyExposure::class);
+
         //
     }
 

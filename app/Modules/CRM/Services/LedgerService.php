@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Services;
 
+use App\Modules\CRM\Contracts\PartyExposure;
 use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Models\LedgerEntry;
 use App\Modules\CRM\Models\Party;
@@ -33,7 +34,10 @@ use InvalidArgumentException;
  */
 final class LedgerService
 {
-    public function __construct(private readonly ConnectionInterface $connection) {}
+    public function __construct(
+        private readonly ConnectionInterface $connection,
+        private readonly PartyExposure $exposure,
+    ) {}
 
     /**
      * Write a balanced set of entries.
@@ -263,17 +267,32 @@ final class LedgerService
      * an override permission rather than a hard block: refusing a regular customer over
      * a limit nobody remembers setting loses the shop money.
      *
-     * @return array{exceeds: bool, limit: int|null, balance: int, after: int}
+     * ## The balance alone is not the exposure
+     *
+     * A received cheque settles the customer's debt when it is taken
+     * (`docs/specs/cheques.md` §1), so a customer who has paid entirely in post-dated
+     * paper has a balance of zero. Checking that number alone hands them unlimited further
+     * credit — precisely the customer a limit exists to stop.
+     *
+     * So the check adds what they have at risk off-ledger. `balance` and `exposure` are
+     * returned separately because the UI has to be able to explain the difference: «مانده
+     * حساب ۰» and «چک در جریان ۳۰۰٬۰۰۰٬۰۰۰» are two sentences a shopkeeper can say to the
+     * person in front of them. One combined number is a figure they would have to defend
+     * without being able to break it down.
+     *
+     * @return array{exceeds: bool, limit: int|null, balance: int, exposure: int, after: int}
      */
     public function creditCheck(Party $party, int $additionalDebit): array
     {
         $balance = $this->partyBalance($party);
-        $after = $balance + $additionalDebit;
+        $exposure = $this->exposure->forPartyId($party->id);
+        $after = $balance + $exposure + $additionalDebit;
 
         return [
             'exceeds' => $party->credit_limit !== null && $after > $party->credit_limit,
             'limit' => $party->credit_limit,
             'balance' => $balance,
+            'exposure' => $exposure,
             'after' => $after,
         ];
     }

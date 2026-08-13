@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Cheques\Providers;
 
+use App\Modules\Cheques\Services\ChequeExposure;
+use App\Modules\Cheques\Services\LiveChequeGuard;
+use App\Modules\CRM\Contracts\PartyExposure;
+use App\Modules\Sales\Contracts\InvoiceSettlementGuard;
 use App\Support\Modules\ModuleServiceProvider;
 
 /**
@@ -21,6 +25,15 @@ final class ChequesServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
-        //
+        /*
+        | Cheques answers two questions other modules must not ask it directly.
+        |
+        | CRM's credit check needs a party's off-ledger exposure; Sales needs to know
+        | whether a live cheque blocks a void. Both declare an interface and neither knows
+        | this module exists — the dependency points inward, which is what keeps them
+        | working in a deployment where cheques are switched off (golden rule 6, ADR 0003).
+        */
+        $this->app->bind(PartyExposure::class, ChequeExposure::class);
+        $this->app->bind(InvoiceSettlementGuard::class, LiveChequeGuard::class);
     }
 }
