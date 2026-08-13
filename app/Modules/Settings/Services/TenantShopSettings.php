@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Settings\Services;
 
 use App\Support\Settings\CommissionSettings;
+use App\Support\Settings\InstallmentSettings;
 use App\Support\Settings\PrintSettings;
 use App\Support\Settings\RepairSettings;
 use App\Support\Settings\RoundingDirection;
@@ -57,6 +58,12 @@ final class TenantShopSettings implements ShopSettings
     /** Sixty days is what an Iranian shop usually answers when asked. */
     public const DEFAULT_ABANDONED_AFTER_DAYS = 60;
 
+    /** Days late before any fee is charged. Five is the common shop answer. */
+    public const DEFAULT_LATE_FEE_GRACE_DAYS = 5;
+
+    /** However late it gets, the fee stops at a fifth of the instalment. */
+    public const DEFAULT_LATE_FEE_CAP_PERCENT = 20;
+
     /**
      * A reminder at a week, a warning at a month, a last notice at seven weeks — and
      * then رسوبی at sixty days.
@@ -78,6 +85,25 @@ final class TenantShopSettings implements ShopSettings
             approvalCap: is_int($cap) && $cap > 0 ? $cap : 0,
             abandonedAfterDays: is_int($days) && $days > 0 ? $days : self::DEFAULT_ABANDONED_AFTER_DAYS,
             escalationDays: $this->escalationDays($tenant?->setting('repairs.escalation_days')),
+        );
+    }
+
+    public function installments(): InstallmentSettings
+    {
+        $tenant = $this->context->tenant();
+
+        $percent = $tenant?->setting('installments.late_fee_percent_per_month');
+        $grace = $tenant?->setting('installments.late_fee_grace_days');
+        $cap = $tenant?->setting('installments.late_fee_cap_percent');
+
+        return new InstallmentSettings(
+            // Zero — no late fee at all — until a shop configures one. A charge the owner
+            // never chose is worse than no charge.
+            lateFeePercentPerMonth: is_int($percent) && $percent > 0 ? min($percent, 100) : 0,
+            lateFeeGraceDays: is_int($grace) && $grace >= 0 ? $grace : self::DEFAULT_LATE_FEE_GRACE_DAYS,
+            // Capped even when a shop sets something absurd: a fee larger than the
+            // instalment is not a late fee, it is a different contract.
+            lateFeeCapPercent: is_int($cap) && $cap > 0 ? min($cap, 100) : self::DEFAULT_LATE_FEE_CAP_PERCENT,
         );
     }
 

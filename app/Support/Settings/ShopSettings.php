@@ -54,4 +54,13 @@ interface ShopSettings
      * How the repair bench behaves — the approval cap and the abandonment window.
      */
     public function repairs(): RepairSettings;
+
+    /**
+     * Late fees and early-settlement policy.
+     *
+     * Off by default in every respect a customer would notice — see
+     * {@see InstallmentSettings} on why there is no sensible default for a charge
+     * somebody has to defend at a counter.
+     */
+    public function installments(): InstallmentSettings;
 }
