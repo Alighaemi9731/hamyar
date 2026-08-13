@@ -93,10 +93,29 @@ class CrazyMonthSeeder extends Seeder
     {
         $branchId = Warehouse::query()->where('is_sellable', true)->value('branch_id');
 
-        Account::query()->firstOrCreate(
-            ['type' => Account::TYPE_CASH, 'name' => 'صندوق فروشگاه'],
-            ['is_default' => true, 'is_active' => true, 'branch_id' => $branchId, 'opening_balance' => 50_000_000],
-        );
+        /*
+        | Adopt the shop's existing till rather than making a second one.
+        |
+        | `DemoShopSeeder` has already created a default cash account, and only one per
+        | tenant may be the default — a partial unique index says so. Matching on NAME
+        | rather than on type would try to create «صندوق فروشگاه» beside the existing
+        | «صندوق», collide on that index, and — if it had not collided — split the month's
+        | takings across two drawers that each looked half empty.
+        */
+        $till = Account::query()->where('type', Account::TYPE_CASH)->orderByDesc('is_default')->first();
+
+        if (! $till instanceof Account) {
+            $till = Account::query()->create([
+                'type' => Account::TYPE_CASH,
+                'name' => 'صندوق فروشگاه',
+                'is_default' => true,
+                'is_active' => true,
+                'branch_id' => $branchId,
+            ]);
+        }
+
+        // The month needs a float in the drawer to bank from, whichever till it found.
+        $till->forceFill(['opening_balance' => 50_000_000])->save();
 
         Account::query()->firstOrCreate(
             ['type' => Account::TYPE_BANK, 'name' => 'بانک ملت — جاری'],
@@ -204,10 +223,10 @@ class CrazyMonthSeeder extends Seeder
     {
         $branchId = Warehouse::query()->where('is_sellable', true)->value('branch_id');
         $bank = Account::query()->where('type', Account::TYPE_BANK)->firstOrFail();
-        $sales = Account::query()->firstOrCreate(
-            ['type' => Account::TYPE_SALES, 'name' => 'فروش'],
-            ['is_active' => true],
-        );
+        // By TYPE, not by name — same reason as the till above. `DemoShopSeeder` already
+        // made a sales account, and a second one called «فروش» would split the month's
+        // revenue across two headings that each look half right on a P&L.
+        $sales = $this->accountOfType(Account::TYPE_SALES, 'درآمد فروش');
 
         $customer = Party::query()->firstOrCreate(
             ['name' => 'حسن رضایی'],
@@ -270,14 +289,38 @@ class CrazyMonthSeeder extends Seeder
 
             // The shop owes the supplier for a shipment.
             $ledger->post([
-                ['account_id' => Account::query()->firstOrCreate(
-                    ['type' => Account::TYPE_INVENTORY, 'name' => 'موجودی کالا'],
-                    ['is_active' => true],
-                )->id, 'debit' => 300_000_000, 'description' => 'خرید عمده'],
+                ['account_id' => $this->accountOfType(Account::TYPE_INVENTORY, 'ارزش موجودی انبار')->id,
+                    'debit' => 300_000_000, 'description' => 'خرید عمده'],
                 ['party_id' => $supplier->id, 'credit' => 300_000_000],
             ], null, $start->addDays(12));
 
             $transitions->endorse($endorsed, (int) $supplier->id, $start->addDays(13));
         }
+    }
+
+    /**
+     * The shop's account of a given type, or a new one named as suggested.
+     *
+     * Matching on type rather than name is what stops this seeder building a parallel
+     * chart of accounts beside the one `DemoShopSeeder` already made. Two sales accounts
+     * do not break the ledger — it still balances — but every P&L then shows revenue split
+     * across two headings that each look half right, which is worse than an obvious error.
+     */
+    private function accountOfType(string $type, string $nameIfMissing): Account
+    {
+        $account = Account::query()->where('type', $type)->orderBy('id')->first();
+
+        if ($account instanceof Account) {
+            return $account;
+        }
+
+        /** @var Account $created */
+        $created = Account::query()->create([
+            'type' => $type,
+            'name' => $nameIfMissing,
+            'is_active' => true,
+        ]);
+
+        return $created;
     }
 }

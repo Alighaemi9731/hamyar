@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Treasury\Providers;
 
+use App\Modules\CRM\Models\Account;
+use App\Modules\Treasury\Policies\AccountPolicy;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Treasury module.
@@ -22,5 +25,12 @@ final class TreasuryServiceProvider extends ModuleServiceProvider
     public function register(): void
     {
         //
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(Account::class, AccountPolicy::class);
     }
 }

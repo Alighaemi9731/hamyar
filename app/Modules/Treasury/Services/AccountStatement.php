@@ -7,7 +7,7 @@ namespace App\Modules\Treasury\Services;
 use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Models\LedgerEntry;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * What went through this till, bank account or terminal, in order, with a running balance.

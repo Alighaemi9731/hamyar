@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Installments\Http\Controllers\CollectionDeskController;
 use App\Modules\Installments\Http\Controllers\InstallmentPlanController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,19 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:installments'])
         Route::post('/invoices/{invoice}/plan', [InstallmentPlanController::class, 'store'])
             ->whereNumber('invoice')
             ->name('plans.store');
+
+        /*
+        | The collection desk — who owes what today.
+        |
+        | Its own route rather than a filter on the plan list: chasing payments is a
+        | different job from looking at a contract, and it is the one somebody does every
+        | morning.
+        */
+        Route::get('/collections', [CollectionDeskController::class, 'index'])->name('collections.index');
+
+        Route::post('/rows/{row}/collect', [CollectionDeskController::class, 'collect'])
+            ->whereNumber('row')
+            ->name('collections.store');
 
         Route::get('/plans/{plan}', [InstallmentPlanController::class, 'show'])
             ->whereNumber('plan')

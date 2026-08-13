@@ -2,23 +2,22 @@
 
 declare(strict_types=1);
 
+use App\Modules\Cheques\Http\Controllers\ChequeController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | Cheques — web routes
 |--------------------------------------------------------------------------
-|
-| Loaded with the `web` middleware group by the module service provider.
-|
-| Tenant screens belong inside a group carrying the tenant + auth middleware and
-| `module:cheques` so the plan gates the route as well as the nav (golden rule 7):
-|
-|   Route::middleware(['tenant', 'auth', 'module:cheques'])
-|       ->prefix('cheques')
-|       ->name('cheques.')
-|       ->group(function (): void {
-|           // …
-|       });
-|
 */
+
+Route::middleware(['tenant', 'auth', 'tenant.user', 'module:cheques'])
+    ->prefix('cheques')
+    ->name('cheques.')
+    ->group(function (): void {
+        Route::get('/', [ChequeController::class, 'index'])->name('index');
+
+        Route::post('/{cheque}/transition', [ChequeController::class, 'transition'])
+            ->whereNumber('cheque')
+            ->name('transition');
+    });

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Cheques\Providers;
 
+use App\Modules\Cheques\Models\Cheque;
+use App\Modules\Cheques\Policies\ChequePolicy;
 use App\Modules\Cheques\Services\ChequeExposure;
 use App\Modules\Cheques\Services\LiveChequeGuard;
 use App\Modules\CRM\Contracts\PartyExposure;
 use App\Modules\Sales\Contracts\InvoiceSettlementGuard;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Cheques module.
@@ -35,5 +38,12 @@ final class ChequesServiceProvider extends ModuleServiceProvider
         */
         $this->app->bind(PartyExposure::class, ChequeExposure::class);
         $this->app->bind(InvoiceSettlementGuard::class, LiveChequeGuard::class);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(Cheque::class, ChequePolicy::class);
     }
 }
