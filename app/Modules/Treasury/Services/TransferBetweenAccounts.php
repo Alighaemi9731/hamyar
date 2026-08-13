@@ -77,8 +77,8 @@ final class TransferBetweenAccounts
         /** @var AccountTransfer $transfer */
         $transfer = $this->connection->transaction(function () use ($from, $to, $amount, $fee, $reference, $occurredAt, $actorId): AccountTransfer {
             $transfer = AccountTransfer::query()->create([
-                'from_account_id' => $from->getKey(),
-                'to_account_id' => $to->getKey(),
+                'from_account_id' => $from->id,
+                'to_account_id' => $to->id,
                 'amount' => $amount,
                 'fee' => $fee,
                 'reference' => $reference,
@@ -91,8 +91,8 @@ final class TransferBetweenAccounts
             $lines = [
                 // Money leaves here — including the fee, which really did come out of
                 // this account even though it never arrived at the other one.
-                ['account_id' => $from->getKey(), 'credit' => $amount + $fee, 'description' => $description],
-                ['account_id' => $to->getKey(), 'debit' => $amount, 'description' => $description],
+                ['account_id' => $from->id, 'credit' => $amount + $fee, 'description' => $description],
+                ['account_id' => $to->id, 'debit' => $amount, 'description' => $description],
             ];
 
             if ($fee > 0) {
@@ -123,7 +123,7 @@ final class TransferBetweenAccounts
             throw new RuntimeException('مبلغ انتقال باید بیشتر از صفر باشد.');
         }
 
-        if ($from->getKey() === $to->getKey()) {
+        if ($from->id === $to->id) {
             throw new RuntimeException('مبدأ و مقصد انتقال نمی‌توانند یکی باشند.');
         }
 
@@ -156,11 +156,12 @@ final class TransferBetweenAccounts
      */
     private function feeAccountId(): int
     {
+        /** @var Account $account */
         $account = Account::query()->firstOrCreate(
             ['type' => Account::TYPE_EXPENSE, 'name' => 'کارمزد بانکی'],
             ['is_active' => true],
         );
 
-        return (int) $account->getKey();
+        return $account->id;
     }
 }

@@ -46,7 +46,7 @@ final class AccountBalances
      */
     public function balanceOf(Account $account, ?CarbonImmutable $at = null): int
     {
-        return $account->opening_balance + $this->movementOf($account->getKey(), $at);
+        return $account->opening_balance + $this->movementOf($account->id, $at);
     }
 
     /**
@@ -106,16 +106,18 @@ final class AccountBalances
      */
     public function unreconciledTotal(Account $account): int
     {
-        return $this->movementOf($account->getKey(), null, unreconciledOnly: true);
+        return $this->movementOf($account->id, null, unreconciledOnly: true);
     }
 
-    private function movementOf(mixed $accountId, ?CarbonImmutable $at, bool $unreconciledOnly = false): int
+    private function movementOf(int $accountId, ?CarbonImmutable $at, bool $unreconciledOnly = false): int
     {
-        return (int) LedgerEntry::query()
+        $movement = LedgerEntry::query()
             ->where('account_id', $accountId)
             ->when($at !== null, fn ($query) => $query->where('occurred_at', '<=', $at))
             ->when($unreconciledOnly, fn ($query) => $query->whereNull('reconciled_at'))
             ->selectRaw('coalesce(sum(debit), 0) - coalesce(sum(credit), 0) as movement')
             ->value('movement');
+
+        return is_numeric($movement) ? (int) $movement : 0;
     }
 }

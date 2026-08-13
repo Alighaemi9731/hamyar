@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -49,7 +50,7 @@ return new class extends Migration
         // Leading with tenant_id per golden rule 1, then the account the shopkeeper is
         // staring at. Partial, because a reconciled row is never the subject of this
         // query again.
-        \Illuminate\Support\Facades\DB::statement(
+        DB::statement(
             'create index ledger_entries_unreconciled_idx
              on ledger_entries (tenant_id, account_id)
              where reconciled_at is null and account_id is not null'
@@ -58,7 +59,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        \Illuminate\Support\Facades\DB::statement('drop index if exists ledger_entries_unreconciled_idx');
+        DB::statement('drop index if exists ledger_entries_unreconciled_idx');
 
         Schema::table('ledger_entries', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('reconciled_by');

@@ -91,7 +91,8 @@ it('writes two ledger rows that share one batch', function (): void {
 
         expect($entries)->toHaveCount(2)
             ->and($entries->pluck('batch_id')->unique())->toHaveCount(1)
-            ->and((int) $entries->sum('debit'))->toBe((int) $entries->sum('credit'));
+            ->and($entries->sum(fn (LedgerEntry $e): int => $e->debit))
+            ->toBe($entries->sum(fn (LedgerEntry $e): int => $e->credit));
     });
 });
 
@@ -118,7 +119,8 @@ it('books the fee as a real expense and still balances', function (): void {
 
         $entries = LedgerEntry::query()->get();
 
-        expect((int) $entries->sum('debit'))->toBe((int) $entries->sum('credit'));
+        expect($entries->sum(fn (LedgerEntry $e): int => $e->debit))
+            ->toBe($entries->sum(fn (LedgerEntry $e): int => $e->credit));
     });
 });
 
