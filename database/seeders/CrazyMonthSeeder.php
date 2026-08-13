@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Modules\Cheques\Enums\ChequeDirection;
+use App\Modules\Cheques\Models\Cheque;
+use App\Modules\Cheques\Services\ChequeTransitions;
 use App\Modules\CRM\Models\Account;
+use App\Modules\CRM\Models\Party;
+use App\Modules\CRM\Services\LedgerService;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Platform\Models\Tenant;
+use App\Modules\Treasury\Enums\CashDirection;
+use App\Modules\Treasury\Models\RecurringTemplate;
+use App\Modules\Treasury\Models\TransactionCategory;
+use App\Modules\Treasury\Services\GenerateRecurring;
 use App\Modules\Treasury\Services\TransferBetweenAccounts;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -66,6 +75,8 @@ class CrazyMonthSeeder extends Seeder
 
             $this->seedChartOfAccounts();
             $this->seedBanking();
+            $this->seedOverheads();
+            $this->seedCheques();
         });
 
         app(TenantContext::class)->forget();
@@ -135,5 +146,138 @@ class CrazyMonthSeeder extends Seeder
             reference: 'تسویه کارتخوان',
             occurredAt: $start->addDays(9),
         );
+    }
+
+    /**
+     * Slice 2 — the rent, which nobody remembers and which eats a month's profit.
+     *
+     * Booked through the recurring generator rather than inserted, so the month proves the
+     * idempotency path as well as the arithmetic: the reconciliation test runs the seeder
+     * once, but `make fresh` on a machine that already had data runs it against existing
+     * rows, and a generator that double-booked would show up here first.
+     */
+    private function seedOverheads(): void
+    {
+        // Paid from the bank, as shops actually pay rent — and as they must here: a cash
+        // box cannot go negative, and 120,000,000 of rent against a 50,000,000 drawer is
+        // exactly the overdraw `TransferBetweenAccounts` refuses.
+        $payFrom = Account::query()->where('type', Account::TYPE_BANK)->firstOrFail();
+
+        $rentAccount = Account::query()->firstOrCreate(
+            ['type' => Account::TYPE_EXPENSE, 'name' => 'اجاره مغازه'],
+            ['is_active' => true],
+        );
+
+        $category = TransactionCategory::query()->firstOrCreate(
+            ['name' => 'اجاره مغازه', 'direction' => CashDirection::Expense->value],
+            ['account_id' => $rentAccount->id, 'is_active' => true],
+        );
+
+        RecurringTemplate::query()->firstOrCreate(
+            ['name' => 'اجاره ماهانه مغازه'],
+            [
+                'transaction_category_id' => $category->id,
+                'account_id' => $payFrom->id,
+                'direction' => CashDirection::Expense,
+                'amount' => 120_000_000,
+                'day_of_month' => 1,
+                'starts_on' => self::MONTH_START,
+                'is_active' => true,
+            ],
+        );
+
+        app(GenerateRecurring::class)->run(CarbonImmutable::parse(self::MONTH_END));
+    }
+
+    /**
+     * Slice 3 — the cheque that bounces, and the one the shop spends.
+     *
+     * The awkward path on purpose. A month where every cheque clears reconciles by
+     * accident; this one exercises the two rows most likely to be wrong — the bounce that
+     * restores a debt without erasing history, and the re-presentation that credits the
+     * party rather than the drawer account (spec rows R5 and R7).
+     *
+     * It also leaves a cheque endorsed to a supplier and still outstanding at month end,
+     * which is what makes the exposure figure non-zero when the DoD checks it.
+     */
+    private function seedCheques(): void
+    {
+        $branchId = Warehouse::query()->where('is_sellable', true)->value('branch_id');
+        $bank = Account::query()->where('type', Account::TYPE_BANK)->firstOrFail();
+        $sales = Account::query()->firstOrCreate(
+            ['type' => Account::TYPE_SALES, 'name' => 'فروش'],
+            ['is_active' => true],
+        );
+
+        $customer = Party::query()->firstOrCreate(
+            ['name' => 'حسن رضایی'],
+            ['kind' => 'customer', 'is_active' => true, 'credit_limit' => 500_000_000],
+        );
+
+        $supplier = Party::query()->firstOrCreate(
+            ['name' => 'پخش موبایل ایرانیان'],
+            ['kind' => 'supplier', 'is_active' => true],
+        );
+
+        $ledger = app(LedgerService::class);
+        $transitions = app(ChequeTransitions::class);
+        $start = CarbonImmutable::parse(self::MONTH_START);
+
+        // Two wholesale sales on credit, both settled with post-dated paper.
+        foreach ([['A', 450_000_000, 2], ['B', 280_000_000, 11]] as [$tag, $amount, $dayOffset]) {
+            $ledger->post([
+                ['party_id' => $customer->id, 'debit' => $amount, 'description' => "فروش عمده {$tag}"],
+                ['account_id' => $sales->id, 'credit' => $amount],
+            ], null, $start->addDays($dayOffset));
+        }
+
+        $bouncer = Cheque::query()->firstOrCreate(
+            ['direction' => ChequeDirection::Received->value, 'bank_name' => 'ملت', 'serial' => '445678'],
+            [
+                'branch_id' => $branchId,
+                'party_id' => $customer->id,
+                'amount' => 450_000_000,
+                'sayad_id' => '1234567890123456',
+                'due_date' => $start->addDays(20)->toDateString(),
+            ],
+        );
+
+        if ($bouncer->wasRecentlyCreated) {
+            $transitions->receive($bouncer, $start->addDays(2));
+            $transitions->deposit($bouncer, $bank, $start->addDays(20));
+            // The event the whole month is built around.
+            $transitions->bounce($bouncer, 'کسر موجودی', fee: 300_000, at: $start->addDays(22));
+            // And the shop chases it, successfully.
+            $transitions->deposit($bouncer, $bank, $start->addDays(26));
+            $transitions->clear($bouncer, at: $start->addDays(28));
+        }
+
+        // The second cheque is endorsed to a supplier instead of banked — خرج کردن چک —
+        // and is still outstanding when the month closes.
+        $endorsed = Cheque::query()->firstOrCreate(
+            ['direction' => ChequeDirection::Received->value, 'bank_name' => 'صادرات', 'serial' => '991122'],
+            [
+                'branch_id' => $branchId,
+                'party_id' => $customer->id,
+                'amount' => 280_000_000,
+                'sayad_id' => '6543210987654321',
+                'due_date' => $start->addDays(75)->toDateString(),
+            ],
+        );
+
+        if ($endorsed->wasRecentlyCreated) {
+            $transitions->receive($endorsed, $start->addDays(11));
+
+            // The shop owes the supplier for a shipment.
+            $ledger->post([
+                ['account_id' => Account::query()->firstOrCreate(
+                    ['type' => Account::TYPE_INVENTORY, 'name' => 'موجودی کالا'],
+                    ['is_active' => true],
+                )->id, 'debit' => 300_000_000, 'description' => 'خرید عمده'],
+                ['party_id' => $supplier->id, 'credit' => 300_000_000],
+            ], null, $start->addDays(12));
+
+            $transitions->endorse($endorsed, (int) $supplier->id, $start->addDays(13));
+        }
     }
 }
