@@ -707,44 +707,53 @@ converging on them later.
 ## Phase 7 — Treasury, Expenses/Incomes, Cheques, Installment collection, Rentals
 
 ### 7.1 Accounts
-- [ ] Cash boxes, banks, POS terminals, petty cash
-- [ ] Opening balances
-- [ ] Transfer between accounts
-- [ ] Account statement (ledger view)
-- [ ] Simple reconciliation check-off
+- [x] Cash boxes, banks, POS terminals, petty cash
+- [x] Opening balances
+- [x] Transfer between accounts (fee is a third line, never a smaller amount)
+- [x] Account statement (ledger view, running balance in display order)
+- [x] Simple reconciliation check-off (per-entry, un-tickable)
 
 ### 7.2 Expenses & incomes
-- [ ] Expense/income modules with category trees
-- [ ] Recurring templates (rent, salaries)
-- [ ] **Rental module**: contracts for leasing shop desk/space (party, amount, period, start/end) → auto-generated periodic income entries + reminder
+- [x] Expense/income modules with category trees (one table, a direction column)
+- [x] Recurring templates (rent, salaries) — period-keyed idempotency, no `last_run_at`
+- [x] **Rental module**: contracts for leasing shop desk/space → periodic income entries
+- [ ] Rental reminder — deferred to Phase 8, which owns every notification channel;
+      building a bespoke reminder here would be building it twice
 
 ### 7.3 Cheques
-- [ ] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced | spent_to_third_party | returned
-- [ ] Due-date reminders list
-- [ ] Printable receipt
-- [ ] Ledger posting matrix documented in `docs/specs/cheques.md`
+- [x] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced | spent_to_third_party | returned
+- [x] Due-date reminders list (overdue derived from the date, issued side leads)
+- [x] Ledger posting matrix documented in `docs/specs/cheques.md` — **written before the
+      code**, and pinned row-for-row by `ChequePostingMatrixTest` (R1–R13, I1–I7)
+- [x] Binding constraint: `creditCheck()` counts uncleared cheques toward exposure
+- [x] Binding constraint: `VoidInvoice` refuses an invoice with a live cheque
+- [ ] Printable cheque receipt — deferred to Phase 9 with the other print layouts, which
+      share a thermal/A4 template the print module owns
 
 ### 7.4 Installment collection
-- [ ] Due/overdue lists
-- [ ] Collect via any payment method
-- [ ] Late-fee policy
-- [ ] Early settlement recalculation
-- [ ] SMS nudge hooks
+- [x] Due/overdue lists (collection desk)
+- [x] Collect via any payment method
+- [x] Late-fee policy — never compounding, off by default, capped
+- [x] Early settlement recalculation — pro rata by instalment count, never by days
+- [x] Maths specified in `docs/specs/installment-collection.md` before the code and pinned
+      section by section, both worked examples asserted to the rial
+- [ ] SMS nudge hooks — Phase 8 owns the channel; the events (`InstallmentCollected`)
+      are emitted and ready to listen on
 
 ### 7.5 Closing & reporting base
-- [ ] Daily close (Z) across accounts
-- [ ] Simple P&L (period revenue, COGS from cost snapshots, expenses)
-- [ ] Cash-flow summary
+- [x] Daily close (Z) across accounts — opening + movement = closing, shown
+- [x] Simple P&L (period revenue, COGS from cost snapshots, expenses)
+- [x] Cash-flow summary (movement per account per day, in the close)
 
 ### 7.6 Tests
-- [ ] Cheque lifecycle postings at every stage
-- [ ] Installment collection and early-settlement maths
-- [ ] Recurring generator idempotency
-- [ ] P&L reconciles against a fully seeded scenario
-- [ ] Cross-tenant isolation
+- [x] Cheque lifecycle postings at every stage — every matrix row, not a sample
+- [x] Installment collection and early-settlement maths
+- [x] Recurring generator idempotency
+- [x] P&L reconciles against a fully seeded scenario
+- [x] Cross-tenant isolation
 
 ### Phase 7 — Definition of Done
-- [ ] A seeded "one crazy month" scenario reconciles to the rial across all reports
+- [x] A seeded "one crazy month" scenario reconciles to the rial across all reports
 
 ---
 
