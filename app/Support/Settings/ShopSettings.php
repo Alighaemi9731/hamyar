@@ -49,4 +49,9 @@ interface ShopSettings
      * silently restate what was earned in Shahrivar.
      */
     public function commission(): CommissionSettings;
+
+    /**
+     * How the repair bench behaves — the approval cap and the abandonment window.
+     */
+    public function repairs(): RepairSettings;
 }

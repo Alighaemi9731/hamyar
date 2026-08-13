@@ -10,6 +10,7 @@ use App\Modules\Inventory\Enums\UnitStatus;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\StockLedger;
+use App\Modules\Inventory\Services\StockReservations;
 use App\Support\Imei;
 use Illuminate\Support\Collection;
 
@@ -50,6 +51,7 @@ final class PosScanner
     public function __construct(
         private readonly PriceResolver $prices,
         private readonly StockLedger $stock,
+        private readonly StockReservations $reservations,
     ) {}
 
     /**
@@ -196,7 +198,13 @@ final class PosScanner
      */
     private function variantCandidate(ProductVariant $variant, ?int $warehouseId, ?int $priceLevelId, bool $showCost): array
     {
-        $onHand = $warehouseId === null ? 0 : $this->stock->onHand($variant->id, $warehouseId);
+        /*
+        | AVAILABLE, not on-hand. A screen protector set aside for tomorrow's repair is
+        | physically on the shelf, so `onHand()` counts it — and a till quoting on-hand
+        | will sell it out from under the bench. The technician then opens the drawer to
+        | a gap and the shop has two unhappy customers.
+        */
+        $onHand = $warehouseId === null ? 0 : $this->reservations->available($variant->id, $warehouseId);
 
         return [
             'key' => "variant:{$variant->id}",
@@ -208,10 +216,11 @@ final class PosScanner
             'description' => $this->describe($variant->product->name, $variant->displayName()),
             'imei' => null,
             'status' => null,
-            // Out of stock is NOT unsellable here: whether a shop may sell into negative
-            // stock is a per-warehouse setting the ledger owns (Phase 3.4), and
+            // Zero available is NOT unsellable here: whether a shop may sell into
+            // negative stock is a per-warehouse setting the ledger owns (Phase 3.4), and
             // second-guessing it at the till would block a sale the shop has allowed.
-            // The figure is shown so the operator decides with their eyes open.
+            // The figure is shown so the operator decides with their eyes open — and it
+            // is net of repair reservations, so what it shows is what may be promised.
             'sellable' => true,
             'blocked_reason' => null,
             'condition_label' => null,

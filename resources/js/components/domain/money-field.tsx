@@ -19,7 +19,12 @@ interface MoneyFieldProps {
 }
 
 /**
- * An amount, typed at the till.
+ * An amount, typed by a human.
+ *
+ * Lives in the shared domain kit rather than in Sales: the till types prices, the repair
+ * delivery screen types labour charges, and Treasury will type receipts. One money input
+ * with one set of rules about grouping, digits and units — the same reasoning as
+ * `<Money/>` being the only way money is rendered (design-system rule 5).
  *
  * ## Grouped at rest, raw once you start typing
  *

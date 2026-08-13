@@ -576,3 +576,119 @@ that gets edited to look correct in hindsight is not a log.
 An ADR's whole value is that a later reader can trust what it says was agreed. A status
 nobody can trace manufactures consent that was never given, and the next person to
 disagree with the decision ends up arguing with a ghost.
+
+---
+
+## 2026-08-13 — Phase 6 (Repairs) complete: parts reach the bench, and a review finds three ways money leaks
+
+Closed the phase. Kanban, delivery, the abandoned sweep and the DoD walk all landed as
+planned; what the plan did not contain is most of what this entry is about.
+
+**The service with no door.** `TicketParts` had been green since the parts commit —
+reserve, consume, release, and the cross-module test proving a reserved screen is
+invisible to the till. It had no route. The only way to plan a part into a job was
+Tinker, and the phase would have shipped ticking a box for a feature no shopkeeper could
+reach. Three routes now, one per decision, because a bench often plans two possible
+fixes and fits one: consuming automatically on «آماده» would take a screen off the ledger
+while it sits in the drawer.
+
+The picker is not the POS scanner. That one resolves handsets by IMEI, applies reseller
+price levels and gates cost on the till's permission — none of which a bench wants. A
+technician fitting a screen is asking a stock question, so `PartLookup` depends on
+Inventory instead, and quotes **available** rather than on-hand.
+
+It also returns no cost. The first version formatted the weighted average into the
+response, passed every test, and 500'd on the first real search: the test fixture bought
+at exactly 200,000 while seeded stock averages 1,914,285 rial, which is not a whole
+number of toman and which `Money::toArray` refuses. The crash is how it was found; it is
+gone for a better reason. Cost is gated behind `inventory.view_cost` at the till, and a
+parts picker must not hand it to everybody who can edit a ticket.
+
+**The review.** An adversarial fan-out over the Phase 6 surface, every claim handed to
+independent refuters. Three survived, and each was somewhere the module looked correct.
+
+*The passcode leaked through the session, not the model.* Four layers guard an unlock
+code and all four protect it once it has reached the model. A failed intake never gets
+there: Laravel redirects with the old input, the framework's `dontFlash` covers only the
+password fields, and `SESSION_DRIVER=database` with `SESSION_ENCRYPT` off puts the
+customer's code in the clear one table away from the encrypted column that exists to hide
+it. A photo one megabyte too large is enough. Every passcode test posted an intake that
+*succeeded*, which is exactly why none of them saw it.
+
+*A fitted part cost the shop nothing, as far as the books knew.* Repair lines are service
+lines — that is what stops a part being deducted twice — but finalisation snapshots cost
+by looking up a variant, and a service line has none. A screen bought for 200,000 and
+billed at 900,000 read as 900,000 of margin. The overstated Z report is the smaller half:
+commission derives from that margin, so the technician was quietly paid a percentage of
+the customer's whole bill. On the walked example that is 508,570 rather than 700,000 —
+191,430 rial on one repair, and nobody would notice until a year of payroll was
+reconciled.
+
+*Two tills could deliver the same device.* The service-line design removed the very lock
+that protects the till from a double sell: `FinaliseInvoice` locks units, and a repair
+invoice has none. A probe reproduced it — two invoices, the cash posted twice. The status
+flip also sat *after* the invoice commit, which opened the same hole with no concurrency
+at all: a process dying in between left a finalised, paid invoice on a ticket still
+marked `ready`, and the natural retry wrote a second one.
+
+**Left undone, on purpose and in writing.** The per-tenant checklist template builder,
+the labour/services catalogue and outsourcing to an external technician are unticked on
+the roadmap with a reason and a phase each. All three want infrastructure that arrives
+later (Settings UI, Catalog, the party ledger), and building them here would mean
+building them twice.
+
+**What to carry forward.** Two of the three findings were invisible to tests that all
+passed, and both for the same reason: the tests exercised the path that works. A form
+that submits successfully never flashes old input; a fixture that buys at a round price
+never meets the rounding guard. Worth testing the *failing* path of anything that handles
+a secret or a computed figure.
+
+---
+
+## 2026-08-13 (later) — the Phase 6 DoD walk, and what walking it found
+
+Two conventions captured first, both generalised from Phase 6 mistakes: secret-bearing
+forms get a *failed*-submission test asserting the secret is absent from session storage,
+flashed input and the error payload (`docs/testing.md`); and a roadmap box for
+user-facing behaviour only ticks when a route and a screen reach it (`docs/ROADMAP.md`,
+`CLAUDE.md`).
+
+Then the walk: intake with checklist and photo at 390px → thermal receipt → Kanban →
+approval link → parts → delivery signed with a finger → tracking as a stranger.
+Screenshots in `docs/walks/phase-6/`.
+
+It found five defects in a suite that was entirely green, and four of them were invisible
+for the same structural reason — **the tests exercise the paths that work**.
+
+**The camera never attached a photo.** A React functional updater read `e.target.files`
+lazily, after the next line had cleared the input. Every intake posted with zero photos,
+silently. That is the intake screen's whole purpose: three weeks later, when the customer
+says the back glass was fine, the shop has a checklist and no picture. Server-side tests
+passed because they build `UploadedFile` arrays in PHP and never touch the handler.
+
+**Nothing could ask a customer for approval.** `QuoteApproval::request()` and
+`approveByPhone()` had no route. The public `/a/{token}` pages could answer a question the
+application had no way to ask — no quote, no link to send, no way to record a yes given
+over the phone, which is how most Iranian shops settle this. The box was ticked. This was
+the second instance of the rule captured an hour earlier, which is why it is now a
+convention rather than a lesson.
+
+**Tracking told customers they owed money they had already paid.** `amount_due` was
+approved-minus-prepaid always, because a ticket could not find the invoice that settled
+it. Delivery now records `sales_invoice_id`.
+
+**An approval link outlived the job.** Quote, no answer, ticket rejected, phone handed
+back — and the SMS link stayed live. Whoever held it could authorise work on a device that
+had left the shop. Fixed at both layers.
+
+**The public throttles were one bucket with two labels.** Laravel keys guest throttles on
+`sha1($domain.'|'.$ip)` with no URI, so ten tracking refreshes spent the approval
+allowance and the customer's link answered 429.
+
+The adversarial sweep of the public surfaces raised 11 claims; 2 survived three
+independent refuters each (the stale token and the shared bucket). The nine that died
+were killed on reachability or consequence, which is the refuters doing their job.
+
+**Carrying forward.** The failing path is where a rejected request puts things it was
+never asked to keep, and the un-walked screen is where a green service turns out to have
+no door. Both are now written down. Neither would have been found by more unit tests.

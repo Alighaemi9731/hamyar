@@ -15,7 +15,7 @@ import { toLatinDigits } from '@/lib/digits';
 import { type RoundingDirection, calculateTotals } from '@/lib/invoice-totals';
 import { cn } from '@/lib/utils';
 
-import { MoneyField } from '../../pos/money-field';
+import { MoneyField } from '@/components/domain/money-field';
 import { PaymentBox } from '../../pos/payment-box';
 import { ScanBox, type ScanBoxHandle } from '../../pos/scan-box';
 import { type TradeInDraft, TradeInBox } from '../../pos/trade-in-box';

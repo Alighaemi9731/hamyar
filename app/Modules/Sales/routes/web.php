@@ -118,7 +118,7 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:sales'])
 | later makes the customer think the shop has vanished.
 */
 
-Route::middleware(['tenant', 'signed', 'throttle:60,1'])
+Route::middleware(['tenant', 'signed', 'throttle:60,1,sales-public-invoice'])
     ->get('/i/{invoice}', [PublicInvoiceController::class, 'show'])
     ->whereNumber('invoice')
     ->name('sales.invoices.public');

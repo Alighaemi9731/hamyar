@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { MoneyField } from './money-field';
+import { MoneyField } from '@/components/domain/money-field';
 
 export interface TradeInDraft {
   device_name: string;

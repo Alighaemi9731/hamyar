@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-import { MoneyField } from './money-field';
+import { MoneyField } from '@/components/domain/money-field';
 import type { AccountOption, BasketPayment, PaymentMethodOption } from './types';
 
 interface PaymentBoxProps {
