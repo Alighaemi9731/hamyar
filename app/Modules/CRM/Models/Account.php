@@ -66,6 +66,40 @@ final class Account extends Model
      */
     public const TYPE_SALES = 'sales';
 
+    /**
+     * Where money the shop spends is booked — rent, wages, bank fees, tea.
+     *
+     * Phase 7 fills in what Phases 3 and 5 left as placeholders above. An expense
+     * account is not somewhere money *sits*: nothing is ever "in" it. It is the other
+     * side of a payment, and its balance is how much has been spent under that heading
+     * since the shop opened. That distinction is what keeps a transfer from looking like
+     * income and a rent payment from looking like a missing till.
+     */
+    public const TYPE_EXPENSE = 'expense';
+
+    /** Money earned outside the till: rent from a leased desk, a repair commission. */
+    public const TYPE_INCOME = 'income';
+
+    /**
+     * Somewhere money actually sits, as opposed to a heading it is counted under.
+     *
+     * Cash, bank and card terminals hold real balances a shopkeeper can count or check
+     * against a statement. Sales, expense, income and inventory accounts are classifications
+     * — asking "how much is in the sales account" is a category error, and a treasury
+     * screen that lists them beside the till invites exactly that question.
+     *
+     * @return list<string>
+     */
+    public static function moneyHoldingTypes(): array
+    {
+        return [self::TYPE_CASH, self::TYPE_BANK, self::TYPE_POS_TERMINAL];
+    }
+
+    public function holdsMoney(): bool
+    {
+        return in_array($this->type, self::moneyHoldingTypes(), true);
+    }
+
     protected $fillable = [
         'tenant_id', 'branch_id', 'name', 'type', 'bank_name', 'account_number',
         'iban', 'terminal_number', 'opening_balance', 'is_default', 'is_active',

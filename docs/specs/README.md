@@ -26,6 +26,7 @@ Each spec follows the same shape:
 | CRM | [crm.md](crm.md) | 4 |
 | Sales | [sales.md](sales.md) | 5 |
 | Installments | [installments.md](installments.md) | 5 · 7 |
+| Installment collection | [installment-collection.md](installment-collection.md) | 7 |
 | Repairs | [repairs.md](repairs.md) | 6 |
 | Treasury | [treasury.md](treasury.md) | 7 |
 | Cheques | [cheques.md](cheques.md) | 7 |
