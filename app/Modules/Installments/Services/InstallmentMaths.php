@@ -156,19 +156,34 @@ final class InstallmentMaths
      * earnings should not be the last thing collected from somebody already struggling —
      * and because it is the order every Iranian lender uses, so it matches expectation.
      *
+     * `$alreadySettled` is what earlier payments on this row have cleared. Without it a
+     * customer could settle a 12,000,000 instalment by paying 6,000,000 twice and having
+     * each half applied against the same profit and principal.
+     *
      * @return array{fee: int, profit: int, principal: int, unapplied: int}
      */
-    public function applyPayment(InstallmentRow $row, InstallmentPlan $plan, int $amount, ?CarbonImmutable $asOf = null): array
-    {
+    public function applyPayment(
+        InstallmentRow $row,
+        InstallmentPlan $plan,
+        int $amount,
+        ?CarbonImmutable $asOf = null,
+        int $alreadySettled = 0,
+    ): array {
         $remaining = max(0, $amount);
 
-        $fee = min($remaining, $this->lateFeeOn($row, $asOf));
+        // Earlier payments cleared the fee first, then profit, then principal — so what
+        // is left to settle unwinds in the same order.
+        $priorFee = min($alreadySettled, $this->lateFeeOn($row, $asOf));
+        $priorProfit = min($alreadySettled - $priorFee, $this->profitPartOf($row, $plan));
+        $priorPrincipal = max(0, $alreadySettled - $priorFee - $priorProfit);
+
+        $fee = min($remaining, max(0, $this->lateFeeOn($row, $asOf) - $priorFee));
         $remaining -= $fee;
 
-        $profit = min($remaining, $this->profitPartOf($row, $plan));
+        $profit = min($remaining, max(0, $this->profitPartOf($row, $plan) - $priorProfit));
         $remaining -= $profit;
 
-        $principal = min($remaining, $this->principalPartOf($row, $plan));
+        $principal = min($remaining, max(0, $this->principalPartOf($row, $plan) - $priorPrincipal));
         $remaining -= $principal;
 
         return [
