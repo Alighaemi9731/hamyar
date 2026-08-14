@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Settings\Services;
 
+use App\Modules\Messaging\Enums\AutomationKey;
 use App\Support\Settings\CommissionSettings;
 use App\Support\Settings\InstallmentSettings;
+use App\Support\Settings\MessagingSettings;
 use App\Support\Settings\PrintSettings;
 use App\Support\Settings\RepairSettings;
 use App\Support\Settings\RoundingDirection;
@@ -64,6 +66,12 @@ final class TenantShopSettings implements ShopSettings
     /** However late it gets, the fee stops at a fifth of the instalment. */
     public const DEFAULT_LATE_FEE_CAP_PERCENT = 20;
 
+    /** Nothing swept sends before 9am, shop-local. */
+    public const DEFAULT_QUIET_UNTIL_HOUR = 9;
+
+    /** Or after 9pm. A 2am «تولدت مبارک» is not a kindness. */
+    public const DEFAULT_QUIET_FROM_HOUR = 21;
+
     /**
      * A reminder at a week, a warning at a month, a last notice at seven weeks — and
      * then رسوبی at sixty days.
@@ -104,6 +112,38 @@ final class TenantShopSettings implements ShopSettings
             // Capped even when a shop sets something absurd: a fee larger than the
             // instalment is not a late fee, it is a different contract.
             lateFeeCapPercent: is_int($cap) && $cap > 0 ? min($cap, 100) : self::DEFAULT_LATE_FEE_CAP_PERCENT,
+        );
+    }
+
+    public function messaging(): MessagingSettings
+    {
+        $tenant = $this->context->tenant();
+
+        $configured = $tenant?->setting('messaging.automations');
+        $automations = [];
+
+        foreach (AutomationKey::cases() as $key) {
+            $value = is_array($configured) ? ($configured[$key->value] ?? null) : null;
+
+            /*
+            | `=== true`, not a truthy check, and not a default of true.
+            |
+            | A shop that has never opened the messaging screen has `null` here, and null
+            | must mean off. So must 'yes', 1, and anything else a hand-edited settings
+            | document contains — only an explicit boolean true switches an automation on,
+            | because everything else is a guess about what somebody meant, and guessing
+            | wrong here sends messages the shop never authorised.
+            */
+            $automations[$key->value] = $value === true;
+        }
+
+        $quietUntil = $tenant?->setting('messaging.quiet_until_hour');
+        $quietFrom = $tenant?->setting('messaging.quiet_from_hour');
+
+        return new MessagingSettings(
+            automations: $automations,
+            quietUntilHour: is_int($quietUntil) && $quietUntil >= 0 && $quietUntil <= 23 ? $quietUntil : self::DEFAULT_QUIET_UNTIL_HOUR,
+            quietFromHour: is_int($quietFrom) && $quietFrom >= 0 && $quietFrom <= 23 ? $quietFrom : self::DEFAULT_QUIET_FROM_HOUR,
         );
     }
 

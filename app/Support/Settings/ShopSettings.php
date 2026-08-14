@@ -63,4 +63,12 @@ interface ShopSettings
      * somebody has to defend at a counter.
      */
     public function installments(): InstallmentSettings;
+
+    /**
+     * Which automatic messages are switched on.
+     *
+     * Every one defaults to OFF — see {@see MessagingSettings} on why that direction is
+     * not a preference.
+     */
+    public function messaging(): MessagingSettings;
 }
