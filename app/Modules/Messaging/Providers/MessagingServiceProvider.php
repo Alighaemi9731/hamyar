@@ -7,7 +7,14 @@ namespace App\Modules\Messaging\Providers;
 use App\Modules\Messaging\Contracts\SmsDriver;
 use App\Modules\Messaging\Drivers\FakeSmsDriver;
 use App\Modules\Messaging\Drivers\KavenegarDriver;
+use App\Modules\Messaging\Listeners\SendAbandonedStepSms;
+use App\Modules\Messaging\Listeners\SendInvoiceIssuedSms;
+use App\Modules\Messaging\Listeners\SendRepairStatusSms;
+use App\Modules\Repairs\Events\TicketEscalated;
+use App\Modules\Repairs\Events\TicketStatusChanged;
+use App\Modules\Sales\Events\InvoiceFinalised;
 use App\Support\Modules\ModuleServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 /**
  * Messaging module.
@@ -41,5 +48,22 @@ final class MessagingServiceProvider extends ModuleServiceProvider
 
             return new FakeSmsDriver;
         });
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        /*
+        | Wired to the events Phases 5–7 already dispatch.
+        |
+        | No synthetic event names: a `messaging.repair_ready` invented here would drift
+        | from `TicketStatusChanged` the first time somebody renamed the real thing, and the
+        | automation would go quiet with no test failing. Every listener below names an
+        | emitter that existed before this module.
+        */
+        Event::listen(TicketStatusChanged::class, SendRepairStatusSms::class);
+        Event::listen(TicketEscalated::class, SendAbandonedStepSms::class);
+        Event::listen(InvoiceFinalised::class, SendInvoiceIssuedSms::class);
     }
 }

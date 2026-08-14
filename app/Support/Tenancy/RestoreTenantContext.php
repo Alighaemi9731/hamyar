@@ -51,12 +51,29 @@ final class RestoreTenantContext
             return null;
         }
 
+        /*
+        | Whether anybody was already in a tenant when this job started.
+        |
+        | On a worker: nobody. The job is the only thing running, and the context must be
+        | cleared afterwards so the NEXT job — possibly another shop's — cannot inherit it.
+        |
+        | On the `sync` driver: somebody. The job runs inline, inside the caller's context,
+        | because a listener dispatched it mid-request. Clearing unconditionally then wipes
+        | the CALLER's tenant and the next line of their code fails with "no tenant is set"
+        | — which is what happened the first time a repair transition fired an SMS listener
+        | during a seeded scenario, and it read as a tenancy bug in the seeder.
+        |
+        | `runFor()` restores the previous context either way; this only decides whether to
+        | wipe what it restored.
+        */
+        $enteredFromNoTenant = $context->id() === null;
+
         try {
             return $context->runFor($tenant, fn (): mixed => $next($job));
         } finally {
-            // runFor() already restores the previous context, but a worker should
-            // never be left holding a tenant between jobs.
-            $context->forget();
+            if ($enteredFromNoTenant) {
+                $context->forget();
+            }
         }
     }
 }
