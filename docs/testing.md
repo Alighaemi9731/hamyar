@@ -208,6 +208,42 @@ it('does not flash the passcode when the intake fails validation', function (): 
 });
 ```
 
+**Client-side file handling is never covered by server-side tests alone.** Camera
+capture, file pickers, drag-and-drop and paste-to-upload all live in a browser handler
+that no PHP test executes. A feature test posting `UploadedFile::fake()` proves the
+*server* stores what it is given; it says nothing about whether the browser ever put the
+file in the body. Those are two different bugs, and only one of them has coverage by
+default.
+
+So any screen that attaches a file gets a browser assertion that **the request payload
+actually contained it** — not that a button exists, not that a preview rendered, but that
+the bytes were in the multipart body. Where a browser test is not yet available, the
+minimum is a manual walk recorded in `docs/walks/`, and the box does not tick until
+somebody has watched a real file arrive.
+
+The repair intake shipped this bug with a fully green suite:
+
+```tsx
+// Broken. `Array.from(e.target.files)` is inside a callback React runs LATER —
+// by which time the next line has cleared `value`, and clearing `value` empties `files`.
+setPhotos((current) => [...current, ...Array.from(e.target.files ?? [])]);
+e.target.value = '';
+
+// Correct. Read the files now; queue the state update with what you already hold.
+const picked = Array.from(e.target.files ?? []);
+setPhotos((current) => [...current, ...picked]);
+e.target.value = '';
+```
+
+Every intake posted with **zero photos**. No thumbnail, no error, nothing in the log —
+and photos are the intake screen's whole reason for existing. Three weeks later, when the
+customer insists the back glass was fine when they handed the phone over, the shop has a
+checklist that says «خط و خش» and no picture to put next to it.
+
+The tests that should have caught it could not: they build `UploadedFile` arrays in PHP
+and hand them straight to the endpoint, which is precisely the step that was broken. It
+was found by walking the screen.
+
 **A form has somewhere to show an error that belongs to no field.** The companion to the
 rule above, and the reason that bug was invisible rather than merely wrong: the intake
 page rendered errors only beside `device_model` and `reported_issue`, so a failure on

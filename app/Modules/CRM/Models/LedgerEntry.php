@@ -37,6 +37,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string|null $description
  * @property int|null $actor_id
  * @property CarbonImmutable $occurred_at
+ * @property CarbonImmutable|null $reconciled_at
+ * @property int|null $reconciled_by
  * @property CarbonImmutable $created_at
  */
 final class LedgerEntry extends Model
@@ -49,6 +51,7 @@ final class LedgerEntry extends Model
     protected $fillable = [
         'tenant_id', 'party_id', 'account_id', 'branch_id', 'debit', 'credit',
         'reference_type', 'reference_id', 'batch_id', 'description', 'actor_id', 'occurred_at',
+        'reconciled_at', 'reconciled_by',
     ];
 
     /**
@@ -57,6 +60,8 @@ final class LedgerEntry extends Model
     protected function casts(): array
     {
         return [
+            'reconciled_at' => 'immutable_datetime',
+            'reconciled_by' => 'integer',
             'debit' => 'integer',
             'credit' => 'integer',
             'occurred_at' => 'immutable_datetime',

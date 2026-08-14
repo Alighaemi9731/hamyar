@@ -145,6 +145,43 @@ final class Jalali
     }
 
     /**
+     * The Jalali month a moment falls in, as `1405-06`.
+     *
+     * The identity of a period, used by anything that must book something once per month
+     * and know later that it did — recurring expenses, rent, and any future statement
+     * that groups by the calendar the shop actually works in.
+     *
+     * A Gregorian `Y-m` key would be wrong for exactly the reason this class exists: a
+     * Jalali month straddles two Gregorian ones, so «اجاره مرداد» would land in two
+     * different buckets depending on which day it was booked.
+     */
+    public static function monthKey(DateTimeInterface|string|int $value): string
+    {
+        $jalalian = self::jalalian($value);
+
+        return sprintf('%04d-%02d', $jalalian->getYear(), $jalalian->getMonth());
+    }
+
+    /**
+     * A given day of the Jalali month that `$value` falls in, clamped to its length.
+     *
+     * Clamped rather than overflowing: rent due «سی‌ویکم هر ماه» must still fall due in a
+     * thirty-day month, on the thirtieth. Rolling into the next month would book two
+     * months' rent in one and none in the other, and skipping would quietly lose a month
+     * every time Esfand came round.
+     */
+    public static function dayInMonthOf(DateTimeInterface|string|int $value, int $day): CarbonImmutable
+    {
+        $jalalian = self::jalalian($value);
+
+        $clamped = max(1, min($day, $jalalian->getMonthDays()));
+
+        return CarbonImmutable::instance(
+            (new Jalalian($jalalian->getYear(), $jalalian->getMonth(), $clamped))->toCarbon()
+        )->utc()->startOfDay();
+    }
+
+    /**
      * Today in the shop's timezone, as a Jalali string. Used for date-picker defaults.
      */
     public static function today(string $format = self::DATE, bool $persianDigits = true): string

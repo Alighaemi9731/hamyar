@@ -77,6 +77,13 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
+- **A null-object default is bound with `bindIf`, never `bind`.** Module providers are
+  discovered in directory order, so a default and its real implementation binding the same
+  interface with `bind` means the last writer wins — and which one that is depends on a
+  directory listing. The symptom is not a crash: it is **a guard that silently passes**,
+  half the time, on half the deployments. `Cheques` binding `PartyExposure` lost to CRM's
+  `NoPartyExposure` exactly this way, and the credit check went on approving customers it
+  should have stopped.
 - **Every form has a home for errors that belong to no field.** A validation failure on
   `accessories` or `lines` has nowhere to render beside an input, so without a general
   error region the submit button silently does nothing — and the operator, with a

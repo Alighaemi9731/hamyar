@@ -692,3 +692,62 @@ were killed on reachability or consequence, which is the refuters doing their jo
 **Carrying forward.** The failing path is where a rejected request puts things it was
 never asked to keep, and the un-walked screen is where a green service turns out to have
 no door. Both are now written down. Neither would have been found by more unit tests.
+
+---
+
+## 2026-08-14 — Phase 7 (Treasury, cheques, instalment collection) complete
+
+**Spec-first, and it earned its keep.** The cheque posting matrix and the instalment maths
+were written into `docs/specs/` before any code, because both are tables where a plausible
+mistake produces a number a customer disputes at the counter — and where writing the
+document afterwards turns it into a description of whatever got built.
+
+The cheque matrix came from three independent derivations reconciled into one document.
+All three reached the same central answer separately: **a received cheque settles the
+customer's debt when it is taken, not when it clears.** The row two of them caught and most
+specs miss: **re-presentation after a bounce does not post a deposit's lines.** The bounce
+credited *collection* and debited the *party*, so the drawer account holds nothing for that
+cheque — copying the deposit lines would drive it negative by the face value, permanently.
+
+Every row of that table has its own test now, R1–R13 and I1–I7, in table order. Including
+the boring ones: a matrix with three interesting rows tested and nine assumed is
+untrustworthy the day the tenth is wrong.
+
+**Two binding constraints fell out of the spec and shipped with the slice**, both verified
+failing on the old code first. `creditCheck()` read the party balance alone, so a customer
+who paid entirely in post-dated paper had unlimited further credit — exactly the customer a
+limit exists to stop. And `VoidInvoice` reversed only batches referencing a `SalesInvoice`,
+so voiding a cheque-paid invoice credited the customer in full and left the cheque asset
+standing. Neither fix crosses a module boundary: CRM declares `PartyExposure`, Sales
+declares `InvoiceSettlementGuard`, Cheques binds both.
+
+**The "one crazy month" seeder was grown slice by slice from the first commit of the
+phase**, with a reconciliation harness running after each. That was the right call: the
+harness caught every slice that moved the figures, on the day it landed, instead of at the
+end across six subsystems.
+
+Its headline invariant had to be rewritten once, and the rewrite is the lesson. The first
+version asserted exact figures for the whole month, and every slice broke it — which is a
+number I have to update when I add a sale, and therefore a number I could update wrongly
+while the books quietly stopped balancing. The claim that never needs editing:
+`sum(all balances) == sum(all opening balances)`, across accounts and parties together,
+whatever happened in between.
+
+**Things found by building the screens rather than the tests.** `CrazyMonthSeeder` matched
+accounts by name, so it built a parallel chart beside the demo shop's — two sales accounts,
+two inventory accounts, and a collision on the one-default-per-tenant index for the till.
+The ledger balanced throughout. Every test passed. It was visible the moment a treasury page
+listed both.
+
+**Deferred with reasons on the roadmap**, not silently: the rental reminder and the
+instalment SMS nudge both belong to Phase 8, which owns every notification channel, and the
+printable cheque receipt to Phase 9 with the shared print templates. The events those
+features will listen on are already emitted.
+
+**Two conventions captured.** Null-object defaults bind with `bindIf`, never `bind` —
+provider discovery order must never decide which implementation wins, and the symptom is not
+a crash but a guard that silently passes. And the period-keyed idempotency pattern is
+written up in `docs/specs/treasury.md` as reusable, because Phase 8's birthday and reminder
+automations need exactly that shape down to the Jalali key.
+
+967 tests green.

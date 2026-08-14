@@ -12,6 +12,7 @@ use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\StockLedger;
 use App\Modules\Inventory\Services\UnitStateMachine;
+use App\Modules\Sales\Contracts\InvoiceSettlementGuard;
 use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
@@ -56,6 +57,7 @@ final class VoidInvoice
         private readonly StockLedger $stock,
         private readonly UnitStateMachine $units,
         private readonly LedgerService $ledger,
+        private readonly InvoiceSettlementGuard $settlement,
     ) {}
 
     public function void(SalesInvoice $invoice, string $reason, ?int $actorId = null): SalesInvoice
@@ -114,6 +116,28 @@ final class VoidInvoice
             throw new RuntimeException(
                 'این فاکتور برگشت از فروش دارد و ابطال نمی‌شود. برای اصلاح، برگشت را ثبت یا حذف کنید.'
             );
+        }
+
+        /*
+        | Settlement paper that is still live blocks the void.
+        |
+        | `reverseLedger()` below reverses only batches referencing a `SalesInvoice`. A
+        | cheque posts its own batch against a `Cheque`, so without this guard voiding a
+        | cheque-paid invoice credits the customer the whole amount and leaves the cheque
+        | asset standing — the shop owing a customer whose paper is still in its drawer.
+        |
+        | Refused rather than unwound automatically, deliberately. Unwinding would silently
+        | undo an endorsement already given to a supplier, or a deposit sitting at a bank,
+        | and the shop would hear about it from the supplier. The paper is a physical thing
+        | somebody has to hand back first — the same reasoning as the returns guard above.
+        |
+        | Asked through an interface Sales owns, so Sales does not depend on the Cheques
+        | module (golden rule 6).
+        */
+        $blocking = $this->settlement->blockingReason($invoice);
+
+        if ($blocking !== null) {
+            throw new RuntimeException($blocking);
         }
     }
 

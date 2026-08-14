@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $due_at
  * @property int $amount
  * @property string $status
+ * @property CarbonImmutable|null $settled_at
  */
 final class InstallmentRow extends Model
 {
@@ -38,7 +39,7 @@ final class InstallmentRow extends Model
     protected $attributes = ['status' => self::STATUS_PENDING];
 
     protected $fillable = [
-        'tenant_id', 'installment_plan_id', 'sequence', 'due_at', 'amount', 'status',
+        'tenant_id', 'installment_plan_id', 'sequence', 'due_at', 'amount', 'status', 'settled_at',
     ];
 
     /**
@@ -48,6 +49,7 @@ final class InstallmentRow extends Model
     {
         return [
             'due_at' => 'immutable_datetime',
+            'settled_at' => 'immutable_datetime',
             'sequence' => 'integer',
             'amount' => 'integer',
         ];
