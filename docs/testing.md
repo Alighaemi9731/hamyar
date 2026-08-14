@@ -230,6 +230,33 @@ would still hold; and where a figure is asserted, make sure it was computed by d
 means than the code under test — a test that reruns the implementation's own arithmetic
 proves only that the code is deterministic.
 
+**That habit's first kill, one phase later.** `MessagingTenantIsolationTest` reported green
+while processing no jobs at all: the job queues itself on `sms` and the worker was draining
+`default`, so nothing ran — and its cross-tenant assertion, `expect(Message::count())->toBe(0)`
+for the other shop, was true *precisely because* no message existed anywhere. Reading the
+assertion with the implementation deleted is what exposed it. The fix was to assert the
+message DOES exist for the shop that sent it, before asserting it does not for the shop that
+did not: **a negative assertion needs a positive one beside it, or it passes on an empty
+world.**
+
+**A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
+test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
+indistinguishable from the failure message. Three tenant-isolation tests failed with "no
+message found", which reads as a tenancy leak; the cause was that `queue:work` defaults to a
+**128 MB memory ceiling and quits after the current job once the process exceeds it**. Run
+alone the file was under the limit and passed; run inside the full suite the process was
+already past it before the first job, so the worker handled exactly one job per call.
+
+Two wrong hypotheses were tried before that — a cached queue connection, then a config
+ordering problem — and both produced plausible fixes that changed nothing. What found it
+was printing the queue depth before and after the drain: `queued=4 left=3`. One line of
+instrumentation beat two rounds of reasoning about a system whose behaviour differed
+between runs.
+
+The rule: when a test's failure does not match what you changed, **measure the harness
+before theorising about the domain.** A test that fails only in the full suite, or only in
+CI, or only after another file has run, is a harness suspect until proven otherwise.
+
 **Prefer an invariant to a hand-maintained figure, wherever both express the claim.** An
 exact-number assertion has to be updated by a person every time the scenario grows, and a
 person updating it can update it wrongly — at which point the test still passes and the
