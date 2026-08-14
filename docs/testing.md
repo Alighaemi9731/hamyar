@@ -208,6 +208,49 @@ it('does not flash the passcode when the intake fails validation', function (): 
 });
 ```
 
+**Before pinning a test, ask: can this assertion fail if the code is wrong?** A test that
+cannot fail is worse than a missing one — it occupies the slot where the real test would
+go, and it reports green forever.
+
+The trap is easy to walk into while writing something that looks careful. From the
+instalment maths:
+
+```php
+// Asserts nothing. True for every possible value of either side.
+expect($quote['rebate'])->toBe($quote['profit_due'] + $quote['rebate'] - $quote['profit_due']);
+```
+
+That passed on the first run, which is exactly why it survived review — a red test gets
+read, a green one gets trusted. It was replaced with the claim it was supposed to make: the
+rebate shrinks as the term elapses, 12,000,000 back with nothing paid and 333,330 back with
+five of six instalments paid.
+
+Two habits catch these. Read the assertion with the implementation deleted and ask what
+would still hold; and where a figure is asserted, make sure it was computed by different
+means than the code under test — a test that reruns the implementation's own arithmetic
+proves only that the code is deterministic.
+
+**Prefer an invariant to a hand-maintained figure, wherever both express the claim.** An
+exact-number assertion has to be updated by a person every time the scenario grows, and a
+person updating it can update it wrongly — at which point the test still passes and the
+property it guarded is gone.
+
+The Phase 7 reconciliation harness was first written as exact monthly totals: cash held,
+total spent. Every slice of the seeded month broke it, and each break was a judgement call
+about whether the new number was right. The version that replaced it never needs editing:
+
+```php
+// Every ledger row names one subject and carries one of debit or credit, and every batch
+// balances — so across all subjects the movements cancel, and what is left is what the
+// shop opened with. Whatever happened in between.
+expect($totalBalances)->toBe($totalOpenings);
+```
+
+Conservation claims — nothing created or destroyed, parts summing to the whole, a balance
+equalling the entries beneath it — survive scenario growth because they describe a property
+rather than a state. Keep exact figures beside them for the specific things a slice
+introduced; just do not let them be what "reconciles" means.
+
 **Client-side file handling is never covered by server-side tests alone.** Camera
 capture, file pickers, drag-and-drop and paste-to-upload all live in a browser handler
 that no PHP test executes. A feature test posting `UploadedFile::fake()` proves the
