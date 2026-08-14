@@ -33,6 +33,7 @@ given — and the next person to disagree with the decision is arguing with a gh
 | [0007](0007-tenant-session-variable.md) | `set_config(..., false)` rather than `SET LOCAL` for `app.tenant_id` | Accepted | **Gate 1**, cleared 2026-08-07 |
 | [0008](0008-visual-language.md) | Visual language: calm neutral ground, one blue, pill actions | Accepted | Owner *request* + delivery, PROGRESS 2026-08-07 — the weakest provenance of the nine; see the file |
 | [0009](0009-invoice-rounding.md) | Invoice rounding: whole toman, floor VAT, round the total once | Accepted | **Gate 3**, cleared 2026-08-12 |
+| [0010](0010-job-context-teardown.md) | Tenant-context teardown is conditional on how a job entered | Accepted | Directed capture, autonomous-run authorization 2026-08-14 |
 
 ## Writing a new one
 
@@ -51,4 +52,3 @@ Copy the shape of an existing file:
 Reference ADRs from code comments where the reasoning is not local — for example the
 Postgres bootstrap script and `phpunit.xml` both point at 0002 and 0004, because on
 their own they look like arbitrary configuration.
-| [0010](0010-job-context-teardown.md) | Tenant-context teardown is conditional on how a job entered | Accepted | 8 |
