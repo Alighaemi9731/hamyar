@@ -51,3 +51,4 @@ Copy the shape of an existing file:
 Reference ADRs from code comments where the reasoning is not local — for example the
 Postgres bootstrap script and `phpunit.xml` both point at 0002 and 0004, because on
 their own they look like arbitrary configuration.
+| [0010](0010-job-context-teardown.md) | Tenant-context teardown is conditional on how a job entered | Accepted | 8 |
