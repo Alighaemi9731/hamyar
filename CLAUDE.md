@@ -77,6 +77,15 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
+- **An idempotent insert that catches a unique violation must run in a nested
+  transaction.** Postgres aborts the *entire* transaction on a constraint violation, so
+  catching 23505 inside an outer one leaves it dead and every later statement fails with
+  `25P02: current transaction is aborted`. Wrapping the insert in `DB::transaction()`
+  gives it a SAVEPOINT to roll back to instead. Two places have needed this —
+  `AbandonedSweep::insertOnce()` and `SendSms::record()` — and the second presented as
+  twelve *unrelated* tests failing after the one that collided, which is why it is written
+  down rather than rediscovered a third time. Every test runs inside `RefreshDatabase`'s
+  transaction, so this is not an edge case: it is the default condition.
 - **A null-object default is bound with `bindIf`, never `bind`.** Module providers are
   discovered in directory order, so a default and its real implementation binding the same
   interface with `bind` means the last writer wins — and which one that is depends on a

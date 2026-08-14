@@ -14,6 +14,27 @@ use Illuminate\Support\Facades\Log;
 /**
  * Kavenegar — the gateway most Iranian shops already have an account with.
  *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *  THE TOKEN CONTRACT — read this before changing anything below
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
+ *  1. The parameters are `token`, `token2`, `token3` … `token10`.
+ *     **There is no `token1`.** Assume there is and every value shifts one place, so
+ *     the customer's name arrives where the amount belongs and the message is wrong in
+ *     a way that reads as deliberate.
+ *
+ *  2. **A token containing a space is REJECTED, not truncated.** The API returns an
+ *     error and nothing is delivered. Persian names are full of spaces — «حسن رضایی»
+ *     is one token with one — so spaces become underscores here. Ugly, and it arrives.
+ *
+ *  3. Ten tokens is the maximum. Beyond that they are dropped rather than silently
+ *     corrupting the message, and the template manager refuses to save a pattern that
+ *     needs more.
+ *
+ *  4. Tokens are POSITIONAL. Order is the contract, all the way from `SmsPayload`.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
  * ## The `verify/lookup` endpoint, not `sms/send`
  *
  * Pattern sends go through `verify/lookup`, which takes a template name and up to ten
