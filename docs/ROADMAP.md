@@ -760,35 +760,44 @@ converging on them later.
 ## Phase 8 — Messaging (SMS) & Notifications
 
 ### 8.1 Drivers
-- [ ] Driver abstraction
-- [ ] Kavenegar driver (pattern/lookup send)
-- [ ] sms.ir stub
-- [ ] Per-tenant credentials vs platform-pool billing by credits
-- [ ] Credit wallet, price tiers, low-credit alert
+- [x] Driver abstraction (transport only — no policy decisions in a driver)
+- [x] Kavenegar driver (pattern/lookup send; token contract documented in the file)
+- [ ] sms.ir stub — deferred: a second driver with no account to test against is a guess
+      at an API. The abstraction is proven by the fake and Kavenegar; adding sms.ir when a
+      shop needs it costs one class.
+- [x] Per-tenant credentials vs platform-pool billing by credits
+- [x] Credit wallet, low-credit suppression (an empty wallet suppresses, never fails)
+- [ ] Price tiers — deferred to Phase 11 with billing; one platform rate today
 
 ### 8.2 Templates & automations
-- [ ] Template manager with variables (`{name}`, `{ticket_code}`, `{amount}`, `{due_date_j}`…)
-- [ ] Automation toggle matrix: invoice finalized, repair status changes, ready, installment T-3/T-0/overdue, cheque T-2, birthday, abandoned-device steps
+- [x] Template manager with variables, ordered tokens, unknown-variable refusal
+- [x] Automation toggle matrix — nine automations on the events Phases 5–7 already emit,
+      every toggle OFF by default, per-automation opt-out asserted
 
 ### 8.3 Campaigns
-- [ ] Audience builder over CRM filters (last purchase, brand owned, tags, balance)
-- [ ] Schedule + throttled queued sending
-- [ ] Per-message status / delivery polling
-- [ ] Opt-out list honoured everywhere
+- [x] Audience builder over CRM filters (kind, tags, recent purchase, balance)
+- [x] Throttled queued sending (`per_minute` per campaign)
+- [ ] Per-message delivery polling — deferred to Phase 11: it needs a scheduled poller and
+      a real gateway account to poll. Provider references are stored, so the data is ready.
+- [x] Opt-out honoured everywhere — excluded from the audience count AND refused at the door
 
 ### 8.4 In-app
-- [ ] Notification centre (bell) fed by the same events
+- [ ] Notification centre (bell) — deferred to Phase 9, which builds the dashboard the bell
+      belongs on. The message log ships here and answers the same question.
 
 ### 8.5 Tests
-- [ ] Driver fake asserting exact payloads
-- [ ] Automation matrix
-- [ ] Credit deduction accuracy incl. refund on gateway failure
-- [ ] Campaign filter correctness on a seeded CRM
-- [ ] Opt-out respected
-- [ ] Cross-tenant isolation
+- [x] Driver fake asserting exact payloads (template id, token ORDER, normalised recipient)
+- [x] Automation matrix
+- [x] Credit deduction accuracy incl. refund on gateway failure
+- [x] Campaign filter correctness on a seeded CRM
+- [x] Opt-out respected — per automation, all nine, as a dataset
+- [x] Cross-tenant isolation — two shops' jobs interleaved on one worker
 
 ### Phase 8 — Definition of Done
-- [ ] Changing a repair status fires the right pattern SMS in sandbox/fake and logs the cost
+- [x] Changing a repair status fires the right pattern SMS in fake and logs the cost —
+      walked as a busy day: one customer with a repair ready, an instalment due and a
+      birthday; a second with all three who opted out; three sweeps. Six rows, three sent
+      at 300 toman each, three suppressed at zero.
 
 ---
 

@@ -751,3 +751,56 @@ written up in `docs/specs/treasury.md` as reusable, because Phase 8's birthday a
 automations need exactly that shape down to the Jalali key.
 
 967 tests green.
+
+---
+
+## 2026-08-14 — Phase 8 (Messaging) complete
+
+**The wallet is real money, so it was built before anything that could spend it.** Charge
+before the gateway call, refund on refusal, and a test that scripts a gateway failure —
+because a refund path with no test is a wallet that drains on every carrier outage. An empty
+wallet suppresses rather than fails: a repair marked ready must not error because the SMS
+credit ran out.
+
+**Everything defaults OFF, and only an explicit boolean `true` turns an automation on.** A
+shop that never configured messaging must not wake up to sent texts and a drained wallet.
+`'yes'` and `1` resolve to off, because each is a guess about what somebody meant.
+
+**Nine automations, all on events Phases 5–7 already emit.** No synthetic event names: an
+invented `messaging.repair_ready` drifts from `TicketStatusChanged` the first time somebody
+renames the real thing, and the automation goes quiet with no test failing. The three
+date-driven ones have no emitter — nothing happens when a due date arrives — so a sweep
+looks, keyed by Jalali period.
+
+**Opt-out is asserted per automation, all nine.** The check lives at the door in `SendSms`;
+a check in the automation gate would be one of nine callers getting it right, and the one
+that got it wrong would be the birthday message.
+
+**The busy day**, walked in the browser: one customer with a repair ready, an instalment due
+and a birthday; a second with all three who opted out; three sweeps because a scheduler runs
+hourly. Six rows — three sent at 300 toman, three suppressed at zero, each naming «مشتری از
+دریافت پیامک انصراف داده است». Three *different* events to one number is correct; three of
+the same is not, and a test that merely counted per number would have called the right
+behaviour a bug.
+
+**The best find of the phase was a tenancy defect, and it came from a test seeder failing.**
+`RestoreTenantContext` cleared the tenant context unconditionally. Correct on a worker —
+the next job may be another shop's. Wrong on `sync`, where a job runs inline inside the
+caller's context: a repair transition that fired an SMS listener wiped the tenant of the
+code that dispatched it. Recorded as [ADR 0010](adr/0010-job-context-teardown.md), including
+the uncomfortable half — the same line had been probed one commit earlier and written up as
+harmless-but-redundant, because the probe asked whether it was *necessary* and never whether
+it was *harmful*.
+
+**Four harness bugs, all of which made tests pass or fail for reasons unrelated to the
+code:** a worker draining the wrong queue (and an isolation assertion that was true because
+nothing ran), a queue connection cached across the suite, `queue:work`'s 128 MB ceiling
+quitting after one job, and a throttle test querying a `jobs` table that `sync` never fills.
+The last two are why `docs/testing.md` now says to instrument before hypothesising.
+
+**Deferred with reasons on the roadmap:** the sms.ir stub (a second driver with no account
+to test against is a guess at an API), price tiers and delivery polling (Phase 11, with
+billing and a real gateway), and the notification bell (Phase 9, which builds the dashboard
+it belongs on — the message log ships here and answers the same question).
+
+1016 tests green.

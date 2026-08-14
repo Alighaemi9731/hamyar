@@ -10,11 +10,14 @@ use App\Modules\Messaging\Drivers\KavenegarDriver;
 use App\Modules\Messaging\Listeners\SendAbandonedStepSms;
 use App\Modules\Messaging\Listeners\SendInvoiceIssuedSms;
 use App\Modules\Messaging\Listeners\SendRepairStatusSms;
+use App\Modules\Messaging\Models\Message;
+use App\Modules\Messaging\Policies\MessagePolicy;
 use App\Modules\Repairs\Events\TicketEscalated;
 use App\Modules\Repairs\Events\TicketStatusChanged;
 use App\Modules\Sales\Events\InvoiceFinalised;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Messaging module.
@@ -65,5 +68,7 @@ final class MessagingServiceProvider extends ModuleServiceProvider
         Event::listen(TicketStatusChanged::class, SendRepairStatusSms::class);
         Event::listen(TicketEscalated::class, SendAbandonedStepSms::class);
         Event::listen(InvoiceFinalised::class, SendInvoiceIssuedSms::class);
+
+        Gate::policy(Message::class, MessagePolicy::class);
     }
 }
