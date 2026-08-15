@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reporting\Services;
 
 use App\Modules\Identity\Models\User;
+use App\Modules\Reporting\Support\ReportAccess;
 
 /**
  * The list of reports, and who may open each one.
@@ -50,7 +51,7 @@ final class ReportCatalogue
     }
 
     /**
-     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string}>
+     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string, needs_margin?: bool}>
      */
     public static function reports(): array
     {
@@ -95,6 +96,40 @@ final class ReportCatalogue
                 'href' => '/reporting/sales?cut=salesperson',
                 'permission' => 'reporting.view',
             ],
+
+            /*
+            | The profit cuts carry `needs_margin`, and it is not a second permission —
+            | it is `ReportAccess`, the one predicate the dashboard and the sales report
+            | already ask. A row listed here that 403s when clicked is worse than no row,
+            | and the only way to guarantee they agree is for both to ask the same thing.
+            */
+            [
+                'key' => 'profit.by_product',
+                'title' => 'سود بر اساس کالا',
+                'description' => 'سودآورترین کالاها — نه لزوماً پرفروش‌ترین‌ها.',
+                'group' => self::GROUP_SALES,
+                'href' => '/reporting/profit?cut=product',
+                'permission' => 'reporting.view',
+                'needs_margin' => true,
+            ],
+            [
+                'key' => 'profit.by_brand',
+                'title' => 'سود بر اساس برند',
+                'description' => 'سود هر برند در بازه، برای تصمیم خرید بعدی.',
+                'group' => self::GROUP_SALES,
+                'href' => '/reporting/profit?cut=brand',
+                'permission' => 'reporting.view',
+                'needs_margin' => true,
+            ],
+            [
+                'key' => 'profit.per_imei',
+                'title' => 'سود هر دستگاه (IMEI)',
+                'description' => 'سود دقیق هر گوشی فروخته‌شده — خرید، فروش و اختلافش.',
+                'group' => self::GROUP_SALES,
+                'href' => '/reporting/profit?cut=imei',
+                'permission' => 'reporting.view',
+                'needs_margin' => true,
+            ],
         ];
     }
 
@@ -113,6 +148,10 @@ final class ReportCatalogue
 
         foreach (self::reports() as $report) {
             if (! $user instanceof User || ! $user->can($report['permission'])) {
+                continue;
+            }
+
+            if (($report['needs_margin'] ?? false) && ! ReportAccess::showsMargin($user)) {
                 continue;
             }
 

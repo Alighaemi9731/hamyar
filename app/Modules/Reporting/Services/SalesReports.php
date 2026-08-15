@@ -153,13 +153,14 @@ final class SalesReports
      *
      * @return list<array<string, mixed>>
      */
-    public function byBrand(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    public function byBrand(ReportPeriod $period, ?int $branchId = null, int $limit = 50, string $order = 'revenue'): array
     {
         return $this->grouped($period, $branchId, $limit, "coalesce(nullif(brands.name_fa, ''), brands.name)", 'brands.id', [
             'join' => fn ($query) => $query
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sales_invoice_items.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'product_variants.product_id')
                 ->leftJoin('brands', 'brands.id', '=', 'products.brand_id'),
+            'order' => $order === 'margin' ? 'margin' : 'revenue',
         ]);
     }
 
@@ -168,12 +169,13 @@ final class SalesReports
      *
      * @return list<array<string, mixed>>
      */
-    public function byProduct(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    public function byProduct(ReportPeriod $period, ?int $branchId = null, int $limit = 50, string $order = 'revenue'): array
     {
         return $this->grouped($period, $branchId, $limit, 'products.name', 'products.id', [
             'join' => fn ($query) => $query
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sales_invoice_items.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'product_variants.product_id'),
+            'order' => $order === 'margin' ? 'margin' : 'revenue',
         ]);
     }
 
@@ -215,11 +217,24 @@ final class SalesReports
     /**
      * One grouped cut of the same underlying columns.
      *
-     * @param  array{join: callable}  $options
+     * ## The sort is part of the question, so it happens in SQL
+     *
+     * `LIMIT 50` on top of «biggest by revenue» and `LIMIT 50` on top of «biggest by
+     * margin» are two different fifty rows. Re-sorting the first set in PHP would answer
+     * "the fifty best sellers, arranged by profit" to somebody who asked for the fifty
+     * most profitable — plausibly, and wrongly, and most visibly on exactly the low-volume
+     * high-margin lines a profit report exists to surface.
+     *
+     * @param  array{join: callable, order?: 'revenue'|'margin'}  $options
      * @return list<array<string, mixed>>
      */
     private function grouped(ReportPeriod $period, ?int $branchId, int $limit, string $labelColumn, string $groupColumn, array $options): array
     {
+        $revenue = 'coalesce(sum(sales_invoice_items.line_total - sales_invoice_items.vat_amount), 0)';
+        $cost = 'coalesce(sum(sales_invoice_items.cost_snapshot * sales_invoice_items.quantity), 0)';
+
+        $order = ($options['order'] ?? 'revenue') === 'margin' ? "({$revenue}) - ({$cost})" : $revenue;
+
         $query = DB::table('sales_invoice_items')
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id');
 
@@ -232,7 +247,7 @@ final class SalesReports
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
             ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
             ->groupBy(DB::raw($groupColumn), DB::raw($labelColumn))
-            ->orderByDesc(DB::raw('coalesce(sum(sales_invoice_items.line_total - sales_invoice_items.vat_amount), 0)'))
+            ->orderByDesc(DB::raw($order))
             ->limit($limit)
             ->selectRaw("
                 {$labelColumn} as label,

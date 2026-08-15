@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Reporting\Http\Controllers\ProfitReportController;
 use App\Modules\Reporting\Http\Controllers\ReportIndexController;
 use App\Modules\Reporting\Http\Controllers\SalesReportController;
 use Illuminate\Support\Facades\Route;
@@ -30,4 +31,10 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:reporting'])
         Route::get('/sales/export', [SalesReportController::class, 'export'])
             ->middleware('throttle:20,1')
             ->name('sales.export');
+
+        Route::get('/profit', [ProfitReportController::class, 'index'])->name('profit');
+
+        Route::get('/profit/export', [ProfitReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('profit.export');
     });

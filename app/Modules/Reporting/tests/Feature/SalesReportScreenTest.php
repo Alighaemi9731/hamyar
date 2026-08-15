@@ -141,7 +141,8 @@ it('lists only the reports this user may open', function (): void {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Reporting::Reports/Index')
-            ->has('groups.0.reports', 5)
+            // Five sales cuts plus the three profit cuts an Owner may see.
+            ->has('groups.0.reports', 8)
             ->where('groups.0.key', 'sales')
         );
 });
@@ -165,6 +166,9 @@ it('shows a warehouse keeper the index and a technician nothing at all', functio
     $this->actingAs($keeper)
         ->get($this->url.'/reporting')
         ->assertOk()
+        // Five, not eight: a Warehousekeeper holds `reporting.view` and neither
+        // `reporting.view_financial` nor `sales.view_profit`, so the profit cuts are
+        // absent from the index exactly as they are refused by the screen.
         ->assertInertia(fn ($page) => $page->has('groups.0.reports', 5));
 
     $this->actingAs($technician)

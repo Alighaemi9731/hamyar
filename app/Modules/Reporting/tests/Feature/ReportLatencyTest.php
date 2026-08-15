@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Reporting\Services\DashboardWidgets;
+use App\Modules\Reporting\Services\ProfitReports;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SalesReports;
 use App\Support\Tenancy\TenantContext;
@@ -101,6 +102,7 @@ it('answers every top report inside the budget on a year of trading', function (
     | it cannot. Timing only the month would flatter every index here.
     */
     $reports = app(SalesReports::class);
+    $profit = app(ProfitReports::class);
     $widgets = app(DashboardWidgets::class);
     $end = CarbonImmutable::parse(BulkVolumeSeeder::YEAR_END);
     $month = ReportPeriod::of($end->subDays(29), $end);
@@ -119,6 +121,16 @@ it('answers every top report inside the budget on a year of trading', function (
         'sales.by_brand/year' => measureReport(fn () => $reports->byBrand($year)),
         'sales.by_salesperson/year' => measureReport(fn () => $reports->bySalesperson($year)),
         'sales.summary/year' => measureReport(fn () => $reports->summary($year)),
+        // Margin-ordered, so the sort is an expression over two SUMs rather than one —
+        // a different plan from the revenue-ordered cut above, and worth its own clock.
+        'profit.by_product/year' => measureReport(fn () => $profit->byProduct($year)),
+        'profit.by_brand/year' => measureReport(fn () => $profit->byBrand($year)),
+        /*
+        | `profit.perUnit` is deliberately NOT measured. BulkVolumeSeeder writes no
+        | `product_units`, so the query would return nothing and time the speed of an
+        | empty table — green without witness, in the file that argues hardest against it.
+        | It goes in the moment the fixture grows serialized handsets.
+        */
         'dashboard.today' => measureReport(fn () => $widgets->todaysTrade(true)),
         'dashboard.trend' => measureReport(fn () => $widgets->salesTrend(true)),
         'dashboard.low_stock' => measureReport(fn () => $widgets->lowStock()),

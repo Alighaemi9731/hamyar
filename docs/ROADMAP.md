@@ -840,8 +840,21 @@ converging on them later.
       **kept** under one unnamed row: dropping it would make the brand cut disagree with
       every other cut of the same range, which the «sums to the same revenue» invariant
       now asserts across all five cuts
-- [ ] Profit report — margin is on the sales report as columns and a summary figure; a
-      report *of* profit (by product, by brand, per IMEI) is its own screen
+- [x] Profit report — its own screen at `/reporting/profit`, three cuts: by product, by
+      brand, and **per IMEI**. Ordered by margin **in SQL, before the LIMIT**: re-sorting
+      a revenue-ordered top-fifty in PHP answers "the fifty best sellers arranged by
+      profit" to somebody who asked for the fifty most profitable, and discards exactly
+      the low-volume high-margin lines the report exists to surface. Pinned as an
+      *ordering*, on a fixture where the biggest sale in the shop (a 400,000,000 handset)
+      is the smallest margin (20,000,000) and therefore last.
+      Per-IMEI is the cut only this product can offer — every handset carries its own cost
+      and its own `cost_snapshot`, so the margin on one device is exact rather than an
+      average. It reads the **line's** snapshot, never `product_units.cost`, which is
+      today's figure and would restate a past month every time somebody re-graded a unit.
+      **The screen is refused, not stripped**, for a viewer without margin: a profit report
+      with the profit removed is an empty table under a heading that promises otherwise.
+      `ReportAccess` decides, and the same predicate hides the rows from the index — a
+      listed row that 403s when clicked is worse than no row
 - [ ] Technician performance
 - [ ] Dead stock
 - [ ] Stock valuation
@@ -879,7 +892,7 @@ converging on them later.
       the sale-movement insert against unanalysed tables was still running after seven
       minutes, versus 1.4 seconds with statistics
 - [~] Query performance budget (<300ms on a 100k-row seed for top reports) — the harness
-      is `ReportLatencyTest`: fourteen measurements over a month range and a year range,
+      is `ReportLatencyTest`: sixteen measurements over a month range and a year range,
       **1–46ms against the 300ms budget**, with the fixture's row counts asserted before
       any clock starts. Found and fixed a real defect on the way: a thirty-day sales
       report read 75,200 index entries and 12,533 heap rows to keep 3,093, because

@@ -1004,7 +1004,7 @@ term that stops growing.
 
 ### The budget
 
-`ReportLatencyTest`: fourteen measurements across a month range and a year range, **1–46ms
+`ReportLatencyTest`: sixteen measurements across a month range and a year range, **1–46ms
 against 300ms**, with the fixture's row counts asserted before a single clock starts —
 because a latency test against an empty table is the purest form of green without
 witness. The docblock says plainly what the test is not: a ceiling, not a regression
@@ -1062,5 +1062,44 @@ unit record — under one unnamed row. Dropping them would make the brand cut di
 every other cut of the same range, which is the one thing a set of cuts must not do; the
 «sums to the same revenue» invariant now runs across all five.
 
-The report index lists five sales reports, the latency map takes fourteen measurements,
+The report index lists five sales reports, the latency map takes sixteen measurements,
 and `composer test` is green.
+
+### Same day — the profit report
+
+`/reporting/profit`, three cuts: by product, by brand, and per IMEI. Its own screen rather
+than a sort order on the sales report, and the reason is the `LIMIT`.
+
+**Ordering by margin has to happen in SQL, before the limit.** The sales report's top
+fifty is chosen *by revenue*; re-sorting that set in PHP answers "the fifty best sellers,
+arranged by profit" to somebody who asked for the fifty most profitable — plausibly, and
+wrongly, and most visibly on exactly the low-volume high-margin lines the report exists to
+surface. So `SalesReports::grouped()` now takes the order, and `ProfitReports` asks for
+margin.
+
+The test pins it as an **ordering**, not as three independent figures. The fixture is
+built so the two questions disagree: a handset sold for 400,000,000 having cost
+380,000,000 is the largest revenue line in the shop and the smallest margin. A profit
+report that sorted by revenue would put it first and look entirely reasonable; this one
+puts it last.
+
+**Per-IMEI is the cut only this product can offer.** Every handset carries its own cost on
+`product_units` and its own `cost_snapshot` on the line that sold it, so the margin on a
+single device is exact — not an average, not an allocation. It reads the **line's**
+snapshot and never `product_units.cost`: that column is what the device is worth today and
+is updated by a re-grade, so reading it would restate a past month's profit every time
+somebody touched a unit record, which is the precise failure `cost_snapshot` exists to
+prevent.
+
+**The screen is refused, not stripped.** The sales report drops the cost columns for a
+viewer without margin and still shows them the takings, which answers a real question.
+There is no equivalent here — a profit report with the profit removed is an empty table
+under a heading that promises otherwise — so a Cashier gets a 403 on both doors. The
+report index hides the three rows using the *same* predicate, `ReportAccess`, because a
+listed row that 403s when clicked tells the reader the product is broken rather than that
+the figure is not theirs to see. Both halves are asserted.
+
+The latency map takes sixteen measurements. `profit.perUnit` is deliberately **not** among
+them: `BulkVolumeSeeder` writes no `product_units`, so the query would return nothing and
+time the speed of an empty table — green without witness, in the file that argues hardest
+against it. It goes in when the fixture grows serialized handsets.
