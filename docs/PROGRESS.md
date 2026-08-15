@@ -804,3 +804,36 @@ billing and a real gateway), and the notification bell (Phase 9, which builds th
 it belongs on — the message log ships here and answers the same question).
 
 1016 tests green.
+
+---
+
+## 2026-08-14 — Phase 9 started (foundation only)
+
+Ended the session at a slice boundary with context running long, per the autonomous-run
+hygiene rule. **Phase 8 is merged (PR #15).** Phase 9 has its foundation committed and
+pushed on `feat/phase-9-reporting`; no roadmap box is ticked yet, because no roadmap item is
+finished.
+
+**Built and green (1026 tests):**
+
+- `ReportPeriod` — Jalali range parsing done once for every report, inclusive end,
+  backwards range swapped rather than rejected.
+- `Jalali::startOfMonth()` / `endOfMonth()` — Carbon's find the Gregorian month, which falls
+  mid-Jalali-month and makes "this month" cover parts of two.
+- `SalesReports` — daily, by product, by salesperson, summary. Composes `ProfitEngine`
+  rather than re-deriving, and mirrors its key names so a mismatch between two screens is
+  visible.
+- `GoldenNumbersTest` — pinned against the Phase 7 crazy month, each literal beside an
+  invariant, cross-checked against a second code path where one exists.
+
+**Where the next session picks up (ROADMAP Phase 9):**
+
+1. 9.1 dashboard widgets — role-aware, on `ReportPeriod`.
+2. 9.2 the remaining reports from `docs/specs/reporting.md`: stock valuation, dead stock,
+   party aging, cheque calendar (the service exists — `ChequeCalendar`), instalments book,
+   VAT summary, SMS usage, technician performance.
+3. Print CSS + Excel export + saved filter presets.
+4. 9.3 the query performance budget: <300ms on a 100k-row seed. Needs a bulk seeder, which
+   does not exist yet — that is the first real piece of work, not the reports.
+
+Decisions taken so far are batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.
