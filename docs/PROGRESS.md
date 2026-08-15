@@ -837,3 +837,61 @@ finished.
    does not exist yet — that is the first real piece of work, not the reports.
 
 Decisions taken so far are batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.
+
+---
+
+## 2026-08-15 — Phase 9.1 done, and the sales report the dashboard links to
+
+**1050 tests green** (was 1026). Larastan clean, Pint clean, RTL gate clean, `npm run
+types` and `vite build` clean.
+
+**Shipped**
+
+- **The dashboard** (`/dashboard`, replacing the placeholder). Eight widgets, each
+  composing the service that owns its number — `ProfitEngine`, `ChequeCalendar`,
+  `CollectInstallment`, `StockOverview` — rather than re-deriving. A dashboard that
+  re-derives disagrees with the screen it links to, and the shopkeeper finds out by
+  clicking through.
+- **Two gates per widget, and they are different questions.** The plan must include the
+  module *and* the user must hold the permission. The Basic-plan test grants an Owner
+  every permission there is and still expects no cheques card, which is the only way to
+  prove the plan gate does anything.
+- **`ReportAccess`** — one predicate for "may this person see what the shop paid",
+  reading both `sales.view_profit` (the counter's version) and
+  `reporting.view_financial` (the back office's). Asking one on the dashboard and the
+  other in the viewer is how the same person sees margin on one screen and not the
+  other, which reads as a bug in whichever they saw second.
+- **`BarChart`** on the `/design` gallery first, per the UI workflow rule. One series,
+  one colour, because the visual language has exactly one accent. A fixed readout above
+  the plot instead of a floating tooltip: thirty 6px bars at 390px leave no room for one,
+  and a tap works where a hover cannot.
+- **Report index + sales report** (`/reporting`, `/reporting/sales`). Three cuts over one
+  Jalali range — daily, by product, by salesperson — on an A4 print sheet that IS what
+  prints, plus xlsx export with money in two columns (integer rial and the formatted
+  string, through the same `Money::toArray()` the screen calls).
+
+**The thing worth writing down**
+
+`CrazyMonthSeeder` — the Phase 7 reconciliation scenario every golden number is pinned
+against — **contains no sales invoices**. It seeds a chart of accounts, banking, overheads
+and cheques, because what it was built to prove is that the ledger closes. So the two
+sales assertions the previous session added to `GoldenNumbersTest` were comparing zero to
+zero and passing. They now assert that emptiness explicitly (`invoice_count === 0`,
+`daily === []`), which turns a silent gap into a failing test the day somebody adds a sale
+— and points them at `SalesReportScreenTest`, which pins the sales arithmetic against a
+fixture built for it: 290,000,000 revenue, 180,000,000 cost, 110,000,000 profit, with
+every cut asserted to sum to the same revenue.
+
+Found by strengthening a passing test rather than by a failure, which is the only way this
+class of bug surfaces.
+
+**Where the next session picks up**
+
+1. The 100k-row bulk seeder — 9.3's latency budget cannot be written without it, and it is
+   the gate on "measured" in 9.1 too.
+2. The remaining reports, in the order the shop asks for them: stock valuation, dead
+   stock, party aging, cheque calendar (`ChequeCalendar` exists), instalments book, VAT
+   summary, SMS usage, technician performance.
+3. Saved-filter presets (`saved_filters` in the spec — no table yet).
+
+Decisions remain batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.

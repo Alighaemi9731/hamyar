@@ -52,7 +52,7 @@ it('reaches the dashboard after a real form login', function (): void {
     // from the session through the tenant-scoped provider.
     $this->get($this->url.'/dashboard')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('dashboard'));
+        ->assertInertia(fn ($page) => $page->component('Reporting::Dashboard/Index'));
 });
 
 it('does not bounce between login and dashboard', function (): void {

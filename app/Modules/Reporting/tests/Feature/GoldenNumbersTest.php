@@ -139,10 +139,21 @@ it('reports sales totals identical to the profit engine', function (): void {
         $engine = app(App\Modules\Sales\Services\ProfitEngine::class)
             ->forPeriod($this->period->from, $this->period->to);
 
-        // The report composes the engine rather than re-deriving, so this asserts the
-        // composition rather than the arithmetic — which is the failure that would
-        // actually happen.
-        expect($summary['revenue'])->toBe($engine['revenue'])
+        /*
+        | ⚠ The crazy month contains NO SALES INVOICES.
+        |
+        | It seeds a chart of accounts, banking, overheads and cheques, because what it
+        | was built to prove is that the ledger closes. So every figure compared here is
+        | zero, and this test asserts the *composition* — that the report calls the
+        | engine rather than re-deriving — and nothing whatever about the arithmetic.
+        |
+        | That limit is asserted rather than described, so it cannot rot: the day
+        | somebody adds a sale to the scenario, this line fails and points them at
+        | `SalesReportScreenTest`, which pins the sales arithmetic against a fixture
+        | built for it.
+        */
+        expect($engine['invoice_count'])->toBe(0)
+            ->and($summary['revenue'])->toBe($engine['revenue'])
             ->and($summary['cost'])->toBe($engine['cost'])
             ->and($summary['profit'])->toBe($engine['profit']);
     });
@@ -159,10 +170,18 @@ it('sums the daily breakdown to the same revenue as the summary', function (): v
             $revenue += is_numeric($row['revenue'] ?? null) ? (int) $row['revenue'] : 0;
         }
 
-        // The daily rows exclude returns and the summary nets them, so these agree only
-        // when nothing was returned — which is true of this scenario, and asserted so that
-        // adding a return to the month makes somebody decide what the report should say.
-        expect($summary['returned_revenue'])->toBe(0)
+        /*
+        | Same caveat as above: this scenario has no sales, so both sides are zero and
+        | what is really asserted is that neither call throws and both agree on the
+        | empty case. The same invariant over a month with actual trading in it — and
+        | over all three cuts, which is where a grouping bug hides — is in
+        | `SalesReportScreenTest`.
+        |
+        | Kept rather than deleted because the empty case is a real one: a shop opens
+        | this screen on its first morning, and «۰» is the correct answer, not a crash.
+        */
+        expect($daily)->toBe([])
+            ->and($summary['returned_revenue'])->toBe(0)
             ->and($revenue)->toBe($summary['revenue']);
     });
 });

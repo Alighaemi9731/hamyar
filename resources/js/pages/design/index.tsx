@@ -3,6 +3,7 @@ import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { BarChart } from '@/components/domain/bar-chart';
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
@@ -92,12 +93,13 @@ export default function DesignGallery() {
         <OverlaySection alt />
         <TableSection />
         <StatCardSection alt />
-        <ImeiSection />
-        <DataTableSection alt />
-        <PickerSection />
-        <ConfirmAndPagingSection alt />
-        <PrintSection />
-        <StateSection alt />
+        <BarChartSection />
+        <ImeiSection alt />
+        <DataTableSection />
+        <PickerSection alt />
+        <ConfirmAndPagingSection />
+        <PrintSection alt />
+        <StateSection />
       </div>
     </AppShell>
   );
@@ -781,6 +783,53 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <StatCard label="سقف اعتبار" value={0} isMoney hint="سقف صفر: اعتباری ندارد" />
         <StatCard label="سقف اعتبار" value={null} hint="تعیین نشده" />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * BarChart — the only chart in the system so far.
+ *
+ * States to review: a normal month, a shop that sold nothing, a single day, and the
+ * quiet-day case — a day with one small sale must not look like a day the shop was
+ * shut. Hover a column and read the fixed line above the plot; on a phone, tap.
+ */
+function BarChartSection({ alt = false }: { alt?: boolean }) {
+  const busy = Array.from({ length: 30 }, (_, index) => ({
+    label: `۱۴۰۵/۰۵/${String(index + 1).padStart(2, '۰')}`,
+    // A deterministic-looking month with two closed days and one big Thursday.
+    value:
+      index === 6 || index === 13 ? 0 : (index % 7 === 3 ? 90 : 12 + (index % 5) * 7) * 1_000_000,
+  }));
+
+  const quiet = busy.map((point, index) => ({
+    ...point,
+    value: index === 20 ? 480_000_000 : index % 3 === 0 ? 0 : 900_000,
+  }));
+
+  return (
+    <Section
+      alt={alt}
+      title="BarChart"
+      note="یک سری، یک رنگ. زمان از راست به چپ می‌رود. روزهای بدون فروش یک پایه کم‌رنگ دارند تا ستون قابل اشاره بماند."
+    >
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy} title="فروش ۳۰ روز گذشته" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy.map((p) => ({ ...p, value: 0 }))} title="فروش ۳۰ روز گذشته" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={quiet} title="یک روز بزرگ و بقیه ساکت" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy.slice(0, 1)} title="فقط یک روز" />
+        </div>
       </div>
     </Section>
   );

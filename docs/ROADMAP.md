@@ -804,13 +804,33 @@ converging on them later.
 ## Phase 9 — Dashboard & Reporting
 
 ### 9.1 Dashboard
-- [ ] Role-aware widgets per `docs/specs/reporting.md`
-- [ ] Fast SQL: indexed, no N+1, measured
+- [x] Role-aware widgets per `docs/specs/reporting.md` — all eight, on `/dashboard`.
+      Two gates per widget and they are different questions: the **plan** must include
+      the module and the **user** must hold the permission. A widget the viewer may not
+      see is absent from the payload, never sent as zeros — «هیچ چکی سررسید ندارد» is an
+      answer, and putting it in front of somebody who was never allowed to ask is how a
+      cashier tells the owner there are no cheques due. Margin obeys `ReportAccess`, one
+      predicate shared with the report viewer, so the same person cannot see cost on one
+      screen and not the other
+- [x] No N+1 — the dashboard renders in a bounded number of queries over a deliberately
+      wide seed (sixty variants, twenty tickets, ten cheques), asserted as a budget so
+      adding a widget is not a failure but a per-row loop is. **The millisecond half of
+      this line is 9.3's**: it needs the 100k-row seeder, which does not exist yet, and
+      a query-count guard is not a latency guarantee
 
 ### 9.2 Reports (25+)
-- [ ] Sales daily/monthly
-- [ ] Sales by product / brand / salesperson
-- [ ] Profit report
+- [x] Report index — grouped the way a shop files reports, and listing only reports that
+      exist. No «به‌زودی» rows: a greyed-out promise teaches the reader that the index
+      cannot be trusted, after which they stop opening it
+- [x] Sales daily — with the report viewer it establishes for the rest: Jalali range
+      filter, three cuts over one range, the A4 print sheet, and the xlsx export
+- [ ] Sales monthly — a month-per-row grouping over a year. The daily report already
+      answers «این ماه چقدر فروختیم» through its range; this is the twelve-row view
+- [x] Sales by product / salesperson
+- [ ] Sales by brand — needs the brand join in `SalesReports`; the two cuts above landed
+      first because they need no Catalog work
+- [ ] Profit report — margin is on the sales report as columns and a summary figure; a
+      report *of* profit (by product, by brand, per IMEI) is its own screen
 - [ ] Technician performance
 - [ ] Dead stock
 - [ ] Stock valuation
@@ -820,12 +840,24 @@ converging on them later.
 - [ ] Tax/VAT summary
 - [ ] SMS usage
 - [ ] …remaining reports enumerated in `docs/specs/reporting.md`
-- [ ] All with Jalali range filter, print CSS, Excel export
+- [ ] All with Jalali range filter, print CSS, Excel export — true of the sales report,
+      which is the pattern the rest plug into. Stays open until "all" is true. Money
+      exports as **two** columns, integer rial and the formatted string, and the string
+      goes through the same `Money::toArray()` the screen calls so a spreadsheet cannot
+      quote rial while the page quotes toman
 - [ ] Saved-filter presets
 
 ### 9.3 Tests
-- [ ] Golden-number tests: seeded scenario → exact expected figures per report
-- [ ] Query performance budget (<300ms on a 100k-row seed for top reports)
+- [ ] Golden-number tests: seeded scenario → exact expected figures per report.
+      **Found and fixed here:** `CrazyMonthSeeder` — the Phase 7 scenario the golden
+      numbers are pinned against — contains no sales invoices at all, so the two sales
+      assertions in `GoldenNumbersTest` were comparing zero to zero and passing. They now
+      assert that emptiness explicitly, so the day somebody adds a sale to the scenario
+      they are pointed at `SalesReportScreenTest`, which pins the sales arithmetic
+      (290,000,000 revenue · 180,000,000 cost · 110,000,000 profit) against a fixture
+      built for it and checks every cut sums to the same revenue
+- [ ] Query performance budget (<300ms on a 100k-row seed for top reports) — needs a bulk
+      seeder, which is the first real piece of work in this section, not the reports
 
 ### Phase 9 — Definition of Done
 - [ ] Numbers everywhere agree with the Phase 7 reconciliation scenario

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\Reporting\Http\Controllers\ReportIndexController;
+use App\Modules\Reporting\Http\Controllers\SalesReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -9,16 +11,23 @@ use Illuminate\Support\Facades\Route;
 | Reporting — web routes
 |--------------------------------------------------------------------------
 |
-| Loaded with the `web` middleware group by the module service provider.
-|
-| Tenant screens belong inside a group carrying the tenant + auth middleware and
-| `module:reporting` so the plan gates the route as well as the nav (golden rule 7):
-|
-|   Route::middleware(['tenant', 'auth', 'module:reporting'])
-|       ->prefix('reporting')
-|       ->name('reporting.')
-|       ->group(function (): void {
-|           // …
-|       });
+| The dashboard is NOT here. It lives in routes/web.php outside `module:reporting`,
+| because every shop on every plan has a front page — see DashboardController.
 |
 */
+
+Route::middleware(['tenant', 'auth', 'tenant.user', 'module:reporting'])
+    ->prefix('reporting')
+    ->name('reporting.')
+    ->group(function (): void {
+        Route::get('/', ReportIndexController::class)->name('index');
+
+        Route::get('/sales', [SalesReportController::class, 'index'])->name('sales');
+
+        // Throttled: an export runs the report and then builds a workbook, which is the
+        // most expensive thing in this module. A held-down refresh key should not be
+        // able to queue thirty of them.
+        Route::get('/sales/export', [SalesReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('sales.export');
+    });
