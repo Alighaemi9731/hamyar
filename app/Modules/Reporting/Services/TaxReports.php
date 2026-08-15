@@ -54,13 +54,14 @@ final class TaxReports
      * month, which straddles two Jalali ones. A VAT return filed against «مرداد» that
      * contains part of Tir is a wrong filing, not a cosmetic problem.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array{label: string, invoices: int, taxable_base: int, exempt_base: int, vat: int, rounding: int}>
      */
-    public function monthly(ReportPeriod $period, ?int $branchId = null): array
+    public function monthly(ReportPeriod $period, ?array $branchIds = null): array
     {
         $months = [];
 
-        foreach ($this->daily($period, $branchId) as $day) {
+        foreach ($this->daily($period, $branchIds) as $day) {
             $key = Jalali::monthKey($day['date']);
 
             $months[$key] ??= [
@@ -92,9 +93,10 @@ final class TaxReports
      * return, and a rate appearing that nobody expected is the tell that a product was set
      * up wrong.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array{label: string, rate: int, lines: int, taxable_base: int, vat: int}>
      */
-    public function byRate(ReportPeriod $period, ?int $branchId = null): array
+    public function byRate(ReportPeriod $period, ?array $branchIds = null): array
     {
         $rows = DB::table('sales_invoice_items')
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
@@ -102,7 +104,7 @@ final class TaxReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             ->groupBy('sales_invoice_items.vat_rate')
             ->orderBy('sales_invoice_items.vat_rate')
             ->selectRaw('
@@ -143,9 +145,10 @@ final class TaxReports
      * paper must add up: an invoice's total is base + VAT + shipping − discount + rounding,
      * and a VAT summary that hides the last term cannot be tied back to the invoices.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array{date: string, invoices: int, taxable_base: int, exempt_base: int, vat: int, rounding: int}>
      */
-    private function daily(ReportPeriod $period, ?int $branchId): array
+    private function daily(ReportPeriod $period, ?array $branchIds): array
     {
         $day = ShopClock::dayOf('sales_invoices.issued_at');
 
@@ -155,7 +158,7 @@ final class TaxReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             // Ordinals, for the reason `SalesReports::daily()` sets out: `GROUP BY 1` IS
             // the first select column, so the two cannot drift into a grouped query whose
             // table does not add up to its own headings.
@@ -175,7 +178,7 @@ final class TaxReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             ->groupByRaw('1')
             ->orderByRaw('1')
             ->selectRaw("

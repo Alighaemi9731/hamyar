@@ -10,6 +10,7 @@ use App\Modules\Cheques\Models\Cheque;
 use App\Modules\Cheques\Services\ChequeCalendar;
 use App\Modules\Cheques\Services\ChequeTransitions;
 use App\Modules\CRM\Models\Account;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,7 @@ use RuntimeException;
  */
 final class ChequeController extends Controller
 {
-    public function index(Request $request, ChequeCalendar $calendar): Response
+    public function index(Request $request, ChequeCalendar $calendar, BranchContext $context): Response
     {
         $this->authorize('viewAny', Cheque::class);
 
@@ -35,10 +36,15 @@ final class ChequeController extends Controller
 
         $upcoming = $calendar->upcoming($direction, days: 14);
 
-        $all = Cheque::query()
-            ->with(['party:id,name', 'account:id,name'])
-            ->where('direction', $direction->value)
-            ->orderByDesc('due_date')
+        $all = $context
+            ->apply(
+                Cheque::query()
+                    ->with(['party:id,name', 'account:id,name'])
+                    ->where('direction', $direction->value)
+                    ->orderByDesc('due_date'),
+                'cheques.branch_id',
+                includeUnassigned: true,
+            )
             ->paginate(30)
             ->withQueryString();
 

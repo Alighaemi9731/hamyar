@@ -62,7 +62,9 @@ final class ProfitAndLoss
         $from = $from->startOfDay();
         $to = $to->endOfDay();
 
-        $margin = $this->sales->forPeriod($from, $to, $branchId);
+        // Wrapped rather than widened, for the reason `DailyCloseReport` gives: a P&L is
+        // read for one branch or for the shop, never for "the three I am allowed".
+        $margin = $this->sales->forPeriod($from, $to, $branchId === null ? null : [$branchId]);
 
         $revenue = $this->intFrom($margin, 'revenue');
         $cost = $this->intFrom($margin, 'cost');

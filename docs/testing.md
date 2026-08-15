@@ -314,6 +314,27 @@ whose inputs do not divide evenly.** Discount allocation across lines, per-line 
 instalment splits, landed-cost allocation and weighted-average cost are all the same
 shape, and all five are green-without-witness against tidy inputs.
 
+**Where a rounding rule exists, pin the figure the *wrong* implementation would give,
+beside the right one.** A correct figure on its own says the code produced *a* number; the
+pair says it produced *this* one rather than the plausible alternative. The strongest form
+is one assertion of each:
+
+```php
+// ADR 0009 floors per LINE, so two lines floor twice.
+expect($totals['vat']['value'])->toBe(1_776_380);
+
+// And explicitly NOT what a period-level recompute gives. Eighteen rial is small;
+// being eighteen rial away from the invoices is not.
+expect($totals['vat']['value'])->not->toBe(intdiv(17_763_980 * 10, 100));
+```
+
+That is the VAT summary, and the gap only exists because the fixture prices every line at
+8,881,990 — a whole toman a shop can charge, whose 10% is not one. Against round prices both
+implementations return the same number, the `not->toBe` passes for the wrong reason, and a
+report that disagrees with every invoice it summarises ships green. **The negative assertion
+is only worth writing when the fixture can tell the two apart** — which is the same rule as
+the paragraph above, arriving from the other side.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no
@@ -434,12 +455,33 @@ assertion is `ReportLatencyTest`. One shop gets a year of trading — 40,000 inv
 is a deterministic function of the row's ordinal, so the same seed produces the same
 rows and the same plan on every run.
 
-Four rules that fixture had to learn, none of them obvious from the outside:
+Five rules that fixture had to learn, none of them obvious from the outside:
 
 **The neighbour is the same size.** On a single-tenant table a sequential scan and an
 index scan do identical work, so a budget measured there passes with every index
 dropped. Both shops are filled, the table holds twice what any report reads, and the
 tenant predicate has to earn its place in the plan.
+
+**The fixture talking, not the query.** A latency figure is only comparative when **both
+directions of the data exist**. The seeded ledger wrote debits only — every party owed, no
+party had paid — so `settled` was always zero, the aging report's FIFO clamp
+`least(lot, greatest(cumulative − settled, 0))` collapsed to `lot` on every row, and the
+expensive branch never ran at all. The payable direction, which reads the credits, was
+timing an empty set at full speed.
+
+Nothing failed. Both numbers were comfortably inside the budget, and the report was
+"measured". What gave it away was reading the two figures *against each other*: **84.8ms
+receivable against 20.5ms payable**, a four-fold gap between two directions of one query
+over one table. A query does not get four times faster because you swapped which column it
+sums; that gap was the fixture. Part-payments against every third invoice fixed it, and the
+payable figure moved to 29.6ms — still lower, now for the honest reason that a shop has
+fewer payables than receivables.
+
+So: **when two measurements should be comparable, compare them, and treat an unexplained
+gap as a missing-data suspect before a performance finding.** The same shape appears wherever
+a fixture populates one side of a conditional — an empty `product_units` table making a
+valuation look fast, a status column with one value making a `filter (where …)` free. The
+budget passing is not evidence the branch ran.
 
 **ANALYZE after every step, not once at the end.** Postgres plans from statistics and a
 bulk-loaded table has none; autovacuum cannot help, because the rows are uncommitted and
@@ -457,8 +499,8 @@ nothing. Money is pinned in `SalesReportScreenTest` and `GoldenNumbersTest`, aga
 scenarios the real services built.
 
 **The budget is a ceiling, not a regression detector.** Measured figures at the time of
-writing are 1–46ms against 300ms, so a change making a report three times slower still
-passes. Tightening it to close that gap buys a test that fails on a busy CI box and
+writing are 1–93ms against 300ms across 26 measurements, so a change making a report three
+times slower still passes. Tightening it to close that gap buys a test that fails on a busy CI box and
 teaches everyone to re-run it. The detector for a *plan* change is the fixture itself:
 
 ```bash

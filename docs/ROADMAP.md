@@ -1010,10 +1010,36 @@ converging on them later.
 ## Phase 10 — Multi-branch polish, Storefront, HAMTA, Moadian v1, Data tools
 
 ### 10.1 Multi-branch audit
-- [ ] Every module respects branch context
-- [ ] Branch switcher
-- [ ] Consolidated vs per-branch reporting toggle
-- [ ] Per-branch counters verified
+- [x] Every module respects branch context — **and the audit's first finding was that
+      branch context had no on-ramp.** `branch_user` had existed since Phase 2,
+      `BranchAccess` read it correctly, and Sales/Repairs/Inventory enforced it — but
+      nothing could write to the table, there was no way to create a second branch, and no
+      switcher. Five modules (Cheques, Installments, Purchasing, Treasury, Messaging) had
+      **no branch filter at all**, and the reports had none either. The gap was invisible
+      precisely because it was unreachable: with nobody assignable to a branch, every user
+      was unrestricted and every screen looked right.
+      Fixed by `BranchContext`, which keeps the two questions apart: **access is a floor
+      that always applies; the switcher is a lens on top.** Conflating them is what turns
+      «همه شعب» into a privilege-escalation button, and that case is the test this work
+      exists for
+- [x] Branch switcher — in the app chrome, rendering **nothing** for a single-branch shop
+      (which is almost every shop): a control offering one choice is a control that does
+      nothing. Plus the screens that had to exist first — branch CRUD and per-branch staff
+      assignment, gated on `settings.*` and living in Inventory because `branch_user` is
+      Inventory's table (golden rule 6)
+- [x] Consolidated vs per-branch reporting toggle — the reporting services took `?int
+      $branchId` and the controllers passed **nothing**, so a manager restricted to one
+      branch read the whole shop the moment they opened a report. A single id also cannot
+      express "the two branches this regional manager is allowed", so the parameter became
+      `list<int>|null` down through `ProfitEngine`. `DailyCloseReport` and `ProfitAndLoss`
+      deliberately kept their `?int` and wrap at the call: a close is **one** till
+- [x] Per-branch counters verified — `counters` already carried `branch_id` and
+      `CounterService` already locked on it; what was missing was a shop able to have two
+      branches to prove it with. Now covered by `BranchContextTest`
+- [x] **Found on the way:** `BranchAccess` was never registered as a singleton, so its
+      per-user memo was per-instance and every `forget()` was a **silent no-op** — including
+      the one in the new assignment screen, which exists so a staffing change takes effect
+      immediately. Bound as a singleton, with the reasoning written where the binding is
 
 ### 10.2 Storefront
 - [ ] Public shop landing page + product catalogue with live prices

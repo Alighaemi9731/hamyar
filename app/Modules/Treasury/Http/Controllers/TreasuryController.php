@@ -6,6 +6,7 @@ namespace App\Modules\Treasury\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\CRM\Models\Account;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Treasury\Services\AccountBalances;
 use App\Modules\Treasury\Services\AccountStatement;
 use App\Modules\Treasury\Services\DailyClose;
@@ -29,11 +30,24 @@ use RuntimeException;
  */
 final class TreasuryController extends Controller
 {
-    public function index(Request $request, AccountBalances $balances): Response
+    public function index(Request $request, AccountBalances $balances, BranchContext $context): Response
     {
         $this->authorize('viewAny', Account::class);
 
-        $accounts = Account::query()->where('is_active', true)->orderBy('type')->orderBy('name')->get();
+        /*
+        | `includeUnassigned` is doing real work here. Most accounts belong to no branch —
+        | the shop's bank account, its sales income account — and only a till or a card
+        | terminal is genuinely per-counter. Filtering those out when a branch is selected
+        | would hide the shop's bank balance from the treasury page, which is the one figure
+        | it exists to show.
+        */
+        $accounts = $context
+            ->apply(
+                Account::query()->where('is_active', true)->orderBy('type')->orderBy('name'),
+                'accounts.branch_id',
+                includeUnassigned: true,
+            )
+            ->get();
         $figures = $balances->balances();
 
         $held = $accounts->filter(fn (Account $a): bool => $a->holdsMoney());

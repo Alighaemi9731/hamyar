@@ -42,9 +42,10 @@ final class RepairReports
     /**
      * One row per technician, most jobs finished first.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array{technician: string, delivered: int, open: int, avg_turnaround_hours: int, parts_cost: int}>
      */
-    public function technicianPerformance(ReportPeriod $period, ?int $branchId = null): array
+    public function technicianPerformance(ReportPeriod $period, ?array $branchIds = null): array
     {
         $delivered = DB::table('repair_tickets')
             ->leftJoin('users', 'users.id', '=', 'repair_tickets.technician_id')
@@ -52,7 +53,7 @@ final class RepairReports
             ->whereNull('repair_tickets.deleted_at')
             ->whereNotNull('repair_tickets.delivered_at')
             ->whereBetween('repair_tickets.delivered_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('repair_tickets.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('repair_tickets.branch_id', $branchIds))
             ->groupBy('repair_tickets.technician_id', 'users.name')
             ->selectRaw("
                 repair_tickets.technician_id as technician_id,
@@ -65,8 +66,8 @@ final class RepairReports
             ")
             ->get();
 
-        $open = $this->openByTechnician($branchId);
-        $partsCost = $this->partsCostByTechnician($period, $branchId);
+        $open = $this->openByTechnician($branchIds);
+        $partsCost = $this->partsCostByTechnician($period, $branchIds);
 
         $rows = [];
 
@@ -97,9 +98,10 @@ final class RepairReports
      * open today, and excluding it because it fell outside the range would report an empty
      * bench for the technician who most needs help.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array<int, int>
      */
-    private function openByTechnician(?int $branchId): array
+    private function openByTechnician(?array $branchIds): array
     {
         // `isOpenWork()`, the same predicate the Kanban board and the workload screen use
         // — so «۴ روی میز» here and four cards there are the same four. `ready` is not
@@ -112,7 +114,7 @@ final class RepairReports
         $rows = DB::table('repair_tickets')
             ->whereNull('deleted_at')
             ->whereIn('status', $openStatuses)
-            ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('branch_id', $branchIds))
             ->groupBy('technician_id')
             ->selectRaw('technician_id, count(*) as open')
             ->get();
@@ -131,9 +133,10 @@ final class RepairReports
      * Consumed parts only. A reservation is not a cost — the part is still on the shelf,
      * and a technician who planned a repair that was then cancelled has spent nothing.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array<int, int>
      */
-    private function partsCostByTechnician(ReportPeriod $period, ?int $branchId): array
+    private function partsCostByTechnician(ReportPeriod $period, ?array $branchIds): array
     {
         $rows = DB::table('ticket_parts')
             ->join('repair_tickets', 'repair_tickets.id', '=', 'ticket_parts.repair_ticket_id')
@@ -141,7 +144,7 @@ final class RepairReports
             ->where('repair_tickets.status', TicketStatus::Delivered->value)
             ->whereNull('repair_tickets.deleted_at')
             ->whereBetween('repair_tickets.delivered_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('repair_tickets.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('repair_tickets.branch_id', $branchIds))
             ->groupBy('repair_tickets.technician_id')
             ->selectRaw('
                 repair_tickets.technician_id as technician_id,

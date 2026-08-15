@@ -8,6 +8,8 @@ use App\Modules\Inventory\Listeners\CreateDefaultLocation;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\StockTransfer;
 use App\Modules\Inventory\Policies\ProductUnitPolicy;
+use App\Modules\Inventory\Services\BranchAccess;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
@@ -33,7 +35,22 @@ final class InventoryServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
-        //
+        /*
+        | Both branch services are singletons, and `BranchAccess` has to be.
+        |
+        | It memoises `branch_user` per user, and that memo is instance state. Without a
+        | singleton binding every injection point gets its own copy, which is merely
+        | wasteful — but `forget()` then becomes a **silent no-op**: it clears the cache on
+        | a brand-new instance while the one the caller actually holds keeps answering from
+        | the old list. `BranchController::assign()` calls it precisely so a staffing change
+        | takes effect immediately, and that call did nothing until this binding existed.
+        |
+        | `BranchContext` follows because it holds the same `BranchAccess` and reads the
+        | session; two copies disagreeing about the current branch within one request is the
+        | kind of bug that only shows up as a report and a list screen filtering differently.
+        */
+        $this->app->singleton(BranchAccess::class);
+        $this->app->singleton(BranchContext::class);
     }
 
     public function boot(): void

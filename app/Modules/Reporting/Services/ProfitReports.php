@@ -44,21 +44,23 @@ final class ProfitReports
     /**
      * Most profitable products first.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function byProduct(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    public function byProduct(ReportPeriod $period, ?array $branchIds = null, int $limit = 50): array
     {
-        return $this->sales->byProduct($period, $branchId, $limit, order: 'margin');
+        return $this->sales->byProduct($period, $branchIds, $limit, order: 'margin');
     }
 
     /**
      * Most profitable brands first.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function byBrand(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    public function byBrand(ReportPeriod $period, ?array $branchIds = null, int $limit = 50): array
     {
-        return $this->sales->byBrand($period, $branchId, $limit, order: 'margin');
+        return $this->sales->byBrand($period, $branchIds, $limit, order: 'margin');
     }
 
     /**
@@ -79,9 +81,10 @@ final class ProfitReports
      * ungrouped wherever it is shown (design-system rule 4). The product name rides
      * along, because an IMEI on its own tells a person nothing.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array{imei: string, product: string, brand: string, invoice: string, sold_at: string, customer: string, revenue: int, cost: int, margin: int}>
      */
-    public function perUnit(ReportPeriod $period, ?int $branchId = null, int $limit = 200): array
+    public function perUnit(ReportPeriod $period, ?array $branchIds = null, int $limit = 200): array
     {
         $revenue = 'sales_invoice_items.line_total - sales_invoice_items.vat_amount';
         $cost = 'sales_invoice_items.cost_snapshot * sales_invoice_items.quantity';
@@ -97,7 +100,7 @@ final class ProfitReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             ->orderByDesc(DB::raw("({$revenue}) - ({$cost})"))
             ->limit($limit)
             ->selectRaw("
@@ -143,11 +146,12 @@ final class ProfitReports
      * month is a support call that starts with "which one is right", and the answer would
      * be neither until somebody reconciled them.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array{revenue: int, cost: int, profit: int, margin_percent: float, invoice_count: int, returned_revenue: int}
      */
-    public function summary(ReportPeriod $period, ?int $branchId = null): array
+    public function summary(ReportPeriod $period, ?array $branchIds = null): array
     {
-        return $this->sales->summary($period, $branchId);
+        return $this->sales->summary($period, $branchIds);
     }
 
     private function intOf(mixed $value): int

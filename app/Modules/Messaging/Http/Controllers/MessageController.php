@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Messaging\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Messaging\Enums\AutomationKey;
 use App\Modules\Messaging\Models\Message;
 use App\Modules\Messaging\Services\SmsWallet;
@@ -30,16 +31,27 @@ use Inertia\Response;
  */
 final class MessageController extends Controller
 {
-    public function index(Request $request, SmsWallet $wallet): Response
+    public function index(Request $request, SmsWallet $wallet, BranchContext $context): Response
     {
         $this->authorize('viewAny', Message::class);
 
         $status = $request->string('status')->value();
 
-        $messages = Message::query()
-            ->with('party:id,name')
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->orderByDesc('id')
+        /*
+        | `includeUnassigned`, because most messages have no branch: an automation fired by
+        | the scheduler belongs to the shop rather than to a counter. Excluding them would
+        | make a per-branch view of the outbox show almost nothing, which reads as the SMS
+        | log being broken.
+        */
+        $messages = $context
+            ->apply(
+                Message::query()
+                    ->with('party:id,name')
+                    ->when($status !== '', fn ($query) => $query->where('status', $status))
+                    ->orderByDesc('id'),
+                'messages.branch_id',
+                includeUnassigned: true,
+            )
             ->paginate(40)
             ->withQueryString();
 

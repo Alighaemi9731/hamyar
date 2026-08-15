@@ -6,6 +6,7 @@ namespace App\Modules\Reporting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SalesReports;
 use App\Modules\Reporting\Services\SavedFilters;
@@ -175,7 +176,7 @@ final class SalesReportController extends Controller
      */
     private function summary(SalesReports $reports, ReportPeriod $period, bool $showsMargin): array
     {
-        $figures = $reports->summary($period);
+        $figures = $reports->summary($period, $this->branchIds());
 
         $summary = [
             'revenue' => Money::toArray($figures['revenue']),
@@ -205,11 +206,11 @@ final class SalesReportController extends Controller
     private function rows(SalesReports $reports, string $cut, ReportPeriod $period): array
     {
         $raw = match ($cut) {
-            'monthly' => $reports->monthly($period),
-            'product' => $reports->byProduct($period),
-            'brand' => $reports->byBrand($period),
-            'salesperson' => $reports->bySalesperson($period),
-            default => $reports->daily($period),
+            'monthly' => $reports->monthly($period, $this->branchIds()),
+            'product' => $reports->byProduct($period, $this->branchIds()),
+            'brand' => $reports->byBrand($period, $this->branchIds()),
+            'salesperson' => $reports->bySalesperson($period, $this->branchIds()),
+            default => $reports->daily($period, $this->branchIds()),
         };
 
         // A period cut counts invoices; a dimension cut counts items. «تعداد فاکتور» on a
@@ -273,5 +274,24 @@ final class SalesReportController extends Controller
     private function stringOf(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * The branches this report covers: the one being viewed, or every branch the viewer is
+     * allowed when they are looking at «همه شعب».
+     *
+     * Resolved here rather than threaded through the private helpers because several of
+     * them run per cut, and a parameter on each was four more places for the two halves of
+     * the rule to come apart. `BranchAccess` memoises, so the repeat calls are free.
+     *
+     * Before 10.1 the report controllers passed nothing at all — so a manager restricted to
+     * one branch read the whole shop's figures the moment they opened a report. The access
+     * floor was enforced on every list screen and on none of the reports.
+     *
+     * @return list<int>|null
+     */
+    private function branchIds(): ?array
+    {
+        return app(BranchContext::class)->scopeIds();
     }
 }

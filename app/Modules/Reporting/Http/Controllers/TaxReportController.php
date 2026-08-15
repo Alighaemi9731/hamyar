@@ -6,6 +6,7 @@ namespace App\Modules\Reporting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SavedFilters;
 use App\Modules\Reporting\Services\TaxReports;
@@ -44,7 +45,7 @@ final class TaxReportController extends Controller
         $cut = $this->cut($request);
         $period = ReportPeriod::fromJalali($request->string('from')->value(), $request->string('to')->value());
 
-        $rows = $cut === 'rate' ? $reports->byRate($period) : $reports->monthly($period);
+        $rows = $cut === 'rate' ? $reports->byRate($period, $this->branchIds()) : $reports->monthly($period, $this->branchIds());
 
         return Inertia::render('Reporting::Reports/Tax', [
             'cut' => $cut,
@@ -74,7 +75,7 @@ final class TaxReportController extends Controller
 
         $sheet = [];
 
-        foreach ($cut === 'rate' ? $reports->byRate($period) : $reports->monthly($period) as $row) {
+        foreach ($cut === 'rate' ? $reports->byRate($period, $this->branchIds()) : $reports->monthly($period, $this->branchIds()) as $row) {
             $base = $this->intOf($row['taxable_base'] ?? 0);
             $vat = $this->intOf($row['vat'] ?? 0);
 
@@ -185,5 +186,24 @@ final class TaxReportController extends Controller
     private function stringOf(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * The branches this report covers: the one being viewed, or every branch the viewer is
+     * allowed when they are looking at «همه شعب».
+     *
+     * Resolved here rather than threaded through the private helpers because several of
+     * them run per cut, and a parameter on each was four more places for the two halves of
+     * the rule to come apart. `BranchAccess` memoises, so the repeat calls are free.
+     *
+     * Before 10.1 the report controllers passed nothing at all — so a manager restricted to
+     * one branch read the whole shop's figures the moment they opened a report. The access
+     * floor was enforced on every list screen and on none of the reports.
+     *
+     * @return list<int>|null
+     */
+    private function branchIds(): ?array
+    {
+        return app(BranchContext::class)->scopeIds();
     }
 }

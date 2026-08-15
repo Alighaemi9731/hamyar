@@ -7,6 +7,7 @@ namespace App\Modules\Purchasing\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Purchasing\Http\Requests\LandedCostRequest;
 use App\Modules\Purchasing\Http\Requests\OpenPurchaseInvoiceRequest;
 use App\Modules\Purchasing\Http\Requests\PurchaseLineRequest;
@@ -42,15 +43,20 @@ final class PurchaseInvoiceController extends Controller
 {
     private const PER_PAGE = 25;
 
-    public function index(Request $request, DocumentRegistry $documents): Response
+    public function index(Request $request, DocumentRegistry $documents, BranchContext $context): Response
     {
         $this->authorize('viewAny', PurchaseInvoice::class);
 
-        $invoices = PurchaseInvoice::query()
-            ->with('warehouse:id,name')
-            ->withCount(['items', 'unitItems'])
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->value()))
-            ->orderByDesc('id')
+        $invoices = $context
+            ->apply(
+                PurchaseInvoice::query()
+                    ->with('warehouse:id,name')
+                    ->withCount(['items', 'unitItems'])
+                    ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->value()))
+                    ->orderByDesc('id'),
+                'purchase_invoices.branch_id',
+                includeUnassigned: true,
+            )
             ->paginate(self::PER_PAGE)
             ->withQueryString();
 

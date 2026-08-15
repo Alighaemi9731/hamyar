@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\Inventory\Http\Controllers\BranchController;
+use App\Modules\Inventory\Http\Controllers\BranchSwitchController;
 use App\Modules\Inventory\Http\Controllers\StockController;
 use App\Modules\Inventory\Http\Controllers\StockCountController;
 use App\Modules\Inventory\Http\Controllers\TransferController;
@@ -68,3 +70,33 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:inventory'])
         Route::post('/counts/{count}/apply', [StockCountController::class, 'apply'])
             ->whereNumber('count')->name('counts.apply');
     });
+
+/*
+|--------------------------------------------------------------------------
+| Branches — NOT behind `module:inventory`
+|--------------------------------------------------------------------------
+|
+| Branches are the shop's structure, not an inventory feature. The switcher renders in
+| the app chrome on every screen in the product, so gating it on a module would leave a
+| shop on a plan without Inventory unable to change which branch it is looking at —
+| while Sales, Repairs and Treasury went on filtering by a branch it could not select.
+|
+| Gated on `settings.*` instead, which is what a shop's structure actually is: Owner and
+| Manager hold it, a Warehousekeeper does not.
+|
+*/
+
+Route::middleware(['tenant', 'auth', 'tenant.user'])->group(function (): void {
+    Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
+    Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
+    Route::put('/branches/{branch}', [BranchController::class, 'update'])
+        ->whereNumber('branch')->name('branches.update');
+    Route::put('/branches/{branch}/users', [BranchController::class, 'assign'])
+        ->whereNumber('branch')->name('branches.users');
+
+    // The switcher itself. Throttled: it writes a session key and redirects, so a held
+    // key would otherwise be a cheap way to make the app re-render on every keypress.
+    Route::post('/branch/switch', BranchSwitchController::class)
+        ->middleware('throttle:60,1')
+        ->name('branch.switch');
+});

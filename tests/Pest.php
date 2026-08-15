@@ -277,3 +277,19 @@ function totalsOf(object $page, string $key = 'totals'): array
 
     return $totals;
 }
+
+/**
+ * The `data` array out of a paginated Inertia payload.
+ *
+ * List screens ship `{data, links, total}` rather than a bare array, so `rowsOf()` — which
+ * expects the rows directly — cannot reach them.
+ *
+ * @return list<array<string, mixed>>
+ */
+function paginatedOf(object $page, string $key): array
+{
+    /** @var array{data?: list<array<string, mixed>>} $block */
+    $block = propsOf($page)[$key] ?? [];
+
+    return $block['data'] ?? [];
+}

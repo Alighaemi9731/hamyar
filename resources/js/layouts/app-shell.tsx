@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 
 import { AnnouncementBanner } from '@/components/domain/announcement-banner';
+import { BranchSwitcher } from '@/components/domain/branch-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -31,7 +32,7 @@ export function AppShell({ title, actions, children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
-  const { flash, features, tenant, location } = props;
+  const { flash, features, tenant, location, branch } = props;
 
   // Flash messages arrive as props on the next visit; surfacing them as toasts keeps
   // every module from having to render its own alert bar.
@@ -80,6 +81,8 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           </Button>
 
           <div className="ms-auto flex items-center gap-1">
+            {/* Renders nothing for a single-branch shop, which is almost every shop. */}
+            <BranchSwitcher branch={branch} />
             <ThemeToggle />
           </div>
         </header>

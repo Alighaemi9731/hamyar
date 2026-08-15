@@ -53,9 +53,10 @@ final class SalesReports
      * day's row — and, worse, onto the previous *month's* row eleven times a year, where
      * {@see monthly()} would then report it under the wrong month entirely.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function daily(ReportPeriod $period, ?int $branchId = null): array
+    public function daily(ReportPeriod $period, ?array $branchIds = null): array
     {
         $day = $this->shopDayExpression();
 
@@ -65,7 +66,7 @@ final class SalesReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             // Ordinals, not a repeat of the expression: `GROUP BY 1` IS the first select
             // column, so the two cannot drift apart — and a grouped query whose GROUP BY
             // is a different expression than its SELECT is legal SQL that returns a table
@@ -100,13 +101,14 @@ final class SalesReports
      * The label is «مرداد ۱۴۰۵» rather than a number: this report is read aloud in
      * conversations about which month was better.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function monthly(ReportPeriod $period, ?int $branchId = null): array
+    public function monthly(ReportPeriod $period, ?array $branchIds = null): array
     {
         $months = [];
 
-        foreach ($this->daily($period, $branchId) as $day) {
+        foreach ($this->daily($period, $branchIds) as $day) {
             $date = is_scalar($day['date'] ?? null) ? (string) $day['date'] : '';
 
             if ($date === '') {
@@ -152,11 +154,12 @@ final class SalesReports
      * grouped under one unnamed row: dropping it would make the brand cut disagree with
      * every other cut of the same range, which is the one thing a set of cuts must not do.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function byBrand(ReportPeriod $period, ?int $branchId = null, int $limit = 50, string $order = 'revenue'): array
+    public function byBrand(ReportPeriod $period, ?array $branchIds = null, int $limit = 50, string $order = 'revenue'): array
     {
-        return $this->grouped($period, $branchId, $limit, "coalesce(nullif(brands.name_fa, ''), brands.name)", 'brands.id', [
+        return $this->grouped($period, $branchIds, $limit, "coalesce(nullif(brands.name_fa, ''), brands.name)", 'brands.id', [
             'join' => fn ($query) => $query
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sales_invoice_items.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'product_variants.product_id')
@@ -168,11 +171,12 @@ final class SalesReports
     /**
      * Sales by product, biggest first — «چی می‌فروشه».
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function byProduct(ReportPeriod $period, ?int $branchId = null, int $limit = 50, string $order = 'revenue'): array
+    public function byProduct(ReportPeriod $period, ?array $branchIds = null, int $limit = 50, string $order = 'revenue'): array
     {
-        return $this->grouped($period, $branchId, $limit, 'products.name', 'products.id', [
+        return $this->grouped($period, $branchIds, $limit, 'products.name', 'products.id', [
             'join' => fn ($query) => $query
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sales_invoice_items.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'product_variants.product_id'),
@@ -183,11 +187,12 @@ final class SalesReports
     /**
      * Sales by salesperson — the report a commission conversation starts from.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    public function bySalesperson(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    public function bySalesperson(ReportPeriod $period, ?array $branchIds = null, int $limit = 50): array
     {
-        return $this->grouped($period, $branchId, $limit, 'users.name', 'users.id', [
+        return $this->grouped($period, $branchIds, $limit, 'users.name', 'users.id', [
             'join' => fn ($query) => $query->leftJoin('users', 'users.id', '=', 'sales_invoices.salesperson_id'),
         ]);
     }
@@ -199,11 +204,12 @@ final class SalesReports
      * `returned_revenue`, not `returns`. Renaming them here would give the shop two names
      * for one figure and make a mismatch between two screens impossible to spot.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array{revenue: int, cost: int, profit: int, margin_percent: float, invoice_count: int, returned_revenue: int}
      */
-    public function summary(ReportPeriod $period, ?int $branchId = null): array
+    public function summary(ReportPeriod $period, ?array $branchIds = null): array
     {
-        $margin = $this->profit->forPeriod($period->from, $period->to, $branchId);
+        $margin = $this->profit->forPeriod($period->from, $period->to, $branchIds);
 
         return [
             'revenue' => $this->intOf($margin['revenue'] ?? 0),
@@ -227,9 +233,10 @@ final class SalesReports
      * high-margin lines a profit report exists to surface.
      *
      * @param  array{join: callable, order?: 'revenue'|'margin'}  $options
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return list<array<string, mixed>>
      */
-    private function grouped(ReportPeriod $period, ?int $branchId, int $limit, string $labelColumn, string $groupColumn, array $options): array
+    private function grouped(ReportPeriod $period, ?array $branchIds, int $limit, string $labelColumn, string $groupColumn, array $options): array
     {
         $revenue = 'coalesce(sum(sales_invoice_items.line_total - sales_invoice_items.vat_amount), 0)';
         $cost = 'coalesce(sum(sales_invoice_items.cost_snapshot * sales_invoice_items.quantity), 0)';
@@ -246,7 +253,7 @@ final class SalesReports
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
-            ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('sales_invoices.branch_id', $branchIds))
             ->groupBy(DB::raw($groupColumn), DB::raw($labelColumn))
             ->orderByDesc(DB::raw($order))
             ->limit($limit)

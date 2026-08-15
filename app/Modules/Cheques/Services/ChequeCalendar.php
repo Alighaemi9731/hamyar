@@ -7,6 +7,7 @@ namespace App\Modules\Cheques\Services;
 use App\Modules\Cheques\Enums\ChequeDirection;
 use App\Modules\Cheques\Enums\ChequeStatus;
 use App\Modules\Cheques\Models\Cheque;
+use App\Modules\Inventory\Services\BranchContext;
 use Carbon\CarbonImmutable;
 
 /**
@@ -44,13 +45,23 @@ final class ChequeCalendar
         $asOf ??= CarbonImmutable::now();
         $horizon = $asOf->addDays(max(1, $days));
 
-        $open = Cheque::query()
+        $query = Cheque::query()
             ->with(['party:id,name', 'account:id,name'])
             ->where('direction', $direction->value)
             // Open, not merely un-cleared: a returned or written-off cheque has been dealt
             // with and does not belong on a list of things to do.
             ->whereIn('status', $this->openStatuses())
-            ->orderBy('due_date')
+            ->orderBy('due_date');
+
+        /*
+        | Constrained to the branch being viewed — and to the branches this user may see at
+        | all, which is the half that is a permission rather than a filter (see
+        | BranchContext). `includeUnassigned`, because `cheques.branch_id` is nullable and a
+        | cheque with no branch is the shop's paper rather than nobody's: dropping it from a
+        | per-branch view would make the two branches' lists fail to add up to the book.
+        */
+        $open = app(BranchContext::class)
+            ->apply($query, 'cheques.branch_id', includeUnassigned: true)
             ->get();
 
         $overdue = [];

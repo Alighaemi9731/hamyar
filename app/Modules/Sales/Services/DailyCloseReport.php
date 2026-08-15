@@ -98,7 +98,15 @@ final class DailyCloseReport
             'payments' => $this->paymentRows($payments),
             'accounts' => $this->accountRows($from, $to, $branchId),
 
-            'profit' => $withProfit ? $this->profit->forPeriod($from, $to, $branchId) : null,
+            /*
+            | Wrapped, not widened. A daily close is deliberately **one** branch — you
+            | close one till — so this service keeps its `?int`, and only the engine
+            | underneath it took a list when reporting needed to express "the branches
+            | this manager is allowed".
+            */
+            'profit' => $withProfit
+                ? $this->profit->forPeriod($from, $to, $branchId === null ? null : [$branchId])
+                : null,
         ];
     }
 

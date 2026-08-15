@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Platform\Models\Announcement;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\SubscriptionResolver;
@@ -64,6 +65,17 @@ final class HandleInertiaRequests extends Middleware
             // absent.
             'announcements' => fn (): array => $this->isStaff($request) ? $this->announcements() : [],
 
+            /*
+            | Which branch this user is looking at, and which they may switch to.
+            |
+            | Staff-only for the same reason `features` is: it names the shop's branches,
+            | and the public invoice page renders through this middleware. Lazy, because
+            | it is two queries the POS screen should not pay for a control it renders
+            | once — and it returns an empty option list for a shop with one branch, which
+            | is how the frontend knows to render nothing at all.
+            */
+            'branch' => fn (): array => $this->isStaff($request) ? $this->branch() : [],
+
             'location' => $request->getPathInfo(),
         ];
     }
@@ -116,6 +128,24 @@ final class HandleInertiaRequests extends Middleware
         }
 
         return $features;
+    }
+
+    /**
+     * The branch switcher's state, or an empty array outside a tenant.
+     *
+     * `BranchContext` owns the rules — a user allowed one branch gets no consolidated
+     * option, and the pinned id is re-validated against their assignments on every read.
+     * This only shapes them for the wire.
+     *
+     * @return array<string, mixed>
+     */
+    private function branch(): array
+    {
+        if (! app(TenantContext::class)->has()) {
+            return [];
+        }
+
+        return app(BranchContext::class)->toArray();
     }
 
     /**

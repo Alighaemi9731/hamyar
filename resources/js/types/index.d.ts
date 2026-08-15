@@ -52,6 +52,12 @@ export interface Announcement {
   level: 'info' | 'warning' | 'critical';
 }
 
+export interface BranchState {
+  current: number | null;
+  can_consolidate: boolean;
+  options: { id: number; name: string }[];
+}
+
 export interface SharedProps {
   auth: {
     user: AuthUser | null;
@@ -61,6 +67,14 @@ export interface SharedProps {
   flash: FlashMessages;
   /** Live platform notices for this shop. Usually empty. */
   announcements: Announcement[];
+  /**
+   * Which branch this user is viewing and which they may switch to.
+   *
+   * Empty (`{}`) outside a tenant and on the public invoice page, which renders through
+   * the same middleware — the switcher treats a missing option list as "nothing to
+   * switch between" and renders nothing.
+   */
+  branch?: BranchState;
   /** Current URL path, for marking the active nav item. */
   location: string;
   [key: string]: unknown;

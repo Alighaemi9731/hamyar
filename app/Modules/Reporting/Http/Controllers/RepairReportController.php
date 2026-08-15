@@ -6,6 +6,7 @@ namespace App\Modules\Reporting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Reporting\Services\RepairReports;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SavedFilters;
@@ -46,7 +47,7 @@ final class RepairReportController extends Controller
             'period' => $period->toArray(),
             'shows_cost' => $showsCost,
             'can_export' => $user instanceof User && $user->can('reporting.export'),
-            'rows' => $this->payloadRows($reports->technicianPerformance($period), $showsCost),
+            'rows' => $this->payloadRows($reports->technicianPerformance($period, $this->branchIds()), $showsCost),
         ]);
     }
 
@@ -69,7 +70,7 @@ final class RepairReportController extends Controller
 
         $sheet = [];
 
-        foreach ($reports->technicianPerformance($period) as $row) {
+        foreach ($reports->technicianPerformance($period, $this->branchIds()) as $row) {
             $line = [
                 $row['technician'],
                 $row['delivered'],
@@ -128,5 +129,24 @@ final class RepairReportController extends Controller
         }
 
         return $shaped;
+    }
+
+    /**
+     * The branches this report covers: the one being viewed, or every branch the viewer is
+     * allowed when they are looking at «همه شعب».
+     *
+     * Resolved here rather than threaded through the private helpers because several of
+     * them run per cut, and a parameter on each was four more places for the two halves of
+     * the rule to come apart. `BranchAccess` memoises, so the repeat calls are free.
+     *
+     * Before 10.1 the report controllers passed nothing at all — so a manager restricted to
+     * one branch read the whole shop's figures the moment they opened a report. The access
+     * floor was enforced on every list screen and on none of the reports.
+     *
+     * @return list<int>|null
+     */
+    private function branchIds(): ?array
+    {
+        return app(BranchContext::class)->scopeIds();
     }
 }

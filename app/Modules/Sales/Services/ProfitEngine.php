@@ -88,9 +88,10 @@ final class ProfitEngine
     /**
      * The margin over a period, across every branch or one of them.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array{revenue: int, cost: int, profit: int, margin_percent: int, invoice_count: int, returned_revenue: int, returned_cost: int}
      */
-    public function forPeriod(CarbonImmutable $from, CarbonImmutable $to, ?int $branchId = null): array
+    public function forPeriod(CarbonImmutable $from, CarbonImmutable $to, ?array $branchIds = null): array
     {
         $sold = SalesInvoiceItem::query()
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
@@ -99,7 +100,7 @@ final class ProfitEngine
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$from, $to])
-            ->when($branchId !== null, fn ($query) => $query->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($query) => $query->whereIn('sales_invoices.branch_id', $branchIds))
             ->selectRaw('
                 coalesce(sum(sales_invoice_items.line_total - sales_invoice_items.vat_amount), 0) as revenue,
                 coalesce(sum(sales_invoice_items.cost_snapshot * sales_invoice_items.quantity), 0) as cost,
@@ -107,7 +108,7 @@ final class ProfitEngine
             ')
             ->first();
 
-        $returned = $this->returnedInPeriod($from, $to, $branchId);
+        $returned = $this->returnedInPeriod($from, $to, $branchIds);
 
         $revenue = (int) ($sold->revenue ?? 0) - $returned['revenue'];
         $cost = (int) ($sold->cost ?? 0) - $returned['cost'];
@@ -130,9 +131,10 @@ final class ProfitEngine
      * for the quantity returned, because that is what walked back through the door. A
      * return valued at today's cost would move a past month's margin.
      *
+     * @param  list<int>|null  $branchIds  the branches to cover; null is every branch
      * @return array{revenue: int, cost: int}
      */
-    private function returnedInPeriod(CarbonImmutable $from, CarbonImmutable $to, ?int $branchId): array
+    private function returnedInPeriod(CarbonImmutable $from, CarbonImmutable $to, ?array $branchIds): array
     {
         // Through the model, not `DB::table`: the query builder would skip
         // `BelongsToTenant`'s global scope and lean on RLS alone. RLS would in fact hold
@@ -143,7 +145,7 @@ final class ProfitEngine
             ->join('sales_invoice_items', 'sales_invoice_items.id', '=', 'sales_return_items.sales_invoice_item_id')
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_returns.sales_invoice_id')
             ->whereBetween('sales_returns.returned_at', [$from, $to])
-            ->when($branchId !== null, fn ($query) => $query->where('sales_invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn ($query) => $query->whereIn('sales_invoices.branch_id', $branchIds))
             ->selectRaw('
                 coalesce(sum(sales_return_items.refund_amount), 0) as revenue,
                 coalesce(sum(sales_invoice_items.cost_snapshot * sales_return_items.quantity), 0) as cost

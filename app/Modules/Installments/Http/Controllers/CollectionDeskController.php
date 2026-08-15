@@ -10,6 +10,7 @@ use App\Modules\Installments\Models\InstallmentPlan;
 use App\Modules\Installments\Models\InstallmentRow;
 use App\Modules\Installments\Services\CollectInstallment;
 use App\Modules\Installments\Services\InstallmentMaths;
+use App\Modules\Inventory\Services\BranchContext;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -34,16 +35,31 @@ use RuntimeException;
  */
 final class CollectionDeskController extends Controller
 {
-    public function index(Request $request, InstallmentMaths $maths, CollectInstallment $collect): Response
+    public function index(Request $request, InstallmentMaths $maths, CollectInstallment $collect, BranchContext $context): Response
     {
         $this->authorize('viewAny', InstallmentPlan::class);
 
         $today = CarbonImmutable::now();
 
-        $rows = InstallmentRow::query()
-            ->with(['plan.party:id,name'])
-            ->whereIn('status', [InstallmentRow::STATUS_PENDING, InstallmentRow::STATUS_OVERDUE])
-            ->orderBy('due_at')
+        /*
+        | `installment_rows` carries no branch of its own — a schedule belongs to the
+        | contract, and the contract belongs to the branch that wrote it. So the constraint
+        | joins to the plan rather than pretending the row has a branch column.
+        |
+        | Not `includeUnassigned`: `installment_plans.branch_id` is NOT nullable, so a null
+        | here would be a broken row rather than a shop-wide contract, and quietly including
+        | it would hide that.
+        */
+        $rows = $context
+            ->apply(
+                InstallmentRow::query()
+                    ->with(['plan.party:id,name'])
+                    ->join('installment_plans', 'installment_plans.id', '=', 'installment_rows.installment_plan_id')
+                    ->whereIn('installment_rows.status', [InstallmentRow::STATUS_PENDING, InstallmentRow::STATUS_OVERDUE])
+                    ->orderBy('installment_rows.due_at')
+                    ->select('installment_rows.*'),
+                'installment_plans.branch_id',
+            )
             ->limit(200)
             ->get();
 
