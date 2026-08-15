@@ -130,6 +130,15 @@ final class ReportCatalogue
                 'permission' => 'reporting.view',
                 'needs_margin' => true,
             ],
+
+            [
+                'key' => 'repairs.technicians',
+                'title' => 'کارکرد تکنسین‌ها',
+                'description' => 'تحویل‌شده، روی میز، و میانگین زمان از پذیرش تا تحویل.',
+                'group' => self::GROUP_REPAIRS,
+                'href' => '/reporting/technicians',
+                'permission' => 'reporting.view',
+            ],
         ];
     }
 

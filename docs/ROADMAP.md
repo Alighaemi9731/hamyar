@@ -855,7 +855,18 @@ converging on them later.
       with the profit removed is an empty table under a heading that promises otherwise.
       `ReportAccess` decides, and the same predicate hides the rows from the index — a
       listed row that 403s when clicked is worse than no row
-- [ ] Technician performance
+- [x] Technician performance — delivered count, jobs on the bench today, average
+      turnaround and parts cost, at `/reporting/technicians`.
+      **Delivered, not worked-on**: a ticket counts in the period it was *finished* in, so
+      a device brought in on the 29th of Mordad and repaired in Shahrivar does not make
+      Mordad look busy and Shahrivar idle. **Turnaround is intake→delivery wall-clock**,
+      not time-in-repairing, which would flatter every technician by excluding the days a
+      device sat waiting for a part — the customer experienced the whole wait. **«روی میز»
+      ignores the range** on purpose: open work has no date to be inside, and a ticket
+      from two months ago that is still open is open today. Parts cost is the shop's
+      `unit_cost`, not the customer's price, so the figure beside somebody's name does not
+      move when a price list is edited — and it is dropped, not the screen refused, for a
+      viewer without margin, because the counts stand on their own
 - [ ] Dead stock
 - [ ] Stock valuation
 - [ ] Party balances aging

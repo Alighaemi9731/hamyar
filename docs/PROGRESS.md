@@ -1103,3 +1103,37 @@ The latency map takes sixteen measurements. `profit.perUnit` is deliberately **n
 them: `BulkVolumeSeeder` writes no `product_units`, so the query would return nothing and
 time the speed of an empty table — green without witness, in the file that argues hardest
 against it. It goes in when the fixture grows serialized handsets.
+
+### Same day — technician performance
+
+`/reporting/technicians`: delivered count, jobs on the bench today, average turnaround,
+parts cost. Four decisions in it are worth keeping, because each has a plausible
+alternative that produces a number nobody can act on.
+
+**Delivered, not worked-on.** A ticket counts in the period it was *finished* in. Counting
+intake would credit work to the month a device arrived, so one brought in on the 29th of
+Mordad and repaired in Shahrivar makes Mordad look busy and Shahrivar idle — and neither
+month describes what anybody did.
+
+**Turnaround is intake→delivery wall-clock**, not time-in-repairing. The second flatters
+every technician by excluding the days a device sat waiting for a part or for the customer
+to answer the phone. The customer experienced the whole wait, and the whole wait is what a
+promised date has to be set against. Where the shop wants to know *why* a job was slow the
+status history has it ticket by ticket; an average that quietly excluded waiting would
+hide that there is a question.
+
+**«روی میز» deliberately ignores the range.** Open work has no date to be inside: a ticket
+from two months ago that is still open is open today, and excluding it because it fell
+outside the range would report an empty bench for the technician who most needs help. The
+column header and the footer both say so, rather than leaving the reader to wonder why two
+columns do not add up. It uses `TicketStatus::isOpenWork()` — the same predicate the Kanban
+board uses — so «۴ روی میز» here and four cards there are the same four.
+
+**Parts cost is the shop's cost, not the customer's price.** `ticket_parts` carries both;
+the figure beside a technician's name should not move when somebody edits a price list.
+Consumed only — a reservation is not a cost, and a technician who planned a repair that
+was cancelled has spent nothing.
+
+The margin gate takes the sales report's shape here rather than the profit report's: the
+money column is dropped and the screen still works, because «چند دستگاه تحویل شد و چقدر
+طول کشید» stands on its own.
