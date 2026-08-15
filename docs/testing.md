@@ -239,6 +239,81 @@ message DOES exist for the shop that sent it, before asserting it does not for t
 did not: **a negative assertion needs a positive one beside it, or it passes on an empty
 world.**
 
+### Green without witness
+
+The generalisation of that kill, and the name to use for it in review: **a test is green
+without witness when its fixture does not contain the thing it claims to measure.** The
+arithmetic is never exercised, both sides collapse to the same empty value, and the
+assertion passes — permanently, and for a reason that has nothing to do with the code
+under test.
+
+It is the golden-number tests that are most exposed, because their whole shape invites it:
+seed a scenario, run a report, compare to a figure written by hand. If the scenario is
+missing the subject, `0 === 0` and the report is "verified".
+
+`GoldenNumbersTest` pinned sales revenue and sales profit against `CrazyMonthSeeder` — the
+Phase 7 "one crazy month" that the entire reporting phase reconciles to — and the seeder
+**contains no sales invoices at all.** Two assertions, green since Phase 7, proving that
+zero equals zero. The report they were guarding could have returned any number for any
+month without either of them noticing.
+
+So, before a golden number is pinned:
+
+1. **Assert the fixture contains the subject, in the same test**, above the arithmetic —
+   `expect(Invoice::where(...)->count())->toBeGreaterThan(0)` earns the figures below it.
+2. **Or assert the emptiness explicitly**, naming it as the claim: if the scenario really
+   has no sales, say `toBe(0)` *because there are no sales*, with a comment pointing at
+   the fixture that would have to change and the test that pins the arithmetic instead.
+   That is what those two assertions became, and they now point a future reader at
+   `SalesReportScreenTest`, which pins 290,000,000 revenue · 180,000,000 cost ·
+   110,000,000 profit against a fixture built to contain them.
+
+Never the third option — an exact figure asserted against a fixture nobody checked. The
+figure looks like evidence and is decoration.
+
+This is the same defect as the empty-world negative above, and the same defect as the
+`x + y - y` tautology: an assertion that cannot distinguish a working implementation from
+a broken one. The tell is always available and always cheap — **read the assertion with
+the implementation deleted, and then read it again with the fixture emptied.** A test that
+survives both is not a test.
+
+#### Money fixtures use non-round amounts by default
+
+The same defect wearing its most common disguise. A fixture can be full — invoices,
+lines, movements, all present — and still be **without witness for the arithmetic**,
+because every amount in it divides evenly. Round numbers do not exercise remainders, and
+remainders are where money code breaks.
+
+This file predicted the exact case in writing, two sections above: *"a fixture that buys
+stock at exactly 200,000 never meets the rounding guard that real weighted-average cost
+trips on the first search."* It then happened, and it is worth naming precisely because
+the prediction was not enough to prevent it — only a fixture rule is.
+
+**`StockLedger::weightedAverageCost()`** divides total value by total quantity. Every
+seeder and every test bought stock at round prices, so the division always landed on a
+whole toman and the result was always renderable. `Money::toToman()` *refuses* a sub-toman
+remainder rather than rounding it, so the first real shop to buy a hundred chargers at
+50,000 and ten at 90,000 gets an average of **53,636 rial** — 5,363.6 toman — and the
+sales report they open every morning throws instead of rendering. The whole suite was
+green. The guard that would have fired had never been handed a number that could fire it.
+
+So:
+
+1. **A money fixture's default amounts are non-round** — prices that do not divide by
+   the quantities bought, totals that do not land on the rounding step. `50_000` and
+   `90_000` over 100 and 10 units is the canonical shape: it is realistic, and it
+   produces a remainder.
+2. **A seeder helper that cannot produce a round toman is worth more than a hundred
+   round-number fixtures.** Prefer generating amounts from a rule that guarantees a
+   remainder over hand-picking values a later editor will "tidy" back to 200,000.
+3. Keep round numbers only where the *roundness itself* is the claim — an on-the-step
+   total that must not move under `up` rounding, for instance ([ADR 0009](adr/0009-invoice-rounding.md)).
+
+The general form: **any figure the code divides, allocates or rounds needs a fixture
+whose inputs do not divide evenly.** Discount allocation across lines, per-line VAT,
+instalment splits, landed-cost allocation and weighted-average cost are all the same
+shape, and all five are green-without-witness against tidy inputs.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no
@@ -352,6 +427,52 @@ wrong — that is the whole point of never storing totals
 
 Seeded with 100k rows, the top reports must return in **< 300ms**. Asserted in CI, so
 a missing index is a failing test rather than a support ticket.
+
+The fixture is [`BulkVolumeSeeder`](../database/seeders/BulkVolumeSeeder.php) and the
+assertion is `ReportLatencyTest`. One shop gets a year of trading — 40,000 invoices,
+100,000 invoice lines, ~100,000 stock movements, ~75,000 ledger rows — and every value
+is a deterministic function of the row's ordinal, so the same seed produces the same
+rows and the same plan on every run.
+
+Four rules that fixture had to learn, none of them obvious from the outside:
+
+**The neighbour is the same size.** On a single-tenant table a sequential scan and an
+index scan do identical work, so a budget measured there passes with every index
+dropped. Both shops are filled, the table holds twice what any report reads, and the
+tenant predicate has to earn its place in the plan.
+
+**ANALYZE after every step, not once at the end.** Postgres plans from statistics and a
+bulk-loaded table has none; autovacuum cannot help, because the rows are uncommitted and
+under `RefreshDatabase` never commit at all. That costs twice. The reports would be timed
+against a planner that thinks every table is empty — a sequential scan over twelve
+imagined rows is chosen instantly, so the budget passes while proving nothing. And the
+seeder's own later statements plan badly: the sale-movement insert, joining 100,000
+unanalysed lines to 40,000 unanalysed invoices, was **still running after seven minutes**
+against 1.4 seconds once the two tables had statistics.
+
+**It is a fixture for timings, never for figures.** Every amount in it is arithmetic the
+seeder invented. A report pinned to it would be pinned to that invention — §3's *green
+without witness*, one step worse, because the table is full and the number still means
+nothing. Money is pinned in `SalesReportScreenTest` and `GoldenNumbersTest`, against
+scenarios the real services built.
+
+**The budget is a ceiling, not a regression detector.** Measured figures at the time of
+writing are 1–46ms against 300ms, so a change making a report three times slower still
+passes. Tightening it to close that gap buys a test that fails on a busy CI box and
+teaches everyone to re-run it. The detector for a *plan* change is the fixture itself:
+
+```bash
+php artisan db:seed --class=Database\\Seeders\\BulkVolumeSeeder
+# then EXPLAIN (ANALYZE, BUFFERS) the report's query and read what the scan is
+# proportional to — the range asked for, or everything the shop has ever sold?
+```
+
+That is how the missing index on `sales_invoices` was found: a thirty-day report was
+reading 75,200 index entries and 12,533 heap rows to keep 3,093, because
+`(tenant_id, status)` stops before the date and `(tenant_id, branch_id, issued_at)`
+cannot be entered without a branch. The cost grew with the shop's whole history rather
+than with the range — invisible at eleven demo invoices, and a complaint from the biggest
+customer eighteen months in.
 
 ---
 

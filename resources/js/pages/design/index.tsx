@@ -3,6 +3,7 @@ import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { BarChart } from '@/components/domain/bar-chart';
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
@@ -12,6 +13,7 @@ import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
+import { type ReportPreset, ReportPresets } from '@/components/domain/report-presets';
 import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
 import { type TimelineItem, Timeline } from '@/components/domain/timeline';
@@ -56,6 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import { AppShell } from '@/layouts/app-shell';
 
@@ -92,12 +95,14 @@ export default function DesignGallery() {
         <OverlaySection alt />
         <TableSection />
         <StatCardSection alt />
-        <ImeiSection />
-        <DataTableSection alt />
-        <PickerSection />
-        <ConfirmAndPagingSection alt />
-        <PrintSection />
-        <StateSection alt />
+        <BarChartSection />
+        <ImeiSection alt />
+        <DataTableSection />
+        <PickerSection alt />
+        <ConfirmAndPagingSection />
+        <ReportPresetsSection />
+        <PrintSection alt />
+        <StateSection />
       </div>
     </AppShell>
   );
@@ -163,12 +168,19 @@ function TokensSection({ alt }: { alt?: boolean }) {
     { name: 'ink-soft', value: '#6E6E73', className: 'bg-ink-soft text-white' },
   ];
 
+  /*
+    `dark` is the step the token switches to under `.dark` — every one of these is
+    unreadable on black at its light value, so the token itself is remapped in
+    app.css rather than each call site adding a `dark:` variant. The swatch names
+    both values because it is the one place in the app that prints a hex, and a
+    swatch labelled #8A5A00 while rendering #E0A13A is documentation that lies.
+  */
   const semantics = [
-    { name: 'brand', value: '#0066CC', className: 'bg-brand text-white' },
-    { name: 'success', value: '#0F7B3F', className: 'bg-success text-white' },
-    { name: 'warning', value: '#8A5A00', className: 'bg-warning text-white' },
-    { name: 'danger', value: '#B3261E', className: 'bg-danger text-white' },
-    { name: 'label', value: '#FFD84D', className: 'bg-label text-ink' },
+    { name: 'brand', value: '#0066CC', dark: '#409CFF', className: 'bg-brand text-white' },
+    { name: 'success', value: '#0F7B3F', dark: '#4CC47F', className: 'bg-success text-white' },
+    { name: 'warning', value: '#8A5A00', dark: '#E0A13A', className: 'bg-warning text-white' },
+    { name: 'danger', value: '#B3261E', dark: '#FF6961', className: 'bg-danger text-white' },
+    { name: 'label', value: '#FFD84D', dark: null, className: 'bg-label text-ink' },
   ];
 
   return (
@@ -204,6 +216,11 @@ function TokensSection({ alt }: { alt?: boolean }) {
               <span className="ltr-value opacity-70" dir="ltr">
                 {s.value}
               </span>
+              {s.dark ? (
+                <span className="ltr-value opacity-70" dir="ltr">
+                  {s.dark} <span className="opacity-80">dark</span>
+                </span>
+              ) : null}
             </div>
           ))}
         </div>
@@ -417,7 +434,71 @@ function StatusSection({ alt }: { alt?: boolean }) {
           کلید خام نمایش داده می‌شود تا معلوم باشد چه چیزی باید به STATUS_MAP اضافه شود.
         </span>
       </Row>
+
+      <PaperIslandCase />
     </Section>
+  );
+}
+
+/**
+ * The regression case for the paper light island (design-system §1).
+ *
+ * A print sheet is ink on white in BOTH themes, so the dark theme's lifted semantic
+ * steps are the wrong ones inside it — #4CC47F is 7.5:1 on #1D1D1F and 2.2:1 on white,
+ * and a «وصول‌شده» stamp on an invoice went from readable to nearly invisible the moment
+ * a shop switched to dark mode. `[data-paper]` restores the light steps, once, in
+ * `app.css`.
+ *
+ * Rendering the SAME badges on both grounds is the point: in dark mode the two panels
+ * must not match, and the paper one must stay legible. A contrast checker would catch
+ * the regression; this catches it by eye, which is what gets looked at.
+ *
+ * Note the paper panel sets `data-paper` rather than only `bg-white` — faking a sheet
+ * with `bg-white text-black` is precisely the bug, since the ground turns white while
+ * every token inside stays on its dark step.
+ */
+function PaperIslandCase() {
+  const keys = ['cleared', 'due_soon', 'overdue', 'deposited', 'sold'];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-[11rem_1fr] sm:items-start">
+      <span className="pt-2 text-xs text-muted-foreground">روی کاغذ / روی صفحه</span>
+
+      <div className="space-y-3">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-card border border-border bg-background p-4">
+            <p className="mb-3 text-2xs text-muted-foreground">
+              زمینهٔ برنامه — در حالت تیره پله‌های روشن‌شده
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {keys.map((key) => (
+                <StatusBadge key={key} status={key} />
+              ))}
+            </div>
+          </div>
+
+          <div
+            data-paper="a4"
+            className="rounded-card border border-border bg-white p-4 text-black"
+          >
+            <p className="mb-3 text-2xs text-muted-foreground">
+              داخل کاغذ ([data-paper]) — همان نشان‌ها، پله‌های تیرهٔ اصلی
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {keys.map((key) => (
+                <StatusBadge key={key} status={key} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <p className="max-w-2xl text-2xs leading-relaxed text-muted-foreground">
+          کاغذ در هر دو تم سفید است، پس نشان‌های داخل آن باید به رنگ‌های تیرهٔ روی سفید برگردند. تم
+          را تیره کنید: دو کادر بالا باید متفاوت به نظر برسند و کادر کاغذ باید خوانا بماند. اگر
+          یکسان شدند، قاعدهٔ [data-paper] شکسته است.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -781,6 +862,56 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <StatCard label="سقف اعتبار" value={0} isMoney hint="سقف صفر: اعتباری ندارد" />
         <StatCard label="سقف اعتبار" value={null} hint="تعیین نشده" />
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * BarChart — the only chart in the system so far.
+ *
+ * States to review: a normal month, a shop that sold nothing, a single day, and the
+ * quiet-day case — a day with one small sale must not look like a day the shop was
+ * shut. Hover a column and read the fixed line above the plot; on a phone, tap.
+ */
+function BarChartSection({ alt = false }: { alt?: boolean }) {
+  const busy = Array.from({ length: 30 }, (_, index) => ({
+    // Through the digit helper rather than padding with a Persian zero: `'1'.padStart(2,
+    // '۰')` yields «۰1», one Persian digit glued to one Latin one, which is exactly the
+    // mixed-digit bug the gallery exists to demonstrate the absence of.
+    label: `۱۴۰۵/۰۵/${toPersianDigits(String(index + 1).padStart(2, '0'))}`,
+    // A deterministic-looking month with two closed days and one big Thursday.
+    value:
+      index === 6 || index === 13 ? 0 : (index % 7 === 3 ? 90 : 12 + (index % 5) * 7) * 1_000_000,
+  }));
+
+  const quiet = busy.map((point, index) => ({
+    ...point,
+    value: index === 20 ? 480_000_000 : index % 3 === 0 ? 0 : 900_000,
+  }));
+
+  return (
+    <Section
+      alt={alt}
+      title="BarChart"
+      note="یک سری، یک رنگ. زمان از راست به چپ می‌رود. روزهای بدون فروش یک پایه کم‌رنگ دارند تا ستون قابل اشاره بماند."
+    >
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy} title="فروش ۳۰ روز گذشته" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy.map((p) => ({ ...p, value: 0 }))} title="فروش ۳۰ روز گذشته" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={quiet} title="یک روز بزرگ و بقیه ساکت" />
+        </div>
+
+        <div className="rounded-card border bg-card p-5">
+          <BarChart points={busy.slice(0, 1)} title="فقط یک روز" />
+        </div>
       </div>
     </Section>
   );
@@ -1172,6 +1303,43 @@ function ConfirmAndPagingSection({ alt = false }: { alt?: boolean }) {
  * What to review: ink on white regardless of theme, RTL preserved on paper, and the
  * 80mm receipt legible at its true width rather than scaled down to fit.
  */
+function ReportPresetsSection({ alt = false }: { alt?: boolean }) {
+  const saved: ReportPreset[] = [
+    { id: 1, name: 'سه ماه گذشته', filters: { cut: 'aging', direction: 'receivable' } },
+    { id: 2, name: 'بدهی همکاران', filters: { cut: 'aging', direction: 'payable' } },
+  ];
+
+  return (
+    <Section
+      title="<ReportPresets/>"
+      note="فیلترهای ذخیره‌شده هر گزارش، برای هر کاربر. کلیک روی یک نام، صفحه را با همان فیلترها باز می‌کند — یعنی نشانی صفحه هم همان می‌شود و قابل اشتراک است. حالت خالی عمداً فقط دکمهٔ ذخیره است: ردیف خالی چیزی برای گفتن ندارد."
+      alt={alt}
+    >
+      <div className="space-y-6">
+        <Row label="با چند فیلتر ذخیره‌شده">
+          <ReportPresets
+            reportKey="financial"
+            presets={saved}
+            current={{ cut: 'aging' }}
+            path="/reporting/financial"
+          />
+        </Row>
+
+        <Row label="خالی (اولین بار)">
+          <ReportPresets
+            reportKey="financial"
+            presets={[]}
+            current={{ cut: 'aging' }}
+            path="/reporting/financial"
+          />
+        </Row>
+      </div>
+    </Section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 function PrintSection({ alt = false }: { alt?: boolean }) {
   return (
     <Section

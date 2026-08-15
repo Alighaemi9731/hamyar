@@ -77,6 +77,46 @@ Dark mode grounds on true black with `#1d1d1f` surfaces, and lifts the accent to
 The theme class is applied by an inline script in `app.blade.php` **before first
 paint**, so switching never flashes white.
 
+#### Paper is a light island
+
+**Print surfaces are ink on white in both themes**, on screen as well as on paper — the
+sheet on screen IS the sheet that prints, so it cannot follow the app's ground. That makes
+paper the one place where the dark theme's lifted semantic steps are the *wrong* ones.
+`success` at `#4cc47f` is 7.5:1 on `#1d1d1f` and **2.2:1 on white**: a positive figure in a
+report, or a «پرداخت‌شده» stamp on an invoice, went from readable to nearly invisible the
+moment a shop switched to dark mode.
+
+So every semantic token **restores to its light step inside a paper surface**. The rule is
+keyed on `[data-paper]`, which `PrintLayout` already sets on the sheet, and it lives once
+in `resources/css/app.css` — no page opts in, and no page can forget:
+
+```css
+[data-paper] {
+  --color-brand:   var(--color-brand-on-light);
+  --color-info:    var(--color-brand-on-light);
+  --color-success: var(--color-success-on-light);
+  --color-warning: var(--color-warning-on-light);
+  --color-danger:  var(--color-danger-on-light);
+  --destructive:   var(--color-danger-on-light);
+  --primary:       var(--color-brand-on-light);
+  --muted-foreground: #6e6e73;
+}
+```
+
+Two consequences worth stating outright:
+
+- **Adding a semantic token means adding its `-on-light` step and its `[data-paper]`
+  line.** A token defined only for the app ground is a token that disappears on paper.
+- **Never hand-roll a white box for a print preview.** `bg-white text-black` gets the
+  ground right and leaves every token inside it on its dark step, which is exactly the bug
+  — the ground stops looking wrong while the contents stay unreadable. Use `PrintLayout.*`,
+  or set `data-paper` if you are demonstrating the surface itself.
+
+The `/design` gallery carries the regression case: the same `<StatusBadge/>` row rendered
+outside a paper surface and inside one, so a dark-mode look at the gallery shows the two
+side by side and the day the restore breaks it is visible to the eye rather than only to a
+contrast checker.
+
 ### Typography
 
 - Headings — **Estedad** 600/700/800, tight tracking
@@ -179,6 +219,11 @@ paint**, so switching never flashes white.
 
 11. **Print is part of the system.** Thermal 80mm and A4/A5 templates live under
     `PrintLayout.*`. No page-local `@media print` hacks.
+
+12. **Paper is a light island.** A print surface is ink on white in both themes, and
+    every semantic token restores to its light step inside `[data-paper]` (see
+    §1 *Paper is a light island*). Do not fake a sheet with `bg-white text-black` — the
+    ground goes white and the badges inside it stay on their unreadable dark steps.
 
 ---
 

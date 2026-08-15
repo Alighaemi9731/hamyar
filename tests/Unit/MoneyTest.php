@@ -40,6 +40,37 @@ describe('toman conversion', function (): void {
     it('refuses to round a sub-toman remainder rather than losing money', function (): void {
         expect(fn () => Money::toToman(1_005))->toThrow(InvalidArgumentException::class);
     });
+
+    it('raises a derived cost to the next whole toman', function (): void {
+        /*
+        | The escape hatch for the one class of amount that legitimately lands off a
+        | toman: a *derived* unit cost. A weighted average is a division — a hundred
+        | chargers at 50,000 and ten at 90,000 come to 53,636 rial each — and `toToman()`
+        | refuses that, so it can never be displayed. Raising it at the point it is
+        | derived is what stops the sales report throwing on a real shop's data.
+        */
+        expect(Money::ceilToToman(53_636))->toBe(53_640)->toBeRial();
+        expect(Money::ceilToToman(56_666_666))->toBe(56_666_670);
+    });
+
+    it('leaves an amount that is already whole toman exactly alone', function (): void {
+        // No drift on the common case: most costs are typed in by a person, in toman.
+        expect(Money::ceilToToman(125_000_000))->toBe(125_000_000);
+        expect(Money::ceilToToman(0))->toBe(0);
+    });
+
+    it('rounds a negative amount away from zero too', function (): void {
+        // A negative cost is a correction, and the same conservatism applies: the
+        // adjustment must not shrink toward zero and quietly recover margin.
+        expect(Money::ceilToToman(-53_636))->toBe(-53_640);
+    });
+
+    it('produces something toToman will accept, for every remainder', function (): void {
+        // The property the whole helper exists for, over all ten residues.
+        foreach (range(0, 9) as $remainder) {
+            expect(fn () => Money::toToman(Money::ceilToToman(1_000 + $remainder)))->not->toThrow(InvalidArgumentException::class);
+        }
+    });
 });
 
 describe('parsing', function (): void {

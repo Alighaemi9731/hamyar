@@ -241,16 +241,23 @@ it('snapshots the exact cost of a handset, not a current price', function (): vo
 });
 
 it('costs standard goods at the weighted average, not the last price paid', function (): void {
-    // A hundred at 50,000 and ten at 90,000 average to 53,636 — not to 70,000, which is
-    // what a mean of the two prices would say, and not 90,000, which is what "last cost"
-    // would say.
+    /*
+    | A hundred at 50,000 and ten at 90,000 average to 53,636.36 — not to 70,000, which is
+    | what a mean of the two prices would say, and not 90,000, which is what "last cost"
+    | would say.
+    |
+    | It is reported as 53,640: a derived unit cost is raised to a whole toman, because
+    | `Money::toToman()` REFUSES a sub-toman remainder rather than rounding it, and a
+    | cost_snapshot of 53,636 is a figure the sales report cannot render at all. Upward,
+    | so an understated cost never flatters the margin.
+    */
     ($this->inTenant)(function (): void {
         $ledger = app(StockLedger::class);
 
         $ledger->record($this->variant->id, $this->warehouse->id, 100, MovementType::Purchase, unitCost: 50_000);
         $ledger->record($this->variant->id, $this->warehouse->id, 10, MovementType::Purchase, unitCost: 90_000);
 
-        expect($ledger->weightedAverageCost($this->variant->id, $this->warehouse->id))->toBe(53_636);
+        expect($ledger->weightedAverageCost($this->variant->id, $this->warehouse->id))->toBe(53_640);
     });
 
     $invoice = ($this->inTenant)(function (): SalesInvoice {
@@ -282,7 +289,7 @@ it('costs standard goods at the weighted average, not the last price paid', func
     ($this->inTenant)(fn () => app(FinaliseInvoice::class)->finalise($invoice->refresh()));
 
     ($this->inTenant)(function () use ($invoice): void {
-        expect($invoice->refresh()->items()->firstOrFail()->cost_snapshot)->toBe(53_636);
+        expect($invoice->refresh()->items()->firstOrFail()->cost_snapshot)->toBe(53_640);
 
         // Five left the shelf.
         expect(app(StockLedger::class)->onHand($this->variant->id, $this->warehouse->id))->toBe(105);

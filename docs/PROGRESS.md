@@ -804,3 +804,484 @@ billing and a real gateway), and the notification bell (Phase 9, which builds th
 it belongs on — the message log ships here and answers the same question).
 
 1016 tests green.
+
+---
+
+## 2026-08-14 — Phase 9 started (foundation only)
+
+Ended the session at a slice boundary with context running long, per the autonomous-run
+hygiene rule. **Phase 8 is merged (PR #15).** Phase 9 has its foundation committed and
+pushed on `feat/phase-9-reporting`; no roadmap box is ticked yet, because no roadmap item is
+finished.
+
+**Built and green (1026 tests):**
+
+- `ReportPeriod` — Jalali range parsing done once for every report, inclusive end,
+  backwards range swapped rather than rejected.
+- `Jalali::startOfMonth()` / `endOfMonth()` — Carbon's find the Gregorian month, which falls
+  mid-Jalali-month and makes "this month" cover parts of two.
+- `SalesReports` — daily, by product, by salesperson, summary. Composes `ProfitEngine`
+  rather than re-deriving, and mirrors its key names so a mismatch between two screens is
+  visible.
+- `GoldenNumbersTest` — pinned against the Phase 7 crazy month, each literal beside an
+  invariant, cross-checked against a second code path where one exists.
+
+**Where the next session picks up (ROADMAP Phase 9):**
+
+1. 9.1 dashboard widgets — role-aware, on `ReportPeriod`.
+2. 9.2 the remaining reports from `docs/specs/reporting.md`: stock valuation, dead stock,
+   party aging, cheque calendar (the service exists — `ChequeCalendar`), instalments book,
+   VAT summary, SMS usage, technician performance.
+3. Print CSS + Excel export + saved filter presets.
+4. 9.3 the query performance budget: <300ms on a 100k-row seed. Needs a bulk seeder, which
+   does not exist yet — that is the first real piece of work, not the reports.
+
+Decisions taken so far are batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.
+
+---
+
+## 2026-08-15 — Phase 9.1 done, and the sales report the dashboard links to
+
+**1050 tests green** (was 1026). Larastan clean, Pint clean, RTL gate clean, `npm run
+types` and `vite build` clean.
+
+**Shipped**
+
+- **The dashboard** (`/dashboard`, replacing the placeholder). Eight widgets, each
+  composing the service that owns its number — `ProfitEngine`, `ChequeCalendar`,
+  `CollectInstallment`, `StockOverview` — rather than re-deriving. A dashboard that
+  re-derives disagrees with the screen it links to, and the shopkeeper finds out by
+  clicking through.
+- **Two gates per widget, and they are different questions.** The plan must include the
+  module *and* the user must hold the permission. The Basic-plan test grants an Owner
+  every permission there is and still expects no cheques card, which is the only way to
+  prove the plan gate does anything.
+- **`ReportAccess`** — one predicate for "may this person see what the shop paid",
+  reading both `sales.view_profit` (the counter's version) and
+  `reporting.view_financial` (the back office's). Asking one on the dashboard and the
+  other in the viewer is how the same person sees margin on one screen and not the
+  other, which reads as a bug in whichever they saw second.
+- **`BarChart`** on the `/design` gallery first, per the UI workflow rule. One series,
+  one colour, because the visual language has exactly one accent. A fixed readout above
+  the plot instead of a floating tooltip: thirty 6px bars at 390px leave no room for one,
+  and a tap works where a hover cannot.
+- **Report index + sales report** (`/reporting`, `/reporting/sales`). Three cuts over one
+  Jalali range — daily, by product, by salesperson — on an A4 print sheet that IS what
+  prints, plus xlsx export with money in two columns (integer rial and the formatted
+  string, through the same `Money::toArray()` the screen calls).
+
+**The thing worth writing down**
+
+`CrazyMonthSeeder` — the Phase 7 reconciliation scenario every golden number is pinned
+against — **contains no sales invoices**. It seeds a chart of accounts, banking, overheads
+and cheques, because what it was built to prove is that the ledger closes. So the two
+sales assertions the previous session added to `GoldenNumbersTest` were comparing zero to
+zero and passing. They now assert that emptiness explicitly (`invoice_count === 0`,
+`daily === []`), which turns a silent gap into a failing test the day somebody adds a sale
+— and points them at `SalesReportScreenTest`, which pins the sales arithmetic against a
+fixture built for it: 290,000,000 revenue, 180,000,000 cost, 110,000,000 profit, with
+every cut asserted to sum to the same revenue.
+
+Found by strengthening a passing test rather than by a failure, which is the only way this
+class of bug surfaces.
+
+**Where the next session picks up**
+
+1. The 100k-row bulk seeder — 9.3's latency budget cannot be written without it, and it is
+   the gate on "measured" in 9.1 too.
+2. The remaining reports, in the order the shop asks for them: stock valuation, dead
+   stock, party aging, cheque calendar (`ChequeCalendar` exists), instalments book, VAT
+   summary, SMS usage, technician performance.
+3. Saved-filter presets (`saved_filters` in the spec — no table yet).
+
+Decisions remain batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.
+
+### Addendum, same day — the dark theme failed AA everywhere, and the browser walk found it
+
+Walking the new screens at 390/1280 in both themes turned up a defect that predates this
+phase and reaches the whole app. The palette defines `--color-success-on-dark`,
+`--color-warning-on-dark`, `--color-danger-on-dark` and `--color-brand-on-dark` with
+measured ratios beside them — but only `--primary` and the chart slots were ever wired to
+them. So `text-warning`, `text-danger`, `text-success` and `text-brand` kept their **light**
+values under `.dark`, and every status badge, stat card, timeline icon and inline link in
+the product rendered below the AA floor:
+
+| token | on `#1D1D1F` before | after |
+|---|---|---|
+| warning `#8A5A00` | 2.8:1 | `#E0A13A` — 7.4:1 |
+| danger `#B3261E` | 2.6:1 | `#FF6961` — 5.9:1 |
+| success `#0F7B3F` | 3.1:1 | `#4CC47F` — 7.5:1 |
+| brand `#0066CC` | 3.0:1 | `#409CFF` — 6.5:1 |
+
+Fixed by remapping the tokens in `.dark`, not by adding `dark:` variants at call sites —
+which is the whole reason the system has tokens.
+
+That immediately created its opposite, which is the part worth remembering: **the print
+sheet is a light island.** `PrintLayout` renders every sheet as ink on white in *both*
+themes, deliberately, so the lifted steps are the wrong ones inside it — `#4CC47F` is 7.5:1
+on `#1D1D1F` and 2.2:1 on white, and the sales report's profit column went from readable to
+nearly invisible the moment the shop switched to dark mode. Every semantic token is
+therefore restored to its light step under `[data-paper]`, the attribute `PrintLayout`
+already sets, so every existing and future sheet gets it without remembering to.
+
+To keep one copy of each hex, the light steps are now named (`--color-*-on-light`) and both
+`:root` and `[data-paper]` alias them. The `/design` swatch row prints both values, because
+it is the one place in the app that shows a hex and a swatch labelled `#8A5A00` while
+rendering `#E0A13A` is documentation that lies.
+
+---
+
+## 2026-08-15 (later) — the 100k-row fixture, and the index it found
+
+Two captures first, both from the previous session, both written where the next session
+will trip over them rather than in a chat log.
+
+**"Green without witness"** is now a named pattern in `docs/testing.md` §3. A
+golden-number test whose fixture does not contain the subject it measures compares zero
+to zero and passes forever. `GoldenNumbersTest` pinned sales revenue and profit against
+`CrazyMonthSeeder`, which holds no sales invoices at all — two assertions, green since
+Phase 7, proving nothing. The rule now: assert the fixture contains the thing, or assert
+the emptiness as the claim with a pointer to the test that does pin the arithmetic. Never
+an exact figure against a fixture nobody checked, because the figure looks like evidence
+and is decoration.
+
+**The paper light island** is now written down in `docs/design-system.md` (§1 and hard
+rule 12) and in the `mobishop-ui` skill: a print surface is ink on white in both themes,
+so every semantic token restores to its light step inside `[data-paper]`. Dark-mode
+`success` `#4CC47F` is 2.2:1 on white, which is how a paid stamp went invisible. Faking a
+sheet with `bg-white text-black` is called out by name — it fixes the ground and leaves
+the badges on their dark steps, which is the bug rather than the fix. The `/design`
+gallery now carries the regression case: the same five badges outside a paper surface and
+inside one, so a dark-mode look shows the two side by side.
+
+### The bulk seeder
+
+`BulkVolumeSeeder` fills a shop with a year of trading — 40,000 invoices, 100,000 invoice
+lines, ~100,000 stock movements, ~75,000 ledger rows — in about eight seconds, set-based,
+straight into the tables.
+
+Deliberately **not** through the services, which is the opposite of `CrazyMonthSeeder`'s
+discipline and for the opposite reason: that one exists to prove the ledger balances, this
+one to prove a query plan holds, and 40,000 invoices through `FinaliseInvoice` would take
+an hour to re-prove what Phase 5 already proved once. The consequence is written at the
+top of the file in the bluntest terms available: **assert timings and row counts against
+it, never money.** Every amount in it is arithmetic the seeder invented, so a report
+pinned to it would be pinned to that invention — the same trap as above, one step worse,
+because the table is full and the number still means nothing.
+
+Three things the fixture had to learn:
+
+**Two shops, the same size.** On a single-tenant table a sequential scan and an index scan
+do identical work, so a budget measured there would pass with every index dropped. The
+neighbour is filled to match, and the tenant predicate has to earn its place in the plan.
+
+**ANALYZE after every step, not once at the end.** A bulk-loaded table has no statistics,
+and autovacuum cannot help — the rows are uncommitted, and under `RefreshDatabase` they
+never commit at all. Written with a single ANALYZE at the end, the sale-movement insert
+joining 100,000 unanalysed lines to 40,000 unanalysed invoices was **still running after
+seven minutes**, against 1.4 seconds once the two tables had statistics. It had looked
+instant in development, on a dev database autovacuum had already been through.
+
+**Foreign keys by array subscript, never by `offset … limit 1`.** The offset form reads
+as the obvious way to say "some customer" and is quadratic — Postgres walks and discards
+`offset` rows once per invoice.
+
+### What it found
+
+A thirty-day sales report was reading **75,200 index entries and 12,533 heap rows to keep
+3,093**. Every report in `SalesReports` filters the same three things — this shop,
+`status = 'final'`, a date range — and the schema had `(tenant_id, status)`, which stops
+before the date, and `(tenant_id, branch_id, issued_at)`, which cannot be entered on
+`issued_at` without a branch the consolidated view deliberately does not supply. So the
+cost grew with everything the shop had ever sold rather than with the range somebody
+asked for: invisible on eleven demo invoices, and a complaint from the biggest customer
+eighteen months in.
+
+Replaced with `(tenant_id, status, issued_at)`. The migration records what it is actually
+worth — twelve milliseconds against fourteen on the same plan, both an order of magnitude
+inside the budget — so nobody reads the two milliseconds as the claim. The claim is the
+term that stops growing.
+
+### The budget
+
+`ReportLatencyTest`: sixteen measurements across a month range and a year range, **1–46ms
+against 300ms**, with the fixture's row counts asserted before a single clock starts —
+because a latency test against an empty table is the purest form of green without
+witness. The docblock says plainly what the test is not: a ceiling, not a regression
+detector. At 6× headroom a change making a report three times slower still passes, and
+tightening the number would buy a test that fails on a busy CI box and teaches everyone
+to re-run it. The detector for a plan change is the fixture plus `EXPLAIN`, which is how
+the index above was found.
+
+The roadmap line stays `[~]`. A budget over the four reports that exist is not the budget
+the spec names over ten; each new 9.2 report is one more line in the timing map.
+
+### Same day — sales monthly and by brand, and a day that belonged to the wrong day
+
+Both land as **cuts of the existing sales report**, not as new screens. The controller's
+own docblock already argued for it — three cuts are one query grouped three ways, and
+three routes would mean three filter bars that drift — so monthly and brand make five,
+sharing the range, the print sheet and the export.
+
+**Monthly is folded in PHP, and that is not a shortcut.** Postgres has no Jalali
+calendar, so `date_trunc('month', …)` groups by the Gregorian month — which straddles two
+Jalali ones, making «فروش مرداد» part Tir and part Mordad. That is not a wrong total so
+much as an answer to a question nobody asked. The daily rows are folded by
+`Jalali::monthKey()`, the same key the recurring-expense generator books against; a year
+is at most 366 rows, so the fold costs nothing and the calendar is right by construction.
+Rows come back chronological rather than biggest-first, because the point of a
+month-per-row table is the shape of the year.
+
+**Writing it exposed a real defect in the daily report.** It bucketed on
+`date(issued_at)`, and `issued_at` is stored UTC. A sale at 00:30 Tehran is 21:00 UTC the
+day before, so it landed on yesterday's row — and eleven times a year on the previous
+*month's* row, where the new monthly report would have filed it under the wrong month
+entirely. Now the timestamp is shifted into the shop's wall clock before it is truncated,
+with a test that moves an invoice to 00:30 Tehran and asserts it stays on today.
+
+Two things fought back while fixing it, both worth writing down:
+
+- **A bound placeholder cannot carry the timezone.** Postgres compares `GROUP BY` against
+  `SELECT` *by expression*, and `$1` in the select list is not the same expression as `$5`
+  in the group-by even when both hold `Asia/Tehran`. The failure is
+  «column sales_invoices.issued_at must appear in the GROUP BY clause», which reads like a
+  query-shape bug and is a binding one. Grouping by **ordinal** (`GROUP BY 1`) fixes that
+  half and is better than the repeated expression anyway — `1` *is* the first select
+  column, so the two cannot drift apart.
+- The timezone itself is inlined from config, stripped to the characters an IANA zone name
+  can contain and defaulting to UTC if that leaves nothing. Safe because it is config, and
+  *proved* safe rather than argued safe.
+
+Both errors surfaced three frames away as «current transaction is aborted … SQL: select
+set_config(app.tenant_id …)» — the tenancy teardown failing on an already-poisoned
+transaction. Same shape as the harness-versus-domain lesson in `docs/testing.md`: the
+message named tenancy and the fault was in a `GROUP BY`.
+
+**By brand** keeps the lines that have no brand — a service, or a handset sold off its own
+unit record — under one unnamed row. Dropping them would make the brand cut disagree with
+every other cut of the same range, which is the one thing a set of cuts must not do; the
+«sums to the same revenue» invariant now runs across all five.
+
+The report index lists five sales reports, the latency map takes sixteen measurements,
+and `composer test` is green.
+
+### Same day — the profit report
+
+`/reporting/profit`, three cuts: by product, by brand, and per IMEI. Its own screen rather
+than a sort order on the sales report, and the reason is the `LIMIT`.
+
+**Ordering by margin has to happen in SQL, before the limit.** The sales report's top
+fifty is chosen *by revenue*; re-sorting that set in PHP answers "the fifty best sellers,
+arranged by profit" to somebody who asked for the fifty most profitable — plausibly, and
+wrongly, and most visibly on exactly the low-volume high-margin lines the report exists to
+surface. So `SalesReports::grouped()` now takes the order, and `ProfitReports` asks for
+margin.
+
+The test pins it as an **ordering**, not as three independent figures. The fixture is
+built so the two questions disagree: a handset sold for 400,000,000 having cost
+380,000,000 is the largest revenue line in the shop and the smallest margin. A profit
+report that sorted by revenue would put it first and look entirely reasonable; this one
+puts it last.
+
+**Per-IMEI is the cut only this product can offer.** Every handset carries its own cost on
+`product_units` and its own `cost_snapshot` on the line that sold it, so the margin on a
+single device is exact — not an average, not an allocation. It reads the **line's**
+snapshot and never `product_units.cost`: that column is what the device is worth today and
+is updated by a re-grade, so reading it would restate a past month's profit every time
+somebody touched a unit record, which is the precise failure `cost_snapshot` exists to
+prevent.
+
+**The screen is refused, not stripped.** The sales report drops the cost columns for a
+viewer without margin and still shows them the takings, which answers a real question.
+There is no equivalent here — a profit report with the profit removed is an empty table
+under a heading that promises otherwise — so a Cashier gets a 403 on both doors. The
+report index hides the three rows using the *same* predicate, `ReportAccess`, because a
+listed row that 403s when clicked tells the reader the product is broken rather than that
+the figure is not theirs to see. Both halves are asserted.
+
+The latency map takes sixteen measurements. `profit.perUnit` is deliberately **not** among
+them: `BulkVolumeSeeder` writes no `product_units`, so the query would return nothing and
+time the speed of an empty table — green without witness, in the file that argues hardest
+against it. It goes in when the fixture grows serialized handsets.
+
+### Same day — technician performance
+
+`/reporting/technicians`: delivered count, jobs on the bench today, average turnaround,
+parts cost. Four decisions in it are worth keeping, because each has a plausible
+alternative that produces a number nobody can act on.
+
+**Delivered, not worked-on.** A ticket counts in the period it was *finished* in. Counting
+intake would credit work to the month a device arrived, so one brought in on the 29th of
+Mordad and repaired in Shahrivar makes Mordad look busy and Shahrivar idle — and neither
+month describes what anybody did.
+
+**Turnaround is intake→delivery wall-clock**, not time-in-repairing. The second flatters
+every technician by excluding the days a device sat waiting for a part or for the customer
+to answer the phone. The customer experienced the whole wait, and the whole wait is what a
+promised date has to be set against. Where the shop wants to know *why* a job was slow the
+status history has it ticket by ticket; an average that quietly excluded waiting would
+hide that there is a question.
+
+**«روی میز» deliberately ignores the range.** Open work has no date to be inside: a ticket
+from two months ago that is still open is open today, and excluding it because it fell
+outside the range would report an empty bench for the technician who most needs help. The
+column header and the footer both say so, rather than leaving the reader to wonder why two
+columns do not add up. It uses `TicketStatus::isOpenWork()` — the same predicate the Kanban
+board uses — so «۴ روی میز» here and four cards there are the same four.
+
+**Parts cost is the shop's cost, not the customer's price.** `ticket_parts` carries both;
+the figure beside a technician's name should not move when somebody edits a price list.
+Consumed only — a reservation is not a cost, and a technician who planned a repair that
+was cancelled has spent nothing.
+
+The margin gate takes the sales report's shape here rather than the profit report's: the
+money column is dropped and the screen still works, because «چند دستگاه تحویل شد و چقدر
+طول کشید» stands on its own.
+
+### Same day — stock valuation, dead stock, and a rounding guard that was waiting
+
+`/reporting/inventory`, two cuts. One date rather than a range, because «موجودی» is a
+figure at an instant — and the as-of date works at all only because on-hand is a SUM over
+movements rather than a stored total.
+
+**The valuation had a wrong answer waiting for it.** This product keeps stock in two
+registers on purpose: standard goods are a SUM over `stock_movements`, and handsets are
+rows in `product_units` with **no** movement written for them (Phase 3.6 — a phone counted
+in both is counted twice). So a valuation that reads movements alone values a mobile-phone
+shop's phones at zero. The fixture is built to make that loud: devices are 760,000,000 of
+a 1,526,666,700 total, and a movements-only report would say 766,666,700 and look entirely
+plausible. Both the split and the total are asserted.
+
+**Dead stock is dated from the last outward movement**, not from arrival. A line restocked
+last week that has not sold since Farvardin is dead stock with fresh purchase dates all
+over it. Handsets get one row each, because a shop discounts *this* phone.
+
+### The find: a derived cost that could not be displayed
+
+Writing the valuation's fixture with realistic numbers — 10 batteries at 50,000,000 and 2
+at 90,000,000 — hit an exception from `Money`:
+
+> Amount 56666666 rial is not a whole number of toman; refusing to round money.
+
+`Money::toToman()` refuses a sub-toman remainder by design, on the stated grounds that any
+such amount is "a bug upstream". That is true of every amount a person types and of every
+price, tax and instalment split — and **not** true of a derived unit cost, which is a
+division. `StockLedger::weightedAverageCost()` has been returning such figures since Phase
+3; `FinaliseInvoice` writes them into `cost_snapshot`; and the sales report renders
+`cost_snapshot × quantity` through `Money::toArray()`. **The sales report would throw on
+any shop whose average cost did not land on a whole toman**, which is most of them. The
+suite never saw it because every fixture bought stock at round numbers — the exact gap
+`docs/testing.md` had already predicted in writing: *"a fixture that buys stock at exactly
+200,000 never meets the rounding guard that real weighted-average cost trips on the first
+search."*
+
+Fixed at the source rather than at the display: `Money::ceilToToman()` raises a derived
+cost to the next whole toman, and `StockLedger` applies it. **Upward**, so an understated
+cost never flatters the margin — the mirror of `Money::percent()`, which truncates so the
+shop never over-charges. The adjustment is at most nine rial on a unit cost.
+
+A second, quieter trap sat inside the set-based version of the same average. Postgres
+returns **numeric** from `sum()` over a bigint column, so `sum(a) / sum(b)` is exact
+decimal division rather than the truncating integer division the expression was written
+as — and the ceiling-to-ten that followed then operated on a fraction and produced one.
+It surfaced as a valuation of 56,666,675 rial: not a whole toman, refused by `Money`, from
+a screen whose PHP path had computed the same figure correctly moments earlier. Explicit
+`::bigint` casts, and a comment saying why they are load-bearing.
+
+Two pinned figures moved with the fix — `FinaliseInvoiceTest`'s 53,636 to 53,640 — and
+`Money::ceilToToman` gained its own unit tests, including the property the whole helper
+exists for: over all ten residues, its output is something `toToman()` will accept.
+
+### 2026-08-15 — the six remaining reports, saved presets, and the budget over all of them
+
+Phase 9.2's open boxes and 9.3's: party balances aging, the cheque calendar, the instalment
+book, the VAT summary, SMS usage, saved-filter presets — and the latency budget widened from
+four reports to every report the catalogue lists.
+
+**Aging is FIFO, and the rule is the report.** `ledger_entries` records debits and credits
+against a party; it does not record *which debt a payment settled*, because nothing at the
+counter asks. So an aging report has to choose, and the two simpler choices are both wrong in
+ways that look plausible on screen. Bucketing the debits and ignoring the credits reports
+every invoice ever issued as outstanding — a customer with a spotless twelve-year history
+becomes the shop's worst debt. Putting the whole balance in the bucket of the oldest unpaid
+entry lets one ancient rounding remnant drag a current balance into «۹۰+», and a report that
+points everywhere points nowhere.
+
+Oldest-first is the standard rule and it runs **in SQL**, not in PHP: with credits applied to
+the oldest debts, the credit reaching a given lot is whatever is left after the lots before
+it, so `remaining = clamp(cumulative − settled, 0, lot)` is exact FIFO as one window
+function. The loop it replaces would drag 75,000 ledger rows into PHP to produce forty.
+
+`opening_balance` joins the entry stream as a **signed pseudo-entry** dated `parties.created_at`,
+and that detail is what makes the whole thing checkable: **outstanding − unapplied credit =
+the sum of `partyBalance()`, exactly**. Asserted rather than trusted, in the screen test and
+again in `GoldenNumbersTest` against the crazy month.
+
+**Two decisions carried over from earlier screens, on purpose.** Cleared cheques are reported
+but stay out of the calendar's net — that money arrived, and counting it again promises cash
+the shop already spent. Overdue-and-still-open cheques are shown **outside the range**, the
+same call the technician report makes about «روی میز»: a cheque that failed in Mordad has no
+future date to sit inside Shahrivar's calendar, and surfacing it only when somebody scrolls
+back is how it is forgotten.
+
+**The VAT summary reproduces the invoices; it does not recompute them.** That rule is now
+written into ADR 0009 as an amendment rather than into a docblock, because the invoice side
+has to honour the same one. Re-deriving VAT from a period's revenue at today's rate rounds
+once over a month instead of once per line, applies a rate the invoice may not have been
+issued under, and on the two-line fixture lands **eighteen rial** away from the invoices — in
+the shop's favour, which is the direction a tax authority notices.
+
+### The captures, and the one that paid immediately
+
+Two from the last session, both written down before this session's code:
+
+`docs/testing.md` gained **"money fixtures use non-round amounts by default"** under
+green-without-witness, naming the `weightedAverageCost` case. The fixtures here were then
+built to it — the aging payment (7,430,000) lands in the *middle* of the second invoice so
+FIFO has to split a lot, and every taxable line is priced at 8,881,990 so the per-line VAT
+floor has something to floor.
+
+ADR 0009 gained an **Amendment** stating the direction rule once for the whole family:
+*every rounding of a derived figure goes in the direction that does not flatter the party
+doing the rounding.* That single sentence produces every direction already in the codebase —
+VAT floors, `percent()` truncates, `ceilToToman()` ceils — and the asymmetry stops looking
+like an inconsistency. It also binds the VAT report, which is why that report reads stored
+figures.
+
+### Closing 9.3 honestly meant growing the fixture, not widening the claim
+
+The budget covered four reports because `BulkVolumeSeeder` held only invoices, items,
+movements and ledger rows. Timing a cheque calendar against an empty `cheques` table measures
+`select … where false` and passes by a factor of a thousand — the exact trap this suite argues
+hardest against. So the seeder grew handsets, cheques, instalment plans/rows/collections and
+messages, and with them the cuts the latency test had **explicitly deferred in writing**
+(`profit.per_imei`, both inventory cuts) became measurable and are measured.
+
+Doing that surfaced a second fixture defect. The seeded ledger wrote **debits only**, so
+`settled` was always zero, the FIFO clamp collapsed to `lot` on every row, and the expensive
+branch never ran — the payable direction was reading an empty set at full speed. The first
+measurement said so out loud: 84.8ms receivable against 20.5ms payable, a gap that was the
+fixture rather than the query. Part-payments against every third invoice fixed it.
+
+**26 measurements, 1–93ms against the 300ms budget.** One report is still not measured and is
+named rather than quietly omitted: `repairs.technicians`, which needs repair tickets in the
+seeder and goes in with them.
+
+### Smaller things worth having written down
+
+`ReportAccess` grew from one predicate to seven, and `ReportCatalogue` rows now carry a
+**named gate** resolved in one `match`. The point is unchanged and now enforced structurally:
+the index and the screen ask the same question, so a listed row can always be opened. The
+financial screen gates **per cut** for the same reason — a viewer allowed one cut sees only
+that cut's tab, because offering a tab that 403s is the same defect one screen further in.
+
+A preset **grants nothing**. Applying one is a `router.get`, so the URL stays shareable and
+the screen gates itself exactly as it does for a typed URL — pinned by a test where a Cashier
+saves a preset for the tax screen and still gets a 403 opening it. That is what lets `filters`
+be opaque JSON. They are keyed by *screen*, not by catalogue row: `sales.daily` and
+`sales.by_brand` are one screen with a `cut` filter, and keying by row would give one saved
+range three entries that each restore a different tab.
+
+`ShopClock` now owns the stored-UTC-to-Tehran-day expression that four new reports needed.
+The Mordad-month bug this repo already fixed once is one `date()` call away in every report
+that groups or ages by date, so it lives in one place and each report asks for it.

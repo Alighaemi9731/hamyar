@@ -145,6 +145,30 @@ final class Jalali
     }
 
     /**
+     * The first instant of the Jalali month a moment falls in.
+     *
+     * Not `Carbon::startOfMonth()`, which finds the first of the GREGORIAN month — a date
+     * that falls somewhere in the middle of the Jalali one and produces a "this month"
+     * report covering parts of two. The error is invisible for most of the year and
+     * obvious to a shopkeeper adding their months up.
+     */
+    public static function startOfMonth(DateTimeInterface|string|int $value): CarbonImmutable
+    {
+        return self::dayInMonthOf($value, 1);
+    }
+
+    /**
+     * The last instant of the Jalali month a moment falls in.
+     *
+     * Jalali months are 31, 30 or 29 days depending on which one and whether the year is a
+     * leap year, so the length comes from the calendar rather than from a constant.
+     */
+    public static function endOfMonth(DateTimeInterface|string|int $value): CarbonImmutable
+    {
+        return self::dayInMonthOf($value, self::jalalian($value)->getMonthDays())->endOfDay();
+    }
+
+    /**
      * The Jalali month a moment falls in, as `1405-06`.
      *
      * The identity of a period, used by anything that must book something once per month

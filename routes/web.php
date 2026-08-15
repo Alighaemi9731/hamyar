@@ -6,6 +6,7 @@ use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Platform\Http\Controllers\BillingController;
 use App\Modules\Platform\Http\Controllers\ImpersonationController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
+use App\Modules\Reporting\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -61,7 +62,11 @@ Route::middleware('tenant')->group(function (): void {
     Route::middleware(['auth', 'tenant.user'])->group(function (): void {
         Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
-        Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
+        /*
+        | Deliberately not behind `module:reporting`. Every shop on every plan has a
+        | front page; what varies is how many cards are on it. See DashboardController.
+        */
+        Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
         /*
         | Billing. Not behind `module:platform` — a shop whose subscription has lapsed

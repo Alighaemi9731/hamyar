@@ -73,6 +73,12 @@ hover surface.
    checked.
 9. Print layouts are part of the system: thermal 80mm and A4/A5 templates under
    PrintLayout.* — never page-local `@media print` hacks.
+   **Paper is a light island**: a sheet is ink on white in BOTH themes, so every
+   semantic token restores to its light step inside `[data-paper]` (one rule in
+   `app.css`; `PrintLayout` sets the attribute). Dark-mode `success` #4CC47F is 2.2:1
+   on white — a paid stamp vanished exactly this way. Adding a semantic token means
+   adding its `-on-light` step AND its `[data-paper]` line. Never fake a sheet with
+   `bg-white text-black`: the ground turns white and the badges inside stay dark-step.
 10. Public/marketing pages (Blade) follow the landing brief in
     `docs/design-system.md#landing`: signature "live thermal receipt" hero,
     landing JS budget ≤ 180KB gz, no WebGL/scroll-jacking.

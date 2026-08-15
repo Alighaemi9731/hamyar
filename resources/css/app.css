@@ -61,7 +61,13 @@
      on #f5f5f7, so it clears AA for body text on BOTH grounds. The brighter
      #0071e3 measures 4.31:1 on the grey sections and would fail there, which is
      exactly why it is not the token. */
-  --color-brand: #0066cc;
+  /* Each semantic token below is an ALIAS for its light step rather than the hex
+     itself. Two places need to say "the light value" — `.dark`, which swaps them
+     out, and the print sheet, which is white paper inside a dark document and has
+     to swap them back — and naming the step once is what keeps those two from
+     drifting apart. */
+  --color-brand-on-light: #0066cc;
+  --color-brand: var(--color-brand-on-light);
   --color-brand-hover: #005bbb;
   --color-brand-bright: #0a84ff; /* dark-mode fills only, never light text */
   --color-brand-on-dark: #409cff; /* 7.4:1 on black */
@@ -69,14 +75,18 @@
   /* --- product semantics ---------------------------------------------------
      Muted to sit inside a near-monochrome page, but every value still clears AA
      against both grounds. A status badge is information, not decoration. */
-  --color-success: #0f7b3f; /* paid · cleared · delivered — 5.35:1 */
-  --color-warning: #8a5a00; /* due soon · awaiting — 5.93:1 */
-  --color-danger: #b3261e; /* overdue · bounced · failed — 6.54:1 */
-  --color-info: #0066cc; /* in flight — same blue, deliberately */
+  --color-success-on-light: #0f7b3f; /* paid · cleared · delivered — 5.35:1 */
+  --color-warning-on-light: #8a5a00; /* due soon · awaiting — 5.93:1 */
+  --color-danger-on-light: #b3261e; /* overdue · bounced · failed — 6.54:1 */
 
-  --color-success-on-dark: #4cc47f;
-  --color-warning-on-dark: #e0a13a;
-  --color-danger-on-dark: #ff6961;
+  --color-success: var(--color-success-on-light);
+  --color-warning: var(--color-warning-on-light);
+  --color-danger: var(--color-danger-on-light);
+  --color-info: var(--color-brand-on-light); /* in flight — same blue, deliberately */
+
+  --color-success-on-dark: #4cc47f; /* 7.5:1 on #1d1d1f */
+  --color-warning-on-dark: #e0a13a; /* 7.4:1 on #1d1d1f */
+  --color-danger-on-dark: #ff6961; /* 5.9:1 on #1d1d1f */
 
   /* Price-label yellow survives as a signature accent for price tags only —
      tiny highlights, never a fill. */
@@ -231,7 +241,34 @@
   --popover: rgb(29 29 31 / 0.86);
   --popover-foreground: #f5f5f7;
 
-  /* Lifted: the light-mode accent is unreadable on black. */
+  /*
+    Lifted: the light-mode semantics are unreadable on black.
+
+    The `-on-dark` steps were chosen and measured when the palette was written, but
+    only `--primary` and the chart slots were ever wired to them — so `text-warning`,
+    `text-danger`, `text-success` and `text-brand` kept their light values in dark
+    mode and every status badge, stat card and timeline icon in the app rendered
+    below the AA floor:
+
+      #8a5a00 warning on #1d1d1f  →  2.8:1   (now #e0a13a → 7.4:1)
+      #b3261e danger  on #1d1d1f  →  2.6:1   (now #ff6961 → 5.9:1)
+      #0f7b3f success on #1d1d1f  →  3.1:1   (now #4cc47f → 7.5:1)
+      #0066cc brand   on #1d1d1f  →  3.0:1   (now #409cff → 6.5:1)
+
+    Remapping the token rather than adding `dark:` variants at each call site is the
+    whole point of having tokens (design-system rule: never a per-component colour
+    override). The one place that must NOT follow is the /design gallery's swatch
+    row, which prints a hex beside each colour — it names both values instead.
+
+    `--color-brand-bright` stays the dark-mode FILL and is deliberately not used
+    here: a fill takes white text on top of it, and text does not.
+  */
+  --color-success: var(--color-success-on-dark);
+  --color-warning: var(--color-warning-on-dark);
+  --color-danger: var(--color-danger-on-dark);
+  --color-brand: var(--color-brand-on-dark);
+  --color-info: var(--color-brand-on-dark);
+
   --primary: var(--color-brand-on-dark);
   --primary-foreground: #001227;
 
@@ -487,6 +524,28 @@
 
   .reveal-delay-3 {
     animation-delay: 180ms;
+  }
+
+  /* The print sheet is a LIGHT ISLAND, on screen as well as on paper.
+     `PrintLayout` renders every sheet as ink on white in both themes, deliberately —
+     the sheet on screen IS the sheet that prints. That makes it the one place in the
+     app where the dark theme's lifted semantic steps are the wrong ones: #4CC47F is
+     7.5:1 on #1D1D1F and 2.2:1 on white, so a positive figure inside a report or a
+     paid stamp on an invoice went from readable to nearly invisible the moment a shop
+     switched to dark mode.
+
+     So the sheet restores the light steps for anything inside it. Keyed on
+     `[data-paper]`, which `PrintLayout` already sets, so every sheet gets it and no
+     page has to remember. */
+  [data-paper] {
+    --color-brand: var(--color-brand-on-light);
+    --color-info: var(--color-brand-on-light);
+    --color-success: var(--color-success-on-light);
+    --color-warning: var(--color-warning-on-light);
+    --color-danger: var(--color-danger-on-light);
+    --destructive: var(--color-danger-on-light);
+    --primary: var(--color-brand-on-light);
+    --muted-foreground: #6e6e73;
   }
 
   /* Print: the design system owns print, not page-local @media print hacks.
