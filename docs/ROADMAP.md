@@ -824,11 +824,22 @@ converging on them later.
       cannot be trusted, after which they stop opening it
 - [x] Sales daily — with the report viewer it establishes for the rest: Jalali range
       filter, three cuts over one range, the A4 print sheet, and the xlsx export
-- [ ] Sales monthly — a month-per-row grouping over a year. The daily report already
-      answers «این ماه چقدر فروختیم» through its range; this is the twelve-row view
+- [x] Sales monthly — a month-per-row grouping over a year, folded by **Jalali** month.
+      Postgres has no Jalali calendar, so `date_trunc('month', …)` would group by the
+      Gregorian month, which straddles two Jalali ones and makes «فروش مرداد» part Tir.
+      The daily rows are folded in PHP by `Jalali::monthKey()` — at most 366 rows, so the
+      calendar is right by construction and the cost is nothing.
+      **Found and fixed alongside it:** the daily report bucketed by `date(issued_at)`,
+      which is the *UTC* day. Anything sold between midnight and 03:30 Tehran landed on
+      the previous day's row, and eleven times a year on the previous month's — under the
+      monthly report, in the wrong month entirely. Now shifted to the shop's wall clock
+      before it is truncated, with a test that moves a sale to 00:30 Tehran
 - [x] Sales by product / salesperson
-- [ ] Sales by brand — needs the brand join in `SalesReports`; the two cuts above landed
-      first because they need no Catalog work
+- [x] Sales by brand — Persian name leading, Latin as fallback. A line with no variant
+      behind it (a service, or a handset sold off its own unit record) has no brand and is
+      **kept** under one unnamed row: dropping it would make the brand cut disagree with
+      every other cut of the same range, which the «sums to the same revenue» invariant
+      now asserts across all five cuts
 - [ ] Profit report — margin is on the sales report as columns and a summary figure; a
       report *of* profit (by product, by brand, per IMEI) is its own screen
 - [ ] Technician performance
@@ -868,7 +879,7 @@ converging on them later.
       the sale-movement insert against unanalysed tables was still running after seven
       minutes, versus 1.4 seconds with statistics
 - [~] Query performance budget (<300ms on a 100k-row seed for top reports) — the harness
-      is `ReportLatencyTest`: eleven measurements over a month range and a year range,
+      is `ReportLatencyTest`: fourteen measurements over a month range and a year range,
       **1–46ms against the 300ms budget**, with the fixture's row counts asserted before
       any clock starts. Found and fixed a real defect on the way: a thirty-day sales
       report read 75,200 index entries and 12,533 heap rows to keep 3,093, because

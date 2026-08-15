@@ -64,11 +64,27 @@ final class ReportCatalogue
                 'permission' => 'reporting.view',
             ],
             [
+                'key' => 'sales.monthly',
+                'title' => 'فروش ماهانه',
+                'description' => 'هر ماه شمسی یک سطر — شکل سال، نه شلوغی روزها.',
+                'group' => self::GROUP_SALES,
+                'href' => '/reporting/sales?cut=monthly',
+                'permission' => 'reporting.view',
+            ],
+            [
                 'key' => 'sales.by_product',
                 'title' => 'فروش بر اساس کالا',
                 'description' => 'پرفروش‌ترین کالاها در بازه، بر اساس مبلغ فروش.',
                 'group' => self::GROUP_SALES,
                 'href' => '/reporting/sales?cut=product',
+                'permission' => 'reporting.view',
+            ],
+            [
+                'key' => 'sales.by_brand',
+                'title' => 'فروش بر اساس برند',
+                'description' => 'سهم هر برند از فروش بازه — برای تصمیم خرید بعدی.',
+                'group' => self::GROUP_SALES,
+                'href' => '/reporting/sales?cut=brand',
                 'permission' => 'reporting.view',
             ],
             [

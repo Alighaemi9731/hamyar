@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Catalog\Models\Brand;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\CRM\Models\Account;
@@ -14,7 +15,10 @@ use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Modules\Sales\Models\SalesInvoice;
+use App\Support\Jalali;
 use App\Support\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 
 /**
  * The report index and the sales report viewer, against a month with known figures.
@@ -67,12 +71,17 @@ beforeEach(function (): void {
         Account::factory()->create(['type' => Account::TYPE_CASH, 'is_default' => true]);
         Account::factory()->create(['type' => Account::TYPE_SALES]);
 
+        // Named brands, not the factory's random ones: the brand cut asserts these
+        // strings, and «سامسونگ ۴۱۷» would make the test read like a puzzle.
+        $apple = Brand::factory()->create(['name' => 'Apple', 'name_fa' => 'اپل']);
+        $samsung = Brand::factory()->create(['name' => 'Samsung', 'name_fa' => 'سامسونگ']);
+
         $battery = ProductVariant::factory()
-            ->for(Product::factory()->create(['name' => 'باتری', 'type' => 'standard']))
+            ->for(Product::factory()->create(['name' => 'باتری', 'type' => 'standard', 'brand_id' => $apple->id]))
             ->create();
 
         $glass = ProductVariant::factory()
-            ->for(Product::factory()->create(['name' => 'گلس', 'type' => 'standard']))
+            ->for(Product::factory()->create(['name' => 'گلس', 'type' => 'standard', 'brand_id' => $samsung->id]))
             ->create();
 
         $ledger = app(StockLedger::class);
@@ -132,7 +141,7 @@ it('lists only the reports this user may open', function (): void {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Reporting::Reports/Index')
-            ->has('groups.0.reports', 3)
+            ->has('groups.0.reports', 5)
             ->where('groups.0.key', 'sales')
         );
 });
@@ -156,7 +165,7 @@ it('shows a warehouse keeper the index and a technician nothing at all', functio
     $this->actingAs($keeper)
         ->get($this->url.'/reporting')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('groups.0.reports', 3));
+        ->assertInertia(fn ($page) => $page->has('groups.0.reports', 5));
 
     $this->actingAs($technician)
         ->get($this->url.'/reporting')
@@ -206,6 +215,81 @@ it('cuts the same month by product, biggest first', function (): void {
         );
 });
 
+it('cuts the same month by brand', function (): void {
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/sales?cut=brand')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('rows', 2)
+            // The Persian name, not the Latin one — this is a Persian report.
+            ->where('rows.0.label', 'اپل')
+            ->where('rows.0.revenue.value', 200_000_000)
+            ->where('rows.1.label', 'سامسونگ')
+            ->where('rows.1.revenue.value', 90_000_000)
+            ->etc()
+        );
+});
+
+it('rolls the month up into a single Jalali month row', function (): void {
+    /*
+    | Both sales happened today, so a year-wide range must fold to exactly one row —
+    | and it must be named for the *Jalali* month. `date_trunc('month', …)` in Postgres
+    | would answer with the Gregorian one, which straddles two Jalali months and is
+    | therefore an answer to a question nobody asked.
+    */
+    $thisMonth = Jalali::format(now(), 'F Y');
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/sales?'.http_build_query([
+            'cut' => 'monthly',
+            'from' => Jalali::format(now()->subMonths(6), 'Y/m/d', persianDigits: false),
+            'to' => Jalali::format(now(), 'Y/m/d', persianDigits: false),
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('cut', 'monthly')
+            ->has('rows', 1)
+            ->where('rows.0.label', $thisMonth)
+            // Invoices, not items: a month row counts baskets.
+            ->where('rows.0.count', 2)
+            ->where('rows.0.revenue.value', 290_000_000)
+            ->where('rows.0.margin.value', 110_000_000)
+            ->etc()
+        );
+});
+
+it('buckets a sale by the shop day, not the server day', function (): void {
+    /*
+    | 00:30 Tehran is 21:00 UTC the day before. Grouping on `date(issued_at)` would file
+    | this sale under yesterday — and eleven times a year, under last month. A phone shop
+    | that stays open late is not a hypothetical, and neither is the owner who compares
+    | the daily report against the till.
+    |
+    | The invoice's timestamp is moved directly rather than sold at that hour: what is
+    | under test is the report's bucketing, not the POS clock.
+    */
+    $tehranMidnightish = CarbonImmutable::now('Asia/Tehran')->startOfDay()->addMinutes(30);
+
+    app(TenantContext::class)->runFor($this->tenant, function () use ($tehranMidnightish): void {
+        SalesInvoice::query()->latest('id')->limit(1)->update([
+            'issued_at' => $tehranMidnightish->utc(),
+        ]);
+    });
+
+    $today = Jalali::format($tehranMidnightish);
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/sales?cut=daily')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            // Still one row, still today: the 00:30 sale did not fall off the back.
+            ->has('rows', 1)
+            ->where('rows.0.label', $today)
+            ->where('rows.0.count', 2)
+            ->etc()
+        );
+});
+
 it('cuts the same month by salesperson', function (): void {
     $this->actingAs($this->owner)
         ->get($this->url.'/reporting/sales?cut=salesperson')
@@ -226,7 +310,7 @@ it('sums every cut to the same revenue', function (): void {
     | plausible: a join that fans out duplicates revenue, and a GROUP BY that drops a
     | null dimension loses it. Neither is visible one row at a time.
     */
-    foreach (['daily', 'product', 'salesperson'] as $cut) {
+    foreach (['daily', 'monthly', 'product', 'brand', 'salesperson'] as $cut) {
         $response = $this->actingAs($this->owner)
             ->get($this->url.'/reporting/sales?cut='.$cut)
             ->assertOk();

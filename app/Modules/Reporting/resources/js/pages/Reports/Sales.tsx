@@ -13,7 +13,7 @@ import { formatJalali } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
 import type { MoneyValue } from '@/types';
 
-type Cut = 'daily' | 'product' | 'salesperson';
+type Cut = 'daily' | 'monthly' | 'product' | 'brand' | 'salesperson';
 
 interface Row {
   label: string;
@@ -40,10 +40,12 @@ interface Props {
   rows: Row[];
 }
 
-const CUTS: { key: Cut; label: string; unit: string }[] = [
-  { key: 'daily', label: 'روزانه', unit: 'تعداد فاکتور' },
-  { key: 'product', label: 'بر اساس کالا', unit: 'تعداد' },
-  { key: 'salesperson', label: 'بر اساس فروشنده', unit: 'تعداد' },
+const CUTS: { key: Cut; label: string; unit: string; heading: string }[] = [
+  { key: 'daily', label: 'روزانه', unit: 'تعداد فاکتور', heading: 'تاریخ' },
+  { key: 'monthly', label: 'ماهانه', unit: 'تعداد فاکتور', heading: 'ماه' },
+  { key: 'product', label: 'بر اساس کالا', unit: 'تعداد', heading: 'کالا' },
+  { key: 'brand', label: 'بر اساس برند', unit: 'تعداد', heading: 'برند' },
+  { key: 'salesperson', label: 'بر اساس فروشنده', unit: 'تعداد', heading: 'فروشنده' },
 ];
 
 /**
@@ -77,7 +79,8 @@ export default function SalesReport({
   const [from, setFrom] = useState<string | null>(period.from);
   const [to, setTo] = useState<string | null>(period.to);
 
-  const unit = CUTS.find((entry) => entry.key === cut)?.unit ?? 'تعداد';
+  const active = CUTS.find((entry) => entry.key === cut);
+  const unit = active?.unit ?? 'تعداد';
 
   const query = (next: Partial<{ cut: Cut; from: string | null; to: string | null }>) => {
     const merged = { cut, from, to, ...next };
@@ -160,8 +163,7 @@ export default function SalesReport({
           <header className="mb-6 border-b pb-4">
             <h1 className="text-lg font-bold">گزارش فروش</h1>
             <p className="mt-1 text-sm text-black/60">
-              {CUTS.find((entry) => entry.key === cut)?.label} · از {period.from_jalali} تا{' '}
-              {period.to_jalali}
+              {active?.label} · از {period.from_jalali} تا {period.to_jalali}
             </p>
           </header>
 
@@ -189,9 +191,7 @@ export default function SalesReport({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-black/60">
-                    <th className="py-2 text-start font-medium">
-                      {cut === 'daily' ? 'تاریخ' : 'عنوان'}
-                    </th>
+                    <th className="py-2 text-start font-medium">{active?.heading ?? 'عنوان'}</th>
                     <th className="py-2 text-end font-medium">{unit}</th>
                     <th className="py-2 text-end font-medium">فروش</th>
                     {showsMargin ? (

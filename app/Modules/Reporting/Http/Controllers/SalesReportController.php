@@ -43,7 +43,16 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 final class SalesReportController extends Controller
 {
-    private const CUTS = ['daily', 'product', 'salesperson'];
+    private const CUTS = ['daily', 'monthly', 'product', 'brand', 'salesperson'];
+
+    /**
+     * What the first column is called, per cut.
+     *
+     * «بدون عنوان» is wrong for a brand: a line with no brand behind it is not missing a
+     * title, it is a product nobody filed under a marque, and «بدون برند» is what a shop
+     * would write on the row themselves.
+     */
+    private const EMPTY_LABEL = ['brand' => 'بدون برند', 'salesperson' => 'بدون فروشنده'];
 
     public function index(Request $request, SalesReports $reports): Response
     {
@@ -77,8 +86,14 @@ final class SalesReportController extends Controller
         $showsMargin = ReportAccess::showsMargin($user);
 
         $headings = [
-            $cut === 'daily' ? 'تاریخ' : 'عنوان',
-            $cut === 'daily' ? 'تعداد فاکتور' : 'تعداد',
+            match ($cut) {
+                'daily' => 'تاریخ',
+                'monthly' => 'ماه',
+                'brand' => 'برند',
+                'salesperson' => 'فروشنده',
+                default => 'عنوان',
+            },
+            in_array($cut, ['daily', 'monthly'], true) ? 'تعداد فاکتور' : 'تعداد',
             'فروش (ریال)',
             'فروش',
         ];
@@ -187,10 +202,17 @@ final class SalesReportController extends Controller
     private function rows(SalesReports $reports, string $cut, ReportPeriod $period): array
     {
         $raw = match ($cut) {
+            'monthly' => $reports->monthly($period),
             'product' => $reports->byProduct($period),
+            'brand' => $reports->byBrand($period),
             'salesperson' => $reports->bySalesperson($period),
             default => $reports->daily($period),
         };
+
+        // A period cut counts invoices; a dimension cut counts items. «تعداد فاکتور» on a
+        // by-product row would be the number of baskets a battery appeared in, which is a
+        // real figure and never the one anybody wanted.
+        $countsInvoices = in_array($cut, ['daily', 'monthly'], true);
 
         $rows = [];
 
@@ -201,8 +223,8 @@ final class SalesReportController extends Controller
                     // of the payload: nothing downstream needs it and a Gregorian string
                     // on a Persian report is a bug report.
                     ? Jalali::format(is_scalar($row['date'] ?? null) ? (string) $row['date'] : null)
-                    : ($this->stringOf($row['label'] ?? '') ?: 'بدون عنوان'),
-                'count' => $cut === 'daily'
+                    : ($this->stringOf($row['label'] ?? '') ?: (self::EMPTY_LABEL[$cut] ?? 'بدون عنوان')),
+                'count' => $countsInvoices
                     ? $this->intOf($row['invoices'] ?? 0)
                     : $this->intOf($row['quantity'] ?? 0),
                 'revenue' => $this->intOf($row['revenue'] ?? 0),

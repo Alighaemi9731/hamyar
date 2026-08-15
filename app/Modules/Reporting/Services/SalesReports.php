@@ -7,6 +7,7 @@ namespace App\Modules\Reporting\Services;
 use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Services\ProfitEngine;
+use App\Support\Jalali;
 use Illuminate\Support\Facades\DB;
 use stdClass;
 
@@ -43,10 +44,20 @@ final class SalesReports
     /**
      * Sales by day, for a line chart and a table under it.
      *
+     * ## The day is the shop's day, not the server's
+     *
+     * `issued_at` is stored UTC (golden rule 5) and the bucket is the Tehran calendar day,
+     * so the timestamp is shifted before it is truncated. Grouping on `date(issued_at)`
+     * directly puts anything sold between midnight and 03:30 Tehran onto the previous
+     * day's row — and, worse, onto the previous *month's* row eleven times a year, where
+     * {@see monthly()} would then report it under the wrong month entirely.
+     *
      * @return list<array<string, mixed>>
      */
     public function daily(ReportPeriod $period, ?int $branchId = null): array
     {
+        $day = $this->shopDayExpression();
+
         $rows = DB::table('sales_invoice_items')
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
             ->where('sales_invoices.type', SalesInvoice::TYPE_INVOICE)
@@ -54,17 +65,102 @@ final class SalesReports
             ->whereNull('sales_invoices.deleted_at')
             ->whereBetween('sales_invoices.issued_at', [$period->from, $period->to])
             ->when($branchId !== null, fn ($q) => $q->where('sales_invoices.branch_id', $branchId))
-            ->groupBy(DB::raw('date(sales_invoices.issued_at)'))
-            ->orderBy(DB::raw('date(sales_invoices.issued_at)'))
-            ->selectRaw('
-                date(sales_invoices.issued_at) as day,
+            // Ordinals, not a repeat of the expression: `GROUP BY 1` IS the first select
+            // column, so the two cannot drift apart — and a grouped query whose GROUP BY
+            // is a different expression than its SELECT is legal SQL that returns a table
+            // which does not add up to its own headings.
+            ->groupByRaw('1')
+            ->orderByRaw('1')
+            ->selectRaw("
+                {$day} as day,
                 count(distinct sales_invoices.id) as invoices,
                 coalesce(sum(sales_invoice_items.line_total - sales_invoice_items.vat_amount), 0) as revenue,
                 coalesce(sum(sales_invoice_items.cost_snapshot * sales_invoice_items.quantity), 0) as cost
-            ')
+            ")
             ->get();
 
         return $this->shape($rows, 'day', 'date');
+    }
+
+    /**
+     * Sales by **Jalali** month — the twelve-row view of a year.
+     *
+     * ## Folded in PHP, and that is not a shortcut
+     *
+     * Postgres has no Jalali calendar, so `date_trunc('month', …)` would group by the
+     * Gregorian month — and a Gregorian month straddles two Jalali ones. «فروش مرداد»
+     * would then be part Tir and part Mordad, which is not a wrong total so much as an
+     * answer to a question nobody asked.
+     *
+     * So the daily rows are folded by {@see Jalali::monthKey()}, the same key
+     * the recurring-expense generator books against. A year is at most 366 rows, so the
+     * fold costs nothing measurable and the calendar is right by construction.
+     *
+     * The label is «مرداد ۱۴۰۵» rather than a number: this report is read aloud in
+     * conversations about which month was better.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function monthly(ReportPeriod $period, ?int $branchId = null): array
+    {
+        $months = [];
+
+        foreach ($this->daily($period, $branchId) as $day) {
+            $date = is_scalar($day['date'] ?? null) ? (string) $day['date'] : '';
+
+            if ($date === '') {
+                continue;
+            }
+
+            $key = Jalali::monthKey($date);
+
+            $months[$key] ??= [
+                'label' => Jalali::format($date, 'F Y'),
+                'invoices' => 0,
+                'quantity' => 0,
+                'revenue' => 0,
+                'cost' => 0,
+                'margin' => 0,
+            ];
+
+            $months[$key]['invoices'] += $this->intOf($day['invoices'] ?? 0);
+            $months[$key]['revenue'] += $this->intOf($day['revenue'] ?? 0);
+            $months[$key]['cost'] += $this->intOf($day['cost'] ?? 0);
+        }
+
+        // Chronological, not biggest-first. The point of a month-per-row table is the
+        // shape of the year, and sorting it by size destroys exactly that.
+        ksort($months);
+
+        $rows = [];
+
+        foreach ($months as $month) {
+            $month['margin'] = $month['revenue'] - $month['cost'];
+            $rows[] = $month;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Sales by brand — «کدام برند می‌فروشد».
+     *
+     * The Persian name leads and the Latin one is the fallback, because that is the order
+     * the rest of the product renders a brand in. A line with no variant behind it (a
+     * service, or a handset sold off its own unit record) has no brand and is **kept**,
+     * grouped under one unnamed row: dropping it would make the brand cut disagree with
+     * every other cut of the same range, which is the one thing a set of cuts must not do.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function byBrand(ReportPeriod $period, ?int $branchId = null, int $limit = 50): array
+    {
+        return $this->grouped($period, $branchId, $limit, "coalesce(nullif(brands.name_fa, ''), brands.name)", 'brands.id', [
+            'join' => fn ($query) => $query
+                ->leftJoin('product_variants', 'product_variants.id', '=', 'sales_invoice_items.product_variant_id')
+                ->leftJoin('products', 'products.id', '=', 'product_variants.product_id')
+                ->leftJoin('brands', 'brands.id', '=', 'products.brand_id'),
+        ]);
     }
 
     /**
@@ -181,5 +277,34 @@ final class SalesReports
     private function intOf(mixed $value): int
     {
         return is_numeric($value) ? (int) $value : 0;
+    }
+
+    /**
+     * `issued_at` shifted from stored UTC into the shop's wall clock, then truncated.
+     *
+     * ## The timezone is inlined, and it has to be
+     *
+     * A bound placeholder is the reflex and it does not work here. Postgres compares
+     * `GROUP BY` against `SELECT` **by expression**, and `$1` in the select list is not
+     * the same expression as `$5` in the group-by even when both carry `Asia/Tehran` —
+     * so the statement fails with «column sales_invoices.issued_at must appear in the
+     * GROUP BY clause», which reads like a query-shape bug and is a binding one. Grouping
+     * by ordinal solves that half; this half is the value itself.
+     *
+     * It is safe to inline because it is not user input — `app.display_timezone` is
+     * config — and it is *proved* safe rather than argued safe: anything outside the
+     * character set an IANA zone name can contain is stripped, and an empty result falls
+     * back to UTC. A tenancy-scoped report is the last place to leave a hole open on the
+     * grounds that nobody can currently reach it.
+     */
+    private function shopDayExpression(): string
+    {
+        $timezone = preg_replace('/[^A-Za-z0-9_+\-\/]/', '', config()->string('app.display_timezone'));
+
+        if (! is_string($timezone) || $timezone === '') {
+            $timezone = 'UTC';
+        }
+
+        return "date((sales_invoices.issued_at at time zone 'UTC') at time zone '{$timezone}')";
     }
 }

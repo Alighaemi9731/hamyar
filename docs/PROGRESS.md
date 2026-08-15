@@ -1004,7 +1004,7 @@ term that stops growing.
 
 ### The budget
 
-`ReportLatencyTest`: eleven measurements across a month range and a year range, **1–46ms
+`ReportLatencyTest`: fourteen measurements across a month range and a year range, **1–46ms
 against 300ms**, with the fixture's row counts asserted before a single clock starts —
 because a latency test against an empty table is the purest form of green without
 witness. The docblock says plainly what the test is not: a ceiling, not a regression
@@ -1015,3 +1015,52 @@ the index above was found.
 
 The roadmap line stays `[~]`. A budget over the four reports that exist is not the budget
 the spec names over ten; each new 9.2 report is one more line in the timing map.
+
+### Same day — sales monthly and by brand, and a day that belonged to the wrong day
+
+Both land as **cuts of the existing sales report**, not as new screens. The controller's
+own docblock already argued for it — three cuts are one query grouped three ways, and
+three routes would mean three filter bars that drift — so monthly and brand make five,
+sharing the range, the print sheet and the export.
+
+**Monthly is folded in PHP, and that is not a shortcut.** Postgres has no Jalali
+calendar, so `date_trunc('month', …)` groups by the Gregorian month — which straddles two
+Jalali ones, making «فروش مرداد» part Tir and part Mordad. That is not a wrong total so
+much as an answer to a question nobody asked. The daily rows are folded by
+`Jalali::monthKey()`, the same key the recurring-expense generator books against; a year
+is at most 366 rows, so the fold costs nothing and the calendar is right by construction.
+Rows come back chronological rather than biggest-first, because the point of a
+month-per-row table is the shape of the year.
+
+**Writing it exposed a real defect in the daily report.** It bucketed on
+`date(issued_at)`, and `issued_at` is stored UTC. A sale at 00:30 Tehran is 21:00 UTC the
+day before, so it landed on yesterday's row — and eleven times a year on the previous
+*month's* row, where the new monthly report would have filed it under the wrong month
+entirely. Now the timestamp is shifted into the shop's wall clock before it is truncated,
+with a test that moves an invoice to 00:30 Tehran and asserts it stays on today.
+
+Two things fought back while fixing it, both worth writing down:
+
+- **A bound placeholder cannot carry the timezone.** Postgres compares `GROUP BY` against
+  `SELECT` *by expression*, and `$1` in the select list is not the same expression as `$5`
+  in the group-by even when both hold `Asia/Tehran`. The failure is
+  «column sales_invoices.issued_at must appear in the GROUP BY clause», which reads like a
+  query-shape bug and is a binding one. Grouping by **ordinal** (`GROUP BY 1`) fixes that
+  half and is better than the repeated expression anyway — `1` *is* the first select
+  column, so the two cannot drift apart.
+- The timezone itself is inlined from config, stripped to the characters an IANA zone name
+  can contain and defaulting to UTC if that leaves nothing. Safe because it is config, and
+  *proved* safe rather than argued safe.
+
+Both errors surfaced three frames away as «current transaction is aborted … SQL: select
+set_config(app.tenant_id …)» — the tenancy teardown failing on an already-poisoned
+transaction. Same shape as the harness-versus-domain lesson in `docs/testing.md`: the
+message named tenancy and the fault was in a `GROUP BY`.
+
+**By brand** keeps the lines that have no brand — a service, or a handset sold off its own
+unit record — under one unnamed row. Dropping them would make the brand cut disagree with
+every other cut of the same range, which is the one thing a set of cuts must not do; the
+«sums to the same revenue» invariant now runs across all five.
+
+The report index lists five sales reports, the latency map takes fourteen measurements,
+and `composer test` is green.
