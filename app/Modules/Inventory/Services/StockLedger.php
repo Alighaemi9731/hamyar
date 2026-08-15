@@ -8,6 +8,7 @@ use App\Modules\Inventory\Enums\MovementType;
 use App\Modules\Inventory\Exceptions\InsufficientStock;
 use App\Modules\Inventory\Models\StockMovement;
 use App\Modules\Inventory\Models\Warehouse;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -100,7 +101,7 @@ final class StockLedger
      *
      * The cost side of a standard-goods sale (golden rule 3's counterpart for money):
      * weighted by quantity over every movement that brought stock *in*, so a hundred
-     * chargers bought at 50,000 and ten at 90,000 average to 53,636 — not to 70,000,
+     * chargers bought at 50,000 and ten at 90,000 average to 53,640 — not to 70,000,
      * which is what a naive mean of the two prices would say.
      *
      * Outward movements are excluded rather than netted. Selling stock does not change
@@ -146,9 +147,19 @@ final class StockLedger
             return 0;
         }
 
-        // intdiv, never a float: money is integer rial, and a fractional cost would be
-        // the one place a float crept into the profit calculation.
-        return intdiv((int) ($value ?? 0), $quantity);
+        /*
+        | intdiv, never a float: money is integer rial, and a fractional cost would be
+        | the one place a float crept into the profit calculation.
+        |
+        | Then raised to a whole toman, because the division rarely lands on one. That is
+        | not cosmetic: `Money::toToman()` REFUSES a sub-toman remainder rather than
+        | rounding it, so an average of 53,636 rial is a figure the sales report cannot
+        | render — it throws, from a screen the shop opens every morning. The exact case
+        | `docs/testing.md` predicted: "a fixture that buys stock at exactly 200,000 never
+        | meets the rounding guard that real weighted-average cost trips on the first
+        | search". Upward, so an understated cost never flatters the margin.
+        */
+        return Money::ceilToToman(intdiv((int) ($value ?? 0), $quantity));
     }
 
     /**

@@ -322,7 +322,7 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
       *difference*, so the correction stays visible
 - [x] Low-stock threshold + alerts list — opt-in by threshold, and "out" is separated
       from "low" because one costs a sale today and the other is a purchase order
-- [ ] Dead-stock report base — Phase 9 (Reporting)
+- [x] Dead-stock report base — landed in Phase 9.2 as a cut of the inventory report
 
 ### 4.1 Parties — **moved ahead of 3.5** (see the note there)
 - [x] Unified `parties` (kind: customer/supplier/colleague/both). `kind` is a label for
@@ -867,8 +867,20 @@ converging on them later.
       `unit_cost`, not the customer's price, so the figure beside somebody's name does not
       move when a price list is edited — and it is dropped, not the screen refused, for a
       viewer without margin, because the counts stand on their own
-- [ ] Dead stock
-- [ ] Stock valuation
+- [x] Dead stock — lines and handsets that nothing has left in N days, dated from the
+      **last outward movement**, not from when the stock arrived. A line restocked last
+      week that has not sold since Farvardin is dead stock with fresh purchase dates all
+      over it, and dating it from arrival hides exactly the case a shop needs to see.
+      Handsets get one row each, because a shop discounts *this* phone rather than
+      «iPhone 13s in general»
+- [x] Stock valuation — at cost, at a date, and across **both registers**. This is the
+      one that had a wrong answer waiting: standard goods are a SUM over
+      `stock_movements` and handsets are rows in `product_units` with no movement written
+      for them (Phase 3.6), so a valuation that reads movements alone values a
+      mobile-phone shop's phones at **zero**. The fixture makes that loud — devices are
+      half the total — and both the split and the total are asserted. The as-of date
+      exists because "what was this worth on the last day of the year" is what an
+      accountant asks, and only a SUM over movements can answer it
 - [ ] Party balances aging
 - [ ] Cheques calendar
 - [ ] Installments book

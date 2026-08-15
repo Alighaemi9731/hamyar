@@ -1137,3 +1137,57 @@ was cancelled has spent nothing.
 The margin gate takes the sales report's shape here rather than the profit report's: the
 money column is dropped and the screen still works, because «چند دستگاه تحویل شد و چقدر
 طول کشید» stands on its own.
+
+### Same day — stock valuation, dead stock, and a rounding guard that was waiting
+
+`/reporting/inventory`, two cuts. One date rather than a range, because «موجودی» is a
+figure at an instant — and the as-of date works at all only because on-hand is a SUM over
+movements rather than a stored total.
+
+**The valuation had a wrong answer waiting for it.** This product keeps stock in two
+registers on purpose: standard goods are a SUM over `stock_movements`, and handsets are
+rows in `product_units` with **no** movement written for them (Phase 3.6 — a phone counted
+in both is counted twice). So a valuation that reads movements alone values a mobile-phone
+shop's phones at zero. The fixture is built to make that loud: devices are 760,000,000 of
+a 1,526,666,700 total, and a movements-only report would say 766,666,700 and look entirely
+plausible. Both the split and the total are asserted.
+
+**Dead stock is dated from the last outward movement**, not from arrival. A line restocked
+last week that has not sold since Farvardin is dead stock with fresh purchase dates all
+over it. Handsets get one row each, because a shop discounts *this* phone.
+
+### The find: a derived cost that could not be displayed
+
+Writing the valuation's fixture with realistic numbers — 10 batteries at 50,000,000 and 2
+at 90,000,000 — hit an exception from `Money`:
+
+> Amount 56666666 rial is not a whole number of toman; refusing to round money.
+
+`Money::toToman()` refuses a sub-toman remainder by design, on the stated grounds that any
+such amount is "a bug upstream". That is true of every amount a person types and of every
+price, tax and instalment split — and **not** true of a derived unit cost, which is a
+division. `StockLedger::weightedAverageCost()` has been returning such figures since Phase
+3; `FinaliseInvoice` writes them into `cost_snapshot`; and the sales report renders
+`cost_snapshot × quantity` through `Money::toArray()`. **The sales report would throw on
+any shop whose average cost did not land on a whole toman**, which is most of them. The
+suite never saw it because every fixture bought stock at round numbers — the exact gap
+`docs/testing.md` had already predicted in writing: *"a fixture that buys stock at exactly
+200,000 never meets the rounding guard that real weighted-average cost trips on the first
+search."*
+
+Fixed at the source rather than at the display: `Money::ceilToToman()` raises a derived
+cost to the next whole toman, and `StockLedger` applies it. **Upward**, so an understated
+cost never flatters the margin — the mirror of `Money::percent()`, which truncates so the
+shop never over-charges. The adjustment is at most nine rial on a unit cost.
+
+A second, quieter trap sat inside the set-based version of the same average. Postgres
+returns **numeric** from `sum()` over a bigint column, so `sum(a) / sum(b)` is exact
+decimal division rather than the truncating integer division the expression was written
+as — and the ceiling-to-ten that followed then operated on a fraction and produced one.
+It surfaced as a valuation of 56,666,675 rial: not a whole toman, refused by `Money`, from
+a screen whose PHP path had computed the same figure correctly moments earlier. Explicit
+`::bigint` casts, and a comment saying why they are load-bearing.
+
+Two pinned figures moved with the fix — `FinaliseInvoiceTest`'s 53,636 to 53,640 — and
+`Money::ceilToToman` gained its own unit tests, including the property the whole helper
+exists for: over all ten residues, its output is something `toToman()` will accept.

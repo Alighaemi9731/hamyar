@@ -51,7 +51,7 @@ final class ReportCatalogue
     }
 
     /**
-     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string, needs_margin?: bool}>
+     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string, needs_margin?: bool, needs_cost?: bool}>
      */
     public static function reports(): array
     {
@@ -132,6 +132,25 @@ final class ReportCatalogue
             ],
 
             [
+                'key' => 'inventory.valuation',
+                'title' => 'ارزش موجودی انبار',
+                'description' => 'ارزش کالاها و دستگاه‌ها به بهای تمام‌شده، در تاریخ دلخواه.',
+                'group' => self::GROUP_INVENTORY,
+                'href' => '/reporting/inventory?cut=valuation',
+                'permission' => 'reporting.view',
+                'needs_cost' => true,
+            ],
+            [
+                'key' => 'inventory.dead_stock',
+                'title' => 'کالای راکد',
+                'description' => 'چیزهایی که مدت‌هاست از انبار خارج نشده‌اند، با ارزششان.',
+                'group' => self::GROUP_INVENTORY,
+                'href' => '/reporting/inventory?cut=dead',
+                'permission' => 'reporting.view',
+                'needs_cost' => true,
+            ],
+
+            [
                 'key' => 'repairs.technicians',
                 'title' => 'کارکرد تکنسین‌ها',
                 'description' => 'تحویل‌شده، روی میز، و میانگین زمان از پذیرش تا تحویل.',
@@ -161,6 +180,20 @@ final class ReportCatalogue
             }
 
             if (($report['needs_margin'] ?? false) && ! ReportAccess::showsMargin($user)) {
+                continue;
+            }
+
+            /*
+            | A stock valuation is a cost figure, and the warehouse keeper who holds
+            | `inventory.view_cost` is exactly the person who prices a stocktake. So the
+            | inventory rows ask for either that or the back-office permission — the same
+            | pair `InventoryReportController` asks, for the same reason the margin rows
+            | share `ReportAccess`: an index that disagrees with its screens is worse
+            | than no index.
+            */
+            if (($report['needs_cost'] ?? false)
+                && ! $user->can('reporting.view_financial')
+                && ! $user->can('inventory.view_cost')) {
                 continue;
             }
 

@@ -139,6 +139,43 @@ final class Money
     }
 
     /**
+     * Raise a rial amount to the next whole toman.
+     *
+     * ## Why anything needs this
+     *
+     * {@see toToman()} refuses a sub-toman remainder rather than rounding, on the stated
+     * grounds that "any amount that is not a whole number of toman is a bug upstream".
+     * That is true of every amount a **person** enters and of every price, tax and
+     * instalment split — and it is not true of a **derived** unit cost. A weighted average
+     * is a division: a hundred chargers at 50,000 and ten at 90,000 come to 53,636 rial
+     * each, which is 5,363.6 toman and unrenderable.
+     *
+     * So a derived per-unit cost is normalised here, at the point it is derived, rather
+     * than at the point somebody tries to display it — where it surfaces as an exception
+     * thrown from a report the shop opens every morning.
+     *
+     * ## Up, not down
+     *
+     * Cost rounds **away from zero**: understating what something cost overstates the
+     * profit on it, and a report that flatters the shop is the wrong direction to be
+     * wrong in. The counterpart is {@see percent()}, which truncates so the shop never
+     * over-charges — the same principle, pointed at the customer instead.
+     *
+     * The adjustment is at most nine rial on a unit cost, which is a rounding artefact
+     * rather than money; what matters is that every figure derived from it can be shown.
+     */
+    public static function ceilToToman(int $rial): int
+    {
+        if ($rial % self::RIAL_PER_TOMAN === 0) {
+            return $rial;
+        }
+
+        $step = $rial < 0 ? -self::RIAL_PER_TOMAN : self::RIAL_PER_TOMAN;
+
+        return intdiv($rial, self::RIAL_PER_TOMAN) * self::RIAL_PER_TOMAN + $step;
+    }
+
+    /**
      * The wire shape for money crossing into Inertia or an API resource.
      *
      * Both halves matter. `value` is the integer rial the frontend does arithmetic and

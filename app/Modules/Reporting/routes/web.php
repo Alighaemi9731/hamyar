@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Reporting\Http\Controllers\InventoryReportController;
 use App\Modules\Reporting\Http\Controllers\ProfitReportController;
 use App\Modules\Reporting\Http\Controllers\RepairReportController;
 use App\Modules\Reporting\Http\Controllers\ReportIndexController;
@@ -44,4 +45,10 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:reporting'])
         Route::get('/technicians/export', [RepairReportController::class, 'export'])
             ->middleware('throttle:20,1')
             ->name('technicians.export');
+
+        Route::get('/inventory', [InventoryReportController::class, 'index'])->name('inventory');
+
+        Route::get('/inventory/export', [InventoryReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('inventory.export');
     });
