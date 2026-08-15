@@ -72,6 +72,10 @@
             "@php artisan config:clear --ansi",
             "pest --group=isolation"
         ],
+        "test:performance": [
+            "@php artisan config:clear --ansi",
+            "pest --group=performance"
+        ],
         "test": [
             "@php artisan config:clear --ansi",
             "@lint:test",

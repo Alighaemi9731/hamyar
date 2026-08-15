@@ -848,7 +848,7 @@ converging on them later.
 - [ ] Saved-filter presets
 
 ### 9.3 Tests
-- [ ] Golden-number tests: seeded scenario → exact expected figures per report.
+- [~] Golden-number tests: seeded scenario → exact expected figures per report.
       **Found and fixed here:** `CrazyMonthSeeder` — the Phase 7 scenario the golden
       numbers are pinned against — contains no sales invoices at all, so the two sales
       assertions in `GoldenNumbersTest` were comparing zero to zero and passing. They now
@@ -856,8 +856,28 @@ converging on them later.
       they are pointed at `SalesReportScreenTest`, which pins the sales arithmetic
       (290,000,000 revenue · 180,000,000 cost · 110,000,000 profit) against a fixture
       built for it and checks every cut sums to the same revenue
-- [ ] Query performance budget (<300ms on a 100k-row seed for top reports) — needs a bulk
-      seeder, which is the first real piece of work in this section, not the reports
+- [x] **The 100k-row bulk seeder** — `BulkVolumeSeeder` fills a shop with a year of
+      trading: 40,000 invoices · 100,000 invoice lines · ~100,000 stock movements ·
+      ~75,000 ledger rows, every value a deterministic function of the row's ordinal so
+      the same seed produces the same rows and the same plan on every run. It is a
+      fixture for **timings, never for figures** — every amount in it is arithmetic the
+      seeder invented, and pinning a report to it would be pinning the report to that
+      invention. Two shops are filled to the same size, because on a single-tenant table
+      a sequential scan and an index scan do identical work and the budget would pass
+      with every index dropped. It ANALYZEs after each step rather than once at the end:
+      the sale-movement insert against unanalysed tables was still running after seven
+      minutes, versus 1.4 seconds with statistics
+- [~] Query performance budget (<300ms on a 100k-row seed for top reports) — the harness
+      is `ReportLatencyTest`: eleven measurements over a month range and a year range,
+      **1–46ms against the 300ms budget**, with the fixture's row counts asserted before
+      any clock starts. Found and fixed a real defect on the way: a thirty-day sales
+      report read 75,200 index entries and 12,533 heap rows to keep 3,093, because
+      `(tenant_id, status)` stops before the date and `(tenant_id, branch_id, issued_at)`
+      cannot be entered without a branch — so the cost grew with the shop's whole history
+      rather than with the range asked for. Replaced by `(tenant_id, status, issued_at)`.
+      **Stays open until the rest of 9.2 exists**: a budget over the four reports that
+      have been built is not the budget the spec names over ten, and each new report is
+      one more line in the timing map
 
 ### Phase 9 — Definition of Done
 - [ ] Numbers everywhere agree with the Phase 7 reconciliation scenario

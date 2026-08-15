@@ -928,3 +928,90 @@ To keep one copy of each hex, the light steps are now named (`--color-*-on-light
 `:root` and `[data-paper]` alias them. The `/design` swatch row prints both values, because
 it is the one place in the app that shows a hex and a swatch labelled `#8A5A00` while
 rendering `#E0A13A` is documentation that lies.
+
+---
+
+## 2026-08-15 (later) — the 100k-row fixture, and the index it found
+
+Two captures first, both from the previous session, both written where the next session
+will trip over them rather than in a chat log.
+
+**"Green without witness"** is now a named pattern in `docs/testing.md` §3. A
+golden-number test whose fixture does not contain the subject it measures compares zero
+to zero and passes forever. `GoldenNumbersTest` pinned sales revenue and profit against
+`CrazyMonthSeeder`, which holds no sales invoices at all — two assertions, green since
+Phase 7, proving nothing. The rule now: assert the fixture contains the thing, or assert
+the emptiness as the claim with a pointer to the test that does pin the arithmetic. Never
+an exact figure against a fixture nobody checked, because the figure looks like evidence
+and is decoration.
+
+**The paper light island** is now written down in `docs/design-system.md` (§1 and hard
+rule 12) and in the `mobishop-ui` skill: a print surface is ink on white in both themes,
+so every semantic token restores to its light step inside `[data-paper]`. Dark-mode
+`success` `#4CC47F` is 2.2:1 on white, which is how a paid stamp went invisible. Faking a
+sheet with `bg-white text-black` is called out by name — it fixes the ground and leaves
+the badges on their dark steps, which is the bug rather than the fix. The `/design`
+gallery now carries the regression case: the same five badges outside a paper surface and
+inside one, so a dark-mode look shows the two side by side.
+
+### The bulk seeder
+
+`BulkVolumeSeeder` fills a shop with a year of trading — 40,000 invoices, 100,000 invoice
+lines, ~100,000 stock movements, ~75,000 ledger rows — in about eight seconds, set-based,
+straight into the tables.
+
+Deliberately **not** through the services, which is the opposite of `CrazyMonthSeeder`'s
+discipline and for the opposite reason: that one exists to prove the ledger balances, this
+one to prove a query plan holds, and 40,000 invoices through `FinaliseInvoice` would take
+an hour to re-prove what Phase 5 already proved once. The consequence is written at the
+top of the file in the bluntest terms available: **assert timings and row counts against
+it, never money.** Every amount in it is arithmetic the seeder invented, so a report
+pinned to it would be pinned to that invention — the same trap as above, one step worse,
+because the table is full and the number still means nothing.
+
+Three things the fixture had to learn:
+
+**Two shops, the same size.** On a single-tenant table a sequential scan and an index scan
+do identical work, so a budget measured there would pass with every index dropped. The
+neighbour is filled to match, and the tenant predicate has to earn its place in the plan.
+
+**ANALYZE after every step, not once at the end.** A bulk-loaded table has no statistics,
+and autovacuum cannot help — the rows are uncommitted, and under `RefreshDatabase` they
+never commit at all. Written with a single ANALYZE at the end, the sale-movement insert
+joining 100,000 unanalysed lines to 40,000 unanalysed invoices was **still running after
+seven minutes**, against 1.4 seconds once the two tables had statistics. It had looked
+instant in development, on a dev database autovacuum had already been through.
+
+**Foreign keys by array subscript, never by `offset … limit 1`.** The offset form reads
+as the obvious way to say "some customer" and is quadratic — Postgres walks and discards
+`offset` rows once per invoice.
+
+### What it found
+
+A thirty-day sales report was reading **75,200 index entries and 12,533 heap rows to keep
+3,093**. Every report in `SalesReports` filters the same three things — this shop,
+`status = 'final'`, a date range — and the schema had `(tenant_id, status)`, which stops
+before the date, and `(tenant_id, branch_id, issued_at)`, which cannot be entered on
+`issued_at` without a branch the consolidated view deliberately does not supply. So the
+cost grew with everything the shop had ever sold rather than with the range somebody
+asked for: invisible on eleven demo invoices, and a complaint from the biggest customer
+eighteen months in.
+
+Replaced with `(tenant_id, status, issued_at)`. The migration records what it is actually
+worth — twelve milliseconds against fourteen on the same plan, both an order of magnitude
+inside the budget — so nobody reads the two milliseconds as the claim. The claim is the
+term that stops growing.
+
+### The budget
+
+`ReportLatencyTest`: eleven measurements across a month range and a year range, **1–46ms
+against 300ms**, with the fixture's row counts asserted before a single clock starts —
+because a latency test against an empty table is the purest form of green without
+witness. The docblock says plainly what the test is not: a ceiling, not a regression
+detector. At 6× headroom a change making a report three times slower still passes, and
+tightening the number would buy a test that fails on a busy CI box and teaches everyone
+to re-run it. The detector for a plan change is the fixture plus `EXPLAIN`, which is how
+the index above was found.
+
+The roadmap line stays `[~]`. A budget over the four reports that exist is not the budget
+the spec names over ten; each new 9.2 report is one more line in the timing map.

@@ -391,6 +391,52 @@ wrong — that is the whole point of never storing totals
 Seeded with 100k rows, the top reports must return in **< 300ms**. Asserted in CI, so
 a missing index is a failing test rather than a support ticket.
 
+The fixture is [`BulkVolumeSeeder`](../database/seeders/BulkVolumeSeeder.php) and the
+assertion is `ReportLatencyTest`. One shop gets a year of trading — 40,000 invoices,
+100,000 invoice lines, ~100,000 stock movements, ~75,000 ledger rows — and every value
+is a deterministic function of the row's ordinal, so the same seed produces the same
+rows and the same plan on every run.
+
+Four rules that fixture had to learn, none of them obvious from the outside:
+
+**The neighbour is the same size.** On a single-tenant table a sequential scan and an
+index scan do identical work, so a budget measured there passes with every index
+dropped. Both shops are filled, the table holds twice what any report reads, and the
+tenant predicate has to earn its place in the plan.
+
+**ANALYZE after every step, not once at the end.** Postgres plans from statistics and a
+bulk-loaded table has none; autovacuum cannot help, because the rows are uncommitted and
+under `RefreshDatabase` never commit at all. That costs twice. The reports would be timed
+against a planner that thinks every table is empty — a sequential scan over twelve
+imagined rows is chosen instantly, so the budget passes while proving nothing. And the
+seeder's own later statements plan badly: the sale-movement insert, joining 100,000
+unanalysed lines to 40,000 unanalysed invoices, was **still running after seven minutes**
+against 1.4 seconds once the two tables had statistics.
+
+**It is a fixture for timings, never for figures.** Every amount in it is arithmetic the
+seeder invented. A report pinned to it would be pinned to that invention — §3's *green
+without witness*, one step worse, because the table is full and the number still means
+nothing. Money is pinned in `SalesReportScreenTest` and `GoldenNumbersTest`, against
+scenarios the real services built.
+
+**The budget is a ceiling, not a regression detector.** Measured figures at the time of
+writing are 1–46ms against 300ms, so a change making a report three times slower still
+passes. Tightening it to close that gap buys a test that fails on a busy CI box and
+teaches everyone to re-run it. The detector for a *plan* change is the fixture itself:
+
+```bash
+php artisan db:seed --class=Database\\Seeders\\BulkVolumeSeeder
+# then EXPLAIN (ANALYZE, BUFFERS) the report's query and read what the scan is
+# proportional to — the range asked for, or everything the shop has ever sold?
+```
+
+That is how the missing index on `sales_invoices` was found: a thirty-day report was
+reading 75,200 index entries and 12,533 heap rows to keep 3,093, because
+`(tenant_id, status)` stops before the date and `(tenant_id, branch_id, issued_at)`
+cannot be entered without a branch. The cost grew with the shop's whole history rather
+than with the range — invisible at eleven demo invoices, and a complaint from the biggest
+customer eighteen months in.
+
 ---
 
 ## 7. Writing a test — checklist
