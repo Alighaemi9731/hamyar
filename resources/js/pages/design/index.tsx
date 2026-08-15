@@ -57,6 +57,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import { AppShell } from '@/layouts/app-shell';
 
@@ -165,12 +166,19 @@ function TokensSection({ alt }: { alt?: boolean }) {
     { name: 'ink-soft', value: '#6E6E73', className: 'bg-ink-soft text-white' },
   ];
 
+  /*
+    `dark` is the step the token switches to under `.dark` — every one of these is
+    unreadable on black at its light value, so the token itself is remapped in
+    app.css rather than each call site adding a `dark:` variant. The swatch names
+    both values because it is the one place in the app that prints a hex, and a
+    swatch labelled #8A5A00 while rendering #E0A13A is documentation that lies.
+  */
   const semantics = [
-    { name: 'brand', value: '#0066CC', className: 'bg-brand text-white' },
-    { name: 'success', value: '#0F7B3F', className: 'bg-success text-white' },
-    { name: 'warning', value: '#8A5A00', className: 'bg-warning text-white' },
-    { name: 'danger', value: '#B3261E', className: 'bg-danger text-white' },
-    { name: 'label', value: '#FFD84D', className: 'bg-label text-ink' },
+    { name: 'brand', value: '#0066CC', dark: '#409CFF', className: 'bg-brand text-white' },
+    { name: 'success', value: '#0F7B3F', dark: '#4CC47F', className: 'bg-success text-white' },
+    { name: 'warning', value: '#8A5A00', dark: '#E0A13A', className: 'bg-warning text-white' },
+    { name: 'danger', value: '#B3261E', dark: '#FF6961', className: 'bg-danger text-white' },
+    { name: 'label', value: '#FFD84D', dark: null, className: 'bg-label text-ink' },
   ];
 
   return (
@@ -206,6 +214,11 @@ function TokensSection({ alt }: { alt?: boolean }) {
               <span className="ltr-value opacity-70" dir="ltr">
                 {s.value}
               </span>
+              {s.dark ? (
+                <span className="ltr-value opacity-70" dir="ltr">
+                  {s.dark} <span className="opacity-80">dark</span>
+                </span>
+              ) : null}
             </div>
           ))}
         </div>
@@ -797,7 +810,10 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
  */
 function BarChartSection({ alt = false }: { alt?: boolean }) {
   const busy = Array.from({ length: 30 }, (_, index) => ({
-    label: `۱۴۰۵/۰۵/${String(index + 1).padStart(2, '۰')}`,
+    // Through the digit helper rather than padding with a Persian zero: `'1'.padStart(2,
+    // '۰')` yields «۰1», one Persian digit glued to one Latin one, which is exactly the
+    // mixed-digit bug the gallery exists to demonstrate the absence of.
+    label: `۱۴۰۵/۰۵/${toPersianDigits(String(index + 1).padStart(2, '0'))}`,
     // A deterministic-looking month with two closed days and one big Thursday.
     value:
       index === 6 || index === 13 ? 0 : (index % 7 === 3 ? 90 : 12 + (index % 5) * 7) * 1_000_000,

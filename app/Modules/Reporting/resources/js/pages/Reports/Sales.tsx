@@ -105,6 +105,10 @@ export default function SalesReport({
         toolbar={
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
+              <Link href="/reporting" className="me-2 text-sm text-primary hover:underline">
+                فهرست گزارش‌ها
+              </Link>
+
               {CUTS.map((entry) => (
                 <Button
                   key={entry.key}
@@ -225,11 +229,10 @@ export default function SalesReport({
             </div>
           )}
 
-          <footer className="mt-6 flex items-center justify-between border-t pt-3 text-xs text-black/60">
-            <span>ارقام بدون مالیات بر ارزش افزوده است.</span>
-            <Link href="/reporting" className="no-print text-brand hover:underline">
-              فهرست گزارش‌ها
-            </Link>
+          {/* Nothing on the sheet that is not on the paper. A `no-print` link inside
+              the document is chrome that wandered in; it lives in the toolbar. */}
+          <footer className="mt-6 border-t pt-3 text-xs text-black/60">
+            ارقام بدون مالیات بر ارزش افزوده است.
           </footer>
         </div>
       </PrintLayout.A4>

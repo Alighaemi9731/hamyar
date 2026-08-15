@@ -895,3 +895,36 @@ class of bug surfaces.
 3. Saved-filter presets (`saved_filters` in the spec — no table yet).
 
 Decisions remain batched in `docs/DECISIONS-FOR-REVIEW.md` for Gate 4.
+
+### Addendum, same day — the dark theme failed AA everywhere, and the browser walk found it
+
+Walking the new screens at 390/1280 in both themes turned up a defect that predates this
+phase and reaches the whole app. The palette defines `--color-success-on-dark`,
+`--color-warning-on-dark`, `--color-danger-on-dark` and `--color-brand-on-dark` with
+measured ratios beside them — but only `--primary` and the chart slots were ever wired to
+them. So `text-warning`, `text-danger`, `text-success` and `text-brand` kept their **light**
+values under `.dark`, and every status badge, stat card, timeline icon and inline link in
+the product rendered below the AA floor:
+
+| token | on `#1D1D1F` before | after |
+|---|---|---|
+| warning `#8A5A00` | 2.8:1 | `#E0A13A` — 7.4:1 |
+| danger `#B3261E` | 2.6:1 | `#FF6961` — 5.9:1 |
+| success `#0F7B3F` | 3.1:1 | `#4CC47F` — 7.5:1 |
+| brand `#0066CC` | 3.0:1 | `#409CFF` — 6.5:1 |
+
+Fixed by remapping the tokens in `.dark`, not by adding `dark:` variants at call sites —
+which is the whole reason the system has tokens.
+
+That immediately created its opposite, which is the part worth remembering: **the print
+sheet is a light island.** `PrintLayout` renders every sheet as ink on white in *both*
+themes, deliberately, so the lifted steps are the wrong ones inside it — `#4CC47F` is 7.5:1
+on `#1D1D1F` and 2.2:1 on white, and the sales report's profit column went from readable to
+nearly invisible the moment the shop switched to dark mode. Every semantic token is
+therefore restored to its light step under `[data-paper]`, the attribute `PrintLayout`
+already sets, so every existing and future sheet gets it without remembering to.
+
+To keep one copy of each hex, the light steps are now named (`--color-*-on-light`) and both
+`:root` and `[data-paper]` alias them. The `/design` swatch row prints both values, because
+it is the one place in the app that shows a hex and a swatch labelled `#8A5A00` while
+rendering `#E0A13A` is documentation that lies.
