@@ -239,6 +239,44 @@ message DOES exist for the shop that sent it, before asserting it does not for t
 did not: **a negative assertion needs a positive one beside it, or it passes on an empty
 world.**
 
+### Green without witness
+
+The generalisation of that kill, and the name to use for it in review: **a test is green
+without witness when its fixture does not contain the thing it claims to measure.** The
+arithmetic is never exercised, both sides collapse to the same empty value, and the
+assertion passes — permanently, and for a reason that has nothing to do with the code
+under test.
+
+It is the golden-number tests that are most exposed, because their whole shape invites it:
+seed a scenario, run a report, compare to a figure written by hand. If the scenario is
+missing the subject, `0 === 0` and the report is "verified".
+
+`GoldenNumbersTest` pinned sales revenue and sales profit against `CrazyMonthSeeder` — the
+Phase 7 "one crazy month" that the entire reporting phase reconciles to — and the seeder
+**contains no sales invoices at all.** Two assertions, green since Phase 7, proving that
+zero equals zero. The report they were guarding could have returned any number for any
+month without either of them noticing.
+
+So, before a golden number is pinned:
+
+1. **Assert the fixture contains the subject, in the same test**, above the arithmetic —
+   `expect(Invoice::where(...)->count())->toBeGreaterThan(0)` earns the figures below it.
+2. **Or assert the emptiness explicitly**, naming it as the claim: if the scenario really
+   has no sales, say `toBe(0)` *because there are no sales*, with a comment pointing at
+   the fixture that would have to change and the test that pins the arithmetic instead.
+   That is what those two assertions became, and they now point a future reader at
+   `SalesReportScreenTest`, which pins 290,000,000 revenue · 180,000,000 cost ·
+   110,000,000 profit against a fixture built to contain them.
+
+Never the third option — an exact figure asserted against a fixture nobody checked. The
+figure looks like evidence and is decoration.
+
+This is the same defect as the empty-world negative above, and the same defect as the
+`x + y - y` tautology: an assertion that cannot distinguish a working implementation from
+a broken one. The tell is always available and always cheap — **read the assertion with
+the implementation deleted, and then read it again with the fixture emptied.** A test that
+survives both is not a test.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no

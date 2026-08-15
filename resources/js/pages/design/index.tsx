@@ -432,7 +432,71 @@ function StatusSection({ alt }: { alt?: boolean }) {
           کلید خام نمایش داده می‌شود تا معلوم باشد چه چیزی باید به STATUS_MAP اضافه شود.
         </span>
       </Row>
+
+      <PaperIslandCase />
     </Section>
+  );
+}
+
+/**
+ * The regression case for the paper light island (design-system §1).
+ *
+ * A print sheet is ink on white in BOTH themes, so the dark theme's lifted semantic
+ * steps are the wrong ones inside it — #4CC47F is 7.5:1 on #1D1D1F and 2.2:1 on white,
+ * and a «وصول‌شده» stamp on an invoice went from readable to nearly invisible the moment
+ * a shop switched to dark mode. `[data-paper]` restores the light steps, once, in
+ * `app.css`.
+ *
+ * Rendering the SAME badges on both grounds is the point: in dark mode the two panels
+ * must not match, and the paper one must stay legible. A contrast checker would catch
+ * the regression; this catches it by eye, which is what gets looked at.
+ *
+ * Note the paper panel sets `data-paper` rather than only `bg-white` — faking a sheet
+ * with `bg-white text-black` is precisely the bug, since the ground turns white while
+ * every token inside stays on its dark step.
+ */
+function PaperIslandCase() {
+  const keys = ['cleared', 'due_soon', 'overdue', 'deposited', 'sold'];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-[11rem_1fr] sm:items-start">
+      <span className="pt-2 text-xs text-muted-foreground">روی کاغذ / روی صفحه</span>
+
+      <div className="space-y-3">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-card border border-border bg-background p-4">
+            <p className="mb-3 text-2xs text-muted-foreground">
+              زمینهٔ برنامه — در حالت تیره پله‌های روشن‌شده
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {keys.map((key) => (
+                <StatusBadge key={key} status={key} />
+              ))}
+            </div>
+          </div>
+
+          <div
+            data-paper="a4"
+            className="rounded-card border border-border bg-white p-4 text-black"
+          >
+            <p className="mb-3 text-2xs text-muted-foreground">
+              داخل کاغذ ([data-paper]) — همان نشان‌ها، پله‌های تیرهٔ اصلی
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {keys.map((key) => (
+                <StatusBadge key={key} status={key} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <p className="max-w-2xl text-2xs leading-relaxed text-muted-foreground">
+          کاغذ در هر دو تم سفید است، پس نشان‌های داخل آن باید به رنگ‌های تیرهٔ روی سفید برگردند. تم
+          را تیره کنید: دو کادر بالا باید متفاوت به نظر برسند و کادر کاغذ باید خوانا بماند. اگر
+          یکسان شدند، قاعدهٔ [data-paper] شکسته است.
+        </p>
+      </div>
+    </div>
   );
 }
 
