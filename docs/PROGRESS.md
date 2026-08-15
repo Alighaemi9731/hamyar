@@ -1191,3 +1191,97 @@ a screen whose PHP path had computed the same figure correctly moments earlier. 
 Two pinned figures moved with the fix — `FinaliseInvoiceTest`'s 53,636 to 53,640 — and
 `Money::ceilToToman` gained its own unit tests, including the property the whole helper
 exists for: over all ten residues, its output is something `toToman()` will accept.
+
+### 2026-08-15 — the six remaining reports, saved presets, and the budget over all of them
+
+Phase 9.2's open boxes and 9.3's: party balances aging, the cheque calendar, the instalment
+book, the VAT summary, SMS usage, saved-filter presets — and the latency budget widened from
+four reports to every report the catalogue lists.
+
+**Aging is FIFO, and the rule is the report.** `ledger_entries` records debits and credits
+against a party; it does not record *which debt a payment settled*, because nothing at the
+counter asks. So an aging report has to choose, and the two simpler choices are both wrong in
+ways that look plausible on screen. Bucketing the debits and ignoring the credits reports
+every invoice ever issued as outstanding — a customer with a spotless twelve-year history
+becomes the shop's worst debt. Putting the whole balance in the bucket of the oldest unpaid
+entry lets one ancient rounding remnant drag a current balance into «۹۰+», and a report that
+points everywhere points nowhere.
+
+Oldest-first is the standard rule and it runs **in SQL**, not in PHP: with credits applied to
+the oldest debts, the credit reaching a given lot is whatever is left after the lots before
+it, so `remaining = clamp(cumulative − settled, 0, lot)` is exact FIFO as one window
+function. The loop it replaces would drag 75,000 ledger rows into PHP to produce forty.
+
+`opening_balance` joins the entry stream as a **signed pseudo-entry** dated `parties.created_at`,
+and that detail is what makes the whole thing checkable: **outstanding − unapplied credit =
+the sum of `partyBalance()`, exactly**. Asserted rather than trusted, in the screen test and
+again in `GoldenNumbersTest` against the crazy month.
+
+**Two decisions carried over from earlier screens, on purpose.** Cleared cheques are reported
+but stay out of the calendar's net — that money arrived, and counting it again promises cash
+the shop already spent. Overdue-and-still-open cheques are shown **outside the range**, the
+same call the technician report makes about «روی میز»: a cheque that failed in Mordad has no
+future date to sit inside Shahrivar's calendar, and surfacing it only when somebody scrolls
+back is how it is forgotten.
+
+**The VAT summary reproduces the invoices; it does not recompute them.** That rule is now
+written into ADR 0009 as an amendment rather than into a docblock, because the invoice side
+has to honour the same one. Re-deriving VAT from a period's revenue at today's rate rounds
+once over a month instead of once per line, applies a rate the invoice may not have been
+issued under, and on the two-line fixture lands **eighteen rial** away from the invoices — in
+the shop's favour, which is the direction a tax authority notices.
+
+### The captures, and the one that paid immediately
+
+Two from the last session, both written down before this session's code:
+
+`docs/testing.md` gained **"money fixtures use non-round amounts by default"** under
+green-without-witness, naming the `weightedAverageCost` case. The fixtures here were then
+built to it — the aging payment (7,430,000) lands in the *middle* of the second invoice so
+FIFO has to split a lot, and every taxable line is priced at 8,881,990 so the per-line VAT
+floor has something to floor.
+
+ADR 0009 gained an **Amendment** stating the direction rule once for the whole family:
+*every rounding of a derived figure goes in the direction that does not flatter the party
+doing the rounding.* That single sentence produces every direction already in the codebase —
+VAT floors, `percent()` truncates, `ceilToToman()` ceils — and the asymmetry stops looking
+like an inconsistency. It also binds the VAT report, which is why that report reads stored
+figures.
+
+### Closing 9.3 honestly meant growing the fixture, not widening the claim
+
+The budget covered four reports because `BulkVolumeSeeder` held only invoices, items,
+movements and ledger rows. Timing a cheque calendar against an empty `cheques` table measures
+`select … where false` and passes by a factor of a thousand — the exact trap this suite argues
+hardest against. So the seeder grew handsets, cheques, instalment plans/rows/collections and
+messages, and with them the cuts the latency test had **explicitly deferred in writing**
+(`profit.per_imei`, both inventory cuts) became measurable and are measured.
+
+Doing that surfaced a second fixture defect. The seeded ledger wrote **debits only**, so
+`settled` was always zero, the FIFO clamp collapsed to `lot` on every row, and the expensive
+branch never ran — the payable direction was reading an empty set at full speed. The first
+measurement said so out loud: 84.8ms receivable against 20.5ms payable, a gap that was the
+fixture rather than the query. Part-payments against every third invoice fixed it.
+
+**26 measurements, 1–93ms against the 300ms budget.** One report is still not measured and is
+named rather than quietly omitted: `repairs.technicians`, which needs repair tickets in the
+seeder and goes in with them.
+
+### Smaller things worth having written down
+
+`ReportAccess` grew from one predicate to seven, and `ReportCatalogue` rows now carry a
+**named gate** resolved in one `match`. The point is unchanged and now enforced structurally:
+the index and the screen ask the same question, so a listed row can always be opened. The
+financial screen gates **per cut** for the same reason — a viewer allowed one cut sees only
+that cut's tab, because offering a tab that 403s is the same defect one screen further in.
+
+A preset **grants nothing**. Applying one is a `router.get`, so the URL stays shareable and
+the screen gates itself exactly as it does for a typed URL — pinned by a test where a Cashier
+saves a preset for the tax screen and still gets a 403 opening it. That is what lets `filters`
+be opaque JSON. They are keyed by *screen*, not by catalogue row: `sales.daily` and
+`sales.by_brand` are one screen with a `cut` filter, and keying by row would give one saved
+range three entries that each restore a different tab.
+
+`ShopClock` now owns the stored-UTC-to-Tehran-day expression that four new reports needed.
+The Mordad-month bug this repo already fixed once is one `date()` call away in every report
+that groups or ages by date, so it lives in one place and each report asks for it.

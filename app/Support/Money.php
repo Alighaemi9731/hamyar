@@ -161,6 +161,10 @@ final class Money
      * wrong in. The counterpart is {@see percent()}, which truncates so the shop never
      * over-charges — the same principle, pointed at the customer instead.
      *
+     * The principle is stated once for the whole family in `docs/adr/0009-invoice-rounding.md`
+     * (Amendment): every rounding of a derived figure goes in the direction that does not
+     * flatter the party doing the rounding. That is why VAT floors and this ceils.
+     *
      * The adjustment is at most nine rial on a unit cost, which is a rounding artefact
      * rather than money; what matters is that every figure derived from it can be shown.
      */

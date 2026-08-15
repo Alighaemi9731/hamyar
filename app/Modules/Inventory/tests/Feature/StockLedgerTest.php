@@ -13,17 +13,6 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Golden rule 3: quantity is a SUM over movements, never a stored total.
- */
-function idOf(object $model): int
-{
-    /** @var int $id */
-    $id = $model->getKey();
-
-    return $id;
-}
-
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
     $this->ledger = app(StockLedger::class);

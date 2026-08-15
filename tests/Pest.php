@@ -148,3 +148,132 @@ function subscribe(App\Modules\Platform\Models\Tenant $tenant, string $planCode,
         'current_period_end' => now()->addDays(20),
     ], $overrides)));
 }
+
+/**
+ * The report keys the reporting index rendered for one group.
+ *
+ * Lives here rather than beside one test because three report suites now assert against
+ * the index: a helper defined in a test file is visible only to that file, and the second
+ * suite to want it discovers this as "call to undefined function" rather than as a missing
+ * import.
+ *
+ * @return list<string>
+ */
+function reportKeys(object $page, string $group): array
+{
+    /** @var array{props: array{groups: array<int, array{key: string, reports: array<int, array{key: string}>}>}} $rendered */
+    $rendered = $page->toArray();
+
+    $keys = [];
+
+    foreach ($rendered['props']['groups'] as $candidate) {
+        if ($candidate['key'] !== $group) {
+            continue;
+        }
+
+        foreach ($candidate['reports'] as $report) {
+            $keys[] = $report['key'];
+        }
+    }
+
+    return $keys;
+}
+
+/**
+ * The integer rial out of a `Money::toArray()` node in an Inertia payload.
+ *
+ * Money crosses the wire as `{value, formatted}` (golden rule: integer for arithmetic,
+ * string for display), so every assertion about a figure has to reach through one level —
+ * and `$page->toArray()` is `mixed` all the way down, which Larastan level 8 will not let
+ * a test index blind.
+ *
+ * It asserts the shape rather than coercing it. A payload that lost its `value` key should
+ * fail saying so, not silently read as zero and pass an assertion about an empty report.
+ */
+function rialOf(mixed $node): int
+{
+    expect($node)->toBeArray()->toHaveKey('value');
+
+    /** @var array{value: int|numeric-string} $node */
+    return (int) $node['value'];
+}
+
+/**
+ * A rendered Inertia page's props, typed as far as they can honestly be typed.
+ *
+ * @return array<string, mixed>
+ */
+function propsOf(object $page): array
+{
+    /** @var array{props: array<string, mixed>} $rendered */
+    $rendered = $page->toArray();
+
+    return $rendered['props'];
+}
+
+/**
+ * The rows of a report payload.
+ *
+ * @return list<array<string, mixed>>
+ */
+function rowsOf(object $page, string $key = 'rows'): array
+{
+    /** @var list<array<string, mixed>> $rows */
+    $rows = propsOf($page)[$key] ?? [];
+
+    return $rows;
+}
+
+/**
+ * Report rows keyed by their `label`, for assertions that name a row rather than count on
+ * its position.
+ *
+ * Ordering is itself asserted in a few places — the SMS report puts the most expensive
+ * template first on purpose — so those tests index `rowsOf()` directly. Everywhere else,
+ * keying by label means adding a row to a fixture does not renumber every expectation.
+ *
+ * @param  list<array<string, mixed>>  $rows
+ * @return array<string, array<string, mixed>>
+ */
+function byLabel(array $rows): array
+{
+    $keyed = [];
+
+    foreach ($rows as $row) {
+        $label = $row['label'] ?? null;
+
+        if (is_string($label)) {
+            $keyed[$label] = $row;
+        }
+    }
+
+    return $keyed;
+}
+
+/**
+ * A model's primary key as a plain int. `getKey()` is `mixed`, and level 8 will not cast
+ * it blind.
+ */
+function idOf(object $model): int
+{
+    expect($model)->toBeInstanceOf(Illuminate\Database\Eloquent\Model::class);
+
+    /** @var Illuminate\Database\Eloquent\Model $model */
+    /** @var int|numeric-string $key */
+    $key = $model->getKey();
+
+    return (int) $key;
+}
+
+/**
+ * A report payload's totals block.
+ *
+ * @return array<string, mixed>
+ */
+function totalsOf(object $page, string $key = 'totals'): array
+{
+    /** @var array<string, mixed> $totals */
+    $totals = propsOf($page)[$key] ?? [];
+
+    return $totals;
+}

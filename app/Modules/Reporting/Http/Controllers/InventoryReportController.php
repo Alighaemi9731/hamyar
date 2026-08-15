@@ -7,6 +7,8 @@ namespace App\Modules\Reporting\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Reporting\Services\InventoryReports;
+use App\Modules\Reporting\Services\SavedFilters;
+use App\Modules\Reporting\Support\ReportAccess;
 use App\Support\Jalali;
 use App\Support\Money;
 use App\Support\Spreadsheet\ArraySheet;
@@ -44,7 +46,7 @@ final class InventoryReportController extends Controller
 
     private const DEAD_DAYS = [30, 60, 90, 180, 365];
 
-    public function index(Request $request, InventoryReports $reports): Response
+    public function index(Request $request, InventoryReports $reports, SavedFilters $presets): Response
     {
         $this->authorise($request);
 
@@ -55,6 +57,8 @@ final class InventoryReportController extends Controller
         $rows = $this->rows($reports, $cut, $asOf, $days);
 
         return Inertia::render('Reporting::Reports/Inventory', [
+            'report_key' => 'inventory',
+            'presets' => $presets->forReport($request->user(), 'inventory'),
             'cut' => $cut,
             'as_of' => $asOf->toIso8601String(),
             'as_of_jalali' => Jalali::format($asOf),
@@ -120,14 +124,9 @@ final class InventoryReportController extends Controller
 
         abort_unless($user instanceof User && $user->can('reporting.view'), 403);
 
-        /*
-        | Cost, from either direction. `inventory.view_cost` is the permission a
-        | Warehousekeeper holds precisely so they can price what they count; asking only
-        | for the back-office one would hand the stocktake to the accountant and leave
-        | the person doing it guessing. `ReportCatalogue` asks the same pair, so the
-        | index and the screen cannot disagree about who may look.
-        */
-        abort_unless($user->can('reporting.view_financial') || $user->can('inventory.view_cost'), 403);
+        // Cost, from either direction — and asked through `ReportAccess` so the index and
+        // the screen cannot disagree about who may look.
+        abort_unless(ReportAccess::showsCost($user), 403);
     }
 
     private function cut(Request $request): string

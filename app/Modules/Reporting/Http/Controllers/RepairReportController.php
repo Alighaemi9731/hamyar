@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Reporting\Services\RepairReports;
 use App\Modules\Reporting\Services\ReportPeriod;
+use App\Modules\Reporting\Services\SavedFilters;
 use App\Modules\Reporting\Support\ReportAccess;
 use App\Support\Money;
 use App\Support\Spreadsheet\ArraySheet;
@@ -31,7 +32,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 final class RepairReportController extends Controller
 {
-    public function index(Request $request, RepairReports $reports): Response
+    public function index(Request $request, RepairReports $reports, SavedFilters $presets): Response
     {
         $this->authorise($request);
 
@@ -40,6 +41,8 @@ final class RepairReportController extends Controller
         $showsCost = ReportAccess::showsMargin($user);
 
         return Inertia::render('Reporting::Reports/Technicians', [
+            'report_key' => 'technicians',
+            'presets' => $presets->forReport($request->user(), 'technicians'),
             'period' => $period->toArray(),
             'shows_cost' => $showsCost,
             'can_export' => $user instanceof User && $user->can('reporting.export'),

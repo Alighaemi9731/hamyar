@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Reporting\Services\DashboardWidgets;
+use App\Modules\Reporting\Services\FinancialReports;
+use App\Modules\Reporting\Services\InventoryReports;
+use App\Modules\Reporting\Services\OperationsReports;
 use App\Modules\Reporting\Services\ProfitReports;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SalesReports;
+use App\Modules\Reporting\Services\TaxReports;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\BulkVolumeSeeder;
@@ -44,10 +48,21 @@ use Illuminate\Support\Facades\DB;
  * and the tenant predicate has to narrow it. On a single-tenant table a sequential scan
  * and an index scan do the same work, and the test would pass with every index dropped.
  *
+ * ## Every report the catalogue lists is measured here
+ *
+ * The spec's budget is over "the top ten reports", and for most of Phase 9 this file
+ * measured the four that existed. It now covers all of them — sales in five cuts, profit in
+ * three, both inventory cuts, both aging directions, the cheque calendar, the instalment
+ * book, both VAT cuts, SMS usage, and three dashboard widgets: **26 measurements**.
+ *
+ * The only screen absent is `repairs.technicians`, and it is absent for the reason this
+ * file gives about everything else: `BulkVolumeSeeder` writes no repair tickets, so timing
+ * it would measure an empty table. It goes in with the fixture, not before it.
+ *
  * ## What this test is NOT, said plainly
  *
  * It is a **ceiling**, not a regression detector. The measured figures at the time of
- * writing are 1–46ms against a 300ms budget, so a change that made a report three times
+ * writing are 1–93ms against a 300ms budget, so a change that made a report three times
  * slower would still pass. Tightening the number to close that gap would buy a test that
  * fails on a busy CI box and teaches everyone to re-run it, which is worse than a
  * generous one that means what it says.
@@ -91,8 +106,18 @@ it('answers every top report inside the budget on a year of trading', function (
         ->and($this->counts['parties'])->toBeGreaterThanOrEqual(BulkVolumeSeeder::PARTIES)
         ->and($this->counts['movements'])->toBeGreaterThan(50_000)
         ->and($this->counts['ledger_entries'])->toBeGreaterThan(50_000)
+        // The tables the Phase 9.2 reports read. Each one is here because the report
+        // below it cannot be measured without rows: a cheque calendar over an empty
+        // `cheques` table times `select … where false` and passes by a factor of a
+        // thousand.
+        ->and($this->counts['units'])->toBeGreaterThanOrEqual(BulkVolumeSeeder::UNITS)
+        ->and($this->counts['cheques'])->toBeGreaterThanOrEqual(BulkVolumeSeeder::CHEQUES)
+        ->and($this->counts['installment_rows'])
+        ->toBeGreaterThanOrEqual(BulkVolumeSeeder::PLANS * BulkVolumeSeeder::PLAN_ROWS)
+        ->and($this->counts['messages'])->toBeGreaterThanOrEqual(BulkVolumeSeeder::MESSAGES)
         // The neighbour is the same size: the tenant predicate has something to narrow.
-        ->and($this->neighbourCounts['items'])->toBe($this->counts['items']);
+        ->and($this->neighbourCounts['items'])->toBe($this->counts['items'])
+        ->and($this->neighbourCounts['cheques'])->toBe($this->counts['cheques']);
 
     /*
     | ------------------------------------------------------------ the reports --
@@ -103,6 +128,10 @@ it('answers every top report inside the budget on a year of trading', function (
     */
     $reports = app(SalesReports::class);
     $profit = app(ProfitReports::class);
+    $inventory = app(InventoryReports::class);
+    $financial = app(FinancialReports::class);
+    $tax = app(TaxReports::class);
+    $operations = app(OperationsReports::class);
     $widgets = app(DashboardWidgets::class);
     $end = CarbonImmutable::parse(BulkVolumeSeeder::YEAR_END);
     $month = ReportPeriod::of($end->subDays(29), $end);
@@ -125,12 +154,38 @@ it('answers every top report inside the budget on a year of trading', function (
         // a different plan from the revenue-ordered cut above, and worth its own clock.
         'profit.by_product/year' => measureReport(fn () => $profit->byProduct($year)),
         'profit.by_brand/year' => measureReport(fn () => $profit->byBrand($year)),
+        // The fixture grew serialized handsets, so the cut this file previously deferred
+        // is measurable and measured.
+        'profit.per_imei/year' => measureReport(fn () => $profit->perUnit($year)),
+
         /*
-        | `profit.perUnit` is deliberately NOT measured. BulkVolumeSeeder writes no
-        | `product_units`, so the query would return nothing and time the speed of an
-        | empty table — green without witness, in the file that argues hardest against it.
-        | It goes in the moment the fixture grows serialized handsets.
+        | ------------------------------------------------------------ inventory --
+        | Both halves of the shelf: a SUM over 100,000 movements with the weighted-average
+        | expression on top, plus 5,000 rows of the unit register. Dead stock is the same
+        | scan with a HAVING over a `max(case …)`, which is a different plan.
         */
+        'inventory.valuation' => measureReport(fn () => $inventory->valuation($end)),
+        'inventory.dead_stock' => measureReport(fn () => $inventory->deadStock(90)),
+
+        /*
+        | ------------------------------------------------------------ financial --
+        | Aging is the heaviest query in the module: a window function over every ledger
+        | lot, partitioned by party. It is measured over the whole year rather than a
+        | month because a balance has no range — it reads everything up to the as-of date
+        | by definition, which is the point of timing it at all.
+        */
+        'financial.aging/receivable' => measureReport(fn () => $financial->aging($end)),
+        'financial.aging/payable' => measureReport(fn () => $financial->aging($end, FinancialReports::PAYABLE)),
+        'financial.cheques/year' => measureReport(fn () => $financial->chequeCalendar($year)),
+        'financial.installments/year' => measureReport(fn () => $financial->installmentsBook($year)),
+
+        /* ------------------------------------------------------------------ tax -- */
+        'tax.vat_monthly/year' => measureReport(fn () => $tax->monthly($year)),
+        'tax.by_rate/year' => measureReport(fn () => $tax->byRate($year)),
+
+        /* ----------------------------------------------------------- operations -- */
+        'operations.sms/year' => measureReport(fn () => $operations->smsUsage($year)),
+
         'dashboard.today' => measureReport(fn () => $widgets->todaysTrade(true)),
         'dashboard.trend' => measureReport(fn () => $widgets->salesTrend(true)),
         'dashboard.low_stock' => measureReport(fn () => $widgets->lowStock()),

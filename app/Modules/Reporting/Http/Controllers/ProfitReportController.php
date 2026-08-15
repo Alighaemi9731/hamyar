@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Reporting\Services\ProfitReports;
 use App\Modules\Reporting\Services\ReportPeriod;
+use App\Modules\Reporting\Services\SavedFilters;
 use App\Modules\Reporting\Support\ReportAccess;
 use App\Support\Jalali;
 use App\Support\Money;
@@ -42,7 +43,7 @@ final class ProfitReportController extends Controller
 {
     private const CUTS = ['product', 'brand', 'imei'];
 
-    public function index(Request $request, ProfitReports $reports): Response
+    public function index(Request $request, ProfitReports $reports, SavedFilters $presets): Response
     {
         $this->authorise($request);
 
@@ -52,6 +53,8 @@ final class ProfitReportController extends Controller
         $figures = $reports->summary($period);
 
         return Inertia::render('Reporting::Reports/Profit', [
+            'report_key' => 'profit',
+            'presets' => $presets->forReport($request->user(), 'profit'),
             'cut' => $cut,
             'period' => $period->toArray(),
             'can_export' => $request->user() instanceof User && $request->user()->can('reporting.export'),

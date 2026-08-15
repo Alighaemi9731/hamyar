@@ -13,6 +13,7 @@ import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
+import { type ReportPreset, ReportPresets } from '@/components/domain/report-presets';
 import { StatCard } from '@/components/domain/stat-card';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
 import { type TimelineItem, Timeline } from '@/components/domain/timeline';
@@ -99,6 +100,7 @@ export default function DesignGallery() {
         <DataTableSection />
         <PickerSection alt />
         <ConfirmAndPagingSection />
+        <ReportPresetsSection />
         <PrintSection alt />
         <StateSection />
       </div>
@@ -1301,6 +1303,43 @@ function ConfirmAndPagingSection({ alt = false }: { alt?: boolean }) {
  * What to review: ink on white regardless of theme, RTL preserved on paper, and the
  * 80mm receipt legible at its true width rather than scaled down to fit.
  */
+function ReportPresetsSection({ alt = false }: { alt?: boolean }) {
+  const saved: ReportPreset[] = [
+    { id: 1, name: 'سه ماه گذشته', filters: { cut: 'aging', direction: 'receivable' } },
+    { id: 2, name: 'بدهی همکاران', filters: { cut: 'aging', direction: 'payable' } },
+  ];
+
+  return (
+    <Section
+      title="<ReportPresets/>"
+      note="فیلترهای ذخیره‌شده هر گزارش، برای هر کاربر. کلیک روی یک نام، صفحه را با همان فیلترها باز می‌کند — یعنی نشانی صفحه هم همان می‌شود و قابل اشتراک است. حالت خالی عمداً فقط دکمهٔ ذخیره است: ردیف خالی چیزی برای گفتن ندارد."
+      alt={alt}
+    >
+      <div className="space-y-6">
+        <Row label="با چند فیلتر ذخیره‌شده">
+          <ReportPresets
+            reportKey="financial"
+            presets={saved}
+            current={{ cut: 'aging' }}
+            path="/reporting/financial"
+          />
+        </Row>
+
+        <Row label="خالی (اولین بار)">
+          <ReportPresets
+            reportKey="financial"
+            presets={[]}
+            current={{ cut: 'aging' }}
+            path="/reporting/financial"
+          />
+        </Row>
+      </div>
+    </Section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 function PrintSection({ alt = false }: { alt?: boolean }) {
   return (
     <Section

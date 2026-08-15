@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Modules\Reporting\Http\Controllers\FinancialReportController;
 use App\Modules\Reporting\Http\Controllers\InventoryReportController;
+use App\Modules\Reporting\Http\Controllers\OperationsReportController;
 use App\Modules\Reporting\Http\Controllers\ProfitReportController;
 use App\Modules\Reporting\Http\Controllers\RepairReportController;
 use App\Modules\Reporting\Http\Controllers\ReportIndexController;
 use App\Modules\Reporting\Http\Controllers\SalesReportController;
+use App\Modules\Reporting\Http\Controllers\SavedFilterController;
+use App\Modules\Reporting\Http\Controllers\TaxReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,4 +55,33 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:reporting'])
         Route::get('/inventory/export', [InventoryReportController::class, 'export'])
             ->middleware('throttle:20,1')
             ->name('inventory.export');
+
+        Route::get('/financial', [FinancialReportController::class, 'index'])->name('financial');
+
+        Route::get('/financial/export', [FinancialReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('financial.export');
+
+        Route::get('/tax', [TaxReportController::class, 'index'])->name('tax');
+
+        Route::get('/tax/export', [TaxReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('tax.export');
+
+        Route::get('/operations', [OperationsReportController::class, 'index'])->name('operations');
+
+        Route::get('/operations/export', [OperationsReportController::class, 'export'])
+            ->middleware('throttle:20,1')
+            ->name('operations.export');
+
+        /*
+        | Saved presets are per user and per report, so they are not gated by the report's
+        | own permission: the payload is a filter, not a figure. What a preset can do is
+        | bounded by the screen it opens — a viewer without `installments.view` who somehow
+        | acquired a preset for the instalment book still gets a 403 from the screen.
+        */
+        Route::post('/presets', [SavedFilterController::class, 'store'])->name('presets.store');
+
+        Route::delete('/presets/{savedFilter}', [SavedFilterController::class, 'destroy'])
+            ->name('presets.destroy');
     });

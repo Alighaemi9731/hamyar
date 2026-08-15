@@ -107,6 +107,29 @@ final class BulkVolumeSeeder extends Seeder
     public const SALESPEOPLE = 6;
 
     /**
+     * Handsets in the unit register.
+     *
+     * Not a round number of invoices' worth, and not meant to be: what this unlocks is the
+     * *other* half of a valuation. Standard goods are a SUM over `stock_movements` and
+     * handsets are rows here with no movement written for them, so before these existed a
+     * timed valuation measured one half at 100,000 rows and the other at zero — and
+     * `profit.perUnit` could not be measured at all, which `ReportLatencyTest` said in
+     * writing and deferred.
+     */
+    public const UNITS = 5_000;
+
+    /** Cheques per shop — a year of paper, both directions. */
+    public const CHEQUES = 2_000;
+
+    /** Instalment contracts, each with six rows and about half of them part-collected. */
+    public const PLANS = 1_000;
+
+    public const PLAN_ROWS = 6;
+
+    /** A year of automations firing. */
+    public const MESSAGES = 20_000;
+
+    /**
      * `db:seed --class=Database\Seeders\BulkVolumeSeeder` — fills both demo shops.
      *
      * Never called by `DatabaseSeeder`. `make fresh` has to stay fast enough to run
@@ -150,11 +173,11 @@ final class BulkVolumeSeeder extends Seeder
      * volume it thinks it measured is measuring an empty table at full speed — so the
      * counts come back as data and the caller asserts them.
      *
-     * @return array{invoices: int, items: int, movements: int, ledger_entries: int, parties: int, variants: int}
+     * @return array{invoices: int, items: int, movements: int, ledger_entries: int, parties: int, variants: int, units: int, cheques: int, installment_rows: int, messages: int}
      */
     public function fill(Tenant $tenant, int $invoices = self::INVOICES): array
     {
-        /** @var array{invoices: int, items: int, movements: int, ledger_entries: int, parties: int, variants: int} $counts */
+        /** @var array{invoices: int, items: int, movements: int, ledger_entries: int, parties: int, variants: int, units: int, cheques: int, installment_rows: int, messages: int} $counts */
         $counts = app(TenantContext::class)->runFor($tenant, function () use ($tenant, $invoices): array {
             $tenantId = $this->keyOf($tenant);
 
@@ -180,6 +203,18 @@ final class BulkVolumeSeeder extends Seeder
             $this->seedLedger($tenantId, $structure);
             $this->analyse('ledger_entries');
 
+            $this->seedUnits($tenantId, $structure);
+            $this->analyse('product_units');
+
+            $this->seedCheques($tenantId, $structure);
+            $this->analyse('cheques');
+
+            $this->seedInstallments($tenantId, $structure);
+            $this->analyse('installment_plans', 'installment_rows', 'installment_collections');
+
+            $this->seedMessages($tenantId);
+            $this->analyse('messages');
+
             return [
                 'invoices' => $this->countOf('sales_invoices', $tenantId),
                 'items' => $this->countOf('sales_invoice_items', $tenantId),
@@ -187,6 +222,10 @@ final class BulkVolumeSeeder extends Seeder
                 'ledger_entries' => $this->countOf('ledger_entries', $tenantId),
                 'parties' => $this->countOf('parties', $tenantId),
                 'variants' => $this->countOf('product_variants', $tenantId),
+                'units' => $this->countOf('product_units', $tenantId),
+                'cheques' => $this->countOf('cheques', $tenantId),
+                'installment_rows' => $this->countOf('installment_rows', $tenantId),
+                'messages' => $this->countOf('messages', $tenantId),
             ];
         });
 
@@ -573,6 +612,293 @@ final class BulkVolumeSeeder extends Seeder
               and i.total > 0
               and i.party_id is not null
         SQL, [$tenantId, $structure['sales_account'], $tenantId]);
+
+        /*
+        | Part-payments against every third invoice — and they are the reason the aging
+        | report can be timed at all.
+        |
+        | With debits only, every party's whole balance is outstanding, `settled` is zero,
+        | and the FIFO clamp `least(lot, greatest(cumulative − settled, 0))` collapses to
+        | `lot` on every row: the expensive branch never runs, and the payable direction
+        | reads an empty set at full speed. The first measurement said exactly that —
+        | 84.8ms for receivable against 20.5ms for payable, a gap that was the fixture
+        | rather than the query.
+        |
+        | 71% is deliberate: it settles some lots entirely and leaves one *partially*
+        | settled, which is the case the window function exists for.
+        */
+        DB::insert(<<<'SQL'
+            insert into ledger_entries (tenant_id, party_id, account_id, branch_id, debit, credit, reference_type, reference_id, batch_id, description, occurred_at, created_at)
+            select
+                ?,
+                case when side = 1 then i.party_id else null end,
+                case when side = 1 then null else ?::bigint end,
+                i.branch_id,
+                case when side = 1 then 0 else (i.total * 71 / 100) end,
+                case when side = 1 then (i.total * 71 / 100) else 0 end,
+                'sales_invoice',
+                i.id,
+                md5('payment:' || i.id::text)::uuid,
+                'دریافت بابت ' || i.number,
+                i.issued_at + interval '9 days',
+                now()
+            from sales_invoices i, generate_series(1, 2) side
+            where i.tenant_id = ?
+              and i.status = 'final'
+              and i.total > 0
+              and i.party_id is not null
+              and i.id % 3 = 0
+        SQL, [$tenantId, $structure['sales_account'], $tenantId]);
+    }
+
+    /**
+     * Handsets in the unit register, so a valuation has both its halves.
+     *
+     * IMEIs are the ordinal padded to fifteen digits — not valid Luhn, and deliberately
+     * not: nothing here validates one, and generating check digits in SQL would be work
+     * spent making a timing fixture look like a real phone.
+     *
+     * Costs vary per row (`9,870,000 + ordinal × 130`) because a valuation groups by
+     * product and sums the cost of each device. One repeated figure would let a plan that
+     * read a single row and multiplied look identical to one that read five thousand.
+     *
+     * @param  array{warehouses: list<int>, ...}  $structure
+     */
+    private function seedUnits(int $tenantId, array $structure): void
+    {
+        $warehouses = '{'.implode(',', $structure['warehouses']).'}';
+        $start = CarbonImmutable::parse(self::YEAR_END)->subDays(self::DAYS - 1)->startOfDay();
+
+        DB::insert(<<<'SQL'
+            insert into product_units (
+                tenant_id, product_variant_id, warehouse_id, imei1, status, condition,
+                cost, acquired_at, created_at, updated_at
+            )
+            select
+                ?,
+                v.id,
+                (?::bigint[])[1 + (n % array_length(?::bigint[], 1))],
+                lpad((350000000000000 + n)::text, 15, '0'),
+                -- Four in five still on the shelf. The sold ones matter: `valuation`
+                -- filters on status, and a fixture where every row qualifies never
+                -- exercises that predicate.
+                case when n % 5 = 0 then 'sold' else 'in_stock' end,
+                'new',
+                9870000 + (n * 130),
+                ?::timestamp + make_interval(days => n % ?),
+                now(),
+                now()
+            from generate_series(1, ?) n
+            join lateral (
+                select id from product_variants
+                where tenant_id = ?
+                order by id
+                offset (n % ?) limit 1
+            ) v on true
+        SQL, [
+            $tenantId, $warehouses, $warehouses,
+            $start->toDateTimeString(), self::DAYS,
+            self::UNITS, $tenantId, self::VARIANTS,
+        ]);
+    }
+
+    /**
+     * A year of paper, in both directions and across the lifecycle.
+     *
+     * The status spread is the point. `chequeCalendar()` sums open cheques into the net and
+     * cleared ones into their own column, so a fixture that was all `in_hand` would never
+     * touch the `case` branches the report is made of — and one that was all `cleared`
+     * would report a net of zero at full speed.
+     *
+     * Amounts are multiples of ten (`% 10 = 0`), which the table's CHECK enforces: ADR 0009
+     * says a cheque's face value is a whole number of toman or the receipt cannot print.
+     *
+     * @param  array{branches: list<int>, ...}  $structure
+     */
+    private function seedCheques(int $tenantId, array $structure): void
+    {
+        $branches = '{'.implode(',', $structure['branches']).'}';
+        $start = CarbonImmutable::parse(self::YEAR_END)->subDays(self::DAYS - 1)->startOfDay();
+
+        DB::insert(<<<'SQL'
+            insert into cheques (
+                tenant_id, branch_id, direction, status, party_id, amount,
+                bank_name, serial, due_date, created_at, updated_at
+            )
+            select
+                ?,
+                (?::bigint[])[1 + (n % array_length(?::bigint[], 1))],
+                case when n % 3 = 0 then 'issued' else 'received' end,
+                (array['in_hand', 'deposited', 'cleared', 'bounced', 'returned'])[1 + (n % 5)],
+                p.id,
+                -- Ends in a zero, never in a round million: the whole-toman CHECK is
+                -- satisfied and the sums still have to carry real digits.
+                (12000000 + (n * 7310))::bigint,
+                (array['ملت', 'صادرات', 'ملی', 'پاسارگاد', 'سامان'])[1 + (n % 5)],
+                'S' || lpad(n::text, 8, '0'),
+                (?::timestamp + make_interval(days => n % ?))::date,
+                now(),
+                now()
+            from generate_series(1, ?) n
+            join lateral (
+                select id from parties
+                where tenant_id = ?
+                order by id
+                offset (n % ?) limit 1
+            ) p on true
+        SQL, [
+            $tenantId, $branches, $branches,
+            $start->toDateTimeString(), self::DAYS,
+            self::CHEQUES, $tenantId, self::PARTIES,
+        ]);
+    }
+
+    /**
+     * Instalment contracts, their schedules, and part-collections against some of them.
+     *
+     * Three inserts because the book is a three-table join and each level has to have real
+     * cardinality: 1,000 plans × 6 rows is 6,000 instalments, and the collections are
+     * deliberately **sparse and partial** — roughly a third of rows, none of them settling
+     * the row in full. A fixture where every row is either untouched or exactly paid never
+     * exercises `amount - unapplied` or the `outstanding > 0` branch that decides what is
+     * overdue.
+     *
+     * @param  array{branches: list<int>, sales_account: int, ...}  $structure
+     */
+    private function seedInstallments(int $tenantId, array $structure): void
+    {
+        $branches = '{'.implode(',', $structure['branches']).'}';
+        $start = CarbonImmutable::parse(self::YEAR_END)->subDays(self::DAYS - 1)->startOfDay();
+
+        DB::insert(<<<'SQL'
+            insert into installment_plans (
+                tenant_id, branch_id, party_id, number, principal, profit_amount,
+                total_payable, installment_count, interval_months, first_due_at,
+                status, created_at, updated_at
+            )
+            select
+                ?,
+                (?::bigint[])[1 + (n % array_length(?::bigint[], 1))],
+                p.id,
+                'INS-VOL-' || lpad(n::text, 6, '0'),
+                (48000000 + (n * 9130))::bigint,
+                (7200000 + (n * 1370))::bigint,
+                (55200000 + (n * 10500))::bigint,
+                ?,
+                1,
+                ?::timestamp + make_interval(days => n % ?),
+                case when n % 7 = 0 then 'settled' else 'active' end,
+                now(),
+                now()
+            from generate_series(1, ?) n
+            join lateral (
+                select id from parties
+                where tenant_id = ?
+                order by id
+                offset (n % ?) limit 1
+            ) p on true
+        SQL, [
+            $tenantId, $branches, $branches,
+            self::PLAN_ROWS, $start->toDateTimeString(), self::DAYS,
+            self::PLANS, $tenantId, self::PARTIES,
+        ]);
+
+        DB::insert(<<<'SQL'
+            insert into installment_rows (
+                tenant_id, installment_plan_id, sequence, due_at, amount, status,
+                created_at, updated_at
+            )
+            select
+                ?,
+                pl.id,
+                seq,
+                pl.first_due_at + make_interval(days => (seq - 1) * 30),
+                (9200000 + (pl.id % 500) * 1310)::bigint,
+                case when seq = 1 then 'paid' else 'pending' end,
+                now(),
+                now()
+            from installment_plans pl, generate_series(1, ?) seq
+            where pl.tenant_id = ?
+              and pl.number like 'INS-VOL-%'
+        SQL, [$tenantId, self::PLAN_ROWS, $tenantId]);
+
+        DB::insert(<<<'SQL'
+            insert into installment_collections (
+                tenant_id, branch_id, installment_row_id, installment_plan_id, account_id,
+                amount, principal_part, unapplied, method, occurred_at, created_at, updated_at
+            )
+            select
+                ?,
+                (?::bigint[])[1 + (r.id % array_length(?::bigint[], 1))],
+                r.id,
+                r.installment_plan_id,
+                ?,
+                (r.amount / 3)::bigint,
+                (r.amount / 3)::bigint,
+                0,
+                'cash',
+                r.due_at,
+                now(),
+                now()
+            from installment_rows r
+            join installment_plans pl on pl.id = r.installment_plan_id
+            where r.tenant_id = ?
+              and pl.number like 'INS-VOL-%'
+              and r.id % 3 = 0
+        SQL, [$tenantId, $branches, $branches, $structure['sales_account'], $tenantId]);
+    }
+
+    /**
+     * A year of automations firing, spread over the templates a shop actually runs.
+     *
+     * Segments vary with the template because that is the figure the report exists to
+     * surface: a Persian SMS is 70 characters per segment, so a template that grew by a
+     * word doubles the bill on everything it sends, and a fixture with one segment per
+     * message would make the sum and the count the same query.
+     */
+    private function seedMessages(int $tenantId): void
+    {
+        $start = CarbonImmutable::parse(self::YEAR_END)->subDays(self::DAYS - 1)->startOfDay();
+
+        DB::insert(<<<'SQL'
+            insert into messages (
+                tenant_id, "to", template_key, status, segments, cost, body,
+                queued_at, sent_at, created_at, updated_at
+            )
+            select
+                ?,
+                '+98912' || lpad((n % 9999999)::text, 7, '0'),
+                (array['installment-due', 'repair-ready', 'birthday', 'cheque-due', 'invoice-issued'])[1 + (n % 5)],
+                -- Mostly sent, with real failures and opt-outs among them: the report
+                -- counts the three apart, and a fixture of pure successes would leave two
+                -- of the three `filter (where …)` clauses measuring nothing.
+                (array['sent', 'sent', 'sent', 'failed', 'suppressed'])[1 + (n % 5)],
+                1 + (n % 3),
+                (145000 * (1 + (n % 3)))::bigint,
+                'متن پیام آزمایشی',
+                ?::timestamp + make_interval(days => n % ?),
+                ?::timestamp + make_interval(days => n % ?),
+                now(),
+                now()
+            from generate_series(1, ?) n
+        SQL, [
+            $tenantId,
+            $start->toDateTimeString(), self::DAYS,
+            $start->toDateTimeString(), self::DAYS,
+            self::MESSAGES,
+        ]);
+
+        DB::insert(<<<'SQL'
+            insert into sms_credit_entries (tenant_id, amount, type, description, occurred_at, created_at)
+            select
+                ?,
+                case when n % 12 = 0 then 50000000 else -(2450000 + n * 130) end,
+                case when n % 12 = 0 then 'topup' else 'charge' end,
+                'شارژ/مصرف حجمی',
+                ?::timestamp + make_interval(days => n % ?),
+                now()
+            from generate_series(1, 365) n
+        SQL, [$tenantId, $start->toDateTimeString(), self::DAYS]);
     }
 
     /* ----------------------------------------------------------- statistics -- */

@@ -37,6 +37,10 @@ final class ReportCatalogue
 
     public const GROUP_FINANCIAL = 'financial';
 
+    public const GROUP_TAX = 'tax';
+
+    public const GROUP_OPERATIONS = 'operations';
+
     /**
      * @return array<string, string>
      */
@@ -47,11 +51,40 @@ final class ReportCatalogue
             self::GROUP_INVENTORY => 'انبار',
             self::GROUP_REPAIRS => 'تعمیرات',
             self::GROUP_FINANCIAL => 'مالی',
+            self::GROUP_TAX => 'مالیات',
+            self::GROUP_OPERATIONS => 'عملیات',
         ];
     }
 
     /**
-     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string, needs_margin?: bool, needs_cost?: bool}>
+     * The report **screens**, keyed by the identifier a saved preset stores.
+     *
+     * Deliberately coarser than {@see reports()}: `sales.daily` and `sales.by_brand` are two
+     * rows in the index and one screen with a `cut` filter, and a preset belongs to the
+     * screen — «سه ماه گذشته» is a range, and the cut is just another thing the preset
+     * remembers. Keying presets by catalogue row would give the same saved range three
+     * entries that each restore a different tab.
+     *
+     * Not derived from routes, for the reason `reports()` gives about deriving anything from
+     * routes: a controller existing is not the same claim as a screen being finished.
+     *
+     * @return array<string, string>
+     */
+    public static function screens(): array
+    {
+        return [
+            'sales' => 'فروش',
+            'profit' => 'سود',
+            'inventory' => 'انبار',
+            'technicians' => 'تعمیرات',
+            'financial' => 'مالی',
+            'tax' => 'مالیات',
+            'operations' => 'عملیات',
+        ];
+    }
+
+    /**
+     * @return list<array{key: string, title: string, description: string, group: string, href: string, permission: string, gate?: string}>
      */
     public static function reports(): array
     {
@@ -110,7 +143,7 @@ final class ReportCatalogue
                 'group' => self::GROUP_SALES,
                 'href' => '/reporting/profit?cut=product',
                 'permission' => 'reporting.view',
-                'needs_margin' => true,
+                'gate' => 'margin',
             ],
             [
                 'key' => 'profit.by_brand',
@@ -119,7 +152,7 @@ final class ReportCatalogue
                 'group' => self::GROUP_SALES,
                 'href' => '/reporting/profit?cut=brand',
                 'permission' => 'reporting.view',
-                'needs_margin' => true,
+                'gate' => 'margin',
             ],
             [
                 'key' => 'profit.per_imei',
@@ -128,7 +161,7 @@ final class ReportCatalogue
                 'group' => self::GROUP_SALES,
                 'href' => '/reporting/profit?cut=imei',
                 'permission' => 'reporting.view',
-                'needs_margin' => true,
+                'gate' => 'margin',
             ],
 
             [
@@ -138,7 +171,7 @@ final class ReportCatalogue
                 'group' => self::GROUP_INVENTORY,
                 'href' => '/reporting/inventory?cut=valuation',
                 'permission' => 'reporting.view',
-                'needs_cost' => true,
+                'gate' => 'cost',
             ],
             [
                 'key' => 'inventory.dead_stock',
@@ -147,7 +180,7 @@ final class ReportCatalogue
                 'group' => self::GROUP_INVENTORY,
                 'href' => '/reporting/inventory?cut=dead',
                 'permission' => 'reporting.view',
-                'needs_cost' => true,
+                'gate' => 'cost',
             ],
 
             [
@@ -157,6 +190,71 @@ final class ReportCatalogue
                 'group' => self::GROUP_REPAIRS,
                 'href' => '/reporting/technicians',
                 'permission' => 'reporting.view',
+            ],
+
+            /*
+            | The financial three each carry the gate of the module they read from, not one
+            | shared «مالی» gate. A Cashier holds `crm.view_balance` and `cheques.view` and
+            | is exactly the person who chases a debt at the counter; they do not hold
+            | `installments.settle_early` and have no business in the tax return. One gate
+            | for the group would have to pick the loosest or the strictest, and both are
+            | wrong for somebody.
+            */
+            [
+                'key' => 'financial.aging',
+                'title' => 'مانده حساب طرف‌ها (۳۰/۶۰/۹۰)',
+                'description' => 'چه کسی چقدر بدهکار است، و بدهی‌اش چند روز عمر دارد.',
+                'group' => self::GROUP_FINANCIAL,
+                'href' => '/reporting/financial?cut=aging',
+                'permission' => 'reporting.view',
+                'gate' => 'balances',
+            ],
+            [
+                'key' => 'financial.cheques',
+                'title' => 'تقویم چک‌ها',
+                'description' => 'سررسید هر روز — چه می‌آید، چه می‌رود، و خالصش.',
+                'group' => self::GROUP_FINANCIAL,
+                'href' => '/reporting/financial?cut=cheques',
+                'permission' => 'reporting.view',
+                'gate' => 'cheques',
+            ],
+            [
+                'key' => 'financial.installments',
+                'title' => 'دفتر اقساط',
+                'description' => 'اقساط سررسیدشده بازه، وصولی هر کدام و معوق‌ها.',
+                'group' => self::GROUP_FINANCIAL,
+                'href' => '/reporting/financial?cut=installments',
+                'permission' => 'reporting.view',
+                'gate' => 'installments',
+            ],
+
+            [
+                'key' => 'tax.vat_monthly',
+                'title' => 'خلاصه مالیات بر ارزش افزوده',
+                'description' => 'مأخذ مشمول، معاف و مالیات هر ماه شمسی — برای اظهارنامه.',
+                'group' => self::GROUP_TAX,
+                'href' => '/reporting/tax?cut=monthly',
+                'permission' => 'reporting.view',
+                'gate' => 'tax',
+            ],
+            [
+                'key' => 'tax.by_rate',
+                'title' => 'فروش بر اساس وضعیت مالیاتی',
+                'description' => 'سهم هر نرخ مالیات، و سطرهای معاف در کنارشان.',
+                'group' => self::GROUP_TAX,
+                'href' => '/reporting/tax?cut=rate',
+                'permission' => 'reporting.view',
+                'gate' => 'tax',
+            ],
+
+            [
+                'key' => 'operations.sms',
+                'title' => 'مصرف پیامک',
+                'description' => 'هر قالب چند پیامک و چند بخش فرستاده، و چقدر خرج برداشته.',
+                'group' => self::GROUP_OPERATIONS,
+                'href' => '/reporting/operations',
+                'permission' => 'reporting.view',
+                'gate' => 'messaging',
             ],
         ];
     }
@@ -179,21 +277,12 @@ final class ReportCatalogue
                 continue;
             }
 
-            if (($report['needs_margin'] ?? false) && ! ReportAccess::showsMargin($user)) {
-                continue;
-            }
-
             /*
-            | A stock valuation is a cost figure, and the warehouse keeper who holds
-            | `inventory.view_cost` is exactly the person who prices a stocktake. So the
-            | inventory rows ask for either that or the back-office permission — the same
-            | pair `InventoryReportController` asks, for the same reason the margin rows
-            | share `ReportAccess`: an index that disagrees with its screens is worse
-            | than no index.
+            | The row's gate, resolved by the same `ReportAccess` its screen calls. That
+            | shared predicate is the whole guarantee: an index that disagrees with its
+            | screens lists rows that 403 when clicked, which is worse than no index.
             */
-            if (($report['needs_cost'] ?? false)
-                && ! $user->can('reporting.view_financial')
-                && ! $user->can('inventory.view_cost')) {
+            if (! ReportAccess::allows($user, $report['gate'] ?? null)) {
                 continue;
             }
 

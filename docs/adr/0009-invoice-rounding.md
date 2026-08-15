@@ -120,6 +120,48 @@ is symmetric and defensible in both directions.
 - Changing a shop's rounding settings does not touch issued invoices. It cannot: they
   are numbered tax documents.
 
+## Amendment (2026-08-15) — the direction rule, stated once for the whole family
+
+Rule 1 says VAT floors, and gives the reason: *"never charging a customer more tax than
+the exact calculation is the safer side to be wrong on."* Phase 9 turned up a second
+figure that rounds — a derived **unit cost** — and it rounds the other way. Both are the
+same principle, and writing it down once stops the next derived figure from being argued
+from scratch or, worse, rounded whichever way the language happens to.
+
+> **Every rounding of a derived figure goes in the direction that does not flatter the
+> party doing the rounding.** The shop must never round toward more revenue, more margin,
+> or more tax charged.
+
+That single sentence produces every direction already in the codebase:
+
+| Figure | Direction | Because rounding the other way would… |
+|---|---|---|
+| Per-line VAT (Rule 1) | floor | charge the customer tax that was not owed |
+| `Money::percent()` | truncate toward zero | over-charge on any percentage the shop applies |
+| Derived unit cost (`Money::ceilToToman()`) | **ceil, away from zero** | understate cost, and so **overstate profit** |
+| Grand total (Rule 2) | per-tenant, default `nearest` | be a policy choice, not an arithmetic one — the adjustment is disclosed either way (Rule 3) |
+
+The cost case is the one that needed saying. `StockLedger::weightedAverageCost()` is a
+division and rarely lands on a whole toman; a hundred chargers at 50,000 and ten at 90,000
+average 53,636 rial. `Money::toToman()` refuses a sub-toman remainder rather than rounding
+it, so the figure has to be normalised where it is *derived* — not where it is displayed,
+which is a report the shop opens every morning. It rounds **up**, at most nine rial, on the
+reasoning that **an understated cost never flatters the margin**. Profit reports are read
+as evidence for buying decisions; a systematic tenth-of-a-toman-per-unit lean toward
+"better than it was" is precisely the error nobody audits.
+
+Note the asymmetry is deliberate and not a contradiction: VAT rounds down and cost rounds
+up because *both* move the reported figure away from the flattering side. A rule of "always
+floor" would have got the cost case backwards.
+
+**This binds the rest of Phase 9.** The VAT summary report reproduces invoice figures; it
+does not recompute them. It sums the per-line VAT that was *floored and stored* at issue,
+under that invoice's own `settings_snapshot`, and reads `rounding_adjustment` as a real
+figure (see Consequences). Re-deriving VAT from a period's revenue total at the current
+rate would round once over a month instead of once per line, disagree with every invoice
+it summarises, and — because the difference accrues in the shop's favour — disagree in the
+direction a tax authority notices.
+
 ## Alternatives rejected
 
 **Round every line to the step.** Simpler to explain, and it makes VAT wrong and

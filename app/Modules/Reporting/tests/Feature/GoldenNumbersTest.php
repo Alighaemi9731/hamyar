@@ -9,8 +9,11 @@ use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Modules\Reporting\Services\FinancialReports;
+use App\Modules\Reporting\Services\OperationsReports;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SalesReports;
+use App\Modules\Reporting\Services\TaxReports;
 use App\Modules\Treasury\Services\AccountBalances;
 use App\Modules\Treasury\Services\DailyClose;
 use App\Modules\Treasury\Services\ProfitAndLoss;
@@ -183,6 +186,123 @@ it('sums the daily breakdown to the same revenue as the summary', function (): v
         expect($daily)->toBe([])
             ->and($summary['returned_revenue'])->toBe(0)
             ->and($revenue)->toBe($summary['revenue']);
+    });
+});
+
+/* ===================== THE PHASE 9.2 REPORTS, PINNED ===================== */
+
+it('ages the crazy month to the same balances the ledger reports', function (): void {
+    ($this->inTenant)(function (): void {
+        $reports = app(FinancialReports::class);
+        $ledger = app(App\Modules\CRM\Services\LedgerService::class);
+
+        $outstanding = 0;
+        $credit = 0;
+
+        foreach ($reports->aging($this->period->to) as $row) {
+            $outstanding += $row['total'];
+            $credit += $row['credit'];
+        }
+
+        $balances = 0;
+
+        foreach (App\Modules\CRM\Models\Party::query()->get() as $party) {
+            $balances += $ledger->partyBalance($party, $this->period->to);
+        }
+
+        /*
+        | The witness first: this scenario really does have party debt in it — two wholesale
+        | sales on credit, a cheque that bounced and was chased, and one endorsed to a
+        | supplier. Without this line the reconciliation below could be 0 === 0.
+        */
+        expect($outstanding + $credit)->toBeGreaterThan(0);
+
+        // The conservation claim, against a scenario built by somebody else for a different
+        // purpose. If the aging report ever disagrees with the ledger, the report is wrong
+        // (ADR 0003) — and this is the line that says so.
+        expect($outstanding - $credit)->toBe($balances);
+    });
+});
+
+it('keeps the cleared cheque out of the month it was due in', function (): void {
+    ($this->inTenant)(function (): void {
+        $rows = app(FinancialReports::class)->chequeCalendar($this->period);
+
+        /*
+        | The crazy month's headline cheque: 450,000,000 received, due on day 20, deposited,
+        | **bounced**, chased, re-deposited and cleared on day 28. So on its due date it is
+        | reported — and it contributes **nothing to the net**, because that money arrived.
+        |
+        | This is the golden number that makes the calendar's central decision checkable
+        | against a fixture nobody built for it. A calendar that counts cleared cheques as
+        | incoming promises this shop 45,000,000 toman of cash it already banked.
+        */
+        $due = null;
+
+        foreach ($rows as $row) {
+            if ($row['cleared'] > 0) {
+                $due = $row;
+            }
+        }
+
+        // The witness, before the figures: the row has to exist for the assertions under it
+        // to be about anything.
+        expect($due)->not->toBeNull();
+
+        expect($due['cleared'] ?? 0)->toBe(450_000_000)
+            ->and($due['incoming'] ?? -1)->toBe(0)
+            ->and($due['net'] ?? -1)->toBe(0);
+
+        /*
+        | The endorsed cheque — 280,000,000, still outstanding at month end — is due on day
+        | 75, well outside this range, and it is NOT overdue either: its date is in the
+        | future. Both halves matter, so both are asserted.
+        */
+        $overdue = app(FinancialReports::class)->overdueCheques($this->period->to);
+
+        expect($overdue['incoming'])->toBe(0)
+            ->and($overdue['outgoing'])->toBe(0);
+    });
+});
+
+it('reports no VAT for a month with no sales, and says that is why', function (): void {
+    ($this->inTenant)(function (): void {
+        $monthly = app(TaxReports::class)->monthly($this->period);
+        $byRate = app(TaxReports::class)->byRate($this->period);
+
+        /*
+        | ⚠ Same limit as the sales assertions above, and asserted for the same reason.
+        |
+        | The crazy month contains no sales invoices, so there is nothing to charge VAT on
+        | and every figure is legitimately zero. That is stated as the claim — «no rows
+        | BECAUSE no sales» — rather than left as an exact figure nobody checked, which is
+        | the *green without witness* trap in `docs/testing.md`.
+        |
+        | The day somebody adds a sale to the scenario, this fails and points them at
+        | `TaxReportScreenTest`, which pins the VAT arithmetic (17,763,980 base ·
+        | 1,776,380 tax, floored per line per ADR 0009) against a fixture built for it.
+        */
+        expect($monthly)->toBe([])
+            ->and($byRate)->toBe([]);
+    });
+});
+
+it('reports no SMS usage for a month with no messages, and says that is why', function (): void {
+    ($this->inTenant)(function (): void {
+        $usage = app(OperationsReports::class)->smsUsage($this->period);
+        $wallet = app(OperationsReports::class)->smsWallet($this->period);
+
+        /*
+        | The crazy month is a treasury scenario: it sends nothing. Stated rather than
+        | pinned, exactly as above — `OperationsReportScreenTest` holds the arithmetic.
+        |
+        | The wallet is worth asserting separately: a balance of zero is a *fact* about this
+        | shop, not an absence of data, and a report that threw or returned null here would
+        | be broken for every shop on its first morning.
+        */
+        expect($usage)->toBe([])
+            ->and($wallet['balance'])->toBe(0)
+            ->and($wallet['charges'])->toBe(0);
     });
 });
 

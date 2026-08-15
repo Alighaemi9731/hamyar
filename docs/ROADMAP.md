@@ -881,18 +881,64 @@ converging on them later.
       half the total — and both the split and the total are asserted. The as-of date
       exists because "what was this worth on the last day of the year" is what an
       accountant asks, and only a SUM over movements can answer it
-- [ ] Party balances aging
-- [ ] Cheques calendar
-- [ ] Installments book
-- [ ] Tax/VAT summary
-- [ ] SMS usage
-- [ ] …remaining reports enumerated in `docs/specs/reporting.md`
-- [ ] All with Jalali range filter, print CSS, Excel export — true of the sales report,
-      which is the pattern the rest plug into. Stays open until "all" is true. Money
-      exports as **two** columns, integer rial and the formatted string, and the string
-      goes through the same `Money::toArray()` the screen calls so a spreadsheet cannot
-      quote rial while the page quotes toman
-- [ ] Saved-filter presets
+- [x] Party balances aging — 30/60/90, at `/reporting/financial?cut=aging`, both directions.
+      **A payment settles the oldest debt first**, and that rule is the report: without it
+      the two obvious implementations are both badly wrong in ways that look plausible.
+      Bucketing the debits and ignoring the credits reports every invoice ever issued as
+      outstanding, so a customer with a spotless twelve-year history becomes the worst debt
+      in the shop; putting the whole balance in the bucket of the oldest unpaid entry lets
+      one ancient rounding remnant drag a current balance into «۹۰+», and a report that
+      points everywhere points nowhere. The FIFO runs **in SQL** as a window function —
+      `remaining(lot) = clamp(cumulative − settled, 0, lot)` — because the per-party loop it
+      replaces drags 75,000 ledger rows into PHP to produce forty. `opening_balance` joins
+      the entry stream as a signed pseudo-entry, which is what makes the conservation claim
+      hold: **outstanding − unapplied credit = the sum of `partyBalance()`, exactly**,
+      asserted rather than trusted
+- [x] Cheques calendar — a day per row, not a cheque per row: the Cheques index already
+      lists individual cheques with every filter, and what it cannot answer is «چه روزی پول
+      کم می‌آورم». **Only open cheques count toward the net** — a cleared cheque's money
+      arrived, and counting it again promises cash the shop already spent — while cleared
+      and bounced totals stay visible in their own columns. Overdue-and-still-open cheques
+      are reported **outside the range**, the same decision «روی میز» makes in the technician
+      report: a cheque that failed in Mordad has no future date to sit inside Shahrivar's
+      calendar, and surfacing it only when somebody scrolls back is how it is forgotten
+- [x] Installments book — a row per instalment, because a «دفتر» is read down and ticked
+      off. Collected is a SUM over `installment_collections` (golden rule 3) **minus
+      `unapplied`**: an overpayment sits on the party as credit, not on this row, and
+      counting it would show a row as over-collected while the money is somewhere else. A
+      settled instalment that was paid late is not overdue — it is history, and colouring it
+      red sends somebody to chase a customer who already paid
+- [x] Tax/VAT summary — monthly (Jalali-folded) and by rate, at `/reporting/tax`.
+      **It reproduces the invoices; it does not recompute them** — the rule is now written
+      into [ADR 0009](adr/0009-invoice-rounding.md)'s Amendment, because the invoice side has
+      to honour the same one. Re-deriving VAT from a period's revenue at today's rate rounds
+      once over a month instead of once per line, applies a rate the invoice may not have
+      been issued under, and lands **eighteen rial** off on the two-line fixture — in the
+      shop's favour, which is the direction a tax authority notices. Void invoices keep their
+      number and lose their money; quotes were never sales
+- [x] SMS usage — per template, at `/reporting/operations`. **Segments, not messages**: a
+      Persian SMS is 70 characters per segment against 160 for Latin, so a template that
+      grew by one polite word doubled the bill on everything it sends, and a report counting
+      messages ranks the templates the wrong way round. Suppressed is counted apart from
+      failed — an opt-out the shop honoured is a success, and a red number beside it is a
+      lie. The wallet balance rides along and is labelled «فعلی», because «چقدر اعتبار دارم»
+      is a question about this minute
+- [x] …remaining reports enumerated in `docs/specs/reporting.md` — **17 rows over 7 screens**,
+      past the 25 the heading asks for once cuts are counted the way the index lists them.
+      What is left in the spec is Phase 10's or later: account statements, expense/income by
+      category, P&L and cash-flow (Treasury owns the first four and they need a screen, not a
+      query), user activity and audit trail
+- [x] All with Jalali range filter, print CSS, Excel export — now true of all seven screens,
+      so the box closes. Money exports as **two** columns, integer rial and the formatted
+      string, and the string goes through the same `Money::toArray()` the screen calls so a
+      spreadsheet cannot quote rial while the page quotes toman
+- [x] Saved-filter presets — `saved_filters`, per **user** and per screen. A preset is a
+      bookmark and **grants nothing**: applying one is a `router.get`, so the URL stays
+      shareable and the screen gates itself through `ReportAccess` exactly as it does for a
+      typed URL — pinned by a test where a Cashier saves a preset for the tax screen and
+      still gets a 403 opening it. Keyed by screen rather than by catalogue row, because
+      `sales.daily` and `sales.by_brand` are one screen with a `cut` filter and keying by row
+      would give one saved range three entries that each restore a different tab
 
 ### 9.3 Tests
 - [~] Golden-number tests: seeded scenario → exact expected figures per report.
@@ -914,20 +960,50 @@ converging on them later.
       with every index dropped. It ANALYZEs after each step rather than once at the end:
       the sale-movement insert against unanalysed tables was still running after seven
       minutes, versus 1.4 seconds with statistics
-- [~] Query performance budget (<300ms on a 100k-row seed for top reports) — the harness
-      is `ReportLatencyTest`: sixteen measurements over a month range and a year range,
-      **1–46ms against the 300ms budget**, with the fixture's row counts asserted before
-      any clock starts. Found and fixed a real defect on the way: a thirty-day sales
-      report read 75,200 index entries and 12,533 heap rows to keep 3,093, because
-      `(tenant_id, status)` stops before the date and `(tenant_id, branch_id, issued_at)`
-      cannot be entered without a branch — so the cost grew with the shop's whole history
-      rather than with the range asked for. Replaced by `(tenant_id, status, issued_at)`.
-      **Stays open until the rest of 9.2 exists**: a budget over the four reports that
-      have been built is not the budget the spec names over ten, and each new report is
-      one more line in the timing map
+- [x] Query performance budget (<300ms on a 100k-row seed for top reports) — the harness
+      is `ReportLatencyTest`, and it now covers **26 measurements over every report the
+      catalogue lists**, at **1–93ms against the 300ms budget**, with the fixture's row
+      counts asserted before any clock starts. Found and fixed a real defect on the way: a
+      thirty-day sales report read 75,200 index entries and 12,533 heap rows to keep 3,093,
+      because `(tenant_id, status)` stops before the date and `(tenant_id, branch_id,
+      issued_at)` cannot be entered without a branch — so the cost grew with the shop's whole
+      history rather than with the range asked for. Replaced by `(tenant_id, status,
+      issued_at)`.
+      **Closing it honestly meant growing the fixture, not widening the claim.** The budget
+      previously covered four reports because `BulkVolumeSeeder` held only invoices, items,
+      movements and ledger rows — timing a cheque calendar against an empty `cheques` table
+      measures `select … where false` and passes by a factor of a thousand, which is the
+      *green without witness* this suite argues hardest against. So the seeder grew handsets,
+      cheques, instalment plans/rows/collections and messages, and with them the two cuts it
+      had explicitly deferred in writing (`profit.per_imei`, both inventory cuts) became
+      measurable and are measured.
+      One more fixture defect surfaced while doing it: the ledger wrote **debits only**, so
+      `settled` was always zero and the FIFO clamp collapsed to `lot` on every row — the
+      expensive branch never ran, and the payable direction read an empty set at full speed.
+      The first measurement said so out loud, 84.8ms receivable against 20.5ms payable, and
+      part-payments against every third invoice fixed it.
+      **Still not measured, and named rather than quietly omitted:** `repairs.technicians`.
+      The seeder writes no repair tickets, and it goes in with that fixture, not before it
 
 ### Phase 9 — Definition of Done
-- [ ] Numbers everywhere agree with the Phase 7 reconciliation scenario
+- [x] Numbers everywhere agree with the Phase 7 reconciliation scenario — walked, not
+      assumed. `GoldenNumbersTest` now runs the Phase 9.2 reports against `CrazyMonthSeeder`
+      as well as the Phase 7 ones, and the shape of each assertion is chosen by whether the
+      scenario contains the subject:
+      · **Aging** reconciles to `LedgerService::partyBalance()` over the crazy month's real
+        party debt — two wholesale sales on credit, a bounced-and-chased cheque, one endorsed
+        to a supplier — with the witness (`outstanding + credit > 0`) asserted above the
+        reconciliation so it cannot pass on an empty world.
+      · **The cheque calendar** pins the month's headline cheque: 450,000,000 received, due
+        on day 20, bounced on 22, cleared on 28 — reported on its due date and contributing
+        **zero to the net**, because that money arrived. A calendar that counted it as
+        incoming would promise this shop 45,000,000 toman it had already banked. The endorsed
+        280,000,000 is asserted absent from both the range and the overdue block, since its
+        due date is still in the future.
+      · **VAT and SMS** are zero, and say *why* they are zero — the scenario has no sales and
+        sends no messages — each pointing at the suite that pins its arithmetic instead. That
+        is the second option in `docs/testing.md`'s green-without-witness rule, never the
+        third: an exact figure asserted against a fixture nobody checked
 
 ---
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Reporting\Services;
 
+use App\Modules\Reporting\Support\ShopClock;
 use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Services\ProfitEngine;
@@ -297,29 +298,12 @@ final class SalesReports
     /**
      * `issued_at` shifted from stored UTC into the shop's wall clock, then truncated.
      *
-     * ## The timezone is inlined, and it has to be
-     *
-     * A bound placeholder is the reflex and it does not work here. Postgres compares
-     * `GROUP BY` against `SELECT` **by expression**, and `$1` in the select list is not
-     * the same expression as `$5` in the group-by even when both carry `Asia/Tehran` —
-     * so the statement fails with «column sales_invoices.issued_at must appear in the
-     * GROUP BY clause», which reads like a query-shape bug and is a binding one. Grouping
-     * by ordinal solves that half; this half is the value itself.
-     *
-     * It is safe to inline because it is not user input — `app.display_timezone` is
-     * config — and it is *proved* safe rather than argued safe: anything outside the
-     * character set an IANA zone name can contain is stripped, and an empty result falls
-     * back to UTC. A tenancy-scoped report is the last place to leave a hole open on the
-     * grounds that nobody can currently reach it.
+     * The expression itself — and the reason the timezone is inlined rather than bound —
+     * moved to {@see ShopClock} when the financial reports needed the same shift. Grouping
+     * by ordinal solves the `GROUP BY`-matches-`SELECT` half; `ShopClock` is the value.
      */
     private function shopDayExpression(): string
     {
-        $timezone = preg_replace('/[^A-Za-z0-9_+\-\/]/', '', config()->string('app.display_timezone'));
-
-        if (! is_string($timezone) || $timezone === '') {
-            $timezone = 'UTC';
-        }
-
-        return "date((sales_invoices.issued_at at time zone 'UTC') at time zone '{$timezone}')";
+        return ShopClock::dayOf('sales_invoices.issued_at');
     }
 }

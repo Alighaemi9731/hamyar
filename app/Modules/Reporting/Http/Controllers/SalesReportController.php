@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SalesReports;
+use App\Modules\Reporting\Services\SavedFilters;
 use App\Modules\Reporting\Support\ReportAccess;
 use App\Support\Jalali;
 use App\Support\Money;
@@ -54,7 +55,7 @@ final class SalesReportController extends Controller
      */
     private const EMPTY_LABEL = ['brand' => 'بدون برند', 'salesperson' => 'بدون فروشنده'];
 
-    public function index(Request $request, SalesReports $reports): Response
+    public function index(Request $request, SalesReports $reports, SavedFilters $presets): Response
     {
         $this->authorise($request);
 
@@ -64,6 +65,8 @@ final class SalesReportController extends Controller
         $showsMargin = ReportAccess::showsMargin($user);
 
         return Inertia::render('Reporting::Reports/Sales', [
+            'report_key' => 'sales',
+            'presets' => $presets->forReport($request->user(), 'sales'),
             'cut' => $cut,
             'period' => $period->toArray(),
             'shows_margin' => $showsMargin,

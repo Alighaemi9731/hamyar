@@ -277,6 +277,43 @@ a broken one. The tell is always available and always cheap — **read the asser
 the implementation deleted, and then read it again with the fixture emptied.** A test that
 survives both is not a test.
 
+#### Money fixtures use non-round amounts by default
+
+The same defect wearing its most common disguise. A fixture can be full — invoices,
+lines, movements, all present — and still be **without witness for the arithmetic**,
+because every amount in it divides evenly. Round numbers do not exercise remainders, and
+remainders are where money code breaks.
+
+This file predicted the exact case in writing, two sections above: *"a fixture that buys
+stock at exactly 200,000 never meets the rounding guard that real weighted-average cost
+trips on the first search."* It then happened, and it is worth naming precisely because
+the prediction was not enough to prevent it — only a fixture rule is.
+
+**`StockLedger::weightedAverageCost()`** divides total value by total quantity. Every
+seeder and every test bought stock at round prices, so the division always landed on a
+whole toman and the result was always renderable. `Money::toToman()` *refuses* a sub-toman
+remainder rather than rounding it, so the first real shop to buy a hundred chargers at
+50,000 and ten at 90,000 gets an average of **53,636 rial** — 5,363.6 toman — and the
+sales report they open every morning throws instead of rendering. The whole suite was
+green. The guard that would have fired had never been handed a number that could fire it.
+
+So:
+
+1. **A money fixture's default amounts are non-round** — prices that do not divide by
+   the quantities bought, totals that do not land on the rounding step. `50_000` and
+   `90_000` over 100 and 10 units is the canonical shape: it is realistic, and it
+   produces a remainder.
+2. **A seeder helper that cannot produce a round toman is worth more than a hundred
+   round-number fixtures.** Prefer generating amounts from a rule that guarantees a
+   remainder over hand-picking values a later editor will "tidy" back to 200,000.
+3. Keep round numbers only where the *roundness itself* is the claim — an on-the-step
+   total that must not move under `up` rounding, for instance ([ADR 0009](adr/0009-invoice-rounding.md)).
+
+The general form: **any figure the code divides, allocates or rounds needs a fixture
+whose inputs do not divide evenly.** Discount allocation across lines, per-line VAT,
+instalment splits, landed-cost allocation and weighted-average cost are all the same
+shape, and all five are green-without-witness against tidy inputs.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no
