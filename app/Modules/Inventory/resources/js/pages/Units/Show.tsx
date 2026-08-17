@@ -162,6 +162,22 @@ function Identity({ unit }: { unit: Unit }) {
         </div>
       </div>
 
+      {/*
+        The persistent warning the HAMTA spec asks for, and it links to the thing that
+        clears it. A badge alone states a fact; somebody reading this passport because a
+        customer is asking about the phone needs the next action in the same glance.
+      */}
+      {unit.hamta_status === 'pending' && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-control border border-danger/25 bg-danger/5 p-3 text-sm">
+          <span className="text-pretty">
+            انتقال مالکیت این دستگاه در سامانهٔ همتا ثبت نشده است.
+          </span>
+          <Link href={`/hamta/${unit.id}`} className="font-medium text-primary hover:underline">
+            رفتن به چک‌لیست همتا
+          </Link>
+        </div>
+      )}
+
       <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
         {unit.imei1 !== null && <CodeField label="شماره سریال" value={unit.serial} />}
         <CodeField label="IMEI ۲" value={unit.imei2} copyable />

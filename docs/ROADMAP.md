@@ -1048,10 +1048,38 @@ converging on them later.
 - [ ] WhatsApp CTA
 
 ### 10.3 HAMTA
-- [ ] Guided ownership-transfer workflow on used buy/sell (checklist, activation-id record on unit)
-- [ ] "Transfer pending" warnings
-- [ ] `*#7777#` instructions page
-- [ ] UI states explicitly: no official API — record-keeping and guidance only
+- [x] Guided ownership-transfer workflow on used buy/sell — six steps from the spec, each
+      answerable **«انجام نشد»** as a first-class answer. A checklist that only records
+      success forces the salesperson to tick something untrue or abandon the record, and the
+      shop's protection in a dispute is the honest version. Answers are **append-only**: a
+      correction is a new row and both are shown, because evidence that can be edited
+      afterwards proves only what somebody wanted it to say later
+- [x] Activation-id record on the unit — stored **verbatim**, with no format rule. There is
+      no published contract to validate against, so a shape check would assert knowledge this
+      product does not have, and a rejected id sends a salesperson hunting a bug with a
+      customer at the counter. Optional, too: a shop often watches the transfer complete on
+      the customer's phone before the SMS with the id in it is forwarded
+- [x] "Transfer pending" warnings — a banner on the IMEI passport that **links to the
+      checklist that clears it**, and the pending list as the screen somebody works through.
+      The `StatusBadge` map already had `hamta_pending` in danger tone since Phase 3; it had
+      simply never had a device to fire on
+- [x] `*#7777#` instructions page — written for the assistant who has just been asked «همتا
+      یعنی چی؟», not for a developer: the three transfer routes, what the SMS looks like, how
+      long it takes, and what to do when the customer leaves before it completes
+- [x] UI states explicitly: no official API — the same notice component on every HAMTA
+      screen, and the success message after recording a transfer says «این ثبت است، نه
+      استعلام از همتا». A shop that believes the software handles it stops doing the
+      transfers and finds out months later from a customer whose phone stopped working
+- [x] **Found on the way, and it is the 10.1 pattern again:** `product_units.hamta_status`
+      and `hamta_activation_id` shipped in Phase 3 and **nothing ever wrote to either** —
+      every device in every shop read `not_required`, used ones included, for seven phases.
+      The writers are new; the columns are not. Now driven by two listeners: a new
+      `UnitAcquired` event (dispatched by every door a device comes in through, so a fourth
+      acquisition path is covered without remembering this module exists) and
+      `InvoiceFinalised` on the way out. The status is about the **current outstanding
+      transfer**, so a device goes `pending → done → pending` when the shop buys it,
+      transfers it in, and sells it on — treating `done` as terminal loses the transfer the
+      customer actually walks out with
 
 ### 10.4 Moadian v1
 - [ ] Adapter interface + one intermediary-provider driver behind a queue

@@ -6,6 +6,7 @@ namespace App\Modules\Sales\Services;
 
 use App\Modules\Inventory\Enums\UnitCondition;
 use App\Modules\Inventory\Enums\UnitStatus;
+use App\Modules\Inventory\Events\UnitAcquired;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\UnitStateMachine;
@@ -85,6 +86,10 @@ final class TradeInIntake
         );
 
         $tradeIn->forceFill(['product_unit_id' => $unit->id])->save();
+
+        // After the passport row, so a listener reading the device's history sees one.
+        // HAMTA flags it: a traded-in phone still has the customer's name in the registry.
+        UnitAcquired::dispatch($unit);
 
         return $unit;
     }
