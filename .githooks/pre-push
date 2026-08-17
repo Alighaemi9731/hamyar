@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+# Refuse a direct push to the default branch.
+#
+# ## Why this is a hook and not a GitHub ruleset
+#
+# It should be a ruleset. Rulesets and branch protection are both Pro-gated for PRIVATE
+# repositories, and this one is private because it is a commercial product — so the
+# platform will not enforce anything here until the plan changes. See CLAUDE.md, which
+# states exactly what is and is not enforced; the one thing worse than an unenforced rule
+# is a document claiming it is enforced.
+#
+# So: this hook prevents it locally, and `.github/workflows/guard-main.yml` raises a red
+# build if a push lands on main anyway (from another clone, the web UI, or a machine that
+# never ran `make hooks`). Prevention plus detection, neither of them airtight.
+#
+# ## The override is deliberate and loud
+#
+# `ALLOW_MAIN_PUSH=1 git push` gets through. A hook with no escape hatch gets deleted the
+# first time somebody genuinely needs it at 2am, and then there is no hook at all. Naming
+# the variable makes the exception a decision somebody typed rather than a habit.
+
+set -euo pipefail
+
+remote_name="${1:-}"
+protected="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+protected="${protected:-main}"
+
+if [[ "${ALLOW_MAIN_PUSH:-}" == "1" ]]; then
+  echo "pre-push: ALLOW_MAIN_PUSH=1 — skipping the ${protected} guard." >&2
+  exit 0
+fi
+
+# stdin is: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [[ -z "${remote_ref}" ]] && continue
+
+  if [[ "${remote_ref}" == "refs/heads/${protected}" ]]; then
+    cat >&2 <<EOF
+
+  ✗ Refusing to push directly to '${protected}' on '${remote_name}'.
+
+    This project's workflow is: branch, push the branch, open a PR, merge when CI is green
+    (CLAUDE.md, "Workflow every session"). A direct push skips review entirely and it has
+    happened once already.
+
+    What to do instead:
+
+      git switch -c feat/<something>
+      git push -u origin HEAD
+      gh pr create --fill
+
+    If you are certain you want to push to ${protected} anyway:
+
+      ALLOW_MAIN_PUSH=1 git push
+
+EOF
+    exit 1
+  fi
+done
+
+exit 0

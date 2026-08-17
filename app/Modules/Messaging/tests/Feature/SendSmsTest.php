@@ -11,11 +11,11 @@ use App\Modules\Messaging\Models\MessageOptOut;
 use App\Modules\Messaging\Models\SmsCreditEntry;
 use App\Modules\Messaging\Services\SendSms;
 use App\Modules\Messaging\Services\SmsWallet;
-use App\Modules\Messaging\Support\PhoneNumber;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Support\PhoneNumber;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 

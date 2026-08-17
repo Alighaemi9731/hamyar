@@ -1041,24 +1041,109 @@ converging on them later.
       the one in the new assignment screen, which exists so a staffing change takes effect
       immediately. Bound as a singleton, with the reasoning written where the binding is
 
-### 10.2 Storefront
-- [ ] Public shop landing page + product catalogue with live prices
-- [ ] Reseller price-list link (password/expiry, per-price-level)
-- [ ] PDF export
-- [ ] WhatsApp CTA
+### 10.2 Storefront — scope fixed at Gate 4 part 1: **no cart, no checkout, no accounts**
+- [x] Public shop landing page + product catalogue with live prices — Blade and inline CSS,
+      no React and no bundle: these pages open on an Iranian mobile connection, often on a
+      link forwarded through WhatsApp. Availability is **coarse** («موجود» / «تماس بگیرید»),
+      never a count — a quantity on a public page is stale within the hour, invites haggling
+      on the last one, and tells a competitor how deep the shop is on a line. On-hand reads
+      BOTH registers, or a shop selling only handsets would show as empty
+- [x] Reseller price-list link (password/expiry, per-price-level) — and the token is treated
+      as what it is: a **bearer credential**. Stored hashed with a short non-secret lookup
+      prefix, shown exactly once at creation, so a database dump does not hand over every
+      live price list. Expiry is NOT NULL with a 90-day ceiling; a link outliving its price
+      list is worse than an expired one. The price level is a column on the row and there is
+      nowhere in the request for one to come from — «cannot escalate to another level» is a
+      property of the schema, pinned by a test that tries three query parameters
+- [x] PDF export — a print-optimised HTML sheet rather than a generated binary. Every browser
+      turns it into a PDF on one tap, and «the PDF matches the web list exactly» is then true
+      *by construction* rather than by two renderers agreeing. It runs the same gates: a print
+      route that skipped the password would be the whole security model with a suffix on it
+- [x] WhatsApp CTA — built from the stored canonical number, so «۰۹۱۲ ۱۲۳ ۴۵۶۷» typed on a
+      Persian keypad still opens a chat. `PhoneNumber` moved from Messaging to `App\Support`
+      on the way: Storefront needed it, and importing Messaging for a normaliser would have
+      crossed a module boundary for a `preg_replace` (golden rule 6)
+- [x] Every security rule in the spec, tested by name — 410 for expired *and* revoked (not
+      404: the link was real, and «منقضی شده» tells a colleague to ask for a new one), 403 and
+      rate limiting on the password, one link's password never opening another, a wrong token
+      indistinguishable from a missing one, and the view log that lets a shop see a list
+      travelling further than they sent it
+- [x] **`price_list_links` opts into `allowPlatform`**, and it is one of very few tables that
+      does. A visitor holding a token has no tenant to be scoped by — that is what the token
+      is *for* — so resolution runs exactly one indexed lookup under `runAsPlatform()` and
+      then enters that link's tenant; everything after is scoped normally. The isolation test
+      opens a link on **another shop's hostname** and asserts it renders the minting shop's
+      catalogue and none of the host's
 
 ### 10.3 HAMTA
-- [ ] Guided ownership-transfer workflow on used buy/sell (checklist, activation-id record on unit)
-- [ ] "Transfer pending" warnings
-- [ ] `*#7777#` instructions page
-- [ ] UI states explicitly: no official API — record-keeping and guidance only
+- [x] Guided ownership-transfer workflow on used buy/sell — six steps from the spec, each
+      answerable **«انجام نشد»** as a first-class answer. A checklist that only records
+      success forces the salesperson to tick something untrue or abandon the record, and the
+      shop's protection in a dispute is the honest version. Answers are **append-only**: a
+      correction is a new row and both are shown, because evidence that can be edited
+      afterwards proves only what somebody wanted it to say later
+- [x] Activation-id record on the unit — stored **verbatim**, with no format rule. There is
+      no published contract to validate against, so a shape check would assert knowledge this
+      product does not have, and a rejected id sends a salesperson hunting a bug with a
+      customer at the counter. Optional, too: a shop often watches the transfer complete on
+      the customer's phone before the SMS with the id in it is forwarded
+- [x] "Transfer pending" warnings — a banner on the IMEI passport that **links to the
+      checklist that clears it**, and the pending list as the screen somebody works through.
+      The `StatusBadge` map already had `hamta_pending` in danger tone since Phase 3; it had
+      simply never had a device to fire on
+- [x] `*#7777#` instructions page — written for the assistant who has just been asked «همتا
+      یعنی چی؟», not for a developer: the three transfer routes, what the SMS looks like, how
+      long it takes, and what to do when the customer leaves before it completes
+- [x] UI states explicitly: no official API — the same notice component on every HAMTA
+      screen, and the success message after recording a transfer says «این ثبت است، نه
+      استعلام از همتا». A shop that believes the software handles it stops doing the
+      transfers and finds out months later from a customer whose phone stopped working
+- [x] **Found on the way, and it is the 10.1 pattern again:** `product_units.hamta_status`
+      and `hamta_activation_id` shipped in Phase 3 and **nothing ever wrote to either** —
+      every device in every shop read `not_required`, used ones included, for seven phases.
+      The writers are new; the columns are not. Now driven by two listeners: a new
+      `UnitAcquired` event (dispatched by every door a device comes in through, so a fourth
+      acquisition path is covered without remembering this module exists) and
+      `InvoiceFinalised` on the way out. The status is about the **current outstanding
+      transfer**, so a device goes `pending → done → pending` when the shop buys it,
+      transfers it in, and sells it on — treating `done` as terminal loses the transfer the
+      customer actually walks out with
 
-### 10.4 Moadian v1
-- [ ] Adapter interface + one intermediary-provider driver behind a queue
-- [ ] Invoice → e-invoice payload mapping
-- [ ] Send / poll status
-- [ ] Error inbox + resend
-- [ ] Feature-flagged
+### 10.4 Moadian v1 — **adapter only, no provider** ([ADR 0011](adr/0011-moadian-adapter-without-a-provider.md))
+- [x] Adapter interface behind a queue — `MoadianDriver` (send · status · cancel), designed
+      against the **specification and a fake**, never against one vendor's API. Gate 4 part 2
+      ruled out a real provider for launch: these customers are mostly on presumptive
+      taxation, and picking an intermediary before one has been asked for buys an integration
+      the first real request is likely to contradict. The contract's sharpest rule is that a
+      **rejection is a return value and a transport failure is an exception** — an answer is
+      not a failure, and retrying a refused document gets an identical refusal
+- [~] One intermediary-provider driver — **deliberately not built.** `FakeMoadianDriver` is
+      the only implementation, covering accept, reject and transport failure. Backlog:
+      *when the first paying tenant requests Moadian, select a provider and build the real
+      driver against the existing contract.* Left `[~]` rather than `[x]`: the line asks for
+      something that does not exist, and ticking it would claim otherwise
+- [x] Invoice → e-invoice payload mapping — pure, no HTTP/clock/queue, unit-tested against
+      fixture invoices. It **reproduces** the invoice and never recomputes it: per-line VAT
+      was floored to a whole toman at issue (ADR 0009 amendment), and the test pins both the
+      stored figure and the naive recompute it must not equal — a gap that only exists
+      because the fixture prices lines at 8,881,990 rial
+- [x] Send / poll status — polling is a separate question from sending, because a document
+      accepted at submission can be rejected later, and collapsing them would make
+      «پذیرفته‌شده» mean two things a day apart
+- [x] Error inbox + resend — the spec calls silent failure the worst possible outcome, so a
+      rejection lands with its Persian reason beside the invoice it belongs to. Resend
+      **rebuilds the payload** from the invoice as it stands now (the shop fixed what was
+      rejected) and is idempotent against a partial unique index, because two workers both
+      reading "not yet submitted" is exactly the race a queue makes likely
+- [x] Feature-flagged — **off for every plan at launch**, two switches: the deployment-wide
+      `MOADIAN_ENABLED` so no development machine can file a real tax document, and the
+      shop's own setting. Reported separately on screen, because «چرا کار نمی‌کند؟» needs an
+      answer that tells them apart. Plan copy says «به‌زودی»
+- [x] **Found on the way:** the 23505 rule in CLAUDE.md has a sharper edge than it said —
+      the `try` must sit **outside** `DB::transaction()`. A closure that catches its own
+      unique violation never triggers the savepoint rollback, so the recovery query runs on
+      an aborted connection and dies with the very 25P02 the wrapper exists to prevent.
+      Third occurrence; now written down with both shapes
 
 ### 10.5 Data tools
 - [ ] Full tenant export (Excel/JSON zip)
@@ -1067,13 +1152,34 @@ converging on them later.
 - [ ] Audit-log viewer UI with filters
 
 ### 10.6 Tests
-- [ ] Price-list link security (expiry, password, price level)
-- [ ] Storefront leaks nothing private
-- [ ] Moadian driver contract tests with a fake
-- [ ] Export completeness snapshot
+- [x] Price-list link security (expiry, password, price level) — `PriceListSecurityTest`,
+      sixteen cases, each naming the spec line it pins. The consumer and reseller prices in
+      the fixture differ **deliberately**: a fixture where they matched would let a screen
+      serve the wrong level and every assertion would still pass
+- [x] Storefront leaks nothing private — the catalogue query is an **allow-list of columns**
+      rather than a filtered `select *`, so a later migration adding a cost column to
+      `product_variants` cannot leak by default
+- [x] Moadian driver contract tests with a fake — accept, reject and transport failure, plus
+      the disabled default (writes nothing, surfaces nothing) which is the launch
+      configuration for every shop
+- [ ] Export completeness snapshot — belongs with 10.5, which is not built
 
-> ### ⛔ DECISION GATE 4
-> Choose the real Moadian intermediary provider and confirm storefront scope before building 10.2/10.4.
+> ### ✅ DECISION GATE 4 — CLEARED 2026-08-16
+>
+> **Part 1 — storefront scope.** v1 is: public shop page · live-price catalogue · reseller
+> price-list links (password/expiry, per-price-level) · PDF export · WhatsApp CTA.
+> **No cart, no online checkout, no customer accounts** — those are post-launch backlog.
+> 10.2 is built to exactly that.
+>
+> **Part 2 — the Moadian provider: there is not one.** Ruling: “**NO real Moadian provider
+> for launch.** My customers are mostly on presumptive taxation and won't use e-invoicing at
+> first.” 10.4 ships the adapter contract, the payload mapping, the queue, the status inbox
+> and the error handling — **all against a `FakeProvider` only** — and then stops. No
+> provider research, no sandbox, no real driver. Feature-flagged **off for every plan** at
+> launch; plan copy says «به‌زودی».
+> Recorded as [ADR 0011](adr/0011-moadian-adapter-without-a-provider.md).
+> Post-launch backlog: *when the first paying tenant requests Moadian, select a provider and
+> build the real driver against the existing contract.*
 
 ---
 

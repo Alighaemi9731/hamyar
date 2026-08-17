@@ -42,6 +42,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $acquired_at
  * @property string $hamta_status
  * @property string|null $hamta_activation_id
+ * @property CarbonImmutable|null $hamta_transferred_at
+ * @property string|null $hamta_note
+ * @property int|null $hamta_actor_id
  * @property int|null $warranty_months
  * @property CarbonImmutable|null $warranty_until
  * @property string|null $notes
@@ -56,6 +59,14 @@ final class ProductUnit extends Model
 
     use SoftDeletes;
 
+    /*
+    | Plain strings, and deliberately not `App\Modules\Hamta\Enums\HamtaStatus`.
+    |
+    | The column is Inventory's — it has been on this table since Phase 3 — and Hamta is
+    | downstream of Inventory. Casting to that enum would point an upstream module at a
+    | downstream one for the sake of three constants (golden rule 6). Hamta translates at
+    | its own boundary instead, and a CHECK constraint keeps the two in step.
+    */
     public const HAMTA_NOT_REQUIRED = 'not_required';
 
     public const HAMTA_PENDING = 'pending';
@@ -67,7 +78,7 @@ final class ProductUnit extends Model
         'imei1', 'imei2', 'serial',
         'status', 'condition', 'grade', 'cost',
         'acquired_from_party_id', 'acquired_at',
-        'hamta_status', 'hamta_activation_id',
+        'hamta_status', 'hamta_activation_id', 'hamta_transferred_at', 'hamta_note', 'hamta_actor_id',
         'warranty_months', 'warranty_until', 'notes',
     ];
 
@@ -82,6 +93,7 @@ final class ProductUnit extends Model
             'cost' => 'integer',
             'acquired_at' => 'immutable_datetime',
             'warranty_until' => 'immutable_datetime',
+            'hamta_transferred_at' => 'immutable_datetime',
         ];
     }
 

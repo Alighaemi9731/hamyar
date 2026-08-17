@@ -14,6 +14,7 @@ use App\Modules\Inventory\Services\StockLedger;
 use App\Modules\Inventory\Services\UnitStateMachine;
 use App\Modules\Sales\Contracts\InvoiceSettlementGuard;
 use App\Modules\Sales\Enums\InvoiceStatus;
+use App\Modules\Sales\Events\InvoiceVoided;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
 use Carbon\CarbonImmutable;
@@ -91,6 +92,10 @@ final class VoidInvoice
 
             return $invoice;
         });
+
+        // After the commit, never inside it: a listener acting on a reversal that may still
+        // roll back would tell a tax authority a document was cancelled when it was not.
+        InvoiceVoided::dispatch($voided, $reason);
 
         return $voided;
     }

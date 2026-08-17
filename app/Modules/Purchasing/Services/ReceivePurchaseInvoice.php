@@ -8,6 +8,7 @@ use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Services\LedgerService;
 use App\Modules\Inventory\Enums\MovementType;
 use App\Modules\Inventory\Enums\UnitStatus;
+use App\Modules\Inventory\Events\UnitAcquired;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Services\StockLedger;
 use App\Modules\Inventory\Services\UnitStateMachine;
@@ -183,6 +184,10 @@ final class ReceivePurchaseInvoice
             );
 
             $unitItem->update(['product_unit_id' => $unit->getKey()]);
+
+            // After the passport row. HAMTA listens: a used or refurbished handset owes an
+            // ownership transfer whichever door it came through.
+            UnitAcquired::dispatch($unit);
         }
     }
 

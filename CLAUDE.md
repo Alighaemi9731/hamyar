@@ -76,6 +76,17 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Migrations: tenant tables get `$table->foreignId('tenant_id')->index()` + RLS in same migration.
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
+- **`make hooks`, once per clone.** Sets `core.hooksPath` so `.githooks/pre-push` refuses a
+  direct push to `main`. This is not belt-and-braces — the rule above was broken once, in
+  Phase 10, by finishing a merge and starting the next phase without branching.
+  **Be precise about what enforces it.** GitHub rulesets and branch protection are
+  **Pro-gated for private repositories**, and this repo is private because it is a
+  commercial product — so *the platform enforces nothing here*. What exists is a local hook
+  (prevention, only on a clone that ran `make hooks`) and `.github/workflows/guard-main.yml`
+  (detection: a red build when a commit reaches `main` without a PR). Neither is airtight,
+  and writing "enforced" in this file when it is not would be the more expensive error —
+  a rule everybody believes is mechanical is one nobody checks.
+  Override for a genuine emergency: `ALLOW_MAIN_PUSH=1 git push`.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
 - **An idempotent insert that catches a unique violation must run in a nested
   transaction.** Postgres aborts the *entire* transaction on a constraint violation, so
@@ -86,6 +97,27 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
   twelve *unrelated* tests failing after the one that collided, which is why it is written
   down rather than rediscovered a third time. Every test runs inside `RefreshDatabase`'s
   transaction, so this is not an edge case: it is the default condition.
+  **And the `try` goes OUTSIDE the `DB::transaction()`, not inside it.** `DB::transaction()`
+  rolls back to its SAVEPOINT when the closure *throws*; a closure that catches its own
+  exception never triggers that, so the recovery query runs on a connection that is still
+  aborted and dies with the same 25P02 the wrapper was added to prevent. Third occurrence,
+  in `SubmitInvoice::enqueue()`:
+
+  ```php
+  // WRONG — the catch runs inside the aborted nested transaction.
+  DB::transaction(fn () => { try { insert(); } catch { select(); } });
+
+  // RIGHT — the closure throws, the savepoint rolls back, the catch runs on a healthy one.
+  try { DB::transaction(fn () => insert()); } catch { select(); }
+  ```
+- **A `function_exists`-guarded global helper must not take a name a dependency also
+  defines.** Same failure as `bindIf` below and same tell — nothing crashes, the wrong
+  implementation just wins the name. `App\Support\helpers.php` defined `jdate()`;
+  **morilog/jalali defines one too**, both guarded, and the package's autoloaded first. Ours
+  was dead for eight phases and looked live: `jdate($t)` returned `1405-06-02 21:18:47`
+  where every screen in this product shows `۱۴۰۵/۰۶/۰۲`. Nothing used it until a Blade view
+  did. Renamed to `jalali()`; before adding a global helper, grep the vendor tree for
+  `function <name>`.
 - **A null-object default is bound with `bindIf`, never `bind`.** Module providers are
   discovered in directory order, so a default and its real implementation binding the same
   interface with `bind` means the last writer wins — and which one that is depends on a
