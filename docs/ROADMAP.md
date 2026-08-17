@@ -1041,11 +1041,39 @@ converging on them later.
       the one in the new assignment screen, which exists so a staffing change takes effect
       immediately. Bound as a singleton, with the reasoning written where the binding is
 
-### 10.2 Storefront
-- [ ] Public shop landing page + product catalogue with live prices
-- [ ] Reseller price-list link (password/expiry, per-price-level)
-- [ ] PDF export
-- [ ] WhatsApp CTA
+### 10.2 Storefront — scope fixed at Gate 4 part 1: **no cart, no checkout, no accounts**
+- [x] Public shop landing page + product catalogue with live prices — Blade and inline CSS,
+      no React and no bundle: these pages open on an Iranian mobile connection, often on a
+      link forwarded through WhatsApp. Availability is **coarse** («موجود» / «تماس بگیرید»),
+      never a count — a quantity on a public page is stale within the hour, invites haggling
+      on the last one, and tells a competitor how deep the shop is on a line. On-hand reads
+      BOTH registers, or a shop selling only handsets would show as empty
+- [x] Reseller price-list link (password/expiry, per-price-level) — and the token is treated
+      as what it is: a **bearer credential**. Stored hashed with a short non-secret lookup
+      prefix, shown exactly once at creation, so a database dump does not hand over every
+      live price list. Expiry is NOT NULL with a 90-day ceiling; a link outliving its price
+      list is worse than an expired one. The price level is a column on the row and there is
+      nowhere in the request for one to come from — «cannot escalate to another level» is a
+      property of the schema, pinned by a test that tries three query parameters
+- [x] PDF export — a print-optimised HTML sheet rather than a generated binary. Every browser
+      turns it into a PDF on one tap, and «the PDF matches the web list exactly» is then true
+      *by construction* rather than by two renderers agreeing. It runs the same gates: a print
+      route that skipped the password would be the whole security model with a suffix on it
+- [x] WhatsApp CTA — built from the stored canonical number, so «۰۹۱۲ ۱۲۳ ۴۵۶۷» typed on a
+      Persian keypad still opens a chat. `PhoneNumber` moved from Messaging to `App\Support`
+      on the way: Storefront needed it, and importing Messaging for a normaliser would have
+      crossed a module boundary for a `preg_replace` (golden rule 6)
+- [x] Every security rule in the spec, tested by name — 410 for expired *and* revoked (not
+      404: the link was real, and «منقضی شده» tells a colleague to ask for a new one), 403 and
+      rate limiting on the password, one link's password never opening another, a wrong token
+      indistinguishable from a missing one, and the view log that lets a shop see a list
+      travelling further than they sent it
+- [x] **`price_list_links` opts into `allowPlatform`**, and it is one of very few tables that
+      does. A visitor holding a token has no tenant to be scoped by — that is what the token
+      is *for* — so resolution runs exactly one indexed lookup under `runAsPlatform()` and
+      then enters that link's tenant; everything after is scoped normally. The isolation test
+      opens a link on **another shop's hostname** and asserts it renders the minting shop's
+      catalogue and none of the host's
 
 ### 10.3 HAMTA
 - [x] Guided ownership-transfer workflow on used buy/sell — six steps from the spec, each
@@ -1124,10 +1152,17 @@ converging on them later.
 - [ ] Audit-log viewer UI with filters
 
 ### 10.6 Tests
-- [ ] Price-list link security (expiry, password, price level)
-- [ ] Storefront leaks nothing private
-- [ ] Moadian driver contract tests with a fake
-- [ ] Export completeness snapshot
+- [x] Price-list link security (expiry, password, price level) — `PriceListSecurityTest`,
+      sixteen cases, each naming the spec line it pins. The consumer and reseller prices in
+      the fixture differ **deliberately**: a fixture where they matched would let a screen
+      serve the wrong level and every assertion would still pass
+- [x] Storefront leaks nothing private — the catalogue query is an **allow-list of columns**
+      rather than a filtered `select *`, so a later migration adding a cost column to
+      `product_variants` cannot leak by default
+- [x] Moadian driver contract tests with a fake — accept, reject and transport failure, plus
+      the disabled default (writes nothing, surfaces nothing) which is the launch
+      configuration for every shop
+- [ ] Export completeness snapshot — belongs with 10.5, which is not built
 
 > ### ✅ DECISION GATE 4 — CLEARED 2026-08-16
 >

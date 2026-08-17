@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Messaging\Support;
+namespace App\Support;
 
 /**
  * An Iranian mobile number, in the one shape a gateway accepts.
