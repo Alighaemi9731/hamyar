@@ -1,0 +1,62 @@
+name: Guard main
+
+# Detection, not prevention.
+#
+# The rule "no direct pushes to main" cannot be enforced on the platform here: rulesets and
+# branch protection are Pro-gated for private repositories, and this one is private because
+# it is a commercial product. `.githooks/pre-push` prevents it on a machine that has run
+# `make hooks`; this catches everything else — another clone, the web UI, a fresh checkout,
+# or a hook someone bypassed.
+#
+# It cannot undo the push. What it can do is make the violation loud on the same day rather
+# than discovered in a `git log` months later, which is the difference between a process
+# slip and a habit.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pushed-through-a-pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Was this commit merged via a pull request?
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # A squash-merged PR leaves a single-parent commit on main whose SHA is still
+          # associated with the PR, so asking the API is more reliable than counting
+          # parents — a merge commit and a squash look nothing alike in the graph.
+          count="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+            -H 'Accept: application/vnd.github.groot-preview+json' \
+            --jq 'length')"
+
+          if [[ "${count}" -gt 0 ]]; then
+            echo "✓ ${SHA} arrived on main through a pull request."
+            exit 0
+          fi
+
+          cat >&2 <<'EOF'
+
+            ✗ This commit reached main without a pull request.
+
+              CLAUDE.md: branch, push the branch, open a PR, merge when CI is green.
+              A direct push skips review.
+
+              Nothing here rewrites history — that is a human decision, deliberately.
+              Fix forward: the next change goes through a PR, and if this one needs
+              review, open one against a branch cut from it.
+
+              Local prevention: `make hooks` installs .githooks/pre-push, which refuses
+              this before it leaves your machine.
+
+          EOF
+          exit 1

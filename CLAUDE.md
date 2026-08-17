@@ -76,6 +76,17 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Migrations: tenant tables get `$table->foreignId('tenant_id')->index()` + RLS in same migration.
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
+- **`make hooks`, once per clone.** Sets `core.hooksPath` so `.githooks/pre-push` refuses a
+  direct push to `main`. This is not belt-and-braces — the rule above was broken once, in
+  Phase 10, by finishing a merge and starting the next phase without branching.
+  **Be precise about what enforces it.** GitHub rulesets and branch protection are
+  **Pro-gated for private repositories**, and this repo is private because it is a
+  commercial product — so *the platform enforces nothing here*. What exists is a local hook
+  (prevention, only on a clone that ran `make hooks`) and `.github/workflows/guard-main.yml`
+  (detection: a red build when a commit reaches `main` without a PR). Neither is airtight,
+  and writing "enforced" in this file when it is not would be the more expensive error —
+  a rule everybody believes is mechanical is one nobody checks.
+  Override for a genuine emergency: `ALLOW_MAIN_PUSH=1 git push`.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
 - **An idempotent insert that catches a unique violation must run in a nested
   transaction.** Postgres aborts the *entire* transaction on a constraint violation, so

@@ -335,6 +335,47 @@ report that disagrees with every invoice it summarises ships green. **The negati
 is only worth writing when the fixture can tell the two apart** — which is the same rule as
 the paragraph above, arriving from the other side.
 
+#### A feature with enforcement but no write path is invisible
+
+The sibling of the silently-passing guard, and it hides for the same reason: **nothing
+fails.** Where that one is a check that always answers yes, this is a check that is
+never asked — because the state it reads can never be set.
+
+`branch_user` was created in Phase 2. `BranchAccess` read it correctly. Sales, Repairs and
+Inventory enforced it, with tests. And **no screen, route or service ever wrote a row to
+it** — there was no branch-management page, no assignment control, no way to create a
+second branch. So every user was unrestricted, every query returned everything, and every
+screen looked right for eight phases.
+
+Which meant the five modules with *no branch filter at all* were indistinguishable from the
+three that had one. The bug could not be observed until the moment the feature became
+reachable, and it became reachable in the same commit that would have introduced it if it
+had not already been there.
+
+The audit question, and it generalises past this case:
+
+> **For every table whose contents are enforced, ask who writes to it — and reach that
+> writer from a screen.** If the answer is "a factory, a seeder, or Tinker", the enforcement
+> has no coverage in the only sense that matters, and the tests around it are describing a
+> state the product cannot enter.
+
+The tell is cheap and mechanical. Grep for writes:
+
+```bash
+# Who inserts into branch_user? (BranchAccess reads it; a test factory is not an answer.)
+rg -n "branch_user|branches\(\)->(sync|attach)" app/ database/ --glob '!*/tests/*'
+```
+
+Empty output next to a table that policies, scopes or middleware read is the finding. The
+same shape applies to any permission pivot, feature-flag override table, or settings row a
+guard consults: **enforcement without a reachable writer is a guarantee about a state
+nobody can reach**, and it reports green forever.
+
+Related failure, one step further along: a feature whose write path exists but whose *only*
+fixture writes the permissive value. See "the fixture talking, not the query" under §6 —
+seeded data that populates one side of a conditional leaves the other branch unexercised,
+and the measurement or assertion covering it is describing nothing.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no

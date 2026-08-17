@@ -1072,8 +1072,22 @@ converging on them later.
 - [ ] Moadian driver contract tests with a fake
 - [ ] Export completeness snapshot
 
-> ### ⛔ DECISION GATE 4
-> Choose the real Moadian intermediary provider and confirm storefront scope before building 10.2/10.4.
+> ### ✅ DECISION GATE 4 — CLEARED 2026-08-16
+>
+> **Part 1 — storefront scope.** v1 is: public shop page · live-price catalogue · reseller
+> price-list links (password/expiry, per-price-level) · PDF export · WhatsApp CTA.
+> **No cart, no online checkout, no customer accounts** — those are post-launch backlog.
+> 10.2 is built to exactly that.
+>
+> **Part 2 — the Moadian provider: there is not one.** Ruling: “**NO real Moadian provider
+> for launch.** My customers are mostly on presumptive taxation and won't use e-invoicing at
+> first.” 10.4 ships the adapter contract, the payload mapping, the queue, the status inbox
+> and the error handling — **all against a `FakeProvider` only** — and then stops. No
+> provider research, no sandbox, no real driver. Feature-flagged **off for every plan** at
+> launch; plan copy says «به‌زودی».
+> Recorded as [ADR 0011](adr/0011-moadian-adapter-without-a-provider.md).
+> Post-launch backlog: *when the first paying tenant requests Moadian, select a provider and
+> build the real driver against the existing contract.*
 
 ---
 

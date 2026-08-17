@@ -34,6 +34,7 @@ given — and the next person to disagree with the decision is arguing with a gh
 | [0008](0008-visual-language.md) | Visual language: calm neutral ground, one blue, pill actions | Accepted | Owner *request* + delivery, PROGRESS 2026-08-07 — the weakest provenance of the nine; see the file |
 | [0009](0009-invoice-rounding.md) | Invoice rounding: whole toman, floor VAT, round the total once | Accepted | **Gate 3**, cleared 2026-08-12 |
 | [0010](0010-job-context-teardown.md) | Tenant-context teardown is conditional on how a job entered | Accepted | Directed capture, autonomous-run authorization 2026-08-14 |
+| [0011](0011-moadian-adapter-without-a-provider.md) | Moadian ships as an adapter with no real provider, flag off | Accepted | **Gate 4 (part 2)**, cleared 2026-08-16 |
 
 ## Writing a new one
 

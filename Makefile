@@ -109,3 +109,9 @@ composer: ## Run a composer command: make composer CMD="require foo/bar"
 .PHONY: horizon
 horizon: ## Run Horizon in the foreground
 	$(APP_IT) php artisan horizon
+
+.PHONY: hooks
+hooks: ## Install the repo's git hooks (refuses direct pushes to main)
+	@git config core.hooksPath .githooks
+	@echo "core.hooksPath = .githooks — direct pushes to main will be refused."
+	@echo "Override for one push with: ALLOW_MAIN_PUSH=1 git push"
