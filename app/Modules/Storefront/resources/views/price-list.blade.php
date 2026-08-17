@@ -8,7 +8,7 @@
         <h1>{{ $shop }}</h1>
         <p class="muted">لیست قیمت {{ $level }}</p>
         <p class="muted">
-            اعتبار این لیست تا {{ jdate($expires_at) }}
+            اعتبار این لیست تا {{ jalali($expires_at) }}
         </p>
 
         <div class="actions no-print">

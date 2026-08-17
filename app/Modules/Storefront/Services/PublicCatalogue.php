@@ -122,11 +122,22 @@ final class PublicCatalogue
             ->when(! $showOutOfStock, fn ($q) => $q->whereRaw($onHand))
             ->orderBy('products.name')
             ->orderBy('product_variants.id')
-            // The allow-list. Every column that leaves is named here — see the docblock.
+            /*
+            | The allow-list. Every column that leaves is named here — see the docblock.
+            |
+            | `options` joins the list because a variant's NAME is usually null: a shop that
+            | generates six variants from a colour/storage matrix names none of them, and the
+            | distinguishing detail lives in the JSON. Without it the public page shows four
+            | identical «آیفون ۱۵ پرو مکس» rows at four different prices, which reads as a
+            | pricing error rather than as storage tiers. `ProductVariant::displayName()` is
+            | the app's rule for this and it is mirrored below rather than called, because
+            | hydrating a model per row is what this set-based query exists to avoid.
+            */
             ->selectRaw("
                 products.name as product,
                 coalesce(nullif(brands.name_fa, ''), brands.name, '') as brand,
                 product_variants.name as variant,
+                product_variants.options as options,
                 product_prices.price as price,
                 {$onHand} as in_stock
             ")
@@ -141,7 +152,7 @@ final class PublicCatalogue
             $rows[] = [
                 'product' => $this->stringOf($values['product'] ?? ''),
                 'brand' => $this->stringOf($values['brand'] ?? ''),
-                'variant' => $this->stringOf($values['variant'] ?? ''),
+                'variant' => $this->variantLabel($values),
                 'price' => $price,
                 'price_formatted' => Money::toArray($price)['formatted'],
                 // Coarse, on purpose.
@@ -150,6 +161,44 @@ final class PublicCatalogue
         }
 
         return $rows;
+    }
+
+    /**
+     * The variant's human label, matching `ProductVariant::displayName()`.
+     *
+     * An explicit name wins; otherwise the option values joined — «تیتانیوم مشکی · ۵۱۲».
+     * Empty when a product has one unnamed variant with no options, which is the ordinary
+     * case for an accessory and correctly renders as just the product name.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function variantLabel(array $values): string
+    {
+        $name = $this->stringOf($values['variant'] ?? '');
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        $options = $values['options'] ?? null;
+
+        if (is_string($options)) {
+            $options = json_decode($options, true);
+        }
+
+        if (! is_array($options) || $options === []) {
+            return '';
+        }
+
+        $parts = [];
+
+        foreach ($options as $value) {
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $parts[] = trim((string) $value);
+            }
+        }
+
+        return implode(' · ', $parts);
     }
 
     private function stringOf(mixed $value): string

@@ -25,11 +25,27 @@ if (! function_exists('money')) {
     }
 }
 
-if (! function_exists('jdate')) {
+if (! function_exists('jalali')) {
     /**
      * Render a stored UTC timestamp as a Jalali string in the shop's timezone.
+     *
+     * ## Named `jalali`, not `jdate`, and that is not a preference
+     *
+     * This was `jdate()` and it never ran. **morilog/jalali defines a global `jdate()` of
+     * its own**, and both definitions are guarded by `function_exists` — so whichever file
+     * autoloads first wins, and the package's did. Ours was dead code that looked live:
+     * `jdate($t)` returned `1405-06-02 21:18:47` (the package's format, with a time on it)
+     * where every screen in this product shows `۱۴۰۵/۰۶/۰۲`.
+     *
+     * Nothing had used it until the storefront's Blade views did, which is the only reason
+     * it surfaced. The failure mode is the one CLAUDE.md already records for `bindIf` versus
+     * `bind`: not a crash, but the wrong implementation silently winning a name.
+     *
+     * The rule this leaves behind: **a `function_exists`-guarded helper must not take a name
+     * a dependency might also define.** Before adding one, grep the vendor tree for
+     * `function <name>` — every package that ships global helpers declares them the same way.
      */
-    function jdate(DateTimeInterface|string|int|null $value, string $format = Jalali::DATE): string
+    function jalali(DateTimeInterface|string|int|null $value, string $format = Jalali::DATE): string
     {
         return Jalali::format($value, $format);
     }

@@ -12,7 +12,7 @@
 @section('content')
     <header class="shop">
         <h1>{{ $shop }}</h1>
-        <p class="muted">لیست قیمت {{ $level }} · اعتبار تا {{ jdate($expires_at) }}</p>
+        <p class="muted">لیست قیمت {{ $level }} · اعتبار تا {{ jalali($expires_at) }}</p>
     </header>
 
     <p class="no-print muted">

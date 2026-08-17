@@ -110,6 +110,14 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
   // RIGHT — the closure throws, the savepoint rolls back, the catch runs on a healthy one.
   try { DB::transaction(fn () => insert()); } catch { select(); }
   ```
+- **A `function_exists`-guarded global helper must not take a name a dependency also
+  defines.** Same failure as `bindIf` below and same tell — nothing crashes, the wrong
+  implementation just wins the name. `App\Support\helpers.php` defined `jdate()`;
+  **morilog/jalali defines one too**, both guarded, and the package's autoloaded first. Ours
+  was dead for eight phases and looked live: `jdate($t)` returned `1405-06-02 21:18:47`
+  where every screen in this product shows `۱۴۰۵/۰۶/۰۲`. Nothing used it until a Blade view
+  did. Renamed to `jalali()`; before adding a global helper, grep the vendor tree for
+  `function <name>`.
 - **A null-object default is bound with `bindIf`, never `bind`.** Module providers are
   discovered in directory order, so a default and its real implementation binding the same
   interface with `bind` means the last writer wins — and which one that is depends on a

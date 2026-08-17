@@ -77,7 +77,14 @@ beforeEach(function (): void {
 
         $brand = Brand::factory()->create(['name' => 'Apple', 'name_fa' => 'اپل']);
         $product = Product::factory()->create(['name' => 'iPhone 15', 'brand_id' => $brand->getKey(), 'is_active' => true]);
-        $variant = ProductVariant::factory()->create(['product_id' => $product->getKey(), 'is_active' => true]);
+        // Options and no name — the ordinary case for a matrix-generated variant, and the
+        // one that rendered four identical rows at four prices before the label was fixed.
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->getKey(),
+            'is_active' => true,
+            'name' => null,
+            'options' => ['رنگ' => 'مشکی', 'حافظه' => '۲۵۶'],
+        ]);
 
         /*
         | Two DIFFERENT prices, and the gap is load-bearing. If consumer and reseller were
@@ -313,6 +320,33 @@ it('applies the same gates to the printable sheet as to the page', function (): 
 });
 
 /* --------------------------------------------------- the public page leaks nothing -- */
+
+it('renders the expiry as a Jalali date, not a raw timestamp', function (): void {
+    /*
+    | This caught a dead helper. `jdate()` in `App\Support\helpers.php` never ran —
+    | **morilog/jalali defines a global `jdate()` too**, both are `function_exists`-guarded,
+    | and the package's autoloaded first. It rendered «1405-06-02 21:18:47» where every other
+    | screen shows «۱۴۰۵/۰۶/۰۲». Ours is now `jalali()`.
+    */
+    $minted = ($this->mint)(['expires' => CarbonImmutable::parse('2026-09-01 12:00:00')]);
+
+    $this->get($this->url.'/p/'.$minted['token'])
+        ->assertOk()
+        ->assertSee('۱۴۰۵/۰۶/۱۰')
+        // The package's shape, which is what a shadowed helper would have produced.
+        ->assertDontSee('1405-06-10 ');
+});
+
+it('labels an unnamed variant by its options, not as a bare product name', function (): void {
+    /*
+    | Four storage tiers of one handset at four prices, all rendering as «آیفون ۱۵ پرو مکس»,
+    | reads as a pricing error rather than as a product range. `ProductVariant::displayName()`
+    | is the app's rule; the public catalogue's set-based query has to mirror it.
+    */
+    $this->get($this->url.'/shop')
+        ->assertOk()
+        ->assertSee('مشکی · ۲۵۶');
+});
 
 it('shows consumer prices publicly and never a reseller price or a cost', function (): void {
     // Spec: «The public catalogue leaks no cost, no non-consumer price level and no
