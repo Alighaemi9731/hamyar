@@ -44,3 +44,21 @@ if (! function_exists('fa_digits')) {
         return Digits::toPersian($value);
     }
 }
+
+if (! function_exists('idOfModel')) {
+    /**
+     * A model's primary key as an int.
+     *
+     * `getKey()` is declared `mixed`, so Larastan level 8 refuses `(int) $model->getKey()`
+     * at every call site — and the alternative was the same four-line annotated cast copied
+     * into a dozen controllers and services. One helper, one place the narrowing is
+     * justified.
+     */
+    function idOfModel(Illuminate\Database\Eloquent\Model $model): int
+    {
+        /** @var int|numeric-string $key */
+        $key = $model->getKey();
+
+        return (int) $key;
+    }
+}

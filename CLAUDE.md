@@ -97,6 +97,19 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
   twelve *unrelated* tests failing after the one that collided, which is why it is written
   down rather than rediscovered a third time. Every test runs inside `RefreshDatabase`'s
   transaction, so this is not an edge case: it is the default condition.
+  **And the `try` goes OUTSIDE the `DB::transaction()`, not inside it.** `DB::transaction()`
+  rolls back to its SAVEPOINT when the closure *throws*; a closure that catches its own
+  exception never triggers that, so the recovery query runs on a connection that is still
+  aborted and dies with the same 25P02 the wrapper was added to prevent. Third occurrence,
+  in `SubmitInvoice::enqueue()`:
+
+  ```php
+  // WRONG — the catch runs inside the aborted nested transaction.
+  DB::transaction(fn () => { try { insert(); } catch { select(); } });
+
+  // RIGHT — the closure throws, the savepoint rolls back, the catch runs on a healthy one.
+  try { DB::transaction(fn () => insert()); } catch { select(); }
+  ```
 - **A null-object default is bound with `bindIf`, never `bind`.** Module providers are
   discovered in directory order, so a default and its real implementation binding the same
   interface with `bind` means the last writer wins — and which one that is depends on a

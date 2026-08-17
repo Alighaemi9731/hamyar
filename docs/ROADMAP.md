@@ -1081,12 +1081,41 @@ converging on them later.
       transfers it in, and sells it on — treating `done` as terminal loses the transfer the
       customer actually walks out with
 
-### 10.4 Moadian v1
-- [ ] Adapter interface + one intermediary-provider driver behind a queue
-- [ ] Invoice → e-invoice payload mapping
-- [ ] Send / poll status
-- [ ] Error inbox + resend
-- [ ] Feature-flagged
+### 10.4 Moadian v1 — **adapter only, no provider** ([ADR 0011](adr/0011-moadian-adapter-without-a-provider.md))
+- [x] Adapter interface behind a queue — `MoadianDriver` (send · status · cancel), designed
+      against the **specification and a fake**, never against one vendor's API. Gate 4 part 2
+      ruled out a real provider for launch: these customers are mostly on presumptive
+      taxation, and picking an intermediary before one has been asked for buys an integration
+      the first real request is likely to contradict. The contract's sharpest rule is that a
+      **rejection is a return value and a transport failure is an exception** — an answer is
+      not a failure, and retrying a refused document gets an identical refusal
+- [~] One intermediary-provider driver — **deliberately not built.** `FakeMoadianDriver` is
+      the only implementation, covering accept, reject and transport failure. Backlog:
+      *when the first paying tenant requests Moadian, select a provider and build the real
+      driver against the existing contract.* Left `[~]` rather than `[x]`: the line asks for
+      something that does not exist, and ticking it would claim otherwise
+- [x] Invoice → e-invoice payload mapping — pure, no HTTP/clock/queue, unit-tested against
+      fixture invoices. It **reproduces** the invoice and never recomputes it: per-line VAT
+      was floored to a whole toman at issue (ADR 0009 amendment), and the test pins both the
+      stored figure and the naive recompute it must not equal — a gap that only exists
+      because the fixture prices lines at 8,881,990 rial
+- [x] Send / poll status — polling is a separate question from sending, because a document
+      accepted at submission can be rejected later, and collapsing them would make
+      «پذیرفته‌شده» mean two things a day apart
+- [x] Error inbox + resend — the spec calls silent failure the worst possible outcome, so a
+      rejection lands with its Persian reason beside the invoice it belongs to. Resend
+      **rebuilds the payload** from the invoice as it stands now (the shop fixed what was
+      rejected) and is idempotent against a partial unique index, because two workers both
+      reading "not yet submitted" is exactly the race a queue makes likely
+- [x] Feature-flagged — **off for every plan at launch**, two switches: the deployment-wide
+      `MOADIAN_ENABLED` so no development machine can file a real tax document, and the
+      shop's own setting. Reported separately on screen, because «چرا کار نمی‌کند؟» needs an
+      answer that tells them apart. Plan copy says «به‌زودی»
+- [x] **Found on the way:** the 23505 rule in CLAUDE.md has a sharper edge than it said —
+      the `try` must sit **outside** `DB::transaction()`. A closure that catches its own
+      unique violation never triggers the savepoint rollback, so the recovery query runs on
+      an aborted connection and dies with the very 25P02 the wrapper exists to prevent.
+      Third occurrence; now written down with both shapes
 
 ### 10.5 Data tools
 - [ ] Full tenant export (Excel/JSON zip)
