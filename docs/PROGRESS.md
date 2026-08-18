@@ -1612,3 +1612,44 @@ vulnerability was never there, and the test that proves it now is.
 Still open in 11d: 11.1b browser testing in CI, 11.2 performance, 11.3 ops — including
 the restore drill, which the phase preamble calls the largest unhardened thing in the
 project.
+
+---
+
+## 1405/05/27 (2026-08-18) — Phase 11d pass 2: browser testing (11.1b, partial)
+
+Node and Chromium now live in the dev image and a `Browser smoke (Chromium)` job runs
+beside the others. The dev-image half was a deliberate call rather than the cheap option:
+11.1b exists to replace source-level guards with rendered ones, and a rendered assertion
+that can only be run by pushing to CI is one nobody iterates on.
+
+**Four things had to line up, and three of them fail silently** — which is the whole
+character of this task:
+
+- The shop is given `127.0.0.1` as its own `domains.hostname`. Pest's server binds there,
+  every screen in this product resolves from the hostname, and a request arriving as a
+  host belonging to no tenant is a 404 by design. The plugin's `withHost()` looks like the
+  answer and is not: it moves where the server listens, not the Host header the page is
+  fetched with.
+- `Tests\BrowserTestCase` leaves `@vite` alone. The base `TestCase` stubs it out, which is
+  right for feature tests and fatal here — the page arrives with its Inertia payload and
+  no script tag to consume it. Blank body, no JavaScript error, and a failure message
+  about text not being visible that explains nothing.
+- **The measurement waits for React to mount.** This is the one worth remembering. The
+  first working version polled nothing: `script()` runs at the load event, React mounts a
+  beat later, so it measured an empty `<div id="app">`, found scrollWidth equal to
+  clientWidth on every page at every width, and passed all eight cases. It also passed
+  with a 2000px-wide element planted in the page, and with sixty repetitions of an
+  unbreakable token. **Green without witness, on the suite written to stop exactly that** —
+  and it was only caught because the planted-regression check is a habit here rather than
+  a formality.
+- `tests/Browser` sits outside every declared testsuite, so a default `pest` on a machine
+  that has not run `npm run build` does not fail.
+
+**It found a real defect on its first honest run.** `AppShell`'s action row was
+`flex items-center gap-2` with no wrapping, so the products list put 553px of buttons into
+a 375px viewport and pushed the whole page sideways. One `flex-wrap`, in the one place
+every screen inherits it. That screen had been walked by hand several times.
+
+Still open in 11.1b: converting `InvoicePrintLayoutTest` from its source assertion to the
+rendered one its own docblock asks for — the task that owns the collided-money-columns
+defect — and extending the smoke suite to dark mode and the print layouts.

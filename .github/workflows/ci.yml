@@ -207,6 +207,106 @@ jobs:
             echo "::warning title=No isolation tests::The cross-tenant isolation group is empty. Expected only until Phase 1 introduces the first tenant-scoped endpoints; after that, an empty group means a test was deleted."
           fi
 
+  # -------------------------------------------------------------- browser ----
+  browser:
+    name: Browser smoke (Chromium)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mobishop
+          POSTGRES_USER: mobishop
+          POSTGRES_PASSWORD: secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U mobishop"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, pgsql, redis, gd, zip, bcmath, intl, exif, pcntl
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # The one step this job cannot skip. `tests/Browser` runs against the REAL asset
+      # bundle — that is the whole point of it, and `Tests\BrowserTestCase` deliberately
+      # does not stub `@vite` out. Without a build the page arrives with its Inertia
+      # payload and no script to consume it: a blank body, no JavaScript error, and a
+      # failure message about text not being visible that explains nothing.
+      - name: Build assets
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Provision the test database and the non-superuser app role
+        env:
+          PGPASSWORD: secret
+        run: |
+          psql -h 127.0.0.1 -U mobishop -d mobishop -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE ROLE mobishop_app LOGIN PASSWORD 'app-secret'
+              NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+            CREATE DATABASE mobishop_test OWNER mobishop;
+          SQL
+          psql -h 127.0.0.1 -U mobishop -d mobishop_test -v ON_ERROR_STOP=1 <<'SQL'
+            GRANT CONNECT ON DATABASE mobishop_test TO mobishop_app;
+            GRANT USAGE, CREATE ON SCHEMA public TO mobishop_app;
+          SQL
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # By path rather than by group: `tests/Browser` is deliberately outside every
+      # declared testsuite (see phpunit.xml) so a default `pest` on a machine without a
+      # build does not fail, and a path is the one selector that does not depend on
+      # remembering to tag a new file.
+      - name: Pest (browser)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: mobishop_test
+          DB_USERNAME: mobishop_app
+          DB_PASSWORD: app-secret
+          REDIS_HOST: 127.0.0.1
+        run: ./vendor/bin/pest tests/Browser --ci
+
+      # The screenshot Pest writes on a failed assertion is the whole diagnosis for a
+      # layout defect, and it lives only on the runner.
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: tests/Browser/Screenshots/
+          if-no-files-found: ignore
+
   # --------------------------------------------------------------- assets ----
   assets:
     name: Typecheck & build

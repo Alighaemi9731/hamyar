@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\BrowserTestCase;
 use Tests\TestCase;
 
 /*
@@ -29,6 +30,19 @@ pest()->extend(TestCase::class)->in('Unit');
 // Arch tests assert on the module layout on disk and on provider discovery, both of
 // which resolve paths through the container.
 pest()->extend(TestCase::class)->in('Arch');
+
+/*
+| Browser tests (roadmap 11.1b) get the application and a refreshed database like any
+| feature test — the page under test is rendered from seeded rows, so without the
+| database they assert the shape of an empty screen.
+|
+| They are NOT in the `Feature` binding above because they carry their own `browser`
+| group and are excluded from the default run: each one starts a real Chromium, and a
+| suite that pays a browser launch per test is one people stop running.
+*/
+pest()->extend(BrowserTestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('Browser');
 
 /*
 |--------------------------------------------------------------------------
