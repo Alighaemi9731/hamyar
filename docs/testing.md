@@ -526,6 +526,85 @@ resolved its own; only when both ids were passed explicitly did removing the ten
 the key produce `Failed asserting that 88819990 is null`. Two green runs before that, in a
 file written specifically to catch a leak.
 
+**A gate that reports ten non-bugs dies socially before it dies technically.** Nobody
+deletes a noisy check; they comment out the CI step "just for this PR", and it never comes
+back. So the false-positive rate is not a polish concern — it is the gate's survival
+condition, and it is paid for at the time of writing or not at all.
+
+Two things buy it, and the unique-index check in `tenancy:check` needed both:
+
+- **Resolve transitive scoping before reporting.** A unique index leading with a foreign
+  key to a tenant-owned row is already scoped — the parent carries `tenant_id`, so two
+  shops cannot collide through it. A gate that only looks for the literal column reports
+  every one of those as a finding. Following the foreign key took the report from ten
+  entries to zero on a clean schema, which is the difference between a check somebody runs
+  and a check somebody silences.
+- **Allow-list deliberate exceptions with a reason each, in the source.** Four indexes here
+  are genuinely global and must stay that way — two bearer credentials, one gateway-issued
+  id, one public URL segment. Written as bare names they are indistinguishable from
+  oversights the next reader will "fix"; written with the reason beside them they are a
+  decision the gate is enforcing rather than a hole in it.
+
+And prove the gate can fail, per §3: the unique-index check was verified by planting an
+unscoped index on `parties.national_id` and watching it get reported. A gate that has only
+ever printed zero findings has not been shown to have eyes.
+
+**A number that is silently wrong beats a number that is missing, every time — so parse, never strip.** `PartyImporter` normalised money by stripping every non-digit and casting to
+`int`. An Iranian sheet writes a decimal with a **slash**, so `12500000/0` toman became
+`125000000` toman — **ten times** the balance — and `12500000.00` became a hundred times
+it. Nothing threw. Nothing logged. The customer simply owed ten times what they owed, and
+the ledger built on it from there.
+
+It was found by probing the reader layer before designing the products import, not by a
+test, and the tell is the usual one: **the wrong value is a perfectly plausible value.**
+`1,250,000,000` looks like money. No assertion about "the import succeeded" can see it.
+
+Two rules came out of it:
+
+- **One money parser, and it refuses rather than guesses.** `Money::parse()` already
+  existed and already threw on a stray character; the importer had rolled its own instead.
+  A second implementation of a rule is a second opinion about it, and the one that gets
+  used is whichever the author remembered.
+- **An unreadable money cell is a row error, never a zero.** Importing `0` for a cell
+  nobody could parse is the same failure one step later — it lands in a balance, which is
+  the last place anyone looks.
+
+Verified by planting the old parser back and watching the suite go red with
+`Failed asserting that 1250000000 is identical to 125000000`. A regression test written
+against a bug you cannot re-introduce on demand has not been shown to test anything.
+
+**A dry run is only trustworthy if it is the import, stopped.** Both importers in this
+codebase share one walk: `analyse()` and `import()` run **identical** code and only the
+second commits. The alternative — a summary built by separate logic — is a screen that
+reports one outcome and performs another, and the shop finds out weeks later.
+
+That property is worth a test of its own, and it is cheap: assert the dry run wrote
+nothing, then assert the committed counts equal the dry-run counts for the same file.
+
+**The products import found three defects on the browser walk that the feature tests could
+not.** All sixteen were green first. Worth listing, because the pattern in what a
+server-side test cannot see is consistent:
+
+| defect | why no PHP test saw it |
+|---|---|
+| `<Money value={…}>` instead of `rial={…}` | the payload was correct JSON; only *rendering* it threw |
+| verdict messages clipped out of their cell | no assertion in a feature test has a width |
+| a ragged CSV row silently importing a price of `18` | the fixture was **built in PHP**, so it could not contain the malformed row a real file has |
+
+The third is the one to remember, and it is §3's *green without witness* in a new costume:
+**a hand-built fixture cannot express the malformation you are trying to survive.** Every
+CSV a PHP test writes is well-formed, because the test writes it field by field. The file
+a shop sends has an unquoted comma inside a product name — and then every column after it
+shifts by one, the price column reads `18` instead of `18,900,000`, and the row imports as
+a phone costing eighteen toman. Nothing is empty. Nothing throws. It is a plausible number
+in the right column.
+
+The guard is a comparison the file can lose against: a data row with **more** fields than
+the header is malformed, and is refused with both counts named. Fewer is fine — a trailing
+empty column is routinely omitted and shifts nothing. And the general rule: when a fixture
+is generated by the same language that parses it, ask what a *human's* file contains that
+yours structurally cannot.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no

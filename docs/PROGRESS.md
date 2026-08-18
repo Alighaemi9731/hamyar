@@ -1342,3 +1342,127 @@ nobody checks.
 
 **Not built: 10.5 Data tools** — tenant export, products import, backup button, audit-log
 viewer. Skipped per the session's instruction, not by judgement.
+
+---
+
+## 2026-08-18 (j1405-05-27) · Phase 11b · Checkpoint 2 — and a ten-fold error found on the way
+
+**Checkpoint 2 cleared.** Variant representation: one import row becomes one product and
+one `options: []` variant; grouping is opt-in, never inferred from a product name;
+matching is barcode → SKU. [ADR 0013](adr/0013-flat-product-import.md).
+
+The ruling rationale is the **reversibility asymmetry**, and it is worth keeping as a
+general test for any guess an importer makes. Flat-and-wrong — two colours of one phone
+becoming two products — costs an afternoon of tidying, and everything sells and stocks
+correctly meanwhile. Grouped-wrong is **permanent**: once stock movements and invoice
+lines reference those variants, splitting them is not an operation this system has, and
+`VariantMatrix` deliberately never deletes a variant with history. When one side of a
+guess is recoverable and the other is not, do not guess.
+
+**Stock is out of scope for 11b, and says so on screen.** The «موجودی» column appears in
+the mapping list greyed and labelled «وارد نمی‌شود», with a pointer to the correct path.
+Golden rule 3 is the reason — an opening quantity is a `stock_movements` row needing a
+warehouse and a unit cost the file does not carry — but the label exists because silence
+reads as a bug and a label reads as a decision.
+
+**The format claims were probed before anything was designed, and half of them were
+wrong.** `.xlsx`, legacy `.xls` (BIFF8) and UTF-8 CSV already read fine — the last of
+those needed no work at all. windows-1256 CSV does not: it reads as mojibake and the
+header row comes back *empty*, so the mapping screen would offer no columns to select.
+
+**windows-1256 cannot represent Persian, and that changes what ی/ک normalisation is
+for.** The code page has no Persian yeh, no Persian digits and no Persian thousands
+mark — it does have Persian kaf. So a legacy file physically cannot contain «گوشی»; it
+contains «گوشي», every time. Normalising ی and ک is **code-page repair, not tidying**,
+and without it every name imported from old software fails to match what the shop later
+types into search. Two corollaries: the Persian-kaf-with-Arabic-yeh mix is a fingerprint
+for detecting cp1256 rather than asking the operator, and digit normalisation targets
+`.xlsx` rather than the legacy format, because a cp1256 file has Latin digits by
+construction. Recorded in [the catalog spec](specs/catalog.md#products-import-phase-11b).
+
+**A live 10×/100× money error, found by probing rather than by a test.** `PartyImporter`
+normalised money by stripping every non-digit and casting to `int`. An Iranian sheet
+writes a decimal with a **slash**, so `12500000/0` toman was imported as 1,250,000,000
+rial — ten times the balance — and `12500000.00` a hundred times it. Nothing threw,
+nothing logged; the customer simply owed ten times what they owed and the ledger built on
+it. Fixed in this branch rather than filed, because it was live against opening balances
+and credit limits.
+
+`Money::parse()` now reads all three decimal marks in circulation (`/`, `٫`, `.`) with
+exact integer arithmetic — a numerator over a power-of-ten scale, divided once, only
+after the division is proven exact — and **refuses** any amount that does not land on a
+whole rial rather than rounding it. `1250/5` toman is a legitimate 12,505 rial and
+survives; `1250/55` is 12,505.5 and throws. Two decimal marks in one value are ambiguous
+between grouping and fraction and are rejected rather than guessed. An unreadable cell is
+now a **row error, never a zero** — importing zero for a balance nobody could parse is
+the same failure one step later, in the last place anyone looks.
+
+A cell stating its own currency word is tolerated when it agrees with the chosen unit and
+**rejected when it contradicts it**, because that disagreement is the operator having
+picked the wrong unit for the whole file — worth ten times every amount in it.
+
+**Remediation: none needed, and the reason is structural.** No staging or production
+environment exists yet (Phase 11 DoD still has the staging deploy unchecked), and the dev
+database holds zero parties. Nothing was ever imported through the broken path. Reported
+rather than assumed, and no balances were rewritten.
+
+Verified by planting the old parser back and watching the suite go red with
+`Failed asserting that 1250000000 is identical to 125000000` — a regression test written
+against a bug you cannot re-introduce on demand has not been shown to test anything.
+
+**Not built yet:** the products import itself. Checkpoint 2 was the gate; the template,
+mapping screen, dry run and windows-1256 reader are the next session's work.
+
+---
+
+## 2026-08-18 (j1405-05-27) · Phase 11b · Products import — built, and what the walk found
+
+Template · mapping screen · dry run · commit-on-confirm, at `/catalog/import`, reachable
+from «ورود گروهی» on the products list behind a new `catalog.import` permission. Owner and
+Manager have it; Warehousekeeper does not, because one click writes the whole catalogue
+and, on re-import, a new price for every matched row — the reach of `create` and
+`managePrices` together.
+
+**One row is one product and one `options: []` variant** ([ADR 0013](adr/0013-flat-product-import.md)).
+Matching is barcode → SKU; a row with neither says so **on its own row**, because "importing
+this file twice will duplicate these" is not something a shopkeeper can infer.
+
+**The currency unit has no default and blocks the step** — unpicked on screen, `required`
+in the request. The customer wizard reads the tenant's display preference; this one refuses
+to, because a price column is toman most of the time and rial the rest and guessing wrong
+is ten-fold across the catalogue.
+
+**«موجودی» is shown, greyed, and refused**, with a pointer to فاکتور خرید / انبارگردانی.
+Golden rule 3 is the reason; the label exists because silence reads as a bug.
+
+**Encoding is detected, not asked about, and the repair is announced.** `Encoding` decides
+from UTF-8 validity — a shopkeeper cannot answer "which code page is your export?" and a
+wrong answer corrupts the catalogue silently. The file chip then says «این فایل با کدپیج
+قدیمی ذخیره شده و اصلاح شد» and «حرف‌های ی و ک استاندارد شد», with the sample rows as the
+evidence. `ProductImportReadPathsTest` writes one catalogue four ways (.xlsx, .xls,
+CSV-UTF8, CSV-cp1256) and asserts all four read back identically. The fixture is
+constrained by what cp1256 can physically hold, and that constraint **is** the proof the
+ی/ک repair is structural rather than cosmetic.
+
+One design bug fixed en route: `repaired_text` was asked of the reader's output, which has
+already been repaired — so it reported "nothing changed" on precisely the files that
+changed most. It is asked of the raw bytes now.
+
+**The browser walk earned its place: three defects, with all sixteen feature tests green.**
+
+- `<Money value={…}>` — the component's prop is `rial`. The payload was valid JSON;
+  only rendering it threw.
+- Verdict messages overflowed their cell and were clipped — losing exactly the half that
+  says what to do about the error.
+- **A ragged CSV row silently imported a price of `18`.** An unquoted `18,900,000` in a
+  comma-delimited file splits into three cells, every column after it shifts, and the row
+  imports as a phone costing eighteen toman. No error, no empty cell, a plausible number in
+  the right column. Now refused with both field counts named.
+
+The third is the lesson: **a fixture built in PHP cannot express the malformation you are
+trying to survive**, because the test writes it field by field and every file it produces
+is well-formed. Written up in `docs/testing.md`.
+
+**Two rules ratified into the import spec** beside parse-never-strip: an unreadable cell is
+a row error never a zero (a zero *price* is a real price — it goes out the door), and a
+contradicting currency word is a file-level unit error rather than noise to strip.

@@ -6,6 +6,7 @@ use App\Modules\Catalog\Http\Controllers\CategoryController;
 use App\Modules\Catalog\Http\Controllers\LabelController;
 use App\Modules\Catalog\Http\Controllers\PriceController;
 use App\Modules\Catalog\Http\Controllers\ProductController;
+use App\Modules\Catalog\Http\Controllers\ProductImportController;
 use App\Modules\Catalog\Http\Controllers\VariantController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,21 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:catalog'])
         Route::post('/prices/apply', [PriceController::class, 'apply'])->name('prices.apply');
         Route::put('/prices/{variant}', [PriceController::class, 'update'])
             ->whereNumber('variant')->name('prices.update');
+
+        /* --------------------------------------------------------- import -- */
+        /*
+        | Before `/products/{product}`: a fixed segment must bind ahead of the
+        | numeric parameter or `/products/import` resolves as product #import.
+        */
+        Route::get('/import', [ProductImportController::class, 'create'])->name('import.create');
+        Route::get('/import/template', [ProductImportController::class, 'template'])
+            ->middleware('throttle:20,1')->name('import.template');
+        Route::post('/import/analyse', [ProductImportController::class, 'analyse'])
+            ->middleware('throttle:20,1')->name('import.analyse');
+        Route::post('/import/dry-run', [ProductImportController::class, 'dryRun'])
+            ->middleware('throttle:20,1')->name('import.dry-run');
+        Route::post('/import', [ProductImportController::class, 'store'])
+            ->middleware('throttle:10,1')->name('import.store');
 
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');

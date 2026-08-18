@@ -1304,13 +1304,62 @@ would, and the worst place to discover one is in front of a customer.*
 
 *Promoted from 10.5. Built on the schema 11a settles.*
 
-- [ ] Variant representation in a flat file — one decision, documented, driving both the
-      template and the mapping screen
-- [ ] Three layers, all required: downloadable template · **column mapping screen** ·
-      dry-run preview that writes nothing until confirmed
-- [ ] Currency unit a **required** choice, no default and no inference
-- [ ] Persian/Arabic digit, separator and ی/ک normalisation before parsing
-- [ ] `.xlsx`, legacy `.xls`, and CSV in windows-1256 as well as UTF-8
+> ### ✅ CHECKPOINT 2 — CLEARED 2026-08-18
+>
+> **Variant representation:** one row = one product + one `options: []` variant; grouping
+> opt-in, never inferred; barcode → SKU match ladder. Recorded as
+> [ADR 0013](adr/0013-flat-product-import.md). The ruling rationale is the **reversibility
+> asymmetry** — flat-and-wrong costs an afternoon of tidying, grouped-wrong is permanent
+> once stock movements and invoice lines reference those variants.
+>
+> **Stock: catalog only.** The «موجودی» column appears in the mapping list greyed and
+> labelled «وارد نمی‌شود», with a pointer to the correct path (opening purchase receipt or
+> stock count), so it reads as deliberate rather than broken.
+>
+> **Format claims, probed against the live reader layer before designing anything:**
+> `.xlsx`, legacy `.xls` (BIFF8) and UTF-8 CSV already work. windows-1256 CSV does **not**
+> — it reads as mojibake and the header row comes back empty. No ی/ک normaliser exists.
+> Money parsing was silently 10×/100× wrong (fixed — see below).
+
+- [x] Variant representation in a flat file — one decision, documented, driving both the
+      template and the mapping screen. [ADR 0013](adr/0013-flat-product-import.md)
+- [x] **Money parsing routed through `Money::parse()`** — pulled forward out of 11b because
+      it was a **live 10×/100× error on customer balances**, not a products-import concern.
+      An Iranian sheet writes a decimal with a slash; the old parser stripped every
+      non-digit and concatenated the fraction onto the amount, so `12500000/0` toman was
+      imported as 1,250,000,000 rial. `Money::parse()` now reads all three decimal marks
+      (`/`, `٫`, `.`) with exact integer arithmetic and **refuses** an amount that does not
+      land on a whole rial. An unreadable cell is a row error, never a zero balance. Nothing
+      to remediate: no staging or production exists, and the dev database has zero parties
+- [x] Three layers, all required: downloadable template · **column mapping screen** ·
+      dry-run preview that writes nothing until confirmed. Reachable at `/catalog/import`
+      from a «ورود گروهی» action on the products list, behind a new `catalog.import`
+      permission (Owner and Manager have it; Warehousekeeper does not — one click writes
+      the whole catalogue and, on re-import, a new price for every matched row)
+- [x] Currency unit a **required** choice, no default and no inference — unpicked on the
+      screen, blocking the step, and `required` in the FormRequest so a client that omits
+      it is rejected rather than served a guess
+- [x] Persian/Arabic digit, separator and ی/ک normalisation before parsing — **ی/ک is
+      code-page repair, not tidying**: windows-1256 cannot encode Persian yeh, so every
+      «گوشی» in a legacy file physically arrives as «گوشي»
+      ([catalog spec](specs/catalog.md#products-import-phase-11b))
+- [x] `.xlsx`, legacy `.xls`, and CSV in windows-1256 as well as UTF-8. `Encoding` decides
+      from UTF-8 validity rather than asking a shopkeeper which code page their export
+      used, and the verdict is **announced** in the file chip
+      («این فایل با کدپیج قدیمی ذخیره شده و اصلاح شد») so the repair is visible.
+      `ProductImportReadPathsTest` pins one catalogue written four ways and asserts all
+      four read back identically — the fixture is constrained by what cp1256 can hold,
+      which is itself the proof that the ی/ک repair is structural
+- [x] Quantity column shown greyed and labelled «وارد نمی‌شود» with a pointer to the
+      correct path (فاکتور خرید / انبارگردانی) — silence here reads as a bug
+- [x] **Found on the browser walk, not by a test:** a row with more fields than the header
+      has an unescaped delimiter inside a value, and every column after it shifts. An
+      unquoted `18,900,000` in a comma-delimited file split into three cells, the price
+      column read `18`, and the phone imported at eighteen toman — no error, no empty
+      cell. Now a row error naming both counts. Two further UI defects the walk caught:
+      `<Money value=…>` instead of `rial=…` (the component's own guard threw at render),
+      and verdict messages overflowing their cell so the half saying *what to do about it*
+      was clipped
 
 ### 11c — Audit-log viewer
 
@@ -1335,6 +1384,12 @@ would, and the worst place to discover one is in front of a customer.*
       against what Iranian shop-management products actually charge, confirm the add-on
       stack still prices above the plan that contains it, and re-check the ladder against
       inflation since 1405.
+- [ ] **Collect 2–3 real هلو/سپیدار/محک exports from pilot shops and pin them as
+      fixtures** for the products-import header hints. The mapping screen is deliberately
+      built not to depend on knowing these layouts, so this is not blocking — it is the
+      difference between a guesser that usually works and one that is measured. Inventing
+      plausible column names instead would tune the guesser to a fiction *and look tested*,
+      which is worse than the gap
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages

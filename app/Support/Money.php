@@ -91,20 +91,79 @@ final class Money
     /**
      * Parse user input (Persian or Latin digits, with or without separators) into rial.
      *
-     * Accepts "1,250,000", "۱۲۵۰۰۰۰", " 1250000 ". Rejects anything with a decimal
-     * point or a stray character rather than guessing.
+     * Accepts "1,250,000", "۱۲۵۰۰۰۰", " 1250000 ", and a fractional amount written with
+     * any of the three decimal marks in circulation here: the Persian slash
+     * («۱۲۵۰/۵»), the Arabic decimal separator U+066B, or a Latin point.
+     *
+     * ## Why the slash matters
+     *
+     * An Iranian sheet writes a decimal with `/`, and the obvious way to normalise money
+     * — strip everything that is not a digit — **concatenates the fraction onto the
+     * amount**: `12500000/0` toman becomes 125000000 toman, ten times the price, with no
+     * error anywhere. That was live in the customer import (opening balances and credit
+     * limits) and is what this method now exists to prevent. A dot is worse: `12500000.00`
+     * lands a hundred times high.
+     *
+     * ## Exact, and integer throughout
+     *
+     * Golden rule 2 forbids a float anywhere near money, so the fraction is carried as an
+     * integer numerator over a power-of-ten scale and the division happens once, only
+     * after it has been proven exact. An amount that does not land on a whole rial is
+     * **rejected, never rounded** — the same conservatism as {@see toToman}. So
+     * `1250/5` toman is a legitimate 12,505 rial, while `1250/55` toman is 12,505.5 rial
+     * and throws.
+     *
+     * Two decimal marks in one value (a European-style `12.500.000`) are ambiguous
+     * between grouping and fraction, and are rejected rather than guessed.
      */
     public static function parse(string $input, string $unit = self::UNIT_RIAL): int
     {
-        $normalised = str_replace([',', '٬', ' ', ' ', '‌'], '', Digits::toLatin(trim($input)));
-
-        if ($normalised === '' || preg_match('/^-?\d+$/', $normalised) !== 1) {
-            throw new InvalidArgumentException("Cannot parse [{$input}] as an integer money amount.");
+        if (! in_array($unit, [self::UNIT_RIAL, self::UNIT_TOMAN], true)) {
+            throw new InvalidArgumentException("Unknown currency unit [{$unit}].");
         }
 
-        $value = (int) $normalised;
+        // Thousands grouping goes first: a separator is noise, and `Digits::toLatin`
+        // has already turned the Persian mark into a comma. The three space-like
+        // characters are a plain space, a non-breaking space and a ZWNJ, all of which
+        // a Persian keyboard produces inside numbers.
+        $normalised = str_replace([',', '٬', ' ', ' ', '‌'], '', Digits::toLatin(trim($input)));
 
-        return $unit === self::UNIT_TOMAN ? self::fromToman($value) : $value;
+        $negative = str_starts_with($normalised, '-');
+        $normalised = ltrim($normalised, '-');
+
+        // Every decimal mark becomes one character so there is a single thing to count.
+        $normalised = str_replace(['/', '٫'], '.', $normalised);
+
+        if ($normalised === '' || substr_count($normalised, '.') > 1) {
+            throw new InvalidArgumentException("Cannot parse [{$input}] as a money amount.");
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', $normalised), 2, '');
+
+        if (preg_match('/^\d+$/', $whole) !== 1 || ($fraction !== '' && preg_match('/^\d+$/', $fraction) !== 1)) {
+            throw new InvalidArgumentException("Cannot parse [{$input}] as a money amount.");
+        }
+
+        // A cap, because `10 ** strlen($fraction)` overflows silently past 18 digits and
+        // no real price carries seven decimal places.
+        if (strlen($fraction) > 6) {
+            throw new InvalidArgumentException("Amount [{$input}] carries more decimal places than any price has.");
+        }
+
+        $scale = 10 ** strlen($fraction);
+        $multiplier = $unit === self::UNIT_TOMAN ? self::RIAL_PER_TOMAN : 1;
+
+        $numerator = ((int) $whole * $scale + (int) ($fraction === '' ? '0' : $fraction)) * $multiplier;
+
+        if ($numerator % $scale !== 0) {
+            throw new InvalidArgumentException(
+                "Amount [{$input}] is not a whole number of rial; refusing to round money."
+            );
+        }
+
+        $rial = intdiv($numerator, $scale);
+
+        return $negative ? -$rial : $rial;
     }
 
     /**
