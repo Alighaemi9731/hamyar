@@ -6,6 +6,7 @@ namespace App\Modules\Catalog\Services;
 
 use App\Modules\Catalog\Models\PriceLevel;
 use App\Modules\Catalog\Models\ProductPrice;
+use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 
 /**
@@ -23,6 +24,8 @@ final class PriceResolver
 {
     /** @var array<string, ProductPrice|null> */
     private array $cache = [];
+
+    public function __construct(private readonly TenantContext $context) {}
 
     /**
      * The price in integer rial, or null when the variant has no price at all.
@@ -44,7 +47,23 @@ final class PriceResolver
             return null;
         }
 
-        $key = "{$variantId}:{$priceLevelId}:{$at->getTimestamp()}";
+        /*
+        | The tenant leads the key, and that is what makes this class safe to share.
+        |
+        | It was `variant:level:timestamp`. Variant ids are unique across the whole table,
+        | so that looked sufficient — but only while every resolution of this class was a
+        | fresh instance. As a container singleton the cache outlives a tenant switch, and
+        | there are three of those in normal operation: a queued job, a test's `runFor()`,
+        | and the storefront resolving a price-list token mid-request.
+        |
+        | Without the tenant in the key, shop A reading variant 42 would seed a row that
+        | shop B could then read back by passing `variant_id=42` in a crafted request — RLS
+        | would have returned nothing, and the cache would answer with A's price. A leak
+        | created by a performance optimisation, which is the worst kind to look for.
+        */
+        $tenantId = $this->context->id() ?? 0;
+
+        $key = "{$tenantId}:{$variantId}:{$priceLevelId}:{$at->getTimestamp()}";
 
         if (array_key_exists($key, $this->cache)) {
             return $this->cache[$key];

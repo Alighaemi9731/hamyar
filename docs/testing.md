@@ -376,6 +376,86 @@ fixture writes the permissive value. See "the fixture talking, not the query" un
 seeded data that populates one side of a conditional leaves the other branch unexercised,
 and the measurement or assertion covering it is describing nothing.
 
+#### Three defects that a gate now catches, and the question behind each
+
+The pattern above has a family, and it kept costing. Each of these shipped, each was found
+by accident rather than by a test, and each has the same tell: **nothing crashes — the
+wrong thing silently wins a name, a call, or a placement.** All three now fail the build
+(`composer guards`, and three steps in CI), because a rule that lives only in prose is a
+rule somebody re-derives at 2am.
+
+The audit question and the grep are given for each, because the gate catches the *shape*
+and the question catches the *variant the gate has not learned yet*.
+
+**1 — Is the `try` outside the `DB::transaction()`?**
+
+An idempotent insert that catches 23505 must run in a nested transaction, and the `try`
+must sit **outside** it. `DB::transaction()` releases its SAVEPOINT when the closure
+*throws*; a closure that swallows its own exception never triggers that, so the recovery
+query runs on a still-aborted connection and dies with `25P02`.
+
+Got wrong three times — `AbandonedSweep::insertOnce()`, `SendSms::record()`,
+`SubmitInvoice::enqueue()`. Twice it presented as **a cascade of unrelated tests failing**
+after the one that actually collided, which is the most expensive way to find anything.
+
+```bash
+# Every recovery site with its surrounding lines, so you can eyeball the nesting:
+grep -rn -B6 '23505' app/ --include='*.php'
+php bin/check-savepoint-recovery      # the gate
+```
+
+**2 — Does any vendor package define this global helper already?**
+
+`function_exists`-guarded helpers are first-writer-wins, and Composer loads vendor `files`
+**before** the application's. `App\Support\helpers.php` defined `jdate()`; so does
+morilog/jalali. Ours was dead for eight phases and *looked* live — it returned the
+package's format, with a time on it, where every screen renders `۱۴۰۵/۰۶/۰۲`. Nothing
+called it until a Blade view did.
+
+```bash
+# vendor/composer/autoload_files.php IS the authoritative list of globally-loaded files —
+# every package that ships helpers is in it, so there is nothing to guess or maintain:
+php -r 'foreach (require "vendor/composer/autoload_files.php" as $f) echo $f, "\n";' \
+  | xargs grep -hEo '^ *function [a-z_]+' 2>/dev/null | sort -u
+php bin/check-global-helpers          # the gate
+```
+
+**3 — Is this `forget()` clearing anything at all?**
+
+`app(Foo::class)->forget()` on a class that is not bound `singleton()` clears a **brand-new
+instance's empty cache** while the one the caller holds keeps answering stale.
+`BranchAccess` was the first found; the gate then turned up **87 more no-op calls** across
+`SubscriptionResolver` and `PriceResolver`.
+
+```bash
+# Which classes are forgotten through the container…
+grep -rEno 'app\([A-Za-z]+::class\)->forget\(' app/ tests/ | sed 's/.*app(/app(/' | sort -u
+
+# …and which are actually shared. Anything in the first list and not the second is a no-op.
+grep -rn 'singleton(' app/Modules/*/Providers/*.php app/Providers/*.php
+
+php bin/check-forgettable-singletons  # the gate
+```
+
+**And the sting in the tail of #3.** Binding a memoising class as a singleton is not free:
+it turns per-instance state into **shared** state. `PriceResolver` keyed its cache
+`variant:level:timestamp` — sufficient while every resolution was a fresh instance, and a
+**cross-tenant leak** the moment it is shared, because a crafted request can pass another
+shop's variant and level ids and read back a price RLS would have refused. Three ordinary
+situations serve two tenants from one container: a queued job, a test's `runFor()`, and the
+storefront resolving a price-list token mid-request.
+
+So the follow-up question, every time: **what is in the cache key, and is the tenant in
+it?** A leak introduced by a performance optimisation is the worst kind to go looking for,
+because nothing about the optimisation looks like access control.
+
+`PriceResolverSharingTest` pins it — and took **three attempts to become capable of
+failing**, which is the §3 discipline arriving in person: first the instant defaulted to
+`now()` so the two calls never shared a key; then the price level defaulted so each shop
+resolved its own; only when both ids were passed explicitly did removing the tenant from
+the key produce `Failed asserting that 88819990 is null`. Two green runs before that, in a
+file written specifically to catch a leak.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no

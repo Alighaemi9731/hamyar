@@ -9,6 +9,7 @@ use App\Modules\Catalog\Models\Category;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Policies\CategoryPolicy;
 use App\Modules\Catalog\Policies\ProductPolicy;
+use App\Modules\Catalog\Services\PriceResolver;
 use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
@@ -29,7 +30,17 @@ final class CatalogServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
-        //
+        /*
+        | Shared, so that `forget()` means something — `bin/check-forgettable-singletons`
+        | enforces the pairing.
+        |
+        | The prices a screen resolves are the same prices the next screen resolves in the
+        | same request, and a per-injection instance threw that away. The cache key had to
+        | gain the tenant first: a shared memo keyed only by variant id becomes a
+        | cross-tenant leak the moment two shops are served in one process, which happens in
+        | a queued job, in a test's `runFor()`, and in the storefront's token resolution.
+        */
+        $this->app->singleton(PriceResolver::class);
     }
 
     public function boot(): void

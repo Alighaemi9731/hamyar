@@ -20,7 +20,13 @@ Rules that override convenience:
 - Every tenant-scoped endpoint ships with a cross-tenant isolation test.
 - **DECISION GATE** tasks stop the session. Present the summary, ask the human, wait.
 
-Legend: `[ ]` todo · `[x]` done · `[~]` in progress (only one at a time) · `[!]` blocked
+Legend: `[ ]` todo · `[x]` done · `[~]` in progress (only one at a time) · `[!]` blocked ·
+`[→]` moved to another phase, with the destination named on the line
+
+**Never tick a box to make a phase read tidy.** A skipped item rendering as done is the same
+family as the three rules in CLAUDE.md that this project keeps re-learning: nothing crashes,
+the wrong thing silently wins. `[→]` exists so a deferred item leaves a trail instead of a
+gap.
 
 ---
 
@@ -1145,11 +1151,23 @@ converging on them later.
       an aborted connection and dies with the very 25P02 the wrapper exists to prevent.
       Third occurrence; now written down with both shapes
 
-### 10.5 Data tools
-- [ ] Full tenant export (Excel/JSON zip)
-- [ ] Products import
-- [ ] Backup-request button (admin-side artisan)
-- [ ] Audit-log viewer UI with filters
+### 10.5 Data tools — **deferred, deliberately** (see [the 11a/11b split](#phase-11--hardening-performance-launch))
+> Not skipped for time. Export and import are the two features most tightly coupled to
+> schema shape, and Phase 11 hardening moves schema and tenant-isolation boundaries — build
+> them before hardening and you build them twice, the second time under launch pressure.
+> Two of the four boxes below left this section rather than staying and rotting:
+> **products import → 11b** (onboarding-blocking: ~40–50 evaluators arrive with an existing
+> Excel catalog from Iranian accounting software, and one that cannot be loaded is an
+> evaluator lost on day one) and **audit-log viewer → 11c** (a support tool at that headcount,
+> not a compliance feature).
+
+- [ ] Full tenant export (Excel/JSON zip) — post-launch. It is what a shop asks for the
+      first time they consider leaving, which is not week one of an evaluation
+- [→] Products import — **moved to [11b](#11b-products-import)**, built on the settled schema
+- [ ] Backup-request button (admin-side artisan) — **decide after the 11d restore drill.**
+      A button that requests a backup nobody has ever restored is a button that produces
+      false confidence; the drill answers whether this is worth building at all
+- [→] Audit-log viewer UI with filters — **moved to [11c](#11c-audit-log-viewer)**
 
 ### 10.6 Tests
 - [x] Price-list link security (expiry, password, price level) — `PriceListSecurityTest`,
@@ -1162,7 +1180,7 @@ converging on them later.
 - [x] Moadian driver contract tests with a fake — accept, reject and transport failure, plus
       the disabled default (writes nothing, surfaces nothing) which is the launch
       configuration for every shop
-- [ ] Export completeness snapshot — belongs with 10.5, which is not built
+- [ ] Export completeness snapshot — belongs with tenant export, which is post-launch (10.5)
 
 > ### ✅ DECISION GATE 4 — CLEARED 2026-08-16
 >
@@ -1184,6 +1202,27 @@ converging on them later.
 ---
 
 ## Phase 11 — Hardening, Performance, Launch
+
+> **Phase 11 runs in four passes, and the order is the point.**
+>
+> Launch is ~40–50 of the owner's own customers evaluating concurrently, not a handful of
+> pilots. That changes two things. **Tenant isolation stops being theoretical**: with three
+> pilots a cross-tenant leak might never surface; with fifty concurrent evaluators it will,
+> and the worst place to discover it is in front of a customer. And **schema-coupled
+> features must not be built twice** — anything that reads or writes the shape of the
+> database wants the boundaries settled first.
+>
+> | pass | what | why here |
+> |---|---|---|
+> | **11a** | the hardening that moves schema and tenant-isolation boundaries | isolation first, before anything is built on top of the shape it settles |
+> | **11b** | products import (from 10.5) | onboarding-blocking, and built once on the settled schema |
+> | **11c** | audit-log viewer (from 10.5) | «چرا این عوض شد؟» is a weekly support question at fifty evaluators; `spatie/activitylog` has collected since Phase 2 with no UI over it |
+> | **11d** | the rest of launch hardening, **including a real end-to-end restore drill** | if nobody has restored this system end to end, that is the largest unhardened thing in the project |
+>
+> The restore drill reports the **RTO actually observed**, never an estimate. With fifty
+> customers' data in it, a failed restore is not a bug — it is the launch.
+
+### 11a — Schema and tenant-isolation hardening
 
 ### 11.1 Security
 - [ ] OWASP ASVS-L1 checklist in `docs/security.md`
@@ -1232,6 +1271,26 @@ converging on them later.
 - [ ] Restore drill documented **and performed once** (log committed)
 - [ ] Sentry + health endpoint + uptime hook
 - [ ] Horizon production config
+
+### 11b — Products import
+
+*Promoted from 10.5. Built on the schema 11a settles.*
+
+- [ ] Variant representation in a flat file — one decision, documented, driving both the
+      template and the mapping screen
+- [ ] Three layers, all required: downloadable template · **column mapping screen** ·
+      dry-run preview that writes nothing until confirmed
+- [ ] Currency unit a **required** choice, no default and no inference
+- [ ] Persian/Arabic digit, separator and ی/ک normalisation before parsing
+- [ ] `.xlsx`, legacy `.xls`, and CSV in windows-1256 as well as UTF-8
+
+### 11c — Audit-log viewer
+
+*Promoted from 10.5. Read-only UI over data `spatie/activitylog` has collected since Phase 2.*
+
+- [ ] Filterable by tenant, by user, by date, by subject
+
+### 11d — Remaining launch hardening
 
 ### 11.4 Launch kit
 - [ ] **Choose, register and configure the production apex domain.** `mobishop.ir` is a
