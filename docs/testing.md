@@ -526,6 +526,29 @@ resolved its own; only when both ids were passed explicitly did removing the ten
 the key produce `Failed asserting that 88819990 is null`. Two green runs before that, in a
 file written specifically to catch a leak.
 
+**A gate that reports ten non-bugs dies socially before it dies technically.** Nobody
+deletes a noisy check; they comment out the CI step "just for this PR", and it never comes
+back. So the false-positive rate is not a polish concern — it is the gate's survival
+condition, and it is paid for at the time of writing or not at all.
+
+Two things buy it, and the unique-index check in `tenancy:check` needed both:
+
+- **Resolve transitive scoping before reporting.** A unique index leading with a foreign
+  key to a tenant-owned row is already scoped — the parent carries `tenant_id`, so two
+  shops cannot collide through it. A gate that only looks for the literal column reports
+  every one of those as a finding. Following the foreign key took the report from ten
+  entries to zero on a clean schema, which is the difference between a check somebody runs
+  and a check somebody silences.
+- **Allow-list deliberate exceptions with a reason each, in the source.** Four indexes here
+  are genuinely global and must stay that way — two bearer credentials, one gateway-issued
+  id, one public URL segment. Written as bare names they are indistinguishable from
+  oversights the next reader will "fix"; written with the reason beside them they are a
+  decision the gate is enforcing rather than a hole in it.
+
+And prove the gate can fail, per §3: the unique-index check was verified by planting an
+unscoped index on `parties.national_id` and watching it get reported. A gate that has only
+ever printed zero findings has not been shown to have eyes.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no
