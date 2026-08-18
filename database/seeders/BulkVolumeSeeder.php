@@ -833,8 +833,14 @@ final class BulkVolumeSeeder extends Seeder
                 r.id,
                 r.installment_plan_id,
                 ?,
-                (r.amount / 3)::bigint,
-                (r.amount / 3)::bigint,
+                -- `/ 30 * 10`, not `/ 3`: a third of a whole-toman amount is generally
+                -- NOT a whole toman, and `amount - collected` then lands on a rial
+                -- figure this product refuses to display. `Money::inUnit()` throws
+                -- rather than rounding a customer's money away (golden rule 2), so the
+                -- dashboard 500s on a fixture that looked fine for months — the only
+                -- consumer was a latency test that never formatted what it summed.
+                ((r.amount / 30)::bigint * 10),
+                ((r.amount / 30)::bigint * 10),
                 0,
                 'cash',
                 r.due_at,
