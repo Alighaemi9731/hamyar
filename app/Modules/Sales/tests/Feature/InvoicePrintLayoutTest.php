@@ -14,18 +14,34 @@ declare(strict_types=1);
  * `96,636,7981,200,00089,200,0001`.
  *
  * Measuring that properly needs a browser: it is a question about rendered box widths.
- * Pest 4 can do it, but browser testing is not wired into this repo or its CI yet, and
- * a test that silently does not run is worse than one that is honest about its reach.
  *
  * So this asserts the *mechanism* rather than the *outcome*, in the same spirit as
  * `bin/check-direction-classes`: it fails the moment somebody removes the fixed layout
  * or the explicit column widths, which is exactly how this regresses. It cannot catch a
  * width that is merely too small.
  *
- * **When browser testing lands, replace this with a rendered assertion** that loads the
- * seeded invoice and checks no two cells in a row overlap. That replacement is not a
- * someday note: it is a tracked task in `docs/ROADMAP.md` § 11.1b, which owns wiring
- * Pest 4 browser testing into CI and converting this file.
+ * ## Browser testing landed, and this file stayed — deliberately
+ *
+ * 11.1b wired Pest 4 browser tests into CI and added the rendered assertion this
+ * docblock used to promise: `tests/Browser/InvoicePrintLayoutTest.php` loads a real
+ * invoice with the long name above and measures every cell's box on A4 and A5.
+ *
+ * It did **not** replace this file, because it could not be shown to catch what this
+ * file catches. Removing `table-fixed` — the exact regression this guards — leaves the
+ * rendered test green: at A4 the browser balances an `auto` layout into 703px of a
+ * 794px sheet, every figure fits its column, and nothing overlaps. The historical
+ * collision needed a squeeze that a screen-width preview of A4 does not reproduce, and
+ * thermal80 does not use a table at all.
+ *
+ * So the two guard different halves and both are load-bearing:
+ *
+ * - **this file** fails the moment the mechanism is removed, which is how the defect
+ *   actually regresses — somebody deletes a class that looks decorative;
+ * - **the rendered test** fails when a width is merely too small, which is the case
+ *   this one admits it cannot see.
+ *
+ * Deleting either would leave a real gap. What has changed is that the gap this file
+ * names is now covered rather than merely acknowledged.
  */
 
 /**

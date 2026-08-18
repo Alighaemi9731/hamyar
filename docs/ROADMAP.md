@@ -1317,16 +1317,23 @@ would, and the worst place to discover one is in front of a customer.*
         stop exactly that
       - `tests/Browser` sits outside every declared testsuite, so a default `pest` on a
         machine that has not run `npm run build` does not fail
-- [ ] **Replace `app/Modules/Sales/tests/Feature/InvoicePrintLayoutTest.php` with the
-      rendered assertion its own docblock names**: load a seeded invoice whose product
-      name is a realistic long Persian one — «گوشی موبایل اپل آیفون ۱۵ پرو مکس ظرفیت ۲۵۶
-      گیگابایت تیتانیوم طبیعی» — and assert **no two cells in a row overlap** by
-      measuring their boxes. The defect this replaces was real and shipped-adjacent:
-      an `auto` table layout ran three money figures together as
-      `96,636,7981,200,00089,200,0001`. The current test asserts the *mechanism* (the
-      fixed layout and the explicit column widths are still in the source) and is honest
-      in its docblock that it cannot catch a width that is merely too small. That gap is
-      accepted for now — **this task is its owner and its date.**
+- [x] **Rendered assertion added — but it did not replace the source one, and the
+      difference is the finding.** `tests/Browser/InvoicePrintLayoutTest.php` sells the
+      seeded handset at the collision's own figure (`۹۶,۶۳۶,۷۹۸` toman) under the long
+      Persian name, then measures every cell on A4 and A5: no box overlaps a neighbour,
+      and no cell's content is wider than the cell that owns it — the second being the
+      real mechanism, since `table-fixed` holds the *boxes* still while the *text*
+      spills.
+      **The replacement was attempted and refused on evidence.** Removing `table-fixed`
+      — the exact regression the source test guards — leaves the rendered test green: at
+      A4 the browser balances an `auto` layout into 703px of a 794px sheet with room to
+      spare, and thermal80 uses no table at all. The historical squeeze does not
+      reproduce in a screen-width preview. So both are kept, each guarding the half the
+      other cannot see, and the source test's docblock now says so instead of promising
+      its own deletion. Two fixture facts worth keeping: the price must land on a whole
+      toman or `Money::inUnit()` refuses it (golden rule 2 — the guard has eyes), and a
+      VAT total the cash payment does not cover needs a party, or the POS correctly
+      rejects the credit sale
 - [ ] Audit for other mechanism-level guards standing in for rendered ones and convert
       them in the same pass (`grep -rn "asserts the \*mechanism\*" app/Modules`); each
       conversion deletes the "when browser testing lands" caveat from its docblock rather
