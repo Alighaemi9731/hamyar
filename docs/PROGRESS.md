@@ -1561,3 +1561,54 @@ now scales to the machine against a fixed reference workload, one-directionally 
 box never earns a tighter ceiling than the spec promises, and the failure message names
 the scale so a reader can tell a broken promise from a busy runner. Verified by planting
 a regression, because a gate that has only printed green has not been shown to have eyes.
+
+---
+
+## 1405/05/27 (2026-08-18) — Phase 11d pass 1: security (11.1)
+
+Audited before building. The pattern from 11c held: four of the eight items were already
+satisfied and needed *verifying and writing down*, not implementing — the rate limits
+were all in place, and login was throttled per credential **and** IP rather than per
+route, which is the harder and better version. Ticking those without checking would have
+been the same error 11c's premise made.
+
+`docs/security.md` is an ASVS-L1 audit where every line is either verified with the file
+or test that proves it, or named as a gap with its cost. Gaps are named, including one
+this pass declined to close unilaterally: `shadcn`, a scaffolding CLI, sits in
+`dependencies` rather than `devDependencies`, which is what puts `postcss` and its
+`nanoid` advisory in the **production** tree. Moving it alters the dependency manifest,
+so it is proposed rather than taken.
+
+**Three real holes closed.**
+
+*Security headers and a CSP* existed nowhere. The policy is written against what this
+application actually does rather than copied: nonce-based `script-src` with no
+`'unsafe-inline'`, and one honest relaxation — `style-src` — because seven components set
+a computed style attribute and a policy without it flattens every chart and mis-sizes
+every printed label sheet. The middleware is registered **globally rather than in the
+`web` group**: group middleware runs only after a route matches, so a 404 came back
+unprotected. A test asking for a page that does not exist found that; every real screen
+looked correctly protected.
+
+*Dependency audits* now run in CI, and found a live high-severity advisory on the day
+they were added.
+
+*The encrypted-columns inventory* is a test rather than a list, on the same principle as
+11c's redactor: it asks the models. The invariant is that an `encrypted` attribute must
+also be `$hidden` — the cast decrypts on access, so one that is not hidden reaches every
+`toArray()`, JSON response and log line in plaintext, encryption doing its job while the
+value ships anyway. Verified by planting a leak in `MoadianSetting`.
+
+**And one near-miss worth more than the finding.** Checking the claim "React escapes
+everything" turned up three `dangerouslySetInnerHTML` sites, one rendering a barcode from
+an operator-supplied string the products import can set in bulk. A quick probe reported
+the payload was echoed — and it was wrong. The check searched the SVG for the substring
+`script` and matched `&lt;script&gt;` inside a correctly escaped `<desc>`. Parsing the
+output instead showed zero script nodes and zero event handlers for every hostile input.
+**A test that looks for dangerous-looking text finds escaped text**; the question is
+whether a parser sees a script node, so `InlineSvgIsInertTest` asks a parser. The
+vulnerability was never there, and the test that proves it now is.
+
+Still open in 11d: 11.1b browser testing in CI, 11.2 performance, 11.3 ops — including
+the restore drill, which the phase preamble calls the largest unhardened thing in the
+project.
