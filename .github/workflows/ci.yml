@@ -282,17 +282,25 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
-      # `--with-deps` only on a cache miss: it shells out to apt-get for Chromium's
-      # shared libraries, which the runner image already carries most of, and that is
-      # the part with no reason to run twice.
+      # The browser itself: a download, no apt-get, no prompt to block on.
       - name: Install Chromium
         if: steps.chromium-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
 
-      # The libraries are not in the cached browser directory, so a cache hit still
-      # needs them present. Cheap when they are already installed.
+      # Chromium's shared libraries, separately and always — they live in the runner
+      # image rather than the cached browser directory, so a cache hit still needs them.
+      #
+      # Split out and hardened because this is the half that hung, twice, after three
+      # clean runs. It shells out to `apt-get`, and an apt-get that meets a
+      # configuration prompt waits on stdin **forever** — which is not a slow step, it
+      # is a step that never returns. `DEBIAN_FRONTEND=noninteractive` is what stops it
+      # asking, and the step timeout is what makes a hang a red check in four minutes
+      # rather than a check that silently never comes back.
       - name: Ensure Chromium's system libraries
-        if: steps.chromium-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 4
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: npx playwright install-deps chromium
 
       - name: Provision the test database and the non-superuser app role
