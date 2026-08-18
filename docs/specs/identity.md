@@ -59,13 +59,44 @@ seeing purchase prices is how margins leak to competitors.
 ### Tenant context
 
 Resolved from the subdomain by middleware, which also issues
-`SET LOCAL app.tenant_id`. Unknown subdomain → 404, never a fallback to another
-tenant. Queue jobs serialise the tenant id and restore context before `handle()`.
+`select set_config('app.tenant_id', <id>, false)` — **session-scoped, not
+`SET LOCAL`**. `SET LOCAL` is transaction-scoped and Laravel does not wrap a request
+in a transaction, so it would silently set nothing and every tenant query would return
+zero rows (golden rule 1, [ADR 0007](../adr/0007-tenant-session-variable.md)). Session
+scope is why the value must be cleared at each of the four boundaries. Unknown
+subdomain → 404, never a fallback to another tenant. Queue jobs serialise the tenant id
+and restore context before `handle()`.
 
 ## Screens
 
 Onboarding wizard · login · password reset · 2FA setup and challenge · user list ·
 invite · role assignment · session management · activity log viewer.
+
+### Activity log viewer (Phase 11c)
+
+`/settings/activity`, behind `activity.view` (Owner and Manager by default).
+
+**Read-only is a property, not a convention.** No route reaches the controller with a
+mutating verb, the controller exposes no public action but `index`, and the policy has
+no ability but `viewAny` — all three asserted by `ActivityLogRoutesTest`, so making the
+trail writable means deleting a test that says why not.
+
+Filters: actor · subject type · one specific record · Jalali date range · free text over
+the description. A malformed filter redirects to the clean screen rather than `back()`,
+which would be the same bad URL and loop; the page renders the whole error bag, because
+a filter-bar error belongs to no field the reader is looking at.
+
+**Both ways in, and the second matters more.** The standalone screen browses; the
+«تاریخچه» link on a product or party page *answers*, opening that record's own history
+titled with its name. A record's history includes the entries of records its module
+declares as belonging with it — a product's history carries its variants' price changes,
+without which the link built for «کی این قیمت را عوض کرد؟» contains no price change at
+all ([ADR 0014](../adr/0014-audit-surface-and-log-isolation.md)).
+
+**Secrets never reach the table.** Redaction happens on write, over both
+`attribute_changes` and `properties`, from a per-model list derived from `$hidden` and
+encrypted casts — the log masks what the model masks, so a new secret field is covered
+by the declaration that already protects it elsewhere.
 
 ## Events
 
@@ -83,6 +114,11 @@ Emits: `TenantOnboarded`, `UserInvited`, `UserActivated`, `UserDeactivated`,
 - A queued job runs under the correct tenant, and a worker handling tenant A then
   tenant B leaks no context.
 - Reserved and duplicate subdomains are rejected.
+- The audit log is reachable by no mutating verb, and its policy grants only `viewAny`.
+- A secret planted in an activity payload is masked in the **database**, not merely on
+  the screen.
+- A price change is visible on the product's history, not only the variant's.
+- Tenant B asking for tenant A's record history gets an empty log **and** no record name.
 
 ## Out of scope
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Models;
 
+use App\Support\Audit\Auditable;
 use App\Support\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class PriceLevel extends Model
 {
+    use Auditable;
     use BelongsToTenant;
 
     /** @use HasFactory<\Database\Factories\PriceLevelFactory> */

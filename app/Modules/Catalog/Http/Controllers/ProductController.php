@@ -97,7 +97,7 @@ final class ProductController extends Controller
             ->with('success', 'کالا ثبت شد. حالا ویژگی‌ها و تنوع‌ها را بسازید.');
     }
 
-    public function edit(Product $product, CategoryTree $tree): Response
+    public function edit(Request $request, Product $product, CategoryTree $tree): Response
     {
         $this->authorize('view', $product);
 
@@ -130,6 +130,13 @@ final class ProductController extends Controller
             'categories' => $tree->options(),
             'brands' => $this->brandOptions(),
             'types' => $this->typeOptions(),
+
+            // Gates the «تاریخچه» link. The audit viewer authorises independently, so
+            // this only decides whether a link is drawn — a Warehousekeeper without
+            // `activity.view` should not be offered a door that answers 403.
+            'can' => [
+                'view_activity' => $request->user()?->can('activity.view') ?? false,
+            ],
         ]);
     }
 

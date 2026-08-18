@@ -111,7 +111,19 @@ final class RepairTicket extends Model
      *
      * @var list<string>
      */
-    protected $hidden = ['device_passcode'];
+    /**
+     * `device_passcode` has been here since Phase 6. The two tokens joined it in 11c,
+     * found while checking what the audit log would print: both are bearer
+     * credentials — `tracking_token` addresses the public tracking page and
+     * `approval_token` authorises a quote approval — and neither was declared
+     * sensitive anywhere. Nothing was leaking them today, because every controller
+     * hand-maps its ticket payload rather than serialising the model; this closes the
+     * gap before the first place that does not, and it is what teaches
+     * {@see \App\Support\Audit\Redactor} to mask them.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['device_passcode', 'tracking_token', 'approval_token'];
 
     /** @var array<string, mixed> */
     protected $attributes = [

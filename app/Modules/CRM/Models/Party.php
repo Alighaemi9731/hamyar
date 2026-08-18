@@ -6,6 +6,7 @@ namespace App\Modules\CRM\Models;
 
 use App\Modules\Catalog\Models\PriceLevel;
 use App\Modules\CRM\Enums\PartyKind;
+use App\Support\Audit\Auditable;
 use App\Support\Tenancy\BelongsToTenant;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -43,6 +44,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 final class Party extends Model
 {
+    use Auditable;
     use BelongsToTenant;
 
     /** @use HasFactory<\Database\Factories\PartyFactory> */

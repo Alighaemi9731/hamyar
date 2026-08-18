@@ -786,6 +786,134 @@ cannot be entered without a branch. The cost grew with the shop's whole history 
 than with the range — invisible at eleven demo invoices, and a complaint from the biggest
 customer eighteen months in.
 
+### A predicate the planner cannot use is an index that does not exist
+
+The `sales_invoices` case above is about a *missing* index. The audit log's was worse:
+the indexes were there, correct, and unreachable.
+
+`activity_log` holds central rows beside tenant ones, so its RLS policy was written
+null-tolerantly, the obvious way:
+
+```sql
+tenant_id IS NOT DISTINCT FROM current_setting('app.tenant_id')::bigint
+```
+
+**No btree can serve `IS NOT DISTINCT FROM`.** An RLS predicate is ANDed into every
+query against the table, so *every* index on `activity_log` was dead from the moment it
+was created — including the two added, carefully, for the viewer's filters. Nothing
+errored, no test failed, and `\d activity_log` listed four healthy indexes. The table
+simply scanned the whole platform to answer a question about one shop, a little slower
+with every shop that signed up.
+
+Two lessons, and the first is the one that generalises:
+
+1. **An index is not verified by existing.** `EXPLAIN` is the only thing that says a
+   query uses one. Reading the index list and the `WHERE` clause and concluding they
+   match is exactly the reasoning that produced this.
+2. **Check what your always-on predicates do to the plan.** RLS policies, global scopes
+   and soft-delete clauses are invisible in the query you wrote and present in the query
+   that runs. This one was written in Phase 2 and measured in 11c.
+
+Measured on a seeded 1.8M rows — fifty shops, a year of history, which is the scale the
+question was asked at:
+
+| predicate                                   | plan                | time     |
+|---------------------------------------------|---------------------|----------|
+| `IS NOT DISTINCT FROM` (RLS alone)          | Parallel Seq Scan   | 55.8 ms  |
+| indexable OR (RLS alone)                    | BitmapOr + sort     | 112 ms   |
+| indexable OR **+ the model's tenant scope** | Index Scan Backward | 0.6 ms   |
+
+The third row is why `Activity` carries a global scope duplicating what RLS already
+enforces: RLS is the security boundary, and the scope exists so the *planner* gets a
+plain `tenant_id = 4` it can seek on — Postgres cannot fold `current_setting()` at plan
+time, but the application knows the answer before it builds the query.
+
+Seed a realistic table before believing any of this. The load fixture is throwaway:
+
+```sql
+INSERT INTO activity_log (...) SELECT ... FROM generate_series(1, 1800000);
+ANALYZE activity_log;
+-- then EXPLAIN each filter the screen can actually produce, as the app role,
+-- with app.tenant_id set — not as the superuser, who bypasses RLS entirely and
+-- will happily show you a plan the application will never get.
+```
+
+### Guard the column the library writes, not the one its name suggests
+
+`spatie/activitylog` v5 splits an entry's payload across two columns. An audited
+**model's** before-and-after goes to `attribute_changes`; only a hand-written
+`->withProperties([...])` reaches `properties`.
+
+11c's redaction guarded `properties`. It is the column called properties, the model's
+accessor is `getProperty()`, and the Phase 2 code above it carried a comment asserting
+that v5 "exposes the before/after payload as `properties`". All of it was wrong in the
+same direction, and the effect was that the guard masked nothing at all for exactly the
+rows most likely to carry a secret — because an audited model never writes that column.
+
+The same mistake had already shipped once, quietly: the Phase 2 viewer read its change
+list from `properties`, so **every** entry rendered an empty diff for eight phases.
+Nobody noticed, because an audit log with no changes shown still looks like an audit log.
+
+**The test that would have caught it, and the one that would not.** Asserting on the
+model passes either way — it reads back whichever column the code was just taught to
+write, so the assertion and the bug move together. The assertion has to be made
+somewhere the library's own layout cannot follow it:
+
+```php
+$response = $this->get($url.'/settings/activity');
+
+expect($response->getContent())->not->toContain(SECRET_CODE);
+```
+
+Rendered output. Is the secret on the screen? A library can rearrange its storage
+between minor versions and that question keeps its meaning.
+
+Generalised: **when a dependency owns the storage, assert at the boundary you own.** For
+a secret that is the rendered page; for a queued job it is the payload the worker
+receives; for a cache it is what the next request sees.
+
+Two smaller notes from the same episode:
+
+- **Name the literal, and make it unlike anything the page prints legitimately.** The
+  first draft used `4517` for both the passcode and the ticket's id, and failed on
+  `subject_id: 4517`. A true negative for the wrong reason is a false alarm on a
+  different day, and a gate nobody trusts twice.
+- **Write the row past your own guard when testing the read path.** Redaction happens on
+  write, so a test that only writes normally can never exercise the reader's defence.
+  `saveQuietly()` after setting the raw attribute produces the row as it would exist if
+  it had been created before the guard did — which is the row the reader actually has to
+  survive, since no migration can un-write those.
+
+### A performance budget is a promise about production hardware
+
+`ReportLatencyTest` asserts the spec's «a report answers in under a third of a second».
+On 1405/05/27 it failed twice in twenty CI runs — once on `main`, once on a feature
+branch — with all 26 measurements shifted up roughly three-fold and the worst at 308.6ms
+against the 300ms ceiling. Neither was a regression: the same commits measured 23–24s
+locally against 63s on the runner.
+
+Two failures in twenty is a ten-percent false-positive rate, and the rule at the top of
+this document decides what happens next: **nobody deletes a noisy gate, they comment out
+the CI step "just for this PR".**
+
+The bug was in the assertion, not the reports. 300ms is a promise about the hardware a
+customer's shop runs on; a shared CI runner is not that hardware, so asserting the raw
+number there measures the wrong machine.
+
+The budget is now **scaled to the machine**: a fixed aggregate over one tenant's 100,000
+invoice items is timed in the same run, and the ceiling is stretched by however much
+slower that is than the development baseline. Scaling is one-directional — a fast box
+never earns a budget tighter than the number the spec promises.
+
+What that can and cannot catch is worth being explicit about, because a self-calibrating
+gate is one wrong step from a gate that always passes: a change slowing **everything**,
+calibration included, would be absorbed; a missing index making **one** report read a
+hundred times more rows while a fixed scan of another table costs what it always did
+would not. The second is the failure the gate exists for. Verified with a planted
+regression, per the rule above — dropping the budget to 40ms fails it and names the
+report, the scale, and the reference measurement, so the reader can tell a broken
+promise from a busy runner.
+
 ---
 
 ## 7. Writing a test — checklist
@@ -796,3 +924,7 @@ customer eighteen months in.
 4. Unit tests for any money, date or state-machine logic involved.
 5. Assert the ledger/movement rows, not just the HTTP status: a green 200 that wrote
    nothing is the failure mode that matters here.
+6. If the change touches a secret, assert it is absent from the **database**, not just
+   from the response. 11c's redaction test reads `getRawOriginal()` for exactly this
+   reason: a guard in the controller leaves the clear value in the table for a console,
+   a backup, or the next screen written over that data.

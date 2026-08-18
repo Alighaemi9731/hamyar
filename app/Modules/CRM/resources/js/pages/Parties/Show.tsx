@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { HistoryLink } from '@/components/domain/history-link';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
@@ -103,7 +104,7 @@ interface Props {
     balance: number;
     rule: { name: string; rial_per_point: number; expires_after_months: number | null } | null;
   };
-  can: { update: boolean; view_balance: boolean };
+  can: { update: boolean; view_balance: boolean; view_activity: boolean };
 }
 
 /**
@@ -131,6 +132,10 @@ export default function PartyShow({
       title={party.name}
       actions={
         <>
+          {/* «کی سقف اعتبار این مشتری را بالا برد؟» — the balance is a SUM over
+              ledger_entries and records nobody; the ceiling change is audited. */}
+          {can.view_activity && <HistoryLink subject="party" record={party.id} />}
+
           <Button variant="outline" asChild>
             <Link href="/crm">
               <ArrowRightIcon className="size-4 rtl:rotate-180" />

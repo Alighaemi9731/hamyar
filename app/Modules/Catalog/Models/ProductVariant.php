@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Models;
 
+use App\Support\Audit\Auditable;
 use App\Support\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 final class ProductVariant extends Model
 {
+    use Auditable;
     use BelongsToTenant;
 
     /** @use HasFactory<\Database\Factories\ProductVariantFactory> */
