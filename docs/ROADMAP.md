@@ -1224,6 +1224,34 @@ converging on them later.
 
 ### 11a — Schema and tenant-isolation hardening
 
+*Isolation first, because fifty concurrent evaluators will find a leak three pilots never
+would, and the worst place to discover one is in front of a customer.*
+
+- [x] **Cache audit ([ADR 0012](adr/0012-tenant-keyed-caches.md)).** RLS guards the database;
+      a memo is a read that never reaches it. Every stateful singleton now names the tenant
+      in its key **or says at the key why it does not** — `PriceResolver` gained the tenant
+      (a real leak, since a crafted request can supply another shop's variant and level ids),
+      `BranchAccess` carries a justification (its key is a `User` model RLS already returned,
+      not an id off a request), and the three boot-time registries say they hold code rather
+      than shop data. The audit is written into the isolation section of `docs/testing.md`,
+      where somebody is already thinking about leaks
+- [x] **Queued-job tenancy is enforced, not remembered** — `bin/check-queued-tenancy`. A job
+      runs on a worker that has just finished another shop's job, so "neither `TenantAware`
+      nor declared platform-wide" is the one state that must not exist. `SendRenewalReminders`
+      is genuinely platform-wide and now says so with `@platform-wide` and the reasoning,
+      which is the difference between *considered* and *forgotten*
+- [x] **Unique indexes must include `tenant_id`** — added to `php artisan tenancy:check`,
+      which already runs in CI. An unscoped unique index is a constraint **one shop can
+      impose on every other**: the first to register a national id or an SKU takes it from
+      the other 49, and the failure surfaces at their counter as a validation error about a
+      record they cannot see. It is also an existence oracle, which is the enumeration the
+      404-not-403 rule exists to prevent, arriving through the schema instead of a route.
+      The check resolves transitive scoping (an index leading with a foreign key to a
+      tenant-owned row cannot collide) so it reports **zero** findings on a clean schema
+      rather than ten — a gate that cries wolf is one somebody comments out. Four genuinely
+      global indexes are allow-listed with a reason each: two bearer credentials, one
+      gateway-issued id, one public URL segment
+
 ### 11.1 Security
 - [ ] OWASP ASVS-L1 checklist in `docs/security.md`
 - [ ] Rate limits: login, OTP, public tracking/price-list pages

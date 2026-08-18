@@ -75,12 +75,33 @@ final class TenancyCheckCommand extends Command
         'sessions',
     ];
 
+    /**
+     * Unique indexes that are global **on purpose**, each with the reason.
+     *
+     * Two shapes qualify, and nothing else should be added without one:
+     *
+     * · a **credential** — a token whose whole job is to be unguessable and to resolve
+     *   without a tenant context, because the holder has no session (see ADR 0002's
+     *   platform escape and `PriceListAccess::resolve()`);
+     * · a **public identifier** — something that appears in a URL or is issued by a third
+     *   party, where two shops claiming the same value is precisely what must be refused.
+     *
+     * @var array<string, string>
+     */
+    private const GLOBALLY_UNIQUE_BY_DESIGN = [
+        'price_list_links_lookup_unique' => 'Bearer credential: resolved before any tenant is known, by design.',
+        'invitations_token_hash_unique' => 'Bearer credential: an invite is opened by somebody with no session yet.',
+        'payment_attempts_authority_unique' => 'Issued by Zarinpal, not by us — global uniqueness is the gateway\'s.',
+        'storefront_settings_slug_unique' => 'Public path segment: two shops claiming /shop/mobile-iran must collide.',
+    ];
+
     public function handle(): int
     {
         $problems = [
             ...$this->checkTablesHaveRls(),
             ...$this->checkModelsUseTrait(),
             ...$this->checkCompositeIndexes(),
+            ...$this->checkUniqueIndexesAreScoped(),
         ];
 
         if ($problems === []) {
@@ -99,6 +120,129 @@ final class TenancyCheckCommand extends Command
         $this->line('  Every tenant table needs: tenant_id + composite index + BelongsToTenant + enableRls().');
 
         return self::FAILURE;
+    }
+
+    /**
+     * A UNIQUE index on a tenant table must include `tenant_id`.
+     *
+     * ## Why this is a tenancy rule and not a schema preference
+     *
+     * A unique index without the tenant is a **constraint one shop can impose on another**.
+     * The first shop to register `customer@gmail.com`, or SKU `IP15-256`, or invoice number
+     * `1405-0001`, takes that value away from all 49 others — and the failure surfaces at
+     * their counter as a validation error about a record they cannot see, which is
+     * unexplainable and unfixable by them.
+     *
+     * It is also an **existence oracle**: a 23505 on insert confirms that *somebody* holds
+     * the value, which is the enumeration the isolation suite's 404-not-403 rule exists to
+     * prevent, arriving through the schema instead of through a route.
+     *
+     * With three pilot shops a collision might never happen. With fifty evaluators loading
+     * their real catalogues on the same afternoon, it is the first thing that breaks — and
+     * `tenancy:check` is where somebody is already looking when they think about isolation.
+     *
+     * Primary keys are exempt (`id` alone is meant to be globally unique), and so are
+     * indexes on tables that carry no `tenant_id`.
+     *
+     * @return list<array{subject: string, issue: string}>
+     */
+    private function checkUniqueIndexesAreScoped(): array
+    {
+        $problems = [];
+
+        /** @var list<object{tbl: string, idx: string, cols: string}> $rows */
+        $rows = DB::select(
+            "select t.relname as tbl,
+                    i.relname as idx,
+                    array_to_string(array_agg(a.attname order by k.ord), ', ') as cols
+             from pg_class t
+             join pg_index ix on t.oid = ix.indrelid
+             join pg_class i on i.oid = ix.indexrelid
+             join unnest(ix.indkey) with ordinality k(attnum, ord) on true
+             join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum
+             join pg_namespace n on n.oid = t.relnamespace
+             where n.nspname = 'public'
+               and ix.indisunique = true
+               and t.relkind = 'r'
+             group by t.relname, i.relname
+             order by t.relname, i.relname"
+        );
+
+        $tenantTables = $this->tenantTables();
+        $scopingColumns = $this->columnsScopedByForeignKey($tenantTables);
+
+        foreach ($rows as $row) {
+            if (! in_array($row->tbl, $tenantTables, true)) {
+                continue;
+            }
+
+            $columns = array_map('trim', explode(',', $row->cols));
+
+            // The primary key. Globally unique by design.
+            if ($columns === ['id']) {
+                continue;
+            }
+
+            if (in_array('tenant_id', $columns, true)) {
+                continue;
+            }
+
+            // Transitively scoped: the index leads with a foreign key to a row that is
+            // itself tenant-owned, so two shops cannot collide on it.
+            if (array_intersect($columns, $scopingColumns[$row->tbl] ?? []) !== []) {
+                continue;
+            }
+
+            if (isset(self::GLOBALLY_UNIQUE_BY_DESIGN[$row->idx])) {
+                continue;
+            }
+
+            $problems[] = [
+                'subject' => "index {$row->idx}",
+                'issue' => "unique on ({$row->cols}) without tenant_id — one shop can take a value from every other",
+            ];
+        }
+
+        return $problems;
+    }
+
+    /**
+     * Columns on each table that are foreign keys into a tenant-scoped table.
+     *
+     * A unique index on `(branch_id, user_id)` needs no `tenant_id`: a `branch_id` belongs
+     * to exactly one shop, so the pair cannot collide across shops. Without this the check
+     * reports ten findings on a schema with none, and a gate that cries wolf is a gate
+     * somebody comments out.
+     *
+     * @param  list<string>  $tenantTables
+     * @return array<string, list<string>>
+     */
+    private function columnsScopedByForeignKey(array $tenantTables): array
+    {
+        /** @var list<object{tbl: string, col: string, ref: string}> $rows */
+        $rows = DB::select(
+            "select c.relname as tbl, a.attname as col, f.relname as ref
+             from pg_constraint con
+             join pg_class c on c.oid = con.conrelid
+             join pg_class f on f.oid = con.confrelid
+             join unnest(con.conkey) with ordinality k(attnum, ord) on true
+             join pg_attribute a on a.attrelid = c.oid and a.attnum = k.attnum
+             join pg_namespace n on n.oid = c.relnamespace
+             where con.contype = 'f' and n.nspname = 'public'"
+        );
+
+        $scoped = [];
+
+        foreach ($rows as $row) {
+            // The referenced table must itself be tenant-scoped for the FK to scope us.
+            if (! in_array($row->ref, $tenantTables, true)) {
+                continue;
+            }
+
+            $scoped[$row->tbl][] = $row->col;
+        }
+
+        return $scoped;
     }
 
     /**

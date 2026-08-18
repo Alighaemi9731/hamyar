@@ -38,6 +38,20 @@ final class BranchAccess
         /** @var int $userId */
         $userId = $user->getKey();
 
+        /*
+        | ADR 0012 audit: this key does NOT lead with the tenant, and that is checked
+        | rather than overlooked.
+        |
+        | The key is a user id, which is unique across the whole `users` table — a given id
+        | belongs to exactly one shop, so a cache entry seeded by tenant A can never be hit
+        | by tenant B. The forgeable-input hazard that made `PriceResolver` a leak does not
+        | apply either: this takes a `User` **model**, which only exists because RLS already
+        | returned it, not an id off a request.
+        |
+        | What the shared cache DOES require is `forget()`, which is why this class is a
+        | singleton and why `BranchController::assign()` calls it — narrowing somebody's
+        | branches has to take effect on the next read, not the next deploy.
+        */
         if (array_key_exists($userId, $this->cache)) {
             return $this->cache[$userId];
         }

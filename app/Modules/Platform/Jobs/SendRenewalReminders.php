@@ -21,6 +21,13 @@ use Illuminate\Foundation\Queue\Queueable;
  * Reads across every tenant, so the whole query runs inside `runAsPlatform()`. Sending
  * happens per-tenant inside `runFor()` so any listener that touches shop data — a
  * customer's mobile number, the shop's own name — sees the right tenant.
+ *
+ * @platform-wide Billing is a platform concern: this reads every shop's subscription in one
+ *                pass, which no tenant context could express. The cross-tenant read is
+ *                confined to `runAsPlatform()` (ADR 0002's amendment) and every send is
+ *                wrapped in `runFor($tenant)`, so a listener never sees a shop that is not
+ *                the one being reminded. Deliberately NOT `TenantAware`: there is no
+ *                dispatching tenant to carry — the scheduler dispatches it, not a request.
  */
 final class SendRenewalReminders implements ShouldQueue
 {
