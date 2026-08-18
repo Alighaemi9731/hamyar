@@ -9,7 +9,9 @@ use App\Modules\Catalog\Services\PriceResolver;
 use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\Activity;
 use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Models\PlatformUser;
 use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Services\ImpersonationService;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Support\Audit\Redactor;
@@ -25,6 +27,19 @@ use Illuminate\Support\Collection;
  * the person, and that an owner can reach it from the product rather than by finding
  * the log and filtering it down by hand.
  */
+/**
+ * The literals every masking assertion below hunts for, in places they must never
+ * appear. Named rather than inlined for the same reason `PasscodeSecurityTest` names
+ * its own: a test that searches for the wrong string passes.
+ *
+ * Deliberately unlike any id, code or timestamp the page can legitimately print. The
+ * first draft used `4517` for both the passcode and the ticket's id, and the rendered
+ * assertion failed on `subject_id: 4517` — a true negative for the wrong reason, which
+ * on a different day is a false alarm nobody trusts twice.
+ */
+const SECRET_CODE = 'pc-9f31d7a4';
+const SECRET_TOKEN = 'trk-a1b2c3d4e5';
+
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
     $this->url = tenantUrl($this->tenant);
@@ -151,13 +166,13 @@ it('masks a secret that reaches the log through custom properties', function ():
 
     ($this->inTenant)(function (): void {
         $ticket = new RepairTicket;
-        $ticket->id = 4517;
+        $ticket->id = 88;
 
         activity('repairs')
             ->performedOn($ticket)
             ->withProperties([
-                'device_passcode' => '4517',
-                'attributes' => ['device_passcode' => '4517', 'status' => 'ready'],
+                'device_passcode' => SECRET_CODE,
+                'attributes' => ['device_passcode' => SECRET_CODE, 'status' => 'ready'],
                 'ip' => '10.0.0.1',
             ])
             ->log('تست');
@@ -184,9 +199,9 @@ it('masks in the database, not only on the screen', function (): void {
 
     ($this->inTenant)(function (): void {
         $ticket = new RepairTicket;
-        $ticket->id = 4517;
+        $ticket->id = 88;
 
-        activity('repairs')->performedOn($ticket)->withProperties(['device_passcode' => '4517'])->log('تست');
+        activity('repairs')->performedOn($ticket)->withProperties(['device_passcode' => SECRET_CODE])->log('تست');
     });
 
     /** @var string $raw */
@@ -196,7 +211,61 @@ it('masks in the database, not only on the screen', function (): void {
         return is_string($stored) ? $stored : '';
     });
 
-    expect($raw)->not->toContain('4517');
+    expect($raw)->not->toContain(SECRET_CODE);
+});
+
+it('never renders a secret onto the page, whichever column the library wrote it to', function (): void {
+    // The end-to-end form of the trap, and the only assertion that would have caught it.
+    //
+    // spatie v5 splits the payload: an audited MODEL's before/after goes to
+    // `attribute_changes`, and only a hand-written `->withProperties()` reaches
+    // `properties`. The first implementation guarded `properties` — the column whose
+    // name suggests it holds the properties — which masks nothing at all for exactly
+    // the rows most likely to carry a secret.
+    //
+    // Asserting on the model would have passed either way, because the test would have
+    // read back whichever column it had just been taught to write. Asserting on the
+    // RENDERED response asks the question the reader asks: is the secret on the screen?
+    $this->actingAs($this->owner);
+
+    ($this->inTenant)(function (): void {
+        $ticket = new RepairTicket;
+        $ticket->id = 88;
+
+        // Both columns, in one row, so neither can be the one that happens to be
+        // covered: `withProperties` fills `properties`, and the `attributes`/`old`
+        // shape is what `LogsActivity` puts in `attribute_changes`.
+        activity('repairs')
+            ->performedOn($ticket)
+            ->withProperties([
+                'device_passcode' => SECRET_CODE,
+                'attributes' => ['device_passcode' => SECRET_CODE],
+                'old' => ['tracking_token' => SECRET_TOKEN],
+            ])
+            ->log('رمز دستگاه مشاهده شد');
+    });
+
+    ($this->inTenant)(function (): void {
+        /** @var Activity $entry */
+        $entry = Activity::query()->where('log_name', 'repairs')->firstOrFail();
+
+        $entry->setAttribute('attribute_changes', new Collection([
+            'attributes' => ['device_passcode' => SECRET_CODE],
+            'old' => ['device_passcode' => null],
+        ]));
+
+        // Written past the model's own guard on purpose: this is a row as it would
+        // exist if it had been created before 11c, which is why the viewer redacts on
+        // read as well as on write. No migration can un-write those.
+        $entry->saveQuietly();
+    });
+
+    $response = $this->get($this->url.'/settings/activity');
+
+    $response->assertOk();
+
+    expect($response->getContent())->not->toContain(SECRET_CODE)
+        ->and($response->getContent())->not->toContain(SECRET_TOKEN);
 });
 
 it('derives the secret list from the model rather than a list of its own', function (): void {
@@ -426,6 +495,37 @@ it('rejects a malformed date rather than failing inside the Jalali parser', func
     $this->actingAs($this->owner);
 
     $this->get($this->url.'/settings/activity?from=yesterday')->assertSessionHasErrors('from');
+});
+
+/* ----------------------------------------------------- platform transparency -- */
+
+it("shows a shop the platform's impersonation of its own owner", function (): void {
+    // The decided half of ADR 0002's third amendment, asserted so it cannot invert.
+    //
+    // `activity_log` keeps a null-tolerant RLS policy, and that policy is the reason
+    // the table's queries cannot reach the last ordered-scan plan. The trade was taken
+    // deliberately: a platform staff member signing in as a shop's owner is exactly the
+    // event that shop has the strongest interest in reading, so the entry is written
+    // inside `runFor($tenant)` and lands in THEIR log rather than a central one.
+    //
+    // Moving that write outside `runFor` would make the row central — still recorded,
+    // still correct, and invisible to the only party who needs it. That change would
+    // pass every other test in this file.
+    $staff = PlatformUser::factory()->create(['is_active' => true]);
+
+    $this->actingAs($staff, 'platform');
+
+    app(ImpersonationService::class)->start($this->tenant, 'تیکت پشتیبانی ۱۲۳۴');
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/settings/activity')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'activities.data',
+            fn (Collection $rows): bool => $rows->contains(
+                fn (array $row): bool => str_contains($row['description'], 'ورود پشتیبانی')
+            )
+        ));
 });
 
 /* ------------------------------------------------------------------ isolation -- */

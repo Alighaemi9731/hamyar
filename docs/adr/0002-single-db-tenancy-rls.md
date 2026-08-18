@@ -143,6 +143,80 @@ query and cannot use an index.
 The general lesson, worth applying to future tables: **reachability is not protection.**
 If a table can be named in a query, it needs its own policy.
 
+## Amendment (2026-08-18): a policy operator the planner cannot use
+
+The two amendments above are about *which rows* a policy admits. This one is about what
+a policy costs, and it is the failure mode with no symptom at all.
+
+**An RLS predicate is ANDed into every query against its table.** That is the whole
+point — it is why the layer fails closed and why no `where` clause can be forgotten. It
+also means the policy's predicate is part of every query plan, and a predicate the
+planner cannot use is a predicate that defeats every index on the table.
+
+`activity_log` holds central rows (a platform admin acting on a shop) beside tenant
+ones, so it was given the null-tolerant policy, written the obvious way:
+
+```sql
+tenant_id IS NOT DISTINCT FROM current_setting('app.tenant_id', true)::bigint
+```
+
+`IS NOT DISTINCT FROM` is the one operator that means "equal, and NULL counts as equal
+to NULL" — exactly the semantics wanted. **No btree can serve it.** From the moment that
+policy was created in Phase 2, `activity_log` had no usable index: not the
+`(tenant_id, created_at)` index shipped alongside the column, and not the two added
+carefully for the 11c viewer's filter set. Every query sequentially scanned the entire
+table — the whole platform's history — to answer a question about one shop, and got a
+little slower with every shop that signed up.
+
+Nothing errored. No test failed. `\d activity_log` listed four healthy indexes and the
+query planner quietly ignored all of them. It is the same family as the `bindIf` and
+`function_exists` traps in CLAUDE.md: **not a crash, just the wrong thing winning
+silently.**
+
+Two changes, both measured on a seeded 1.8M rows (fifty shops, a year of history):
+
+1. **`EnablesRowLevelSecurity` emits an indexable OR** for the null-tolerant case —
+   `(tenant_id = current OR (tenant_id IS NULL AND current IS NULL))`. Identical
+   semantics; the equality branch is something an index can be entered on.
+2. **The model carries a global scope naming its tenant**, the way `BelongsToTenant`
+   does for every other model. RLS remains the security boundary and would still enforce
+   isolation with the scope deleted; the scope exists so the **planner** gets a plain
+   `tenant_id = 4`. Postgres cannot fold `current_setting()` at plan time, but the
+   application knows the answer before it builds the query, so it says so.
+
+| predicate                                   | plan                | time     |
+|---------------------------------------------|---------------------|----------|
+| `IS NOT DISTINCT FROM` (RLS alone)          | Parallel Seq Scan   | 55.8 ms  |
+| indexable OR (RLS alone)                    | BitmapOr + sort     | 112 ms   |
+| indexable OR **+ the model's tenant scope** | Index Scan Backward | 0.6 ms   |
+
+The milliseconds are not the finding. The finding is that before the fix, **every query
+cost the whole platform**, and after it every query costs one shop's slice — the numbers
+stop growing when a fifty-first shop signs up.
+
+**The general lesson, alongside "reachability is not protection":** *a policy is part of
+every plan.* When writing or changing one, ask what operator it puts in front of the
+planner, and `EXPLAIN` a realistic volume as the **application role with `app.tenant_id`
+set** — a superuser bypasses RLS entirely and will happily show you a plan the
+application will never get.
+
+### Null-tolerance is kept, deliberately
+
+The last ordered-scan plan is still available, and the only way to reach it is a policy
+with no OR at all — which requires `tenant_id` never to be NULL, which means a platform
+action on a shop would have to be recorded somewhere the shop cannot see.
+
+**That trade was declined.** A platform staff member impersonating a shop's owner is
+precisely the event that shop has the strongest interest in reading, and
+`ImpersonationService::record()` already writes it inside `runFor($tenant)` so that it
+lands in their log rather than a central one. Transparency about what we do to a
+customer's account is worth more than 0.074ms.
+
+Because that is now a *decision* rather than an implementation detail, it is asserted:
+`ActivityLogViewerTest` requires an impersonation entry to be visible to the tenant's own
+Owner in their own viewer. Moving that `record()` call outside `runFor` would make the
+row central and invisible, and would fail the test that says why it must not be.
+
 ## Related
 
 The role model above is only meaningful if the test suite exercises it, which is why
