@@ -38,6 +38,13 @@ use Throwable;
 final class TimelineRegistry
 {
     /** @var array<string, Closure(int, CarbonImmutable|null, CarbonImmutable|null): list<TimelineEntry>> */
+    /*
+    | ADR 0012 audit: no tenant in the key, and correctly so.
+    |
+    | This holds CALLBACKS registered by service providers at boot — a table of code, not
+    | of shop data. It is identical for every tenant and is never written to at request
+    | time. The rows those callbacks go on to read are scoped by RLS when they run.
+    */
     private array $contributors = [];
 
     /**

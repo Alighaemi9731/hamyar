@@ -1,0 +1,108 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * MobiShop — queued-job tenancy gate.
+ *
+ * ## The rule
+ *
+ * Every `ShouldQueue` job either uses `TenantAware`, or declares itself platform-wide with
+ * a `@platform-wide` docblock tag naming why. There is no third option, because there is no
+ * safe default.
+ *
+ * ## Why a worker is the dangerous place
+ *
+ * A job is serialised now and executed later, on a worker that has just finished a job for
+ * a **different shop**. Without `TenantAware`, `handle()` runs under whatever context that
+ * worker was left in — which is either nothing (RLS denies everything and the job fails in
+ * a way nobody can read) or, far worse, the *previous tenant's*, and the job quietly does
+ * its work against the wrong shop's data.
+ *
+ * Golden rule 1 names the four boundaries where the session variable must be cleared, and
+ * ADR 0010 covers the job one. This gate is what stops the fifth job somebody adds from
+ * missing it — the convention is currently enforced by nothing but memory, and three
+ * separate defects in this project have now come from exactly that shape.
+ *
+ * ## Platform-wide jobs are real and are declared
+ *
+ * `SendRenewalReminders` legitimately reads across every tenant: it wraps its query in
+ * `runAsPlatform()` and each send in `runFor()`. That is correct, and it is also
+ * indistinguishable from a job that simply forgot — until it says so out loud.
+ *
+ *     /**
+ *      * @platform-wide Reads every shop's subscription; wraps its query in
+ *      *                runAsPlatform() and each send in runFor().
+ *      *\/
+ *
+ * The tag is the point: it turns "nobody thought about tenancy here" into "somebody did,
+ * and here is the reasoning".
+ */
+
+const JOB_ROOTS = ['app'];
+
+$root = dirname(__DIR__);
+$failures = [];
+$aware = 0;
+$platform = 0;
+
+/** @var iterable<SplFileInfo> $files */
+$files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/app'));
+
+foreach ($files as $file) {
+    if (! $file->isFile() || $file->getExtension() !== 'php') {
+        continue;
+    }
+
+    $path = (string) $file->getRealPath();
+    $source = file_get_contents($path);
+
+    if ($source === false || ! str_contains($source, 'ShouldQueue')) {
+        continue;
+    }
+
+    // The interface has to be implemented, not merely mentioned — the trait's own file and
+    // the tests that assert on it both name it in prose.
+    if (preg_match('/\bclass\s+\w+[^{]*implements[^{]*\bShouldQueue\b/', $source) !== 1) {
+        continue;
+    }
+
+    if (str_contains($source, 'use TenantAware;') || str_contains($source, 'TenantAware;')) {
+        $aware++;
+
+        continue;
+    }
+
+    if (str_contains($source, '@platform-wide')) {
+        $platform++;
+
+        continue;
+    }
+
+    $failures[] = ltrim(str_replace($root, '', $path), DIRECTORY_SEPARATOR);
+}
+
+if ($failures === []) {
+    echo "\n  Queue tenancy gate: {$aware} tenant-aware job(s), {$platform} declared platform-wide.\n\n";
+
+    exit(0);
+}
+
+echo "\n  ✗ Queued-job tenancy gate failed.\n\n";
+echo "    These jobs implement ShouldQueue but neither carry the dispatching tenant nor\n";
+echo "    declare themselves platform-wide. On a worker that has just finished another\n";
+echo "    shop's job, they run under THAT shop's context.\n\n";
+
+foreach ($failures as $failure) {
+    echo "      {$failure}\n";
+}
+
+echo "\n    Pick one:\n\n";
+echo "      use App\\Support\\Tenancy\\TenantAware;   // and call initializeTenantAware()\n";
+echo "                                              // in the constructor — a job is not a\n";
+echo "                                              // model, nothing calls it for you\n\n";
+echo "      /** @platform-wide <why this reads across tenants, and how it scopes> */\n\n";
+echo "    See CLAUDE.md golden rule 1, and docs/adr/0010-job-context-teardown.md.\n\n";
+
+exit(1);

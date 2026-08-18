@@ -106,6 +106,22 @@ it('cannot read another tenant rows even without the Eloquent scope', function (
 **404, not 403.** A 403 confirms the record exists, which is itself a leak: a
 competitor could enumerate invoice ids to size a rival shop's business.
 
+**Once per phase, audit the caches too — RLS does not reach them.** A memo is a read that
+never touches Postgres, which is precisely why the guarantee protecting every query does
+not protect it. [ADR 0012](adr/0012-tenant-keyed-caches.md): **every singleton with
+internal state names the tenant in its key, or says at the key why it does not.**
+
+```bash
+grep -rn 'singleton(\|scoped(' app/Modules/*/Providers/*.php app/Providers/*.php
+# then, for each class listed: does its cache key start with the tenant id?
+php bin/check-forgettable-singletons   # the paired gate — forget() on a non-singleton
+```
+
+This is an eyes-on audit rather than a gate because the question is *semantic*: a key can
+contain a tenant-unique surrogate and be safe, or contain three ids and still be forgeable.
+`PriceResolver` keyed `variant:level:timestamp` — unambiguous-looking, and a leak the moment
+the class was shared.
+
 ### Browser (Pest v4)
 
 Only six journeys, because browser tests are slow and brittle:
@@ -375,6 +391,60 @@ Related failure, one step further along: a feature whose write path exists but w
 fixture writes the permissive value. See "the fixture talking, not the query" under §6 —
 seeded data that populates one side of a conditional leaves the other branch unexercised,
 and the measurement or assertion covering it is describing nothing.
+
+#### Assert distinguishability, not predicted labels
+
+A named pattern, and the reason the Storefront render pass catches a bug its author could
+not have anticipated.
+
+> **Whoever could predict the exact expected label is whoever would not have written the
+> bug.** So do not assert the label. Assert the *property* that distinguishes correct output
+> from broken output.
+
+Four variants of one handset — same product, same brand, differing only in a colour/storage
+`options` map — shipped rendering as four identical rows at four different prices, because
+the catalogue query selected `product_variants.name` (null for anything matrix-generated)
+and never looked at `options`. It reads as a pricing error rather than a product range.
+
+A literal assertion would not have caught it:
+
+```php
+// Useless here. Written by somebody who already knows the label format —
+// which is exactly the person who would have selected `options` in the first place.
+->assertSee('آیفون ۱۵ پرو مکس — تیتانیوم مشکی · ۵۱۲')
+```
+
+The structural one needs no such knowledge:
+
+```php
+// True of ANY correct catalogue. False of the bug. Knows nothing about label format.
+$labels = renderedRowLabels($response->getContent());
+
+expect($labels)->toHaveCount(4);
+expect(array_unique($labels))->toHaveCount(4);
+```
+
+Verified by reintroducing the defect: dropping `options` from the select produces
+`Failed asserting that actual size 1 matches expected size 4` — on the shop page, the
+reseller list *and* the print sheet.
+
+**The shapes this generalises to.** Each asserts a property rather than a value, so each
+catches a class of regressions rather than one known string:
+
+| claim | assert |
+|---|---|
+| N distinct inputs are distinguishable in the output | `count(array_unique($rendered)) === N` |
+| a formatter ran at all | the *raw* value does not appear — `not->toContain('88819990')` |
+| a date went through the Jalali helper | no `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}` anywhere in the page |
+| a template rendered | no `{{`, `@if`, `>Array<` in the output |
+| a total is derived, not typed | the parts sum to the whole (§5's conservation claims) |
+
+The date row is the one to notice: it says *no machine timestamp reaches a visitor*, which is
+true of every correct page in this product and false of any broken date path. Reintroducing
+the shadowed `jdate()` fails it — **seven phases earlier than Blade actually found it.**
+
+Pair each with a positive assertion, per §3: "no raw timestamp" passes trivially on a page
+showing no date at all, so `assertSee('۱۴۰۵/۰۶/۱۰')` sits beside it.
 
 #### Three defects that a gate now catches, and the question behind each
 

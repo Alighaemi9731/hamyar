@@ -17,6 +17,11 @@ use RuntimeException;
 final class SpreadsheetReaders
 {
     /** @var list<SpreadsheetReader> */
+    /*
+    | ADR 0012 audit: no tenant in the key, and correctly so — these are reader
+    | implementations keyed by file type, registered at boot. No shop data passes through
+    | the array itself.
+    */
     private array $readers = [];
 
     public function register(SpreadsheetReader $reader): void

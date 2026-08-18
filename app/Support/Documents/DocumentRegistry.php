@@ -41,6 +41,11 @@ use Closure;
 final class DocumentRegistry
 {
     /** @var array<string, Closure(list<int|string>): array<int|string, DocumentReference>> */
+    /*
+    | ADR 0012 audit: no tenant in the key, and correctly so — resolvers are registered by
+    | service providers at boot and keyed by model class. Shop data is fetched by the
+    | resolver when it runs, under RLS, and never held here.
+    */
     private array $resolvers = [];
 
     /**

@@ -102,7 +102,8 @@
         "guards": [
             "@php bin/check-savepoint-recovery",
             "@php bin/check-global-helpers",
-            "@php bin/check-forgettable-singletons"
+            "@php bin/check-forgettable-singletons",
+            "@php bin/check-queued-tenancy"
         ]
     },
     "scripts-descriptions": {

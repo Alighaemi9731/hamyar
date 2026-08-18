@@ -63,6 +63,12 @@ jobs:
       - name: Memo-invalidation gate
         run: php bin/check-forgettable-singletons
 
+      # 11a. A queued job runs on a worker that has just finished another shop's job, so
+      # "neither tenant-aware nor declared platform-wide" is the one state that must not
+      # exist. Enforced rather than remembered.
+      - name: Queued-job tenancy gate
+        run: php bin/check-queued-tenancy
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)
