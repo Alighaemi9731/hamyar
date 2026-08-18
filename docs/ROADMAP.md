@@ -1371,6 +1371,22 @@ would, and the worst place to discover one is in front of a customer.*
 - [ ] Queue latency dashboards
 
 ### 11.3 Ops
+
+> **Found while cleaning up the 11.2 fixture, and it belongs here.** Deleting a shop that
+> has a trading year behind it is a **multi-minute, lock-heavy cascade** — around 380k
+> rows across a dozen tables per shop, and a chunk of five tenants was still running after
+> twenty minutes. Two consequences worth designing for before a shop ever cancels:
+>
+> - **Tenant deletion cannot happen inside a request.** It is a queued job with a
+>   progress record, or it is a gateway timeout and a half-deleted shop.
+> - **Concurrent deletes serialise.** A second `DELETE` over the same set waits on the
+>   first's transaction rather than doing useful work, so a "remove these ten shops"
+>   action has to be sequential by design rather than by accident.
+>
+> Nothing is broken today — no shop has cancelled and there is no delete-a-tenant feature
+> to be slow. It is written down because the cheapest moment to learn this was on a
+> fixture, and the most expensive would be on a customer asking to be forgotten under a
+> data-protection deadline.
 - [ ] Production compose + nginx + SSL guide in `docs/deploy.md`
 - [ ] Zero-downtime deploy script
 - [ ] Nightly `pg_dump` + WAL archiving
