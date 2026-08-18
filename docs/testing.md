@@ -549,6 +549,30 @@ And prove the gate can fail, per §3: the unique-index check was verified by pla
 unscoped index on `parties.national_id` and watching it get reported. A gate that has only
 ever printed zero findings has not been shown to have eyes.
 
+**A number that is silently wrong beats a number that is missing, every time — so parse, never strip.** `PartyImporter` normalised money by stripping every non-digit and casting to
+`int`. An Iranian sheet writes a decimal with a **slash**, so `12500000/0` toman became
+`125000000` toman — **ten times** the balance — and `12500000.00` became a hundred times
+it. Nothing threw. Nothing logged. The customer simply owed ten times what they owed, and
+the ledger built on it from there.
+
+It was found by probing the reader layer before designing the products import, not by a
+test, and the tell is the usual one: **the wrong value is a perfectly plausible value.**
+`1,250,000,000` looks like money. No assertion about "the import succeeded" can see it.
+
+Two rules came out of it:
+
+- **One money parser, and it refuses rather than guesses.** `Money::parse()` already
+  existed and already threw on a stray character; the importer had rolled its own instead.
+  A second implementation of a rule is a second opinion about it, and the one that gets
+  used is whichever the author remembered.
+- **An unreadable money cell is a row error, never a zero.** Importing `0` for a cell
+  nobody could parse is the same failure one step later — it lands in a balance, which is
+  the last place anyone looks.
+
+Verified by planting the old parser back and watching the suite go red with
+`Failed asserting that 1250000000 is identical to 125000000`. A regression test written
+against a bug you cannot re-introduce on demand has not been shown to test anything.
+
 **A harness bug reads exactly like a domain bug — instrument before hypothesising.** When a
 test fails, the fault is as likely to be in the scaffolding as in the code, and the two are
 indistinguishable from the failure message. Three tenant-isolation tests failed with "no

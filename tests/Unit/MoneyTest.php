@@ -97,6 +97,51 @@ describe('parsing', function (): void {
         'abc',
         '۱۲.۵',
     ]);
+
+    /*
+    | The regression. An Iranian sheet writes a decimal with a slash, and the previous
+    | parser — strip every non-digit, cast to int — CONCATENATED the fraction onto the
+    | amount. `12500000/0` toman was imported as 1,250,000,000 rial: ten times the
+    | price, silently. The dot form was a hundred times high. Both were live in the
+    | customer import, against opening balances and credit limits.
+    */
+    it('reads a decimal written with any of the three marks, exactly', function (string $input): void {
+        expect(Money::parse($input, Money::UNIT_TOMAN))->toBe(125_000_000);
+    })->with([
+        'persian slash' => '12500000/0',
+        'latin dot' => '12500000.00',
+        'arabic decimal' => '12500000٫0',
+        'persian digits, slash' => '۱۲۵۰۰۰۰۰/۰',
+        'grouped, slash' => '12,500,000/0',
+        'no fraction at all' => '12500000',
+    ]);
+
+    it('keeps a fraction that is worth real rial', function (): void {
+        // Half a toman is five rial — a legitimate amount, not a rounding artefact.
+        expect(Money::parse('1250/5', Money::UNIT_TOMAN))->toBe(12_505);
+    });
+
+    it('refuses a fraction that does not land on a whole rial', function (string $input, string $unit): void {
+        expect(fn () => Money::parse($input, $unit))->toThrow(InvalidArgumentException::class);
+    })->with([
+        'sub-rial toman' => ['1250/55', Money::UNIT_TOMAN],
+        'sub-rial rial' => ['1250/5', Money::UNIT_RIAL],
+    ]);
+
+    it('refuses two decimal marks rather than guessing which is grouping', function (): void {
+        // `12.500.000` is European grouping to one reader and nonsense to another.
+        expect(fn () => Money::parse('12.500.000'))->toThrow(InvalidArgumentException::class);
+    });
+
+    it('carries the sign through a fraction', function (): void {
+        expect(Money::parse('-1250/5', Money::UNIT_TOMAN))->toBe(-12_505);
+    });
+
+    it('refuses more decimal places than a price can have', function (): void {
+        // `10 ** strlen($fraction)` overflows silently past 18 digits; the cap is what
+        // keeps a malformed cell from wrapping into a plausible-looking number.
+        expect(fn () => Money::parse('1.12345678901234567890'))->toThrow(InvalidArgumentException::class);
+    });
 });
 
 describe('splitting into instalments', function (): void {

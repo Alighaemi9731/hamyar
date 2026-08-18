@@ -166,6 +166,108 @@ it('imports a sheet with Persian digits and toman balances', function (): void {
     });
 });
 
+/*
+| The ten-fold regression, at the level a shop would actually meet it.
+|
+| An Iranian sheet writes a decimal with a slash. The importer used to normalise money
+| by stripping every non-digit, which CONCATENATED the fraction onto the amount:
+| «۱۲۵۰۰۰۰۰/۰» toman was imported as 1,250,000,000 rial rather than 125,000,000 — ten
+| times the balance, with nothing on screen to say so. The dot form landed a hundred
+| times high. Both now route through `Money::parse()`.
+*/
+it('imports a balance written with a Persian decimal mark at its true value', function (string $cell): void {
+    $payload = uploadSheet(
+        "نام,شماره همراه,مانده\n".
+        "علی رضایی,09121112233,{$cell}\n"
+    );
+
+    $this->actingAs($this->owner)
+        ->post($this->url.'/crm/import', [
+            'token' => $payload['token'],
+            'kind' => 'customer',
+            'unit' => Money::UNIT_TOMAN,
+            'mapping' => $payload['mapping'],
+        ])
+        ->assertRedirect();
+
+    ($this->inTenant)(function (): void {
+        $ali = Party::query()->where('name', 'علی رضایی')->firstOrFail();
+
+        // 12,500,000 toman is 125,000,000 rial. Exactly, for every spelling of it.
+        expect($ali->opening_balance)->toBe(125_000_000)->toBeRial();
+    });
+})->with([
+    'persian slash' => '12500000/0',
+    'latin dot' => '12500000.00',
+    'persian digits and slash' => '۱۲۵۰۰۰۰۰/۰',
+    'no fraction' => '12500000',
+]);
+
+it('reports an unreadable balance as a row error instead of importing zero', function (): void {
+    // The point of the whole change: a cell nobody can read must stop the row, not
+    // become a zero balance that the shop discovers weeks later in a statement.
+    $payload = uploadSheet(
+        "نام,شماره همراه,مانده\n".
+        "علی رضایی,09121112233,حدود دوازده میلیون\n"
+    );
+
+    $report = $this->actingAs($this->owner)
+        ->postJson($this->url.'/crm/import/dry-run', [
+            'token' => $payload['token'],
+            'kind' => 'customer',
+            'unit' => Money::UNIT_TOMAN,
+            'mapping' => $payload['mapping'],
+        ])
+        ->assertOk()
+        ->json();
+
+    expect($report['counts'][PartyImporter::OUTCOME_ERROR])->toBe(1);
+    expect($report['counts'][PartyImporter::OUTCOME_CREATE])->toBe(0);
+    expect($report['rows'][0]['message'])->toContain('مانده اولیه');
+});
+
+it('refuses a cell whose currency word contradicts the chosen unit', function (): void {
+    // Worth ten times every amount in the file, so it is an error rather than a word
+    // to strip: the operator picked ریال and the sheet says تومان.
+    $payload = uploadSheet(
+        "نام,شماره همراه,مانده\n".
+        "علی رضایی,09121112233,۱۲۵۰۰۰۰۰ تومان\n"
+    );
+
+    $report = $this->actingAs($this->owner)
+        ->postJson($this->url.'/crm/import/dry-run', [
+            'token' => $payload['token'],
+            'kind' => 'customer',
+            'unit' => Money::UNIT_RIAL,
+            'mapping' => $payload['mapping'],
+        ])
+        ->assertOk()
+        ->json();
+
+    expect($report['counts'][PartyImporter::OUTCOME_ERROR])->toBe(1);
+});
+
+it('accepts a currency word that agrees with the chosen unit', function (): void {
+    $payload = uploadSheet(
+        "نام,شماره همراه,مانده\n".
+        "علی رضایی,09121112233,۱۲۵۰۰۰۰۰ تومان\n"
+    );
+
+    $this->actingAs($this->owner)
+        ->post($this->url.'/crm/import', [
+            'token' => $payload['token'],
+            'kind' => 'customer',
+            'unit' => Money::UNIT_TOMAN,
+            'mapping' => $payload['mapping'],
+        ])
+        ->assertRedirect();
+
+    ($this->inTenant)(function (): void {
+        expect(Party::query()->where('name', 'علی رضایی')->firstOrFail()->opening_balance)
+            ->toBe(125_000_000)->toBeRial();
+    });
+});
+
 it('matches an existing customer by mobile and fills gaps without overwriting', function (): void {
     $existing = ($this->inTenant)(function (): Party {
         $party = Party::factory()->create(['name' => 'نام درست', 'company_name' => null]);

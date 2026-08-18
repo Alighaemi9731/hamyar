@@ -10,6 +10,7 @@ use App\Support\Digits;
 use App\Support\Money;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use Illuminate\Database\ConnectionInterface;
+use InvalidArgumentException;
 
 /**
  * Bulk customer import, with a dry run that is the real thing stopped before the write.
@@ -31,6 +32,25 @@ use Illuminate\Database\ConnectionInterface;
  *
  * Golden rule 2. A sheet is quoted in toman roughly always, so the unit is chosen on
  * the wizard and converted here; nothing downstream sees anything but integer rial.
+ *
+ * Amounts go through `Money::parse()` rather than a local normalisation, because a local
+ * one got it wrong: stripping every non-digit concatenates an Iranian slash-decimal onto
+ * the amount, and «۱۲۵۰۰۰۰۰/۰» toman imported as ten times the balance with nothing on
+ * screen to say so. A cell that cannot be read is a row error, never a zero.
+ *
+ * @phpstan-type ImportedFields array{
+ *     name: string|null,
+ *     company_name: string|null,
+ *     mobile: string|null,
+ *     phone: string|null,
+ *     email: string|null,
+ *     national_id: string|null,
+ *     economic_code: string|null,
+ *     opening_balance: int|null,
+ *     credit_limit: int|null,
+ *     notes: string|null,
+ *     rejected_money: array<string, string>,
+ * }
  */
 final class PartyImporter
 {
@@ -208,7 +228,7 @@ final class PartyImporter
     /**
      * @param  list<string>  $raw
      * @param  array<string, int|null>  $mapping
-     * @return array<string, string|int|null>
+     * @return ImportedFields
      */
     private function extract(array $raw, array $mapping, string $unit): array
     {
@@ -222,21 +242,22 @@ final class PartyImporter
             return $cell === '' ? null : $cell;
         };
 
-        $money = function (?string $input) use ($unit): ?int {
+        // Every rejected cell is remembered so the row can say which column was wrong,
+        // rather than importing a zero and letting the shop find it in a balance.
+        $rejected = [];
+
+        $money = function (?string $input, string $field) use ($unit, &$rejected): ?int {
             if ($input === null) {
                 return null;
             }
 
-            $digits = Digits::toLatin($input);
-            $normalised = preg_replace('/[^\d-]/', '', $digits) ?? '';
+            try {
+                return Money::parse($this->stripUnitWord($input, $unit), $unit);
+            } catch (InvalidArgumentException) {
+                $rejected[$field] = $input;
 
-            if ($normalised === '' || $normalised === '-') {
                 return null;
             }
-
-            $amount = (int) $normalised;
-
-            return $unit === Money::UNIT_TOMAN ? Money::fromToman($amount) : $amount;
         };
 
         $phone = static function (?string $input): ?string {
@@ -257,19 +278,62 @@ final class PartyImporter
             'email' => $value($mapping['email'] ?? null),
             'national_id' => $phone($value($mapping['national_id'] ?? null)),
             'economic_code' => $value($mapping['economic_code'] ?? null),
-            'opening_balance' => $money($value($mapping['opening_balance'] ?? null)),
-            'credit_limit' => $money($value($mapping['credit_limit'] ?? null)),
+            'opening_balance' => $money($value($mapping['opening_balance'] ?? null), 'opening_balance'),
+            'credit_limit' => $money($value($mapping['credit_limit'] ?? null), 'credit_limit'),
             'notes' => $value($mapping['notes'] ?? null),
+            'rejected_money' => $rejected,
         ];
     }
 
     /**
-     * @param  array<string, string|int|null>  $fields
+     * Remove a currency word the cell states itself, and refuse one that contradicts.
+     *
+     * A sheet writes «۱۲۵۰۰۰۰ تومان» often enough that rejecting the cell outright would
+     * lose ordinary rows. But a cell that says تومان while the operator chose ریال is not
+     * noise to strip — it is the operator having picked the wrong unit for the whole
+     * file, and it is worth ten times every amount in it. So the agreeing word is
+     * dropped and the contradicting one throws.
+     */
+    private function stripUnitWord(string $input, string $unit): string
+    {
+        $words = [Money::UNIT_TOMAN => ['تومان', 'تومن'], Money::UNIT_RIAL => ['ریال', '﷼']];
+
+        foreach ($words as $for => $spellings) {
+            foreach ($spellings as $spelling) {
+                if (! str_contains($input, $spelling)) {
+                    continue;
+                }
+
+                if ($for !== $unit) {
+                    throw new InvalidArgumentException("Cell states [{$spelling}] but the file was declared as [{$unit}].");
+                }
+
+                $input = str_replace($spelling, '', $input);
+            }
+        }
+
+        return $input;
+    }
+
+    /**
+     * @param  ImportedFields  $fields
      */
     private function validate(array $fields): ?string
     {
         if (! is_string($fields['name']) || $fields['name'] === '') {
             return 'نام خالی است.';
+        }
+
+        // A money cell we could not read is an error, never a zero. Importing zero for
+        // «۱۲٬۵۰۰٬۰۰۰ ریال؟» is the silent-wrong failure this whole importer is built
+        // to avoid, and a balance is the last place anyone looks.
+        $rejected = $fields['rejected_money'] ?? [];
+
+        if (is_array($rejected) && $rejected !== []) {
+            $labels = ['opening_balance' => self::FIELDS['opening_balance'], 'credit_limit' => self::FIELDS['credit_limit']];
+            $field = (string) array_key_first($rejected);
+
+            return 'مقدار ستون «'.($labels[$field] ?? $field).'» خوانده نشد: «'.$rejected[$field].'».';
         }
 
         $nationalId = $fields['national_id'];
@@ -291,7 +355,7 @@ final class PartyImporter
     }
 
     /**
-     * @param  array<string, string|int|null>  $fields
+     * @param  ImportedFields  $fields
      * @param  array<array-key, int>  $seenMobiles
      * @param  array<array-key, int>  $seenNationalIds
      */
@@ -313,7 +377,7 @@ final class PartyImporter
     }
 
     /**
-     * @param  array<string, string|int|null>  $fields
+     * @param  ImportedFields  $fields
      */
     private function findExisting(array $fields): ?Party
     {
@@ -344,7 +408,7 @@ final class PartyImporter
     }
 
     /**
-     * @param  array<string, string|int|null>  $fields
+     * @param  ImportedFields  $fields
      */
     private function create(array $fields, string $kind): Party
     {
@@ -374,7 +438,7 @@ final class PartyImporter
      * export — so only empty columns are filled, and the opening balance is left alone
      * entirely because it is the one figure a later ledger entry has already built on.
      *
-     * @param  array<string, string|int|null>  $fields
+     * @param  ImportedFields  $fields
      */
     private function applyTo(Party $party, array $fields): void
     {
@@ -398,7 +462,7 @@ final class PartyImporter
     }
 
     /**
-     * @param  array<string, string|int|null>  $fields
+     * @param  ImportedFields  $fields
      */
     private function syncContacts(Party $party, array $fields): void
     {
