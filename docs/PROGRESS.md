@@ -1686,3 +1686,35 @@ Two fixture facts worth keeping, both found by being refused:
 The generalisable bit: **"replace the weaker test" is a hypothesis, not a plan.** It holds
 only if the stronger test fails where the weaker one does, and that is a thing to check by
 planting the regression — not to assume because the new test is more sophisticated.
+
+---
+
+## 1405/05/27 (2026-08-18) — 11.2 begins: a platform-sized fixture
+
+`php artisan platform:seed-volume` builds a launch-sized database: N shops, each with a
+real trading year behind it. `BulkVolumeSeeder` already made one convincing shop; this
+makes the **platform**, and the distinction is the whole reason the item exists.
+
+A query's cost stops being about one shop. 11c's dead-index find — an RLS operator no
+btree could serve, so every query scanned the whole table — reads as *fast* on a
+single-tenant database. It only has a shape when there are forty-nine other shops for the
+scan to wade through. And a tenant predicate selecting 2% of a table is not the same
+predicate as one selecting 100%: Postgres picks a different plan for identical SQL.
+
+Measured on the dev machine: **50 shops, ~19M rows, 5.5GB, 19 minutes**, linear from a
+5-shop run at 56s. The command refuses production without `--force`, only ever adds rows,
+and stamps every shop with a `load-test-` slug so `--fresh` removes the set without
+touching the demo tenant or anybody's scratch shops. One shop failing is warned about and
+skipped rather than aborting the run — a nineteen-minute tool that restarts from zero on
+the last error is a tool nobody uses twice.
+
+**The first verification of this schema at launch size, and it held.** Every hot report
+shape was spot-checked with `EXPLAIN (ANALYZE)` as the application role with
+`app.tenant_id` set — invoices for a month, items joined to invoices, stock valuation,
+ledger aging. All four used an index and read only their own tenant's slice: 3,094 invoices
+out of 2,000,000, and 102,400 stock movements out of 5,120,000, at 1.9–83ms. Nothing scaled
+with the platform.
+
+The fixture was removed afterwards rather than left in the dev database; the command
+rebuilds it. What it has *not* done is measure an endpoint under concurrency — that is the
+next item, and the query shapes being clean is not the same claim.

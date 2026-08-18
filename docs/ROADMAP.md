@@ -1349,8 +1349,23 @@ would, and the worst place to discover one is in front of a customer.*
       invoice conversion above lands
 
 ### 11.2 Performance
-- [ ] Seed 50 tenants × realistic volumes
-- [ ] Load test top 10 endpoints (k6 or artisan bench)
+- [x] **Seed 50 tenants × realistic volumes** — `php artisan platform:seed-volume`.
+      `BulkVolumeSeeder` already built one convincing shop; this builds the *platform*,
+      which is a different fixture for a specific reason: a query's cost stops being about
+      one shop. 11c's dead-index find had no shape until there were forty-nine other
+      shops for the scan to wade through, and a tenant predicate selecting 2% of a table
+      makes Postgres choose differently from one selecting 100%.
+      Measured on the dev machine: **50 shops, ~19M rows, 5.5GB, 19 minutes** (5 shops in
+      56s, so it scales linearly). Refuses production without `--force`, only ever adds,
+      and every shop carries a `load-test-` slug so `--fresh` can remove the set without
+      touching the demo tenant.
+      **First verification of the schema at launch size, and it held**: every hot report
+      shape — invoices for a month, items joined to invoices, stock valuation, ledger
+      aging — used an index and read only its own tenant's slice (3,094 invoices out of
+      2,000,000; 102,400 movements out of 5,120,000), at 1.9–83ms
+- [ ] Load test top 10 endpoints (k6 or artisan bench) — the fixture above is what this
+      runs against; the query shapes it touches are already spot-checked with `EXPLAIN`,
+      but nothing has yet measured an *endpoint* under concurrency
 - [ ] Fix N+1s
 - [ ] Add missing composite indexes
 - [ ] Queue latency dashboards
