@@ -1414,6 +1414,12 @@ trail worth reading**.*
       makes one-product-one-variant the shape of every imported row, so the link built
       to answer «کی این قیمت را عوض کرد؟» opened a page with every kind of change
       except that one. Subjects can now declare related records
+- [x] **Null-tolerance kept, deliberately, and asserted.** The last ordered-scan plan
+      needs a policy with no OR, which means a platform action on a shop would have to
+      live somewhere the shop cannot see. Declined: an impersonation is the event a shop
+      most needs to read. `ActivityLogViewerTest` now requires an impersonation entry to
+      be visible to the tenant's own Owner, so the property cannot silently invert
+      ([ADR 0002 amendment 3](adr/0002-single-db-tenancy-rls.md))
 - [ ] **Retention — noted, not built** (post-launch). `clean_after_days` is 365 and
       `activitylog:clean` is **not scheduled**. What is left of the per-shop query cost
       is bounded by retention rather than by an index, but how long a shop's audit trail

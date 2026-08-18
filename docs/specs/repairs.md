@@ -129,6 +129,34 @@ Encrypted at rest. Masked in the UI. Revealing it requires a specific permission
 writes an audit entry. **It never appears in logs, JSON responses, or exports** — this
 is asserted by a test, because a leaked unlock code is a stolen phone.
 
+#### The audit log closed the loop (Phase 11c)
+
+"Never appears in logs" acquired a second meaning when the audit-log viewer was built,
+and the Phase 6 protection turned out to have a shape the Phase 6 tests could not see.
+
+An audit entry is written on every reveal — that is the protection, and it is why the
+code cannot be read invisibly. But an audit log is also a **store of before-and-after
+values**, and the moment anything writes a ticket's attributes into one, every other
+layer here is bypassed: the reader needs only `activity.view`, which is a *weaker*
+permission than the one guarding the field.
+
+11c closed it structurally rather than by remembering. Redaction derives its secret list
+from this model's own `$hidden` and encrypted casts, so the log masks what the model
+masks — a new sensitive field is covered on the day it is declared, by the declaration
+that already protects it everywhere else, and not on the day somebody remembers a viewer
+in another module exists. ([ADR 0014](../adr/0014-audit-surface-and-log-isolation.md))
+
+**Two bearer credentials joined `device_passcode` on the sensitive list** while checking
+that: `tracking_token`, which addresses the public tracking page, and `approval_token`,
+which authorises a quote approval. Both were declared sensitive nowhere. Nothing was
+leaking them — every controller here hand-maps its ticket payload rather than
+serialising the model — so this is the gap closed before the first place that does not,
+which is the only time it is cheap to close.
+
+The ticket is deliberately **not** audited attribute-by-attribute. It moves through six
+statuses and would be the highest-volume subject in the product, and
+`ticket_status_histories` already records that history with an actor and a timestamp.
+
 ### Abandoned devices (رسوبی)
 
 N days after `ready` (tenant setting), the ticket is flagged and an escalating SMS
@@ -169,7 +197,10 @@ Listens: `UnitStatusChanged` (Inventory) to link a repair to a unit we sold.
 - Parts reserve → consume on completion; cancelling returns them to stock and stock
   reconciles.
 - Two technicians acting on one ticket concurrently: one wins, cleanly.
-- The encrypted passcode appears in no log, no JSON response and no export.
+- The encrypted passcode appears in no log, no JSON response and no export — including
+  the audit log, asserted against the **rendered** activity page rather than the model,
+  because the library owns which column it stores a payload in.
+- `tracking_token` and `approval_token` are masked wherever the passcode is.
 - The public tracking page leaks nothing tenant-private and is rate-limited.
 - The abandoned scheduler flags at exactly N days and escalates in order.
 - Repair profit reconciles against parts, labour and outsource cost.

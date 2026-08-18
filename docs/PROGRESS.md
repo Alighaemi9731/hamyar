@@ -1535,3 +1535,29 @@ not.
 Recorded as [ADR 0014](adr/0014-audit-surface-and-log-isolation.md); the index lesson is
 in `docs/testing.md`, because "a predicate the planner cannot use is an index that does
 not exist" is not specific to this table.
+
+**Accepted, with three decisions recorded.** The dead-index find went into
+[ADR 0002](adr/0002-single-db-tenancy-rls.md) as its third amendment, where the policy
+lives rather than where it was discovered: *an RLS predicate is ANDed into every query,
+so a policy operator no btree can serve kills every index on the table, silently.* Same
+family as the `bindIf` and `function_exists` traps — nothing crashes, the wrong thing
+just wins.
+
+**Null-tolerance is kept.** The last ordered-scan plan needs a policy with no OR, which
+means a platform action on a shop would have to live somewhere the shop cannot see.
+Declined: an impersonation is the event a shop most needs to read, and
+`ImpersonationService` has written it into the tenant's own log since Phase 2.4. Now
+asserted, so the property cannot invert without a red test.
+
+**And the flake it exposed was worth more than the feature.** CI failed on
+`ReportLatencyTest` — 308.6ms against a 300ms budget — and the same test had failed on
+`main` earlier the same day, before this branch existed. All 26 measurements were shifted
+three-fold; locally the run was 23–24s against 63s on the runner, and `main` measured the
+same as the branch. Not a regression: the assertion was measuring the wrong machine. 300ms
+is a promise about the hardware a shop runs on. Two failures in twenty runs is a
+ten-percent false-positive rate, and this repo already wrote down what happens next —
+nobody deletes a noisy gate, they comment out the CI step "just for this PR". The budget
+now scales to the machine against a fixed reference workload, one-directionally so a fast
+box never earns a tighter ceiling than the spec promises, and the failure message names
+the scale so a reader can tell a broken promise from a busy runner. Verified by planting
+a regression, because a gate that has only printed green has not been shown to have eyes.

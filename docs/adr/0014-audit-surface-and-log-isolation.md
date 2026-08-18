@@ -137,16 +137,30 @@ The structural win is not the millisecond counts. It is that **every query used 
 the whole platform and now costs one shop's slice** — the numbers above stop growing
 when a fifty-first shop signs up.
 
-### What is left, and why it is not built here
+### Null-tolerance is kept — decided, not deferred
 
 The unfiltered view still gets a `BitmapOr` where an `Index Scan Backward` would take
 0.23 ms. The plan exists and the planner mis-costs it: it cannot estimate the
 selectivity of the `current_setting()` branch, so it will not commit to an ordered scan.
 The only reliable cure is a policy with **no OR at all**, which means `tenant_id` may
-never be NULL — that is a decision about whether a shop should see the platform's
-actions on it, and it is worth more discussion than a performance note deserves.
+never be NULL — which means a platform action on a shop would have to be recorded
+somewhere the shop cannot see.
 
-Left as it is because the cost is now bounded by one shop's own history, which is what
+**That trade is declined.** A platform staff member signing in as a shop's owner is
+precisely the event that shop has the strongest interest in reading, and
+`ImpersonationService::record()` already writes it inside `runFor($tenant)` — with a
+comment, since Phase 2.4, saying that logging it centrally "would make it invisible to
+the only party with a real interest in reading it". Transparency about what we do to a
+customer's account is worth more than 0.074ms.
+
+Because that is a decision rather than an implementation detail, it is asserted:
+`ActivityLogViewerTest` requires an impersonation entry to be visible to the tenant's own
+Owner in their own viewer. Moving that write outside `runFor` would make the row central
+— still recorded, still correct, and invisible to the only party who needs it — and it
+would pass every other test in the file. Recorded in
+[ADR 0002's third amendment](0002-single-db-tenancy-rls.md), where the policy lives.
+
+What remains of the per-shop cost is bounded by one shop's own history, which is what
 **retention** bounds. `config('activitylog.clean_after_days')` is 365 and
 `activitylog:clean` is **not scheduled** — noted as a post-launch item in the roadmap
 rather than built, because choosing how long a shop's audit trail must survive is a

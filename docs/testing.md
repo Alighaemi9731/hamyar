@@ -838,6 +838,82 @@ ANALYZE activity_log;
 -- will happily show you a plan the application will never get.
 ```
 
+### Guard the column the library writes, not the one its name suggests
+
+`spatie/activitylog` v5 splits an entry's payload across two columns. An audited
+**model's** before-and-after goes to `attribute_changes`; only a hand-written
+`->withProperties([...])` reaches `properties`.
+
+11c's redaction guarded `properties`. It is the column called properties, the model's
+accessor is `getProperty()`, and the Phase 2 code above it carried a comment asserting
+that v5 "exposes the before/after payload as `properties`". All of it was wrong in the
+same direction, and the effect was that the guard masked nothing at all for exactly the
+rows most likely to carry a secret — because an audited model never writes that column.
+
+The same mistake had already shipped once, quietly: the Phase 2 viewer read its change
+list from `properties`, so **every** entry rendered an empty diff for eight phases.
+Nobody noticed, because an audit log with no changes shown still looks like an audit log.
+
+**The test that would have caught it, and the one that would not.** Asserting on the
+model passes either way — it reads back whichever column the code was just taught to
+write, so the assertion and the bug move together. The assertion has to be made
+somewhere the library's own layout cannot follow it:
+
+```php
+$response = $this->get($url.'/settings/activity');
+
+expect($response->getContent())->not->toContain(SECRET_CODE);
+```
+
+Rendered output. Is the secret on the screen? A library can rearrange its storage
+between minor versions and that question keeps its meaning.
+
+Generalised: **when a dependency owns the storage, assert at the boundary you own.** For
+a secret that is the rendered page; for a queued job it is the payload the worker
+receives; for a cache it is what the next request sees.
+
+Two smaller notes from the same episode:
+
+- **Name the literal, and make it unlike anything the page prints legitimately.** The
+  first draft used `4517` for both the passcode and the ticket's id, and failed on
+  `subject_id: 4517`. A true negative for the wrong reason is a false alarm on a
+  different day, and a gate nobody trusts twice.
+- **Write the row past your own guard when testing the read path.** Redaction happens on
+  write, so a test that only writes normally can never exercise the reader's defence.
+  `saveQuietly()` after setting the raw attribute produces the row as it would exist if
+  it had been created before the guard did — which is the row the reader actually has to
+  survive, since no migration can un-write those.
+
+### A performance budget is a promise about production hardware
+
+`ReportLatencyTest` asserts the spec's «a report answers in under a third of a second».
+On 1405/05/27 it failed twice in twenty CI runs — once on `main`, once on a feature
+branch — with all 26 measurements shifted up roughly three-fold and the worst at 308.6ms
+against the 300ms ceiling. Neither was a regression: the same commits measured 23–24s
+locally against 63s on the runner.
+
+Two failures in twenty is a ten-percent false-positive rate, and the rule at the top of
+this document decides what happens next: **nobody deletes a noisy gate, they comment out
+the CI step "just for this PR".**
+
+The bug was in the assertion, not the reports. 300ms is a promise about the hardware a
+customer's shop runs on; a shared CI runner is not that hardware, so asserting the raw
+number there measures the wrong machine.
+
+The budget is now **scaled to the machine**: a fixed aggregate over one tenant's 100,000
+invoice items is timed in the same run, and the ceiling is stretched by however much
+slower that is than the development baseline. Scaling is one-directional — a fast box
+never earns a budget tighter than the number the spec promises.
+
+What that can and cannot catch is worth being explicit about, because a self-calibrating
+gate is one wrong step from a gate that always passes: a change slowing **everything**,
+calibration included, would be absorbed; a missing index making **one** report read a
+hundred times more rows while a fixed scan of another table costs what it always did
+would not. The second is the failure the gate exists for. Verified with a planted
+regression, per the rule above — dropping the budget to 40ms fails it and names the
+report, the scale, and the reference measurement, so the reader can tell a broken
+promise from a busy runner.
+
 ---
 
 ## 7. Writing a test — checklist

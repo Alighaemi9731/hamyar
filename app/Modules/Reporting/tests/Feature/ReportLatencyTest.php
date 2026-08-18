@@ -61,11 +61,15 @@ use Illuminate\Support\Facades\DB;
  *
  * ## What this test is NOT, said plainly
  *
- * It is a **ceiling**, not a regression detector. The measured figures at the time of
- * writing are 1–93ms against a 300ms budget, so a change that made a report three times
- * slower would still pass. Tightening the number to close that gap would buy a test that
+ * It is a **ceiling**, not a regression detector. The measured figures are 1–104ms
+ * against a 300ms budget (1–93ms when written in Phase 9; the drift is 11a's and 11b's
+ * schema, not a regression), so a change that made a report three times slower would
+ * still pass. Tightening the number to close that gap would buy a test that
  * fails on a busy CI box and teaches everyone to re-run it, which is worse than a
  * generous one that means what it says.
+ *
+ * The budget is also **scaled to the machine** for that same reason — a generous ceiling
+ * is still useless if a busy runner trips it. See {@see REFERENCE_BASELINE_MS}.
  *
  * The regression detector for a *plan* change is the fixture itself: seed it, run
  * `EXPLAIN (ANALYZE, BUFFERS)`, and read what the scan is proportional to. That is how
@@ -76,6 +80,50 @@ pest()->group('performance');
 
 /** The budget from `docs/specs/reporting.md`, in milliseconds. */
 const REPORT_BUDGET_MS = 300.0;
+
+/**
+ * What the calibration workload costs on the machine the budget was set on.
+ *
+ * ## Why the budget is scaled at all
+ *
+ * 300ms is a **product** promise — «a report answers in under a third of a second» — and
+ * it is a promise about production hardware. A shared CI runner is not that hardware,
+ * and asserting the number there measures the wrong machine: when the runner is busy,
+ * every report slows together and the test reports a broken product requirement that is
+ * not broken.
+ *
+ * It happened twice in twenty runs on 1405/05/27 — once on `main`, once on the 11c
+ * branch — with all 26 measurements shifted up roughly three-fold and the worst at
+ * 308.6ms. Neither was a regression: the same commits measured 23–24s locally against
+ * 63s on the runner.
+ *
+ * Two failures in twenty is a ten-percent false-positive rate, and `docs/testing.md`
+ * says what happens next: **nobody deletes a noisy gate, they comment out the CI step
+ * "just for this PR".** A ceiling that cries wolf protects nothing.
+ *
+ * ## What the calibration is, and what it cannot hide
+ *
+ * A fixed aggregate over one tenant's 100,000 invoice items: the same table the heavy
+ * reports read, a plan that no index under test can change, and no report of its own. It
+ * measures what *this* box costs for a scan of that size, and the budget is stretched by
+ * however much slower that is than here.
+ *
+ * The honest weakness: a change that slowed **everything**, calibration included, would
+ * be absorbed. That is not the failure this gate exists for. A missing index makes one
+ * report read a hundred times more rows while a fixed scan of another table costs
+ * exactly what it did before — so the proportion moves, which is the thing being
+ * asserted. The regression detector for a plan change remains the fixture and
+ * `EXPLAIN`, as the docblock above says.
+ *
+ * Measured at 11.6–12.4ms on the development machine whose report timings are the
+ * 1–104ms quoted above. Re-measure it if this fixture's size changes.
+ *
+ * The arithmetic on the two CI failures: `profit.per_imei/year` measures 104ms here and
+ * measured 308.6ms there — 3.0×, in step with every other report in the same run. A
+ * reference of ~36ms would have stretched the budget to ~900ms and let all 26 through,
+ * while a single report tripling on its own would still have been caught.
+ */
+const REFERENCE_BASELINE_MS = 12.0;
 
 beforeEach(function (): void {
     /*
@@ -137,6 +185,21 @@ it('answers every top report inside the budget on a year of trading', function (
     $month = ReportPeriod::of($end->subDays(29), $end);
     $year = ReportPeriod::of($end->subDays(BulkVolumeSeeder::DAYS - 1), $end);
 
+    /*
+    | ------------------------------------------------------------ calibration --
+    | How slow is the machine running this, compared with the one the budget was set
+    | on? See REFERENCE_BASELINE_MS.
+    */
+    $reference = measureReport(fn () => DB::table('sales_invoice_items')
+        ->where('tenant_id', $this->tenant->getKey())
+        ->selectRaw('count(*) c, sum(quantity) q')
+        ->first());
+
+    // Only ever upward: a fast machine does not earn a budget tighter than the number
+    // the spec promises a customer.
+    $scale = max(1.0, $reference / REFERENCE_BASELINE_MS);
+    $budget = REPORT_BUDGET_MS * $scale;
+
     /** @var array<string, float> $timings */
     $timings = inTenantContext($this->tenant, fn (): array => [
         'sales.daily/month' => measureReport(fn () => $reports->daily($month)),
@@ -195,8 +258,13 @@ it('answers every top report inside the budget on a year of trading', function (
     // and a bare "300.4 is not less than 300" does not answer it.
     foreach ($timings as $report => $ms) {
         expect($ms)->toBeLessThan(
-            REPORT_BUDGET_MS,
-            sprintf('%s took %.1fms, over the %dms budget. Timings: %s', $report, $ms, REPORT_BUDGET_MS, json_encode($timings)),
+            $budget,
+            sprintf(
+                '%s took %.1fms, over the %.0fms budget (%dms spec × %.1f for a machine where the '
+                .'reference workload took %.1fms against a %.1fms baseline). Timings: %s',
+                $report, $ms, $budget, REPORT_BUDGET_MS, $scale, $reference, REFERENCE_BASELINE_MS,
+                json_encode($timings),
+            ),
         );
     }
 
