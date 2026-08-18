@@ -1653,3 +1653,36 @@ every screen inherits it. That screen had been walked by hand several times.
 Still open in 11.1b: converting `InvoicePrintLayoutTest` from its source assertion to the
 rendered one its own docblock asks for — the task that owns the collided-money-columns
 defect — and extending the smoke suite to dark mode and the print layouts.
+
+---
+
+## 1405/05/27 (2026-08-18) — 11.1b, the print-layout conversion that refused to be one
+
+The roadmap asked for `InvoicePrintLayoutTest` to be **replaced** by a rendered
+assertion. The rendered assertion exists now — it sells the seeded handset at the
+collision's own figure under the long Persian name, and measures every cell on A4 and A5
+for both overlap and content overflow. What it could not do is replace the old one.
+
+**Removing `table-fixed` — the exact regression the source test guards — leaves the
+rendered test green.** At A4 the browser balances an `auto` layout into 703px of a 794px
+sheet with room to spare, every figure fits its column, nothing overlaps; and thermal80
+does not use a table at all. The historical squeeze does not reproduce in a screen-width
+preview of A4, so the rendered test has not been shown to catch what the source test
+catches.
+
+Deleting the source test on the strength of "we have a real one now" would have removed a
+working guard and left a green suite over the defect it was written for. Both are kept,
+each covering the half the other cannot see, and the old docblock — which promised its own
+deletion — now records why that promise was not kept.
+
+Two fixture facts worth keeping, both found by being refused:
+
+- The price has to land on a whole toman. `896,636,798` rial was rejected by
+  `Money::inUnit()`, correctly and loudly (golden rule 2). The collision's `96,636,798` is
+  **toman**; in rial it ends in a zero like every other price in this product.
+- A VAT total the cash payment does not cover is a credit sale, and a credit sale without
+  a party is refused by the POS. The fixture gained a customer rather than losing its VAT.
+
+The generalisable bit: **"replace the weaker test" is a hypothesis, not a plan.** It holds
+only if the stronger test fails where the weaker one does, and that is a thing to check by
+planting the regression — not to assume because the new test is more sophisticated.
