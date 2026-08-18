@@ -1,0 +1,172 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * MobiShop — memo-invalidation gate.
+ *
+ * ## The rule
+ *
+ * If anything calls `app(Foo::class)->forget()`, then `Foo` must be registered with
+ * `singleton()` (or `scoped()`). Otherwise the container hands back a **brand-new
+ * instance**, `forget()` clears that one's empty cache, and the instance the caller
+ * actually holds keeps answering from the stale list.
+ *
+ * ## The occurrence this exists for
+ *
+ * `BranchAccess` memoises `branch_user` per user and was never bound as a singleton. Every
+ * `forget()` in the codebase was a no-op — **including the one `BranchController::assign()`
+ * calls so that changing a branch's staff takes effect immediately.** The screen appeared
+ * to work because a fresh instance also has an empty cache; it would have failed the first
+ * time two reads happened in one request.
+ *
+ * Same family as the other two gates in `bin/`: nothing crashes, the call just silently
+ * does nothing.
+ *
+ * ## What it does not check
+ *
+ * A `forget()` called on an instance the caller constructed itself is fine and is not
+ * matched — this looks only at container resolutions, which is where the no-op lives.
+ *
+ * Escape hatch: `forget-allow` in a comment on the same line or the one above, with a
+ * reason. The legitimate case is a class deliberately resolved fresh whose `forget()` is
+ * belt-and-braces.
+ */
+
+const SCAN_ROOTS = ['app', 'tests', 'database', 'routes'];
+
+/** Container resolutions whose result is immediately `->forget()`ed. */
+const CALL_PATTERN = '/(?:app|resolve)\(\s*([A-Za-z_\\\\][A-Za-z0-9_\\\\]*)::class\s*\)\s*->\s*forget\s*\(/';
+
+/** How a binding is registered so that one instance is shared. */
+const BINDING_PATTERNS = ['singleton(%s::class', 'scoped(%s::class', 'singleton(\\%s::class'];
+
+$root = dirname(__DIR__);
+
+/** @return list<string> */
+function phpFilesIn(string $path): array
+{
+    if (! is_dir($path)) {
+        return [];
+    }
+
+    $found = [];
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $found[] = (string) $file->getRealPath();
+        }
+    }
+
+    return $found;
+}
+
+$sources = [];
+
+foreach (SCAN_ROOTS as $dir) {
+    foreach (phpFilesIn($root.'/'.$dir) as $file) {
+        $contents = file_get_contents($file);
+
+        if ($contents !== false) {
+            $sources[$file] = $contents;
+        }
+    }
+}
+
+/** Every binding registered anywhere in the application. */
+$appSource = '';
+
+foreach ($sources as $file => $contents) {
+    if (str_starts_with($file, $root.'/app')) {
+        $appSource .= $contents;
+    }
+}
+
+$failures = [];
+$checked = 0;
+
+foreach ($sources as $file => $contents) {
+    if (! str_contains($contents, '->forget(')) {
+        continue;
+    }
+
+    $lines = explode("\n", $contents);
+
+    foreach ($lines as $number => $line) {
+        if (preg_match(CALL_PATTERN, $line, $matches) !== 1) {
+            continue;
+        }
+
+        $checked++;
+
+        $previous = $lines[$number - 1] ?? '';
+
+        if (str_contains($line, 'forget-allow') || str_contains($previous, 'forget-allow')) {
+            continue;
+        }
+
+        // The short name is what a binding uses too, since both sites import the class.
+        $parts = explode('\\', $matches[1]);
+        $short = end($parts);
+
+        $bound = false;
+
+        foreach (BINDING_PATTERNS as $pattern) {
+            if (str_contains($appSource, sprintf($pattern, $short))) {
+                $bound = true;
+
+                break;
+            }
+        }
+
+        if ($bound) {
+            continue;
+        }
+
+        $key = $short;
+
+        $failures[$key] ??= ['class' => $short, 'sites' => []];
+        $failures[$key]['sites'][] = ltrim(str_replace($root, '', $file), DIRECTORY_SEPARATOR).':'.($number + 1);
+    }
+}
+
+if ($failures === []) {
+    echo "\n  Memo gate: {$checked} container `forget()` calls, every one on a shared binding.\n\n";
+
+    exit(0);
+}
+
+echo "\n  ✗ Memo-invalidation gate failed.\n\n";
+echo "    These classes are `forget()`ed through the container but are NOT registered with\n";
+echo "    `singleton()` or `scoped()`. The container returns a fresh instance, so the call\n";
+echo "    clears an empty cache while the real one keeps answering stale.\n\n";
+
+foreach ($failures as $failure) {
+    $count = count($failure['sites']);
+
+    echo "      {$failure['class']}  ({$count} call site".($count === 1 ? '' : 's').")\n";
+
+    foreach (array_slice($failure['sites'], 0, 4) as $site) {
+        echo "        {$site}\n";
+    }
+
+    if ($count > 4) {
+        $rest = $count - 4;
+
+        echo "        … and {$rest} more\n";
+    }
+
+    echo "\n";
+}
+
+echo "    Register it in the module's service provider:\n\n";
+echo "      \$this->app->singleton(Foo::class);\n\n";
+echo "    Before you do: check the memo's cache key. A shared instance whose key omits the\n";
+echo "    tenant becomes a CROSS-TENANT leak the moment two tenants are served in one\n";
+echo "    process — a job, a test, or the storefront's mid-request context switch.\n\n";
+
+exit(1);

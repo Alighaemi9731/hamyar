@@ -1,0 +1,220 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * MobiShop — savepoint-recovery placement gate.
+ *
+ * ## The rule
+ *
+ * An idempotent insert that catches a unique violation (23505) must run in a nested
+ * `DB::transaction()`, **and the `try` must sit OUTSIDE it**:
+ *
+ *     // WRONG — the catch runs inside the aborted nested transaction.
+ *     DB::transaction(function () { try { insert(); } catch (…) { select(); } });
+ *
+ *     // RIGHT — the closure throws, the savepoint rolls back, the catch runs clean.
+ *     try { DB::transaction(fn () => insert()); } catch (…) { select(); }
+ *
+ * ## Why this is a build failure and not a note
+ *
+ * Postgres aborts the *entire* transaction on a constraint violation. `DB::transaction()`
+ * releases its SAVEPOINT when the closure **throws** — a closure that swallows its own
+ * exception never triggers that, so the recovery query runs on a connection that is still
+ * aborted and dies with `25P02: current transaction is aborted`.
+ *
+ * This has now been got wrong three times (`AbandonedSweep::insertOnce()`,
+ * `SendSms::record()`, `SubmitInvoice::enqueue()`). Twice it presented as a *cascade of
+ * unrelated tests failing* after the one that actually collided, which is the most
+ * expensive possible way to find it. Three occurrences means it is not a rule yet — it is
+ * a recurring note. This makes it a rule.
+ *
+ * Every test runs inside `RefreshDatabase`'s transaction, so this is the default
+ * condition rather than an edge case.
+ *
+ * ## What it detects
+ *
+ * A `try` statement lexically inside a closure passed to `DB::transaction()` /
+ * `$connection->transaction()`, whose catch block mentions 23505 or a unique-violation
+ * check. That is the exact broken shape; the correct shape puts the `try` outside and is
+ * invisible to this walk.
+ *
+ * Escape hatch: `savepoint-allow` in a comment inside the try block, with a reason. A
+ * legitimate case exists — catching something that is *not* a constraint violation, where
+ * the transaction is still healthy.
+ */
+
+require __DIR__.'/../vendor/autoload.php';
+
+use PhpParser\Node;
+use PhpParser\NodeFinder;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor\ParentConnectingVisitor;
+use PhpParser\ParserFactory;
+
+const SCAN_ROOTS = ['app', 'database', 'routes'];
+
+/** Signals that a catch block is recovering from a unique violation. */
+const VIOLATION_MARKERS = ['23505', 'uniqueviolation', 'unique violation', 'duplicate key'];
+
+$parser = (new ParserFactory)->createForNewestSupportedVersion();
+$finder = new NodeFinder;
+
+$failures = [];
+$scanned = 0;
+
+foreach (SCAN_ROOTS as $root) {
+    $path = __DIR__.'/../'.$root;
+
+    if (! is_dir($path)) {
+        continue;
+    }
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = file_get_contents($file->getPathname());
+
+        if ($source === false) {
+            continue;
+        }
+
+        $scanned++;
+
+        // Cheap pre-filter: no transaction call, nothing to walk.
+        if (! str_contains($source, 'transaction(')) {
+            continue;
+        }
+
+        try {
+            $ast = $parser->parse($source);
+        } catch (Throwable) {
+            // A file this parser cannot read is Pint's problem, not this gate's.
+            continue;
+        }
+
+        if ($ast === null) {
+            continue;
+        }
+
+        $traverser = new NodeTraverser(new ParentConnectingVisitor);
+        $ast = $traverser->traverse($ast);
+
+        $lines = explode("\n", $source);
+
+        /** @var list<Node\Expr\MethodCall|Node\Expr\StaticCall> $calls */
+        $calls = $finder->find($ast, static function (Node $node): bool {
+            if (! $node instanceof Node\Expr\MethodCall && ! $node instanceof Node\Expr\StaticCall) {
+                return false;
+            }
+
+            return $node->name instanceof Node\Identifier && $node->name->toString() === 'transaction';
+        });
+
+        foreach ($calls as $call) {
+            foreach ($call->args as $arg) {
+                if (! $arg instanceof Node\Arg) {
+                    continue;
+                }
+
+                $closure = $arg->value;
+
+                if (! $closure instanceof Node\Expr\Closure && ! $closure instanceof Node\Expr\ArrowFunction) {
+                    continue;
+                }
+
+                /** @var list<Node\Stmt\TryCatch> $tries */
+                $tries = $finder->findInstanceOf($closure, Node\Stmt\TryCatch::class);
+
+                foreach ($tries as $try) {
+                    if (! recoversFromUniqueViolation($try, $lines)) {
+                        continue;
+                    }
+
+                    if (hasEscapeHatch($try, $lines)) {
+                        continue;
+                    }
+
+                    $failures[] = [
+                        'file' => relativePath((string) $file->getRealPath()),
+                        'line' => $try->getStartLine(),
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Does this try/catch look like unique-violation recovery?
+ *
+ * @param  list<string>  $lines
+ */
+function recoversFromUniqueViolation(Node\Stmt\TryCatch $try, array $lines): bool
+{
+    $body = slice($lines, $try->getStartLine(), $try->getEndLine());
+    $body = strtolower($body);
+
+    foreach (VIOLATION_MARKERS as $marker) {
+        if (str_contains($body, $marker)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @param  list<string>  $lines
+ */
+function hasEscapeHatch(Node\Stmt\TryCatch $try, array $lines): bool
+{
+    return str_contains(slice($lines, $try->getStartLine() - 1, $try->getEndLine()), 'savepoint-allow');
+}
+
+/**
+ * @param  list<string>  $lines
+ */
+function slice(array $lines, int $from, int $to): string
+{
+    return implode("\n", array_slice($lines, max(0, $from - 1), max(1, $to - $from + 1)));
+}
+
+function relativePath(string $absolute): string
+{
+    $root = realpath(__DIR__.'/../');
+
+    return $root === false ? $absolute : ltrim(str_replace($root, '', $absolute), '/');
+}
+
+if ($failures === []) {
+    echo "\n  Savepoint gate: no 23505 recovery inside a nested transaction in {$scanned} files.\n\n";
+
+    exit(0);
+}
+
+echo "\n  ✗ Savepoint-recovery gate failed.\n\n";
+echo "    A `try` that recovers from a unique violation must sit OUTSIDE `DB::transaction()`,\n";
+echo "    not inside its closure. Inside, the closure never throws, so the SAVEPOINT is never\n";
+echo "    rolled back and the recovery query dies with 25P02 on an aborted connection.\n\n";
+
+foreach ($failures as $failure) {
+    echo "      {$failure['file']}:{$failure['line']}\n";
+}
+
+echo "\n    Rewrite as:\n\n";
+echo "      try {\n";
+echo "          return DB::transaction(fn () => Model::query()->create([...]));\n";
+echo "      } catch (Throwable \$e) {\n";
+echo "          if (! str_contains(\$e->getMessage(), '23505')) { throw \$e; }\n";
+echo "          return Model::query()->where(...)->firstOrFail();\n";
+echo "      }\n\n";
+echo "    See CLAUDE.md → Conventions, and docs/testing.md → §3.\n\n";
+
+exit(1);

@@ -47,6 +47,22 @@ jobs:
       - name: RTL direction-class gate
         run: php bin/check-direction-classes
 
+      # Three defects this project got wrong once each and one of them three times. All
+      # share a shape: nothing crashes, the wrong thing silently wins. Source scans, so
+      # they cost seconds and run before anything expensive.
+      #
+      #   savepoint  — 23505 recovery `try` inside DB::transaction() instead of outside
+      #   helpers    — a global helper shadowed by a vendor one (ours never runs)
+      #   memo       — forget() on a binding that is not a singleton (every call a no-op)
+      - name: Savepoint-recovery gate
+        run: php bin/check-savepoint-recovery
+
+      - name: Global-helper collision gate
+        run: php bin/check-global-helpers
+
+      - name: Memo-invalidation gate
+        run: php bin/check-forgettable-singletons
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)

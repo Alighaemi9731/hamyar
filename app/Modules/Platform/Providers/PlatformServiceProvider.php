@@ -9,6 +9,7 @@ use App\Modules\Platform\Policies\SubscriptionPolicy;
 use App\Modules\Platform\Services\Payments\FakeGateway;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
 use App\Modules\Platform\Services\Payments\ZarinpalGateway;
+use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as Http;
@@ -30,6 +31,22 @@ final class PlatformServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | A singleton, and `bin/check-forgettable-singletons` now enforces it.
+        |
+        | This memoises the live subscription per tenant, and `forget()` is called after
+        | every plan change — 84 call sites across the suite. Without a shared binding the
+        | container handed back a fresh instance each time, so every one of those calls
+        | cleared an empty cache while the instance the caller held kept answering. It did
+        | not misbehave only because a fresh instance also starts empty; the memo simply
+        | never worked, and a plan change mid-request would have been read stale.
+        |
+        | Safe to share because the cache is keyed by tenant id (`$this->cache[$tenantId]`).
+        | A key that omitted the tenant would make this a cross-tenant leak the moment two
+        | shops are served in one process.
+        */
+        $this->app->singleton(SubscriptionResolver::class);
+
         // One shared gateway instance per request: FakeGateway carries state a test sets
         // up (`willFail()`) and then asserts on, which a fresh instance per resolve would
         // silently discard.
