@@ -1718,3 +1718,18 @@ with the platform.
 The fixture was removed afterwards rather than left in the dev database; the command
 rebuilds it. What it has *not* done is measure an endpoint under concurrency — that is the
 next item, and the query shapes being clean is not the same claim.
+
+**A postscript from cleaning the fixture up, which is now an 11.3 note.** Removing the 50
+shops took longer than creating them. Deleting a shop with a trading year behind it is a
+**multi-minute, lock-heavy cascade** — roughly 380k rows across a dozen tables per shop —
+and a chunk of five was still running after twenty minutes. A second `DELETE` over the
+same set does not do useful work; it waits on the first's transaction. In the end the dev
+database was rebuilt with `migrate:fresh --seed` rather than unpicked, which is the right
+answer for a dev database and not an option for a customer's.
+
+Two consequences are worth designing for before any shop cancels: tenant deletion belongs
+in a queued job with a progress record rather than a request, and "remove these ten shops"
+has to be sequential by design rather than by accident. Nothing is broken today — there is
+no delete-a-tenant feature to be slow — but the cheapest moment to learn this was on a
+fixture, and the most expensive would be a customer asking to be forgotten under a
+data-protection deadline.
