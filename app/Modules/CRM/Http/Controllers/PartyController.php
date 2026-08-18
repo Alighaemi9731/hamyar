@@ -179,6 +179,8 @@ final class PartyController extends Controller
             'can' => [
                 'update' => $request->user()?->can('crm.update') ?? false,
                 'view_balance' => $showBalance,
+                // Draws the «تاریخچه» link only. The viewer authorises for itself.
+                'view_activity' => $request->user()?->can('activity.view') ?? false,
             ],
         ]);
     }

@@ -786,6 +786,58 @@ cannot be entered without a branch. The cost grew with the shop's whole history 
 than with the range — invisible at eleven demo invoices, and a complaint from the biggest
 customer eighteen months in.
 
+### A predicate the planner cannot use is an index that does not exist
+
+The `sales_invoices` case above is about a *missing* index. The audit log's was worse:
+the indexes were there, correct, and unreachable.
+
+`activity_log` holds central rows beside tenant ones, so its RLS policy was written
+null-tolerantly, the obvious way:
+
+```sql
+tenant_id IS NOT DISTINCT FROM current_setting('app.tenant_id')::bigint
+```
+
+**No btree can serve `IS NOT DISTINCT FROM`.** An RLS predicate is ANDed into every
+query against the table, so *every* index on `activity_log` was dead from the moment it
+was created — including the two added, carefully, for the viewer's filters. Nothing
+errored, no test failed, and `\d activity_log` listed four healthy indexes. The table
+simply scanned the whole platform to answer a question about one shop, a little slower
+with every shop that signed up.
+
+Two lessons, and the first is the one that generalises:
+
+1. **An index is not verified by existing.** `EXPLAIN` is the only thing that says a
+   query uses one. Reading the index list and the `WHERE` clause and concluding they
+   match is exactly the reasoning that produced this.
+2. **Check what your always-on predicates do to the plan.** RLS policies, global scopes
+   and soft-delete clauses are invisible in the query you wrote and present in the query
+   that runs. This one was written in Phase 2 and measured in 11c.
+
+Measured on a seeded 1.8M rows — fifty shops, a year of history, which is the scale the
+question was asked at:
+
+| predicate                                   | plan                | time     |
+|---------------------------------------------|---------------------|----------|
+| `IS NOT DISTINCT FROM` (RLS alone)          | Parallel Seq Scan   | 55.8 ms  |
+| indexable OR (RLS alone)                    | BitmapOr + sort     | 112 ms   |
+| indexable OR **+ the model's tenant scope** | Index Scan Backward | 0.6 ms   |
+
+The third row is why `Activity` carries a global scope duplicating what RLS already
+enforces: RLS is the security boundary, and the scope exists so the *planner* gets a
+plain `tenant_id = 4` it can seek on — Postgres cannot fold `current_setting()` at plan
+time, but the application knows the answer before it builds the query.
+
+Seed a realistic table before believing any of this. The load fixture is throwaway:
+
+```sql
+INSERT INTO activity_log (...) SELECT ... FROM generate_series(1, 1800000);
+ANALYZE activity_log;
+-- then EXPLAIN each filter the screen can actually produce, as the app role,
+-- with app.tenant_id set — not as the superuser, who bypasses RLS entirely and
+-- will happily show you a plan the application will never get.
+```
+
 ---
 
 ## 7. Writing a test — checklist
@@ -796,3 +848,7 @@ customer eighteen months in.
 4. Unit tests for any money, date or state-machine logic involved.
 5. Assert the ledger/movement rows, not just the HTTP status: a green 200 that wrote
    nothing is the failure mode that matters here.
+6. If the change touches a secret, assert it is absent from the **database**, not just
+   from the response. 11c's redaction test reads `getRawOriginal()` for exactly this
+   reason: a guard in the controller leaves the clear value in the table for a console,
+   a backup, or the next screen written over that data.

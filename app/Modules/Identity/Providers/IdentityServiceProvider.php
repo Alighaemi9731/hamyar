@@ -8,6 +8,7 @@ use App\Modules\Identity\Models\Activity;
 use App\Modules\Identity\Models\User;
 use App\Modules\Identity\Policies\ActivityPolicy;
 use App\Modules\Identity\Policies\UserPolicy;
+use App\Support\Audit\AuditSubjects;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -35,6 +36,13 @@ final class IdentityServiceProvider extends ModuleServiceProvider
 
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Activity::class, ActivityPolicy::class);
+
+        // Identity has audited its own model since Phase 2; this only gives the
+        // filter a Persian name for it.
+        $this->app->make(AuditSubjects::class)->register(
+            'user', User::class, 'کاربر', 50,
+            static fn (int $id): ?string => User::query()->find($id)?->name,
+        );
 
         $this->registerOwnerOverride();
     }

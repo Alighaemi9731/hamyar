@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Catalog\Models;
 
 use App\Modules\Catalog\Enums\ProductType;
+use App\Support\Audit\Auditable;
 use App\Support\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,6 +34,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 final class Product extends Model
 {
+    use Auditable;
     use BelongsToTenant;
 
     /** @use HasFactory<\Database\Factories\ProductFactory> */

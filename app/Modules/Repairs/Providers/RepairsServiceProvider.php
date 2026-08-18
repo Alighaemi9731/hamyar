@@ -6,6 +6,7 @@ namespace App\Modules\Repairs\Providers;
 
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Policies\RepairTicketPolicy;
+use App\Support\Audit\AuditSubjects;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -32,5 +33,20 @@ final class RepairsServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         Gate::policy(RepairTicket::class, RepairTicketPolicy::class);
+
+        // Registered for the label, not because the ticket carries `Auditable`.
+        // Every passcode reveal since Phase 6 has written an activity row with the
+        // ticket as its subject, so the filter needs a Persian name for it — without
+        // this those rows are filterable only by typing a class name.
+        //
+        // The ticket itself is deliberately NOT audited attribute-by-attribute: a
+        // repair moves through six statuses and would be the highest-volume subject
+        // in the product, and `ticket_status_histories` already records exactly that
+        // — from_status, to_status, actor_id, note, created_at — in the module that
+        // owns it. See ADR 0014.
+        $this->app->make(AuditSubjects::class)->register(
+            'repair-ticket', RepairTicket::class, 'تیکت تعمیر', 60,
+            static fn (int $id): ?string => RepairTicket::query()->find($id)?->code,
+        );
     }
 }

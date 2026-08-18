@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Support\Audit\AuditSubjects;
+use App\Support\Audit\Redactor;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Spreadsheet\CsvReader;
 use App\Support\Spreadsheet\SpreadsheetReaders;
@@ -30,6 +32,18 @@ class AppServiceProvider extends ServiceProvider
         // Same shape, one level up: modules contribute what they know about a party and
         // the CRM customer page renders the union without importing any of them.
         $this->app->singleton(TimelineRegistry::class);
+
+        // Third of the same shape: the audit-log viewer needs a Persian name and a
+        // URL-safe key for every kind of thing the log can be about, and getting that
+        // from a map here would point App\Support at Catalog, CRM and Repairs. Modules
+        // declare their own subjects instead, beside the models they audit.
+        $this->app->singleton(AuditSubjects::class);
+
+        // Shared for its cache, which is keyed by class name and holds nothing
+        // tenant-specific: what counts as a secret on a model is a property of the
+        // class, identical for every shop. Rebuilding it per row would instantiate a
+        // model per activity entry rendered.
+        $this->app->singleton(Redactor::class);
 
         // Customer lists arrive as whatever the sender's Excel exported. Both readers
         // register here and the import service learns neither format exists — it asks

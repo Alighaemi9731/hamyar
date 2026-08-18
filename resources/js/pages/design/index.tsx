@@ -7,6 +7,7 @@ import { BarChart } from '@/components/domain/bar-chart';
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
@@ -781,6 +782,16 @@ function StateSection({ alt }: { alt?: boolean }) {
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
         </div>
+      </Row>
+
+      <Row label="HistoryLink">
+        {/*
+          The door from a record into its own audit history. Ghost, not outline: it
+          sits beside a page's real actions and must not compete with the one
+          brand-filled button per view (design-system rule 7).
+        */}
+        <HistoryLink subject="product" record={1} />
+        <HistoryLink subject="party" record={1} label="تاریخچه تغییرات" />
       </Row>
 
       <Row label="Badge">

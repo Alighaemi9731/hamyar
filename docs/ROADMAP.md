@@ -1167,7 +1167,7 @@ converging on them later.
 - [ ] Backup-request button (admin-side artisan) — **decide after the 11d restore drill.**
       A button that requests a backup nobody has ever restored is a button that produces
       false confidence; the drill answers whether this is worth building at all
-- [→] Audit-log viewer UI with filters — **moved to [11c](#11c-audit-log-viewer)**
+- [x] Audit-log viewer UI with filters — **delivered in [11c](#11c-audit-log-viewer)**
 
 ### 10.6 Tests
 - [x] Price-list link security (expiry, password, price level) — `PriceListSecurityTest`,
@@ -1363,9 +1363,61 @@ would, and the worst place to discover one is in front of a customer.*
 
 ### 11c — Audit-log viewer
 
-*Promoted from 10.5. Read-only UI over data `spatie/activitylog` has collected since Phase 2.*
+*Promoted from 10.5. Read-only UI over the audit trail — **and, first, over an audit
+trail worth reading**.*
 
-- [ ] Filterable by tenant, by user, by date, by subject
+> **The promotion note was wrong, and checking it was the first thing 11c did.** 10.5
+> described this as a UI over data «collected since Phase 2». Across eighteen modules
+> exactly one model carried `LogsActivity` — `Identity\User`, four attributes — beside
+> two hand-written call sites (an impersonation starting, a passcode being revealed).
+> The dev database's entire audit trail was two rows, both «user created».
+>
+> So «کی این قیمت را عوض کرد؟» — the question the viewer exists for — had no row to
+> find. A filter bar over that table would have worked perfectly and answered nothing.
+> Coverage came first; the screen second. [ADR 0014](adr/0014-audit-surface-and-log-isolation.md)
+
+- [x] **An audit surface, decided rather than sprinkled.** An entry is earned when an
+      owner would ask who made a change *and* no other table already answers. Product,
+      ProductVariant, PriceLevel and Party carry `Auditable`; price changes are logged
+      by hand against the **variant** with the amount before and after, because
+      `product_prices` is append-only so only *who* was missing. Ledger-shaped tables
+      (`stock_movements`, `ledger_entries`, `ticket_status_histories`, …) are
+      deliberately **not** audited — they are already the record, and mirroring them
+      would duplicate the highest-volume writes in the product to say nothing new
+- [x] Filterable by user, by date (Jalali), by subject type, by **one specific record**,
+      and by free text over the Persian description
+- [x] **The record-page entry point, which matters more than the standalone screen.**
+      «تاریخچه» on a product and on a party opens that record's own history, titled with
+      its name. An owner who must find the audit log and then rediscover which of four
+      hundred products they were looking at will not use it twice
+- [x] **Read-only as a tested property, not a habit.** `ActivityLogRoutesTest` fails if
+      any route reaches the controller with a mutating verb, if the controller grows a
+      public action beyond `index`, or if the policy grows an ability beyond `viewAny`.
+      Entries leave by ageing out, never by request
+- [x] **The log masks what the model masks.** Secrets are redacted on the way in, from a
+      list *derived* from each model's own `$hidden` and `encrypted` casts rather than
+      maintained beside the audit code — so a new secret field is protected the day it
+      is added. Two findings: spatie v5 writes the model diff to `attribute_changes`,
+      not `properties`, so guarding the latter alone masked nothing for audited models;
+      and `RepairTicket`'s `tracking_token` and `approval_token`, both bearer
+      credentials, were not declared sensitive anywhere
+- [x] **Indexes measured against the filter set at 1.8M rows** (fifty shops, a year) —
+      and the measurement found that the table had **no usable index at all**. Its
+      null-tolerant RLS policy used `IS NOT DISTINCT FROM`, which no btree can serve, so
+      every query scanned the whole platform to answer a question about one shop. Fixed
+      in `EnablesRowLevelSecurity` (an indexable OR) plus a planner-visible tenant scope
+      on `Activity`; the record-history hot path went from a full scan to a 0.074ms
+      index scan, and no query's cost grows with the number of shops any more
+- [x] **Six defects found on the browser walk with every feature test green** — the
+      worst being that a product's «تاریخچه» contained no price changes at all, because
+      prices are logged against the variant. Not an edge case: [ADR 0013](adr/0013-flat-product-import.md)
+      makes one-product-one-variant the shape of every imported row, so the link built
+      to answer «کی این قیمت را عوض کرد؟» opened a page with every kind of change
+      except that one. Subjects can now declare related records
+- [ ] **Retention — noted, not built** (post-launch). `clean_after_days` is 365 and
+      `activitylog:clean` is **not scheduled**. What is left of the per-shop query cost
+      is bounded by retention rather than by an index, but how long a shop's audit trail
+      must survive is a legal and commercial question, not an engineering one
 
 ### 11d — Remaining launch hardening
 

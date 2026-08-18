@@ -11,6 +11,7 @@ use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Policies\PartyPolicy;
 use App\Modules\CRM\Services\PartyTimeline;
 use App\Modules\Platform\Events\TenantProvisioned;
+use App\Support\Audit\AuditSubjects;
 use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Documents\DocumentType;
@@ -59,6 +60,15 @@ final class CRMServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         Gate::policy(Party::class, PartyPolicy::class);
+
+        // A party's credit limit and opening balance are audited: they are the two
+        // numbers a shop argues about, and «کی این سقف را بالا برد؟» has no other
+        // answer — the balance itself is a SUM over ledger_entries and carries no
+        // record of who moved the ceiling.
+        $this->app->make(AuditSubjects::class)->register(
+            'party', Party::class, 'طرف حساب', 40,
+            static fn (int $id): ?string => Party::query()->find($id)?->name,
+        );
 
         // CRM contributes its own half of the timeline through the same registry every
         // other module uses, rather than reading its tables directly in the controller.

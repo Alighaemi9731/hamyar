@@ -3,6 +3,7 @@ import { ArrowRightIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
+import { HistoryLink } from '@/components/domain/history-link';
 import { Num } from '@/components/domain/num';
 import { SettingsSection } from '@/components/settings-section';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface Props {
   categories: { id: number; label: string }[];
   brands: { id: number; label: string }[];
   types: { value: string; label: string }[];
+  can: { view_activity: boolean };
 }
 
 const NONE = 'none';
@@ -64,19 +66,33 @@ const NONE = 'none';
  * gets its own action, its own confirmation of what it will produce, and its own
  * explanation of what happens to combinations that fall outside the new matrix.
  */
-export default function ProductEdit({ product, variants, axes, categories, brands, types }: Props) {
+export default function ProductEdit({
+  product,
+  variants,
+  axes,
+  categories,
+  brands,
+  types,
+  can,
+}: Props) {
   const title = product ? product.name : 'کالای جدید';
 
   return (
     <AppShell
       title={title}
       actions={
-        <Button variant="outline" asChild>
-          <Link href="/catalog">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
-            بازگشت به فهرست
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* The door into this product's audit history — «کی این قیمت را عوض کرد؟»
+              is asked here, looking at the product, not in Settings. */}
+          {product && can.view_activity && <HistoryLink subject="product" record={product.id} />}
+
+          <Button variant="outline" asChild>
+            <Link href="/catalog">
+              <ArrowRightIcon className="size-4 rtl:rotate-180" />
+              بازگشت به فهرست
+            </Link>
+          </Button>
+        </div>
       }
     >
       <Head title={title} />

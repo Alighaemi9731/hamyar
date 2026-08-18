@@ -1466,3 +1466,72 @@ is well-formed. Written up in `docs/testing.md`.
 **Two rules ratified into the import spec** beside parse-never-strip: an unreadable cell is
 a row error never a zero (a zero *price* is a real price — it goes out the door), and a
 contradicting currency word is a file-level unit error rather than noise to strip.
+
+---
+
+## 1405/05/27 (2026-08-18) — Phase 11c, the audit-log viewer
+
+The roadmap called this "a read-only UI over data `spatie/activitylog` has collected
+since Phase 2." Checking that was the first thing 11c did, and it was false. Across
+eighteen modules exactly one model carried `LogsActivity` — `Identity\User`, four
+attributes — beside two hand-written call sites. The development database's entire audit
+trail was **two rows, both «user created»**.
+
+So «کی این قیمت را عوض کرد؟», the question the viewer exists to answer, had no row to
+find. Filters over that table would have worked perfectly and answered nothing, and the
+checkbox would have said otherwise. Coverage first, screen second.
+
+**What earns an entry** is now a rule rather than a habit: a change is audited when an
+owner would ask who made it *and* no other table already answers. Product, variant,
+price level and party carry `Auditable`; ledger-shaped tables (`stock_movements`,
+`ticket_status_histories`, …) deliberately do not, because they are already the record
+and mirroring them would duplicate the highest-volume writes in the product to say
+nothing new. Price changes are logged by hand **against the variant**, with the amount
+before and after, because `product_prices` is append-only — what and when were already
+there, only *who* was missing.
+
+**The log masks what the model masks.** The secret list is derived from each model's own
+`$hidden` and `encrypted` casts rather than maintained beside the audit code, so a new
+secret is covered by the declaration that already protects it everywhere else. Two things
+fell out of building it: spatie v5 writes the model diff to **`attribute_changes`**, not
+`properties` — so guarding `properties` alone, which is what the column names suggest,
+masks nothing at all for audited models — and `RepairTicket`'s `tracking_token` and
+`approval_token`, both bearer credentials, were declared sensitive nowhere.
+
+**The expensive find came from measuring, not reading.** `activity_log`'s null-tolerant
+RLS policy used `IS NOT DISTINCT FROM`, and **no btree can serve that operator**. An RLS
+predicate is ANDed into every query, so every index on the table was dead the moment it
+was created — including the two added for this viewer. Nothing errored; the log just
+scanned the whole platform to answer a question about one shop, a little slower with
+every shop that signed up. At a seeded 1.8M rows the default view was a 55.8ms parallel
+sequential scan. Fixed in `EnablesRowLevelSecurity` (an indexable OR) plus a
+planner-visible tenant scope on `Activity`, and the record-history hot path — the one
+the «تاریخچه» link uses — went to a 0.074ms index scan. The point is not the
+milliseconds: it is that no query's cost grows with the number of shops any more.
+
+**Read-only is now a tested property.** `ActivityLogRoutesTest` fails if any route
+reaches the controller with a mutating verb, if the controller grows a public action
+beyond `index`, or if the policy grows an ability beyond `viewAny`.
+
+**The browser walk found six defects with every feature test green**, and one of them was
+the feature: a product's «تاریخچه» contained no price changes at all, because prices are
+logged against the variant. ADR 0013 makes one-product-one-variant the shape of every
+imported row, so the link built to answer «کی این قیمت را عوض کرد؟» opened a page with
+every kind of change except that one. Subjects can now declare related records, and the
+owning module supplies the relationship so the controller still does not know what a
+variant is. The other five: `created` events printing `— ← —` for every unset field
+(seven of ten lines on one entry said nothing), a struck-through em dash standing in for
+"not set", money rendered without its unit in a log where the amount is the point, Latin
+digits in Persian prose, and empty query parameters making a shared audit link unreadable.
+
+Two things noted and deliberately not built: **retention** — `clean_after_days` is 365
+and `activitylog:clean` is not scheduled, and how long a shop's audit trail must survive
+is a legal question — and dropping the policy's null-tolerance entirely, which would buy
+the last ordered-scan plan but decides whether a shop should see the platform's actions
+on it. Both belong in 11d or later. Also corrected: `docs/specs/identity.md` still said
+the tenant context was pinned with `SET LOCAL`, which golden rule 1 exists to say it is
+not.
+
+Recorded as [ADR 0014](adr/0014-audit-surface-and-log-isolation.md); the index lesson is
+in `docs/testing.md`, because "a predicate the planner cannot use is an index that does
+not exist" is not specific to this table.

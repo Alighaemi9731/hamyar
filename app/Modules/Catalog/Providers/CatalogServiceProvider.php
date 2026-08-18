@@ -6,11 +6,14 @@ namespace App\Modules\Catalog\Providers;
 
 use App\Modules\Catalog\Listeners\SeedPriceLevels;
 use App\Modules\Catalog\Models\Category;
+use App\Modules\Catalog\Models\PriceLevel;
 use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Catalog\Policies\CategoryPolicy;
 use App\Modules\Catalog\Policies\ProductPolicy;
 use App\Modules\Catalog\Services\PriceResolver;
 use App\Modules\Platform\Events\TenantProvisioned;
+use App\Support\Audit\AuditSubjects;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -51,5 +54,40 @@ final class CatalogServiceProvider extends ModuleServiceProvider
         Gate::policy(Category::class, CategoryPolicy::class);
 
         Event::listen(TenantProvisioned::class, SeedPriceLevels::class);
+
+        // What the audit log is allowed to be about, from the module that owns the
+        // models — so the filter dropdown cannot drift from what is actually audited.
+        // Positions are set rather than left to registration order, which is module
+        // discovery order and therefore a directory listing.
+        //
+        // The third argument of each is the namer: how one record of that kind titles
+        // its own history page. Registered here beside the subject rather than in the
+        // DocumentRegistry, so a module declares an audited thing exactly once.
+        $subjects = $this->app->make(AuditSubjects::class);
+
+        $subjects->register(
+            'product', Product::class, 'کالا', 10,
+            static fn (int $id): ?string => Product::query()->find($id)?->name,
+            // A product's history includes its variants'. Price changes are logged
+            // against the variant, and «کی این قیمت را عوض کرد؟» is asked while
+            // looking at the product — without this the link built to answer it opens
+            // a page with every kind of change on it except that one.
+            static fn (int $id): array => [
+                ProductVariant::class => ProductVariant::query()
+                    ->where('product_id', $id)
+                    ->pluck('id')
+                    ->all(),
+            ],
+        );
+
+        $subjects->register(
+            'variant', ProductVariant::class, 'تنوع کالا', 20,
+            static fn (int $id): ?string => ProductVariant::query()->with('product:id,name')->find($id)?->displayName(),
+        );
+
+        $subjects->register(
+            'price-level', PriceLevel::class, 'سطح قیمت', 30,
+            static fn (int $id): ?string => PriceLevel::query()->find($id)?->name_fa,
+        );
     }
 }

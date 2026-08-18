@@ -53,12 +53,26 @@ trait EnablesRowLevelSecurity
         // both "never set" and "explicitly cleared" deny access identically.
         $current = "NULLIF(current_setting('app.tenant_id', true), '')::bigint";
 
-        // `IS NOT DISTINCT FROM` treats NULL = NULL as true, which is what a table
-        // holding BOTH tenant and central rows needs: in a tenant context you see only
-        // that tenant's rows, and with no context you see only the central ones.
-        // Plain `=` would make every central row invisible to everybody.
+        // A table holding BOTH tenant and central rows needs NULL = NULL to be true:
+        // in a tenant context you see only that tenant's rows, and with no context you
+        // see only the central ones. Plain `=` alone would make every central row
+        // invisible to everybody.
+        //
+        // Spelled as an OR rather than the `IS NOT DISTINCT FROM` that says the same
+        // thing in one operator, because **`IS NOT DISTINCT FROM` is not btree
+        // indexable**. A policy using it silently disables every index on the table it
+        // guards — the predicate is applied to every query, so every query becomes a
+        // sequential scan no matter what the query itself asks for or what indexes
+        // exist. Measured on `activity_log` at 1.8M rows (fifty shops, one year):
+        // 55.8ms scanning the whole platform, against 0.155ms with this form, and the
+        // gap widens with every shop added because the scan is of the table rather
+        // than of one tenant's slice of it.
+        //
+        // The `= {$current}` branch is an ordinary indexable equality; the second
+        // branch matches central rows only when there is no context at all, and is a
+        // constant-false test the planner discards the rest of the time.
         $predicate = $allowNullTenant
-            ? "{$column} IS NOT DISTINCT FROM {$current}"
+            ? "({$column} = {$current} OR ({$column} IS NULL AND {$current} IS NULL))"
             : "{$column} = {$current}";
 
         // Platform-owned tables (subscriptions, billing) must stay invisible to a
