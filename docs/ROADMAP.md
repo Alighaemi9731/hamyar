@@ -1252,15 +1252,51 @@ would, and the worst place to discover one is in front of a customer.*
       global indexes are allow-listed with a reason each: two bearer credentials, one
       gateway-issued id, one public URL segment
 
-### 11.1 Security
-- [ ] OWASP ASVS-L1 checklist in `docs/security.md`
-- [ ] Rate limits: login, OTP, public tracking/price-list pages
-- [ ] Signed-URL audit
-- [ ] Security headers + CSP
-- [ ] Dependency audit in CI
-- [ ] Secrets hygiene review
-- [ ] Encrypted-columns inventory (device passcodes!)
-- [ ] Impersonation & RLS re-verification
+### 11.1 Security — **done, 11d pass 1**
+
+> Audited rather than asserted: [`docs/security.md`](security.md) records what was
+> **checked**, with the file or test that proves each line, and names the gaps it did not
+> close. A checklist ticked because its items sound true converts an unknown into a false
+> known.
+
+- [x] OWASP ASVS-L1 checklist in [`docs/security.md`](security.md) — V1–V14, each line
+      either verified with its evidence or named as a gap with what closing it costs
+- [x] Rate limits: login, OTP, public tracking/price-list pages — **verified, not built.**
+      All were already in place, login throttled per *credential and IP* rather than per
+      route (so rotating usernames from one address does not reset the counter). Written
+      down in the checklist so the next reader does not re-derive it
+- [x] Signed-URL audit — five link types tabulated with signature, expiry and extra
+      control. Two deliberate non-signatures recorded with their reasons: the receipt QR
+      never expires because the paper does not, and the tracking/price-list tokens are
+      capabilities printed on paper that must survive a key rotation
+- [x] **Security headers + CSP** — `SecurityHeaders` middleware: nonce-based `script-src`
+      with no `'unsafe-inline'`, `frame-ancestors 'none'`, `base-uri`, `form-action`,
+      `Permissions-Policy`, and HSTS only on an already-secure production request.
+      Registered **globally, not in the `web` group** — group middleware runs only after
+      a route matches, so a 404 came back with no policy at all. Found by a test asking
+      for a page that does not exist; every real screen looked correctly protected
+- [x] **Dependency audit in CI** — `composer audit` and `npm audit --omit=dev`. It found
+      a live high-severity advisory the day it was added (`nanoid`, reachable through
+      `postcss` from the `shadcn` CLI). Patched; the CLI sitting in `dependencies` rather
+      than `devDependencies` is a proposed one-line change, left for approval because it
+      alters the dependency manifest
+- [x] Secrets hygiene review — `.env*` gitignored bar `.env.example`; no credential
+      literals in the tree
+- [x] **Encrypted-columns inventory — derived, not listed.**
+      `tests/Feature/SecretColumnsTest.php` asks every model and asserts the invariant
+      that matters: **an `encrypted` attribute must also be `$hidden`.** The cast
+      decrypts on access, so one that is not hidden reaches every `toArray()`, JSON
+      response and `Log::info($model)` in plaintext — encryption doing its job while the
+      value ships anyway. Verified by planting a leak
+- [x] Impersonation & RLS re-verification — the 11c pass rewrote the `activity_log`
+      policy and added the assertion that an impersonation stays visible to the shop it
+      was performed on ([ADR 0002 amendment 3](adr/0002-single-db-tenancy-rls.md))
+- [x] **Not on the list, found while checking it:** three screens inject server-generated
+      SVG with `dangerouslySetInnerHTML`, and one takes an operator-supplied barcode that
+      the products import can set in bulk. The generators escape correctly —
+      `InlineSvgIsInertTest` now proves it by **parsing** the output, after a first
+      attempt that searched for the substring `script`, matched `&lt;script&gt;` in the
+      escaped description, and reported a vulnerability that was never there
 
 ### 11.1b Browser testing in CI — pay off the mechanism-level layout guards
 - [ ] **Wire Pest 4 browser testing into CI** (`tests/Browser/`, a headless Chrome in the

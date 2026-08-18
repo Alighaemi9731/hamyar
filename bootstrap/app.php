@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureModuleEnabled;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,6 +26,21 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        /*
+        | Global, not in the `web` group, and the difference is a real hole rather
+        | than a preference.
+        |
+        | Group middleware runs only once a route has matched. A request for a path
+        | with no route never enters `web` at all, so a 404 — an HTML page, served to
+        | a browser, rendered from a Blade template — came back with no policy, no
+        | nosniff and no frame-ancestors. Same for anything the exception handler
+        | renders before routing.
+        |
+        | Found by a test that asked for a page that does not exist, which is the only
+        | reason it was found: every screen in the product looked correctly protected.
+        */
+        $middleware->append(SecurityHeaders::class);
 
         $middleware->alias([
             // Resolves the shop from the hostname and pins it for the request.

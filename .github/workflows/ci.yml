@@ -31,6 +31,13 @@ jobs:
 
       - uses: ramsey/composer-install@v3
 
+      # Known-vulnerable PHP packages. Advisories land against versions already in the
+      # lockfile, so this fails builds that changed nothing — which is the point: the
+      # day an advisory is published is the day we want to hear about it, not the day
+      # somebody happens to touch composer.json.
+      - name: Composer audit
+        run: composer audit --no-interaction
+
       # Two invocations on purpose, and `composer lint:test` runs the same pair.
       #
       # Pint's results depend on how it is invoked. `pint --test` with no argument misses
@@ -213,6 +220,17 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # `--omit=dev` deliberately: a build-tool advisory is worth knowing about and is
+      # not worth a red build on every branch, because it never reaches a shop's
+      # browser. What ships is what this checks.
+      #
+      # It found one the day it was added — a high-severity `nanoid` loop, pulled in
+      # through `postcss` by the `shadcn` CLI, which is in `dependencies` rather than
+      # `devDependencies` and therefore in the production tree. Fixed by the patch bump;
+      # the misplaced CLI is noted in docs/security.md.
+      - name: npm audit (production tree)
+        run: npm audit --omit=dev --audit-level=high
 
       - name: TypeScript
         run: npx tsc --noEmit

@@ -23,7 +23,7 @@
         Applies the stored theme before first paint. Without this the page renders
         light and then repaints dark, which is the flash every dark-mode user hates.
     --}}
-    <script>
+    <script nonce="{{ Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {
             try {
                 var stored = localStorage.getItem('mobishop.theme');
