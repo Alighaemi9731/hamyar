@@ -212,6 +212,12 @@ jobs:
     name: Browser smoke (Chromium)
     runs-on: ubuntu-latest
 
+    # GitHub's default is six hours. This job's `Install Chromium` step hung once,
+    # having taken ~4 minutes on the three runs before it, and would have burned the
+    # whole default budget before anybody noticed a check that never came back. Twelve
+    # minutes is roughly double the observed worst case.
+    timeout-minutes: 12
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -261,8 +267,33 @@ jobs:
       - name: Build assets
         run: npm run build
 
+      # Cached on the resolved Playwright version, because the download is the slow and
+      # flaky part — it is ~150MB from a third-party CDN, and it is the step that hung.
+      # The key comes from the lockfile so a version bump invalidates it automatically
+      # rather than silently reusing the wrong browser.
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Chromium
+        id: chromium-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # `--with-deps` only on a cache miss: it shells out to apt-get for Chromium's
+      # shared libraries, which the runner image already carries most of, and that is
+      # the part with no reason to run twice.
       - name: Install Chromium
+        if: steps.chromium-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      # The libraries are not in the cached browser directory, so a cache hit still
+      # needs them present. Cheap when they are already installed.
+      - name: Ensure Chromium's system libraries
+        if: steps.chromium-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Provision the test database and the non-superuser app role
         env:
