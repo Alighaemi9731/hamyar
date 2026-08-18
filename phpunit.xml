@@ -22,6 +22,15 @@
         <testsuite name="Modules">
             <directory>app/Modules/*/tests/Unit</directory>
         </testsuite>
+        <!--
+            `tests/Browser` is deliberately absent from this list.
+
+            PHPUnit runs every declared testsuite by default, and each browser test
+            starts a real Chromium and needs `public/build` to exist — a default `pest`
+            that fails on a machine which has not run `npm run build` is a default
+            people learn to ignore. They run by path instead: `composer test:browser`,
+            and their own CI job.
+        -->
     </testsuites>
     <source>
         <include>

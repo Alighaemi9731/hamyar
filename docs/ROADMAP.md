@@ -1299,10 +1299,24 @@ would, and the worst place to discover one is in front of a customer.*
       escaped description, and reported a vulnerability that was never there
 
 ### 11.1b Browser testing in CI — pay off the mechanism-level layout guards
-- [ ] **Wire Pest 4 browser testing into CI** (`tests/Browser/`, a headless Chrome in the
-      GitHub Actions job, the `_test` Postgres already there). Until this lands, any test
-      that needs a rendered box cannot exist, so the guards below are stuck asserting
-      source instead of outcome.
+- [x] **Wire Pest 4 browser testing into CI** — `tests/Browser/`, a `Browser smoke
+      (Chromium)` job beside the others, and Node + Chromium in the dev image so a
+      rendered assertion can be debugged locally instead of push-and-pray. Four things
+      had to line up, and three of them fail *silently*:
+      - the shop is given `127.0.0.1` as its own `domains.hostname`, because Pest's
+        server binds there and every screen resolves from the hostname. The plugin's
+        `withHost()` looks like the answer and moves where the server listens, not the
+        Host header the page is fetched with
+      - `Tests\BrowserTestCase` leaves `@vite` alone. The base `TestCase` stubs it out —
+        right for feature tests, fatal here: the page arrives with its Inertia payload
+        and no script to consume it, so the body is blank, nothing errors, and the
+        failure reads "expected to see text … but it was not found"
+      - **the measurement waits for React to mount.** Without it the suite measured an
+        empty `<div id="app">` and passed all eight cases — including with a 2000px
+        element planted in the page. Green without witness, on the suite written to
+        stop exactly that
+      - `tests/Browser` sits outside every declared testsuite, so a default `pest` on a
+        machine that has not run `npm run build` does not fail
 - [ ] **Replace `app/Modules/Sales/tests/Feature/InvoicePrintLayoutTest.php` with the
       rendered assertion its own docblock names**: load a seeded invoice whose product
       name is a realistic long Persian one — «گوشی موبایل اپل آیفون ۱۵ پرو مکس ظرفیت ۲۵۶
@@ -1317,9 +1331,15 @@ would, and the worst place to discover one is in front of a customer.*
       them in the same pass (`grep -rn "asserts the \*mechanism\*" app/Modules`); each
       conversion deletes the "when browser testing lands" caveat from its docblock rather
       than leaving both tests in place.
-- [ ] Once rendered assertions exist, fold the recurring manual Playwright pass (zero
-      horizontal overflow, no console errors, 390 + 1280, light + dark, RTL) into CI as
-      a smoke suite, so it stops depending on somebody remembering to walk it
+- [x] **The manual walk is now a suite.** `tests/Browser/SmokeTest.php` renders four
+      screens at mobile and desktop and asserts no console errors and no horizontal
+      overflow — the mechanical half of the pass that has ended every phase. It found a
+      real defect on its first honest run: `AppShell`'s action row never wrapped, so the
+      products list put 553px of buttons in a 375px viewport and pushed the whole page
+      sideways. One `flex-wrap`, in the one place every screen inherits. Judgement stays
+      human; the tripwires do not
+- [ ] Extend the smoke suite to light **and** dark, and to the print layouts, once the
+      invoice conversion above lands
 
 ### 11.2 Performance
 - [ ] Seed 50 tenants × realistic volumes

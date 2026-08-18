@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         postgresql-client \
         ca-certificates \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # --- php extensions --------------------------------------------------------
@@ -36,6 +37,31 @@ RUN install-php-extensions \
 
 # --- composer --------------------------------------------------------------
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+# --- node + a headless browser, for Pest 4 browser tests -------------------
+#
+# Roadmap 11.1b. Pest's browser plugin drives Playwright, which is a Node program, and
+# it spawns it from PHP — so Node has to live wherever PHP does rather than on the host.
+#
+# This is the reason the image is not as small as it looks like it should be, and the
+# cost was taken deliberately: 11.1b exists to replace source-level layout guards with
+# rendered ones, and a rendered assertion that can only be run by pushing to CI is one
+# nobody iterates on. A test you cannot debug locally is a test that gets deleted the
+# first time it goes red for an unclear reason.
+#
+# `--with-deps` installs the shared libraries Chromium needs on Debian; without them the
+# browser is present and fails to launch, which presents as an opaque timeout.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+
+# The apt lists are cleared *after* this rather than with the Node install above:
+# `--with-deps` shells out to apt-get itself, and clearing them first leaves it with
+# nothing to resolve against — a failure that reads as a Playwright problem.
+RUN npx --yes playwright@1.56.0 install --with-deps chromium \
+    && chmod -R a+rX /opt/playwright \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- php ini ---------------------------------------------------------------
 COPY docker/app/php.ini /usr/local/etc/php/conf.d/99-mobishop.ini

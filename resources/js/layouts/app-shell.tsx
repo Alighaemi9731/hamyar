@@ -94,7 +94,15 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           {(title || actions) && (
             <div className="no-print mb-10 flex flex-wrap items-center justify-between gap-4">
               {title && <h1 className="text-2xl font-bold">{title}</h1>}
-              {actions && <div className="flex items-center gap-2">{actions}</div>}
+              {/*
+                `flex-wrap` is not cosmetic. The outer row wraps, so a long title moves
+                the action group to its own line — and then the group itself, which did
+                not wrap, ran off the edge: three buttons on the products list came to
+                553px inside a 375px viewport and pushed the whole page sideways.
+                Caught by the browser smoke suite (roadmap 11.1b) on its first honest
+                run, on a screen that had been walked by hand several times.
+              */}
+              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
           )}
 
