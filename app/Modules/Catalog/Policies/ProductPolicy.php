@@ -46,4 +46,17 @@ final class ProductPolicy
     {
         return $actor->can('catalog.manage_prices');
     }
+
+    /**
+     * Bulk import is its own permission, not `create` in a loop.
+     *
+     * One click writes the whole catalogue — and, on a re-import, writes a new price for
+     * every matched row. That is the reach of `managePrices` and `create` together, held
+     * by whoever is trusted to onboard the shop rather than by everyone who can add a
+     * product at the counter.
+     */
+    public function import(User $actor): bool
+    {
+        return $actor->can('catalog.import');
+    }
 }

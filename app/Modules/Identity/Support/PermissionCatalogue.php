@@ -56,6 +56,7 @@ final class PermissionCatalogue
                 'update' => 'ویرایش کالا',
                 'delete' => 'حذف کالا',
                 'manage_prices' => 'تغییر قیمت‌ها',
+                'import' => 'ورود گروهی کالاها از اکسل',
             ],
             'inventory' => [
                 'view' => 'مشاهده انبار',

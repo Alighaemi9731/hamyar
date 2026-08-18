@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Spreadsheet;
 
+use App\Support\PersianText;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Throwable;
@@ -76,7 +77,11 @@ final class XlsxReader implements SpreadsheetReader
         $cells = [];
 
         foreach ($row as $cell) {
-            $cells[] = $this->stringify($cell);
+            // Same ی/ک repair the CSV reader applies, for the same reason: a workbook
+            // saved by older software, or typed on an Arabic-locale device, carries
+            // Arabic yeh where Persian yeh belongs. Every reader must produce identical
+            // text for identical shop data — that property is pinned by a test.
+            $cells[] = PersianText::normalise($this->stringify($cell));
         }
 
         return $cells;

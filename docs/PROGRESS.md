@@ -1412,3 +1412,57 @@ against a bug you cannot re-introduce on demand has not been shown to test anyth
 
 **Not built yet:** the products import itself. Checkpoint 2 was the gate; the template,
 mapping screen, dry run and windows-1256 reader are the next session's work.
+
+---
+
+## 2026-08-18 (j1405-05-27) · Phase 11b · Products import — built, and what the walk found
+
+Template · mapping screen · dry run · commit-on-confirm, at `/catalog/import`, reachable
+from «ورود گروهی» on the products list behind a new `catalog.import` permission. Owner and
+Manager have it; Warehousekeeper does not, because one click writes the whole catalogue
+and, on re-import, a new price for every matched row — the reach of `create` and
+`managePrices` together.
+
+**One row is one product and one `options: []` variant** ([ADR 0013](adr/0013-flat-product-import.md)).
+Matching is barcode → SKU; a row with neither says so **on its own row**, because "importing
+this file twice will duplicate these" is not something a shopkeeper can infer.
+
+**The currency unit has no default and blocks the step** — unpicked on screen, `required`
+in the request. The customer wizard reads the tenant's display preference; this one refuses
+to, because a price column is toman most of the time and rial the rest and guessing wrong
+is ten-fold across the catalogue.
+
+**«موجودی» is shown, greyed, and refused**, with a pointer to فاکتور خرید / انبارگردانی.
+Golden rule 3 is the reason; the label exists because silence reads as a bug.
+
+**Encoding is detected, not asked about, and the repair is announced.** `Encoding` decides
+from UTF-8 validity — a shopkeeper cannot answer "which code page is your export?" and a
+wrong answer corrupts the catalogue silently. The file chip then says «این فایل با کدپیج
+قدیمی ذخیره شده و اصلاح شد» and «حرف‌های ی و ک استاندارد شد», with the sample rows as the
+evidence. `ProductImportReadPathsTest` writes one catalogue four ways (.xlsx, .xls,
+CSV-UTF8, CSV-cp1256) and asserts all four read back identically. The fixture is
+constrained by what cp1256 can physically hold, and that constraint **is** the proof the
+ی/ک repair is structural rather than cosmetic.
+
+One design bug fixed en route: `repaired_text` was asked of the reader's output, which has
+already been repaired — so it reported "nothing changed" on precisely the files that
+changed most. It is asked of the raw bytes now.
+
+**The browser walk earned its place: three defects, with all sixteen feature tests green.**
+
+- `<Money value={…}>` — the component's prop is `rial`. The payload was valid JSON;
+  only rendering it threw.
+- Verdict messages overflowed their cell and were clipped — losing exactly the half that
+  says what to do about the error.
+- **A ragged CSV row silently imported a price of `18`.** An unquoted `18,900,000` in a
+  comma-delimited file splits into three cells, every column after it shifts, and the row
+  imports as a phone costing eighteen toman. No error, no empty cell, a plausible number in
+  the right column. Now refused with both field counts named.
+
+The third is the lesson: **a fixture built in PHP cannot express the malformation you are
+trying to survive**, because the test writes it field by field and every file it produces
+is well-formed. Written up in `docs/testing.md`.
+
+**Two rules ratified into the import spec** beside parse-never-strip: an unreadable cell is
+a row error never a zero (a zero *price* is a real price — it goes out the door), and a
+contradicting currency word is a file-level unit error rather than noise to strip.

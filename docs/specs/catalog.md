@@ -108,12 +108,29 @@ The repair is reported on screen, not performed silently: the file chip states t
 encoding it detected and that ی/ک were standardised, and the sample rows are the evidence
 the operator checks before continuing.
 
-#### Prices are parsed, never stripped
+#### Prices are parsed, never stripped — and three rules that follow from it
 
 Money goes through `Money::parse()`. An Iranian sheet writes a decimal with a **slash**
 («۱۲۵۰۰۰۰/۰»), and the obvious normalisation — strip every non-digit — concatenates the
 fraction onto the amount and lands ten times high, silently. See
 [testing.md](../testing.md) for the regression this cost in the party import.
+
+Three rules sit beside it. All four are the same rule wearing different clothes: **an
+importer may be wrong, but it may not be wrong quietly.**
+
+- **An unreadable cell is a row error, never a zero.** Importing `0` for a price nobody
+  could parse is the same failure one step later — and worse for a price than a balance,
+  because a zero price is a *real* price that goes on the shelf and out the door.
+- **A currency word that contradicts the chosen unit is a file-level unit error, not noise
+  to strip.** «۱۲۵۰۰۰۰ تومان» in a file the operator declared as ریال is not a formatting
+  quirk; it is the wrong unit picked for the whole file, worth ten times every amount in
+  it. An agreeing word is dropped so ordinary rows still import.
+- **A row with more fields than the header is refused.** An unescaped delimiter inside one
+  value shifts every column after it, and the result is not an empty cell — it is a
+  plausible one. An unquoted `18,900,000` in a comma-delimited file splits into three, the
+  price column reads `18`, and a phone imports at eighteen toman. Found on the browser
+  walk, not by a test. Fewer fields is allowed: a trailing empty column is routinely
+  omitted and shifts nothing.
 
 ## Screens
 

@@ -1331,17 +1331,35 @@ would, and the worst place to discover one is in front of a customer.*
       (`/`, `٫`, `.`) with exact integer arithmetic and **refuses** an amount that does not
       land on a whole rial. An unreadable cell is a row error, never a zero balance. Nothing
       to remediate: no staging or production exists, and the dev database has zero parties
-- [ ] Three layers, all required: downloadable template · **column mapping screen** ·
-      dry-run preview that writes nothing until confirmed
-- [ ] Currency unit a **required** choice, no default and no inference
-- [ ] Persian/Arabic digit, separator and ی/ک normalisation before parsing — **ی/ک is
+- [x] Three layers, all required: downloadable template · **column mapping screen** ·
+      dry-run preview that writes nothing until confirmed. Reachable at `/catalog/import`
+      from a «ورود گروهی» action on the products list, behind a new `catalog.import`
+      permission (Owner and Manager have it; Warehousekeeper does not — one click writes
+      the whole catalogue and, on re-import, a new price for every matched row)
+- [x] Currency unit a **required** choice, no default and no inference — unpicked on the
+      screen, blocking the step, and `required` in the FormRequest so a client that omits
+      it is rejected rather than served a guess
+- [x] Persian/Arabic digit, separator and ی/ک normalisation before parsing — **ی/ک is
       code-page repair, not tidying**: windows-1256 cannot encode Persian yeh, so every
       «گوشی» in a legacy file physically arrives as «گوشي»
       ([catalog spec](specs/catalog.md#products-import-phase-11b))
-- [ ] `.xlsx`, legacy `.xls`, and CSV in windows-1256 as well as UTF-8 — only the
-      windows-1256 half is outstanding; the rest already reads
-- [ ] Quantity column shown greyed and labelled «وارد نمی‌شود» with a pointer to the
-      correct path — silence here reads as a bug
+- [x] `.xlsx`, legacy `.xls`, and CSV in windows-1256 as well as UTF-8. `Encoding` decides
+      from UTF-8 validity rather than asking a shopkeeper which code page their export
+      used, and the verdict is **announced** in the file chip
+      («این فایل با کدپیج قدیمی ذخیره شده و اصلاح شد») so the repair is visible.
+      `ProductImportReadPathsTest` pins one catalogue written four ways and asserts all
+      four read back identically — the fixture is constrained by what cp1256 can hold,
+      which is itself the proof that the ی/ک repair is structural
+- [x] Quantity column shown greyed and labelled «وارد نمی‌شود» with a pointer to the
+      correct path (فاکتور خرید / انبارگردانی) — silence here reads as a bug
+- [x] **Found on the browser walk, not by a test:** a row with more fields than the header
+      has an unescaped delimiter inside a value, and every column after it shifts. An
+      unquoted `18,900,000` in a comma-delimited file split into three cells, the price
+      column read `18`, and the phone imported at eighteen toman — no error, no empty
+      cell. Now a row error naming both counts. Two further UI defects the walk caught:
+      `<Money value=…>` instead of `rial=…` (the component's own guard threw at render),
+      and verdict messages overflowing their cell so the half saying *what to do about it*
+      was clipped
 
 ### 11c — Audit-log viewer
 
