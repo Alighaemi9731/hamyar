@@ -1,0 +1,3 @@
+# Populated by bin/deploy from the release image; never edited by hand and never
+# committed. The directory itself is tracked so a first deploy has somewhere to write.
+public/

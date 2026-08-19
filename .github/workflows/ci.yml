@@ -76,6 +76,17 @@ jobs:
       - name: Queued-job tenancy gate
         run: php bin/check-queued-tenancy
 
+      # 11.3. The production apex is not chosen yet, and the five places it surfaces —
+      # printed receipts, repair-tracking QR codes, reseller price-list links, SMS
+      # templates, emails — are the five nobody greps. A literal there works perfectly
+      # until the domain is registered, and the receipts are already in customers'
+      # pockets by then.
+      #
+      # It found one the day it was added: MAIL_FROM_ADDRESS in .env.example was
+      # `no-reply@mobishop.ir`, a working name nobody owns.
+      - name: Apex-domain gate
+        run: php bin/check-apex-domain
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)

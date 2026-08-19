@@ -281,3 +281,105 @@ it('keeps every figure inside the column that owns it', function (string $paper)
         }
     }
 })->with(['a4', 'a5']);
+
+/* ------------------------------------------------------- 11.1b: print smoke -- */
+
+/**
+ * Every paper size renders, in both themes, without logging anything.
+ *
+ * ## Why the console matters more here than anywhere else
+ *
+ * Nobody has devtools open when they print. The two tests above measure `a4` and `a5`
+ * because those are the ones with a table to squeeze; `thermal80` uses no table at all
+ * and was therefore covered by nothing — a receipt roll is what most of these shops
+ * actually print on, and a page that throws while rendering it produces a blank strip
+ * and no clue.
+ *
+ * ## What the dark half does and does not prove
+ *
+ * It proves the print *page* survives a shop working in dark mode: it mounts, it logs
+ * nothing, and the sheet is still the width it claims to be. That is a real class of
+ * defect — a themed token leaking into a layout that has no business being themed.
+ *
+ * It does **not** prove the receipt prints as ink on white. That rule lives in an
+ * `@media print` block (resources/css/app.css), and Pest's browser plugin cannot
+ * emulate print media — the same limitation that keeps the source-level layout test
+ * alive, recorded against roadmap 11.1b. Until `emulateMedia({ media: 'print' })` is
+ * reachable, "a dark-mode receipt does not print as a black rectangle" is guarded by
+ * that CSS rule and by nothing else, and saying so is worth more than a test that
+ * measures screen media and implies otherwise.
+ */
+it('renders every paper size in both themes with nothing in the console', function (string $paper, string $theme): void {
+    $invoice = printableInvoice();
+
+    $this->actingAs($this->owner);
+
+    $pending = $theme === 'dark'
+        ? visit("/sales/invoices/{$invoice->id}/print/{$paper}")->inDarkMode()
+        : visit("/sales/invoices/{$invoice->id}/print/{$paper}")->inLightMode();
+
+    $result = $pending->on()->desktop()
+        ->assertNoJavascriptErrors()
+        ->script(<<<'JS'
+            new Promise((resolve) => {
+                const deadline = Date.now() + 10000;
+
+                const check = () => {
+                    const root = document.getElementById('app');
+                    const mounted = root !== null && root.innerHTML.length > 0;
+                    const sheet = document.querySelector('[data-print-root]');
+
+                    if ((mounted && sheet !== null) || Date.now() > deadline) {
+                        resolve(JSON.stringify({
+                            mounted,
+                            dark: document.documentElement.classList.contains('dark'),
+                            // The sheet has to exist: it is what the print stylesheet
+                            // un-pads, and a page missing it prints inside the app
+                            // shell's content column at a third of the paper width.
+                            hasSheet: sheet !== null,
+                            // Content wider than the sheet runs off the paper. Measured
+                            // on the sheet rather than the viewport, because a sheet is
+                            // deliberately a fixed width and a desktop viewport is not.
+                            sheetScrollWidth: sheet === null ? 0 : sheet.scrollWidth,
+                            sheetClientWidth: sheet === null ? 0 : sheet.clientWidth,
+                        }));
+
+                        return;
+                    }
+
+                    setTimeout(check, 50);
+                };
+
+                check();
+            })
+        JS);
+
+    expect($result)->toBeString();
+
+    /** @var string $json */
+    $json = $result;
+
+    /** @var array{mounted: bool, dark: bool, hasSheet: bool, sheetScrollWidth: int, sheetClientWidth: int} $measured */
+    $measured = json_decode($json, true);
+
+    expect($measured['mounted'])->toBeTrue("[{$paper}/{$theme}] never mounted.");
+
+    // Same witness as the screen smoke suite: without it the dark half is the light
+    // half run three more times.
+    expect($measured['dark'])->toBe(
+        $theme === 'dark',
+        "[{$paper}] asked for the {$theme} theme and did not settle on it; this case proves nothing.",
+    );
+
+    expect($measured['hasSheet'])->toBeTrue(
+        "[{$paper}/{$theme}] rendered no [data-print-root]; the print stylesheet has nothing to un-pad and the sheet will print inside the app shell.",
+    );
+
+    expect($measured['sheetScrollWidth'])->toBeLessThanOrEqual(
+        $measured['sheetClientWidth'] + 1,
+        sprintf(
+            '[%s/%s] content needs %dpx on a %dpx sheet — it runs off the paper.',
+            $paper, $theme, $measured['sheetScrollWidth'], $measured['sheetClientWidth'],
+        ),
+    );
+})->with(['a4', 'a5', 'thermal80'])->with(['light', 'dark']);

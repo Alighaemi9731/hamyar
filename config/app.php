@@ -111,6 +111,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Health-check Secret
+    |--------------------------------------------------------------------------
+    |
+    | Unlocks the detailed body of `/health` for a caller that presents it in the
+    | `X-Health-Secret` header. Without it the endpoint still answers — with a bare
+    | ok/unhealthy and the right status code, which is all an uptime probe needs.
+    |
+    | Unset means **nobody** sees details, including on a box where somebody forgot to
+    | set it. The other default (no secret, so show everyone) publishes internal
+    | hostnames and driver-level failure messages to the open internet, and does it
+    | most loudly at the moment something is already broken.
+    |
+    */
+
+    'health_secret' => env('HEALTH_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

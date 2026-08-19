@@ -1,0 +1,152 @@
+# MobiShop — production vhost.
+#
+# ## The domain is never written down here
+#
+# `${APP_DOMAIN}` below is substituted at container start by the nginx image's own
+# entrypoint, which runs `envsubst` over every file in /etc/nginx/templates/ and writes
+# the result to /etc/nginx/conf.d/. So the apex lives in exactly one place — the
+# environment — as golden rule 1b requires, and pointing this at a real domain is
+# setting a variable rather than editing a config file.
+#
+# ## The filter on the next line is load-bearing
+#
+# compose.prod.yaml sets NGINX_ENVSUBST_FILTER='^APP_'. Without it envsubst replaces
+# EVERY `$name` in this file, including nginx's own `$uri`, `$host`, `$request_uri` and
+# `$fastcgi_script_name` — with empty strings, because they are not environment
+# variables. The result is a config that parses, starts, and serves nothing correctly.
+
+# --------------------------------------------------------------- upstream ----
+#
+# Written by bin/deploy, not by hand. Zero-downtime is a two-container swap: the new
+# container is started alongside the old one, health-checked, and only then does this
+# file get rewritten and nginx reloaded. `nginx -s reload` finishes in-flight requests
+# on the old worker rather than dropping them, which is the whole trick.
+include /etc/nginx/upstream/app.conf;
+
+# ------------------------------------------------------------ http → https ----
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # The one thing that must stay on port 80. Certbot renews the wildcard over DNS-01,
+    # which does not need this — but a per-host certificate, a staging box or a manual
+    # recovery does, and discovering that during an expiry is the wrong time.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ------------------------------------------------------------------ https ----
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+
+    # Catch-all on purpose, exactly as in development: the central app answers on the
+    # apex and every shop gets a subdomain. Which shop is decided in PHP, by a lookup
+    # against `domains.hostname` (ResolveTenant), never here — so onboarding a tenant
+    # does not touch nginx.
+    server_name ${APP_DOMAIN} *.${APP_DOMAIN};
+
+    # One wildcard certificate covers every tenant. Issued by DNS-01, because a
+    # wildcard cannot be validated over HTTP.
+    ssl_certificate     /etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # OCSP stapling: the browser gets the revocation proof from us instead of making a
+    # request to the CA that tells them which site the visitor is on.
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/letsencrypt/live/${APP_DOMAIN}/chain.pem;
+    resolver 1.1.1.1 8.8.8.8 valid=300s;
+    resolver_timeout 5s;
+
+    root /var/www/html/public;
+    index index.php;
+
+    charset utf-8;
+
+    # Matches post_max_size in docker/app/php.prod.ini. Set only here and nginx returns
+    # a bare 413 that no Laravel handler ever sees; set only in PHP and nginx rejects
+    # the body before PHP is reached. Both, or the error is unexplainable.
+    client_max_body_size 40M;
+
+    # Notably NOT set here: HSTS, CSP, X-Frame-Options, Referrer-Policy,
+    # Permissions-Policy. They are emitted by App\Http\Middleware\SecurityHeaders on
+    # every response including 404s, and a second copy from nginx would either
+    # duplicate the header or silently disagree with it. One owner.
+
+    # --- static assets -------------------------------------------------------
+    # Vite fingerprints these, so a year is safe and a stale one is impossible.
+    location /build/ {
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location ~* \.(?:css|js|woff2?|ttf|otf|svg|png|jpe?g|gif|ico|webp|avif)$ {
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    # --- application ---------------------------------------------------------
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    error_page 404 /index.php;
+
+    location ~ \.php$ {
+        fastcgi_pass mobishop_app;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+
+        # Behind TLS terminated here, so PHP must be told — otherwise
+        # `$request->secure()` is false, HSTS is never sent (SecurityHeaders checks
+        # it), `upgrade-insecure-requests` is skipped, and every url() helper emits
+        # http:// links that redirect, breaking form posts and signed URLs.
+        fastcgi_param HTTPS on;
+        fastcgi_param REQUEST_SCHEME https;
+
+        include fastcgi_params;
+
+        # Longer than php.prod.ini's max_execution_time (60s) on purpose: PHP should be
+        # the one to give up and log a useful error, not nginx to cut the socket and
+        # leave a 504 with nothing behind it.
+        fastcgi_read_timeout 75;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+    }
+
+    # Never serve dotfiles — except ACME, which lives under one.
+    location ~ /\.(?!well-known).* {
+        deny all;
+        access_log off;
+    }
+
+    # Belt and braces: the production image contains no .env, but a misconfigured
+    # bind-mount would put one under a web root that serves it as plain text.
+    location ~* /(?:\.env|composer\.(?:json|lock)|package(?:-lock)?\.json)$ {
+        deny all;
+        access_log off;
+    }
+}

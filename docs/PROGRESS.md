@@ -1733,3 +1733,159 @@ has to be sequential by design rather than by accident. Nothing is broken today 
 no delete-a-tenant feature to be slow — but the cheapest moment to learn this was on a
 fixture, and the most expensive would be a customer asking to be forgotten under a
 data-protection deadline.
+
+---
+
+## 1405/05/29 (2026-08-20) — 11.3 Ops: everything that does not need a server
+
+The instruction was to build the whole operational layer parameterised, so that pointing
+at a real box is setting a host and some secrets, and to finish with the list of what
+genuinely cannot be done without one. Both are done: `docs/deploy.md §7` and the roadmap's
+**Needs the box** table are the same five items, and nothing on them is design work.
+
+### Two packages the stack has claimed since ADR 0001 were never installed
+
+`CLAUDE.md` has said "Redis 7, **Horizon** queues" since Phase 0, `make horizon` has been
+in the Makefile for months, and `.env.example` reserved `SENTRY_LARAVEL_DSN` under a
+"(Phase 11)" heading. Neither package was in `composer.json`. `make horizon` would have
+failed the first time anybody ran it.
+
+Nothing had gone wrong, because nothing had asked. That is the shape worth noticing: a
+documented stack component is not an installed one, and the gap survives exactly as long
+as nobody exercises it.
+
+### What "wiring Sentry" actually turned out to be
+
+Not `composer require`. A crash reporter's *job* is to take production data somewhere
+else, and this platform holds fifty shops' customers in one schema. Installed the standard
+way, it is a wider hole than anything RLS protects — and so are the other two things 11.3
+adds. [ADR 0015](adr/0015-observability-without-disclosure.md) records the decision the
+three share.
+
+The one worth repeating here is **Horizon**, because it does not look like a leak. The
+dashboard renders job payloads: `SendSmsJob` carries a customer's phone number and the
+text of the message, from every shop, on one screen, and none of it is a database row — so
+RLS reaches none of it. The published gate compares an email against a list resolved from
+the *default* guard, which on a tenant subdomain is a shop's user. Ours asks the `platform`
+guard directly, and `HorizonAccessTest` asserts a shop **Owner** — the top of a tenant's
+role ladder — gets 403.
+
+The scrubbing work produced one thing that outlives Sentry: `App\Support\SensitiveInput`.
+The `dontFlash` list in `bootstrap/app.php` existed because a failed repair intake once
+flashed a customer's unlock code into `sessions.payload` in clear. The identical value goes
+to a crash report through a different wall, and that door was open. **One list, two doors**,
+and `CrashReportScrubbingTest` iterates the list rather than spot-checking it, so the
+fourteenth key cannot be added to one door only.
+
+### Health: the grading is the feature
+
+`/up` boots the framework. `/health` costs a Postgres round trip, a Redis round trip and a
+read of the migration repository, and — the part that matters — **grades what it finds**.
+Database, cache and pending migrations are critical and return 503. A queue backlog is
+reported at 200.
+
+Grading a backlog critical is the tempting "completeness" edit, and it would mean the load
+balancer pulls a healthy web tier out of rotation because a third-party SMS gateway is
+slow: a delayed text message converted into a shop that cannot take payment. There is a
+test asserting `queue` is *not* critical, specifically so that changing it is a
+conversation rather than a tidy-up.
+
+It also became an artisan command, because `bin/deploy` has to health-check the new
+container **before** nginx points at it — and cannot: php-fpm speaks FastCGI, so there is
+nothing inside the container to curl, and going through nginx would mean cutting over
+first. `php artisan health:check` has no HTTP layer and an exit code a shell can act on.
+
+### The domain, enforced rather than asserted
+
+The instruction said `config('app.domain')` stays the single source. Rather than claim it,
+`bin/check-apex-domain` now runs in CI — and found one on the day it was written:
+`MAIL_FROM_ADDRESS` in `.env.example` was `no-reply@mobishop.ir`, a working name nobody
+owns, which every developer copying that file has been sending mail as.
+
+Its first draft reported **ninety** findings, every one false. `invoices.store` is a route
+name, `report.net` is JSX, `index.php` and `fullchain.pem` are filenames — and every one
+collides with a real TLD. A gate with ninety false positives is one somebody deletes in its
+first week, which this project has written down before. It now matches only in *hostname
+position*: after a scheme, after an `@`, any `.ir`, or anywhere at all inside
+infrastructure files.
+
+### Two build-time traps that would only have fired on the production box
+
+- **`config:cache` is not run in the image.** Caching config at build time bakes the build
+  machine's environment into the artefact, starting with `APP_DOMAIN` — turning the apex
+  into an image rebuild instead of a config change, silently, because the cached value
+  simply wins. `bin/deploy` caches on the box, after the environment exists.
+- **`before_send` is a static callable, not a closure.** `config:cache` `var_export`s the
+  config; a closure cannot be exported and an object exports to a `__set_state()` that does
+  not exist. Either would be a **fatal during a deploy**, on the one machine nobody tries
+  it on first — nothing in development ever runs `config:cache`. `ConfigIsCacheableTest`
+  now asserts the property directly, and was verified by planting a closure and watching
+  both it and `artisan config:cache` fail.
+
+### The backup's most dangerous failure is a green one
+
+The application connects as a NOSUPERUSER role so RLS is a real boundary. A `pg_dump`
+taken as *that* role is filtered by those same policies: with no tenant pinned RLS fails
+closed, so the archive contains **zero rows from every tenant table** — while exiting 0 and
+reporting a plausible size. `bin/backup-nightly` therefore dumps as the superuser, reads
+its own archive back every night, and refuses one with no `stock_movements` data in it.
+
+`bin/restore-drill` asserts the mirror of that, plus the thing a generic restore procedure
+would never think to check: that **RLS came back enabled** on every tenant table, and that
+the app role genuinely reads zero rows with no tenant pinned. A restored platform without
+RLS has no tenancy boundary and nothing about it looks wrong until two shops see each
+other's customers. It stays unticked — it reports the RTO *observed*, and there is nothing
+here to observe.
+
+### 11.1b closed: light, dark, and the paper nobody was testing
+
+`SmokeTest` is 4 screens × 2 devices × **2 themes**. The theme is driven through
+`prefers-color-scheme`, not the toggle, because that is the path a first visit takes —
+`app.blade.php` reads localStorage and falls back to the OS preference before first paint;
+clicking the toggle would test the *second* visit.
+
+**Each case asserts the theme actually applied**, and that is not decoration. Without the
+witness the dark half is the light half run eight more times: sixteen green cases reporting
+twice the coverage they have — the same defect this suite was written to stop, and one it
+had already made once with mounting. Verified by forcing light mode and watching all eight
+dark cases fail with the message that says so.
+
+`InvoicePrintLayoutTest` gained 3 papers × 2 themes, which is how **thermal80** finally got
+covered at all: it has no table, so the two geometry tests skipped it, and it is the paper
+most of these shops actually print on.
+
+The bullet's stated precondition — "once the invoice conversion above lands" — was dropped
+on purpose and said so in the roadmap. That conversion is parked behind print-media
+emulation, and it gated the wrong thing: nothing about rendering four screens in dark mode
+depends on whether a source-level guard was replaced. What is still **not** covered is
+recorded as its own `[→]`: the `@media print` ink-on-white rule is guarded by nothing but
+itself, because reaching it needs `emulateMedia({ media: 'print' })`. The dark-mode print
+cases prove the *page* survives dark mode; they cannot prove the *paper* does.
+
+### Answered from the session's decisions
+
+- **Load test parked, not outstanding.** `tests/Load/endpoints.js` and its runbook are
+  committed; running them here would measure Docker rather than the product, since the load
+  generator competes with the app for the same cores. `[→]`, destination the staging VPS.
+- **The هلو/سپیدار/محک fixtures item is removed**, as a deliberate scope decision rather
+  than an unmet dependency — the owner will not be collecting them. The roadmap now records
+  what actually carries the weight (ADR 0013): a dry run, an explicit user mapping with the
+  guesser's answer as an overridable default, and per-row verdicts. A shopkeeper whose
+  columns are unrecognised maps four of them by hand, once.
+
+### Found on the way in, and it had already gone off
+
+CI went red on the previous PR with a diff touching a seeder, a roadmap and a
+`package.json`. `PriceResolverSharingTest` failed twice, in Catalog, which the commit does
+not go near. **The suite broke because the date changed.**
+
+That file argues at length that the instant a price is asked for must be pinned — and it
+was, with a literal. The fixture underneath it was left on the wall clock. Half the
+comparison pinned, half of it moving, and on 2026-08-19 they crossed. The fix everybody
+remembers is what planted it.
+
+Swept for the shape rather than for date literals — which are harmless when *both* sides
+are literal, as the Cheques suites show — and found two more, both fused for **2026-09-01,
+twelve days out**. Six tests fail on 2026-09-02 before the fix; all 33 across the four
+files pass on 2029-03-14 after it. Detail in the commit; the rule is that a fixture built
+from `now()` must never be measured against a fixed date.

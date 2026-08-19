@@ -69,16 +69,29 @@ beforeEach(function (): void {
     });
 });
 
-it('renders every main screen with no console error and no sideways scroll', function (string $path, string $device): void {
+it('renders every main screen with no console error and no sideways scroll', function (string $path, string $device, string $theme): void {
     $this->actingAs($this->owner);
 
-    // The viewport is chosen at visit time rather than resized afterwards: the plugin
-    // builds the browser context from a device profile, and a page already laid out at
-    // one width and then resized is not the same thing as a page that loaded at the
-    // other — media queries and `dvh` units settle differently.
+    /*
+    | The theme is set on the browser context, not by clicking the toggle, and that is
+    | the mechanism rather than a shortcut.
+    |
+    | `app.blade.php` decides the theme before first paint, from localStorage and — when
+    | nothing is stored, which is every first visit — from `prefers-color-scheme`. So
+    | `inDarkMode()` drives the real code path a shop owner meets on day one, on a phone
+    | whose OS is in dark mode. Clicking the toggle would test the second visit and skip
+    | the flash-of-wrong-theme logic entirely.
+    |
+    | The viewport is chosen at visit time rather than resized afterwards, for the same
+    | family of reasons: the plugin builds the browser context from a device profile, and
+    | a page laid out at one width and then resized is not the same thing as a page that
+    | loaded at the other — media queries and `dvh` units settle differently.
+    */
+    $pending = $theme === 'dark' ? visit($path)->inDarkMode() : visit($path)->inLightMode();
+
     $page = $device === 'mobile'
-        ? visit($path)->on()->mobile()
-        : visit($path)->on()->desktop();
+        ? $pending->on()->mobile()
+        : $pending->on()->desktop();
 
     $page->assertNoJavascriptErrors();
 
@@ -110,6 +123,10 @@ it('renders every main screen with no console error and no sideways scroll', fun
 
                     resolve(JSON.stringify({
                         mounted,
+                        // Which theme the page actually settled on, read off the element
+                        // the stylesheet keys from. Without this the dark half of the
+                        // matrix is the light half run twice.
+                        dark: el.classList.contains('dark'),
                         // +1: sub-pixel rounding leaves scrollWidth a fraction over
                         // clientWidth on pages that do not scroll, and a gate that
                         // fires on rounding is a gate somebody switches off.
@@ -135,12 +152,26 @@ it('renders every main screen with no console error and no sideways scroll', fun
     /** @var string $json */
     $json = $result;
 
-    /** @var array{mounted: bool, overflows: bool, scrollWidth: int, clientWidth: int} $measured */
+    /** @var array{mounted: bool, dark: bool, overflows: bool, scrollWidth: int, clientWidth: int} $measured */
     $measured = json_decode($json, true);
 
     // Asserted before the overflow check, and first: an unmounted page cannot overflow,
     // so without this every assertion below is true for the wrong reason.
     expect($measured['mounted'])->toBeTrue("[{$path}] never mounted on {$device}; nothing below this line means anything.");
+
+    /*
+    | The witness for the theme half of the matrix, and it is the same lesson this file
+    | already learned once about mounting.
+    |
+    | If `prefers-color-scheme` never reached the page, both halves would render light,
+    | every assertion would pass, and the suite would report that dark mode is fine on
+    | eight screens it never rendered in dark mode. Sixteen green cases proving eight
+    | things is worse than eight, because it reads as twice the coverage.
+    */
+    expect($measured['dark'])->toBe(
+        $theme === 'dark',
+        "[{$path}] asked for the {$theme} theme and the document did not settle on it; the {$theme} cases below prove nothing.",
+    );
 
     /*
     | Horizontal overflow is the defect no server-side test can reach. An RTL layout
@@ -149,9 +180,10 @@ it('renders every main screen with no console error and no sideways scroll', fun
     | broken app — on the device they actually hold.
     */
     expect($measured['overflows'])->toBeFalse(sprintf(
-        '[%s] scrolls sideways on %s: %dpx of content in a %dpx viewport.',
+        '[%s] scrolls sideways on %s in %s mode: %dpx of content in a %dpx viewport.',
         $path,
         $device,
+        $theme,
         $measured['scrollWidth'],
         $measured['clientWidth'],
     ));
@@ -163,4 +195,7 @@ it('renders every main screen with no console error and no sideways scroll', fun
 ])->with([
     'mobile',
     'desktop',
+])->with([
+    'light',
+    'dark',
 ]);

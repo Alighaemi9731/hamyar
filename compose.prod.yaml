@@ -1,0 +1,201 @@
+# MobiShop — production stack, single VPS.
+#
+#   docker compose -f compose.prod.yaml --env-file .env.production up -d
+#
+# Deploys are driven by bin/deploy, not by editing this file. It is written to be
+# boring: one box, named services, no orchestration. Kubernetes is an explicit
+# anti-goal (docs/deploy.md §2).
+#
+# ## Nothing here names a domain, a host or a secret
+#
+# Every value that differs between "this repository" and "the server it runs on" is an
+# environment variable with no default that would work by accident. Pointing this at a
+# real box is writing .env.production and running the command above — golden rule 1b
+# for the domain, and the same discipline for everything else.
+#
+# ## The two app services are the deploy mechanism
+#
+# `app_blue` and `app_green` are the same image with different names. Only one is in
+# nginx's upstream at a time; bin/deploy starts the idle one on the new tag,
+# health-checks it, rewrites docker/nginx/upstream/app.conf and reloads nginx. Both
+# are declared here so `docker compose` knows about them; the idle one simply has no
+# traffic.
+
+name: mobishop
+
+x-app: &app
+  image: ${APP_IMAGE:?set APP_IMAGE, e.g. ghcr.io/you/mobishop-app:9f2c1ab}
+  restart: unless-stopped
+  env_file: [.env.production]
+  # Named rather than bind-mounted: the image already contains the code, and a
+  # bind-mount over /var/www/html would replace it with whatever is on the host —
+  # which is how a "deploy" ends up serving the previous release from a checkout
+  # nobody remembers making.
+  volumes:
+    - app-storage:/var/www/html/storage
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  logging: &logging
+    driver: json-file
+    options: {max-size: "20m", max-file: "5"}
+
+services:
+  # ------------------------------------------------------------ application ----
+  app_blue:
+    <<: *app
+
+  app_green:
+    <<: *app
+
+  # ------------------------------------------------------------------ nginx ----
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Substituted into docker/nginx/templates/*.template at container start.
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN to the registered apex, with no scheme and no port}
+      # Without this filter envsubst also eats nginx's own $uri, $host and
+      # $fastcgi_script_name, producing a config that starts and serves nothing
+      # correctly. See the template's header.
+      NGINX_ENVSUBST_FILTER: '^APP_'
+    volumes:
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      # NOT read-only: bin/deploy rewrites app.conf at cutover.
+      - ./docker/nginx/upstream:/etc/nginx/upstream
+      # Populated by bin/deploy, which copies public/ out of the new image before
+      # cutover. NOT a named volume shared with the app containers, and not the image's
+      # own directory — neither works:
+      #
+      #   - nginx's image contains no application, so a named volume mounted here
+      #     starts EMPTY and Docker never populates it from a different service's image.
+      #   - a volume populated once, on first boot, is populated with the FIRST
+      #     release's assets and silently never updated again. Every deploy after that
+      #     serves last year's JavaScript with this year's HTML, and the only symptom
+      #     is a 404 on a fingerprinted filename.
+      #
+      # Copying is also what makes the blue/green overlap safe: Vite fingerprints
+      # filenames, so `bin/deploy` adds the new release's assets beside the old ones
+      # rather than replacing them. During the seconds both containers are live, a page
+      # already served by the old one can still fetch the files it references.
+      - ./release/public:/var/www/html/public:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on: [app_blue]
+    logging: *logging
+
+  # ------------------------------------------------------------------ queue ----
+  horizon:
+    <<: *app
+    # Horizon supervises its own workers (config/horizon.php); this is the one
+    # process that starts them.
+    command: ["php", "artisan", "horizon"]
+    # `horizon:terminate` is a graceful stop — it lets the running job finish. The
+    # default SIGTERM grace of 10s is shorter than a Moadian submission's 180s
+    # timeout, so a redeploy mid-submission would kill it.
+    stop_grace_period: 200s
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # -------------------------------------------------------------- scheduler ----
+  scheduler:
+    <<: *app
+    # `schedule:work` rather than a host crontab: the schedule lives in
+    # routes/console.php, so it ships and rolls back with the code.
+    command: ["php", "artisan", "schedule:work"]
+
+  # --------------------------------------------------------------- postgres ----
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # No published port. The database is reachable only on the compose network;
+    # `docker compose exec` and the SSH tunnel are the ways in. A Postgres on a public
+    # IP is found by scanners within hours.
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:?}
+      # Superuser. NOT what the application connects as — superusers bypass RLS
+      # unconditionally, which would silently remove the tenancy guarantee (ADR 0002).
+      POSTGRES_USER: ${DB_ROOT_USERNAME:?}
+      POSTGRES_PASSWORD: ${DB_ROOT_PASSWORD:?}
+      APP_DB_USER: ${DB_USERNAME:?}
+      APP_DB_PASSWORD: ${DB_PASSWORD:?}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/postgres/postgresql.prod.conf:/etc/postgresql/postgresql.conf:ro
+      # WAL archive destination. A local volume is point-in-time recovery for a
+      # corrupted table or a bad migration; bin/backup-nightly is what survives losing
+      # the machine. Both, because they fail in different directions.
+      - wal-archive:/var/lib/postgresql/wal_archive
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ROOT_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  # ------------------------------------------------------------------ redis ----
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Persistent, and that is a decision rather than a default. Redis holds the queue:
+    # losing it loses every SMS, every Moadian submission and every import that had
+    # not started yet — work a shop believes it has already asked for.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - ${REDIS_PASSWORD:?}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    logging: *logging
+
+  # ---------------------------------------------------------------- certbot ----
+  #
+  # Wildcard issuance requires DNS-01, so this needs API credentials for the DNS
+  # provider rather than a webroot. The plugin is chosen per provider at deploy time —
+  # see docs/deploy.md; `certbot/conf` is shared read-only with nginx above.
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # Twice a day is Let's Encrypt's own recommendation: renewal is a no-op until the
+    # certificate is inside its window, and an expired wildcard takes EVERY tenant
+    # offline simultaneously.
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do certbot renew --quiet --deploy-hook 'touch /etc/letsencrypt/.renewed';
+      sleep 12h & wait $${!}; done"
+    logging: *logging
+
+volumes:
+  postgres-data:
+  redis-data:
+  wal-archive:
+  app-storage:

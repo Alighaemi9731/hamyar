@@ -1,7 +1,12 @@
 # MobiShop — Deployment & operations
 
-Local development first, then the production runbook. Sections marked *(Phase 11)* are
-placeholders the hardening phase fills in and verifies — they are not yet proven.
+Local development first, then the production runbook.
+
+**What is proven and what is not.** Everything in §2–§5 is built, parameterised and
+committed; nothing in it names a domain, a host or a secret. What has **not** happened is
+any of it running on a server, because there is not one yet — so each section says
+plainly which of its claims are verified and which are written-and-untried. Lines marked
+🔲 need the box; the same list is collected in §7.
 
 ---
 
@@ -101,96 +106,317 @@ why the application never connects as it.
 
 ---
 
-## 2. Production topology *(Phase 11)*
+## 2. Production topology
 
 ```
-            ┌──────────── Nginx (TLS, HTTP/2) ────────────┐
- Internet ─▶│  app.mobishop.ir   *.mobishop.ir            │
+            ┌──────────── nginx (TLS, HTTP/2) ────────────┐
+ Internet ─▶│  <apex>   *.<apex>          :80 → :443      │
             └───────┬─────────────────────────────────────┘
-                    ▼
-            PHP-FPM 8.4 (N containers)  ──▶  PostgreSQL 16  (primary + WAL archive)
-            Horizon workers             ──▶  Redis 7        (cache/session/queue)
-                                        ──▶  S3-compatible  (per-tenant prefixes)
+                    │  upstream mobishop_app  ← one file, rewritten at cutover
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   app_blue (php-fpm)     app_green (php-fpm)      ← only one is live
+        │                       │
+        ├──▶ PostgreSQL 16 ──▶ WAL archive ──▶ offsite (nightly)
+        ├──▶ Redis 7 (cache, sessions' sibling, queue)
+        └──▶ S3-compatible object store (per-tenant prefixes)
+
+   horizon (queue supervisors) · scheduler (schedule:work) · certbot (renewal)
 ```
 
-Start on a single well-specified VPS. Scale in this order, only when measurement says
-so: separate the database host → add app containers behind the load balancer → add a
-read replica → partition `sms_messages` and `stock_movements` by month.
+One well-specified VPS. Scale in this order, only when measurement says so: separate the
+database host → add app containers behind a load balancer → add a read replica →
+partition `sms_messages` and `stock_movements` by month.
 
 **Kubernetes is an explicit anti-goal.** Do not introduce it.
 
+### The files, and what each one owns
+
+| file | owns |
+|---|---|
+| `compose.prod.yaml` | the services, and every value that differs per machine as an env var with no working default |
+| `.env.production.example` | every one of those values, each with a `CHANGE-ME` and a reason |
+| `docker/app/Dockerfile.prod` | the image: source, vendor, built assets, at one commit |
+| `docker/app/php.prod.ini` | opcache, error display, memory — the production overrides only |
+| `docker/nginx/templates/default.conf.template` | the vhost, TLS, static caching |
+| `docker/nginx/upstream/app.conf` | **which container is live** — rewritten by `bin/deploy`, nothing else |
+| `docker/postgres/postgresql.prod.conf` | tuning, WAL archiving, `pg_stat_statements` |
+| `bin/deploy` | the release |
+| `bin/backup-nightly` | the offsite copy |
+| `bin/restore-drill` | proving the offsite copy is real |
+
+### The domain is written down exactly once
+
+`APP_DOMAIN` in `.env.production`. From there:
+
+- **nginx** substitutes it into `server_name` and the certificate paths at container
+  start, via the image's own `envsubst` pass over `/etc/nginx/templates/`.
+- **PHP** reads it through `config('app.domain')` — route domain constraints, Horizon's
+  dashboard host, the mail from-address.
+- **Tenants** resolve from `domains.hostname` rows, not from the apex, so onboarding a
+  shop touches no configuration at all.
+
+Changing the apex is therefore this one line plus a data migration over `domains` —
+never a code change, never an image rebuild (golden rule 1b). `bin/check-apex-domain`
+runs in CI and fails the build on a hostname literal.
+
+> **The envsubst filter is load-bearing.** `compose.prod.yaml` sets
+> `NGINX_ENVSUBST_FILTER='^APP_'`. Without it envsubst substitutes **every** `$name` in
+> the template — including nginx's own `$uri`, `$host`, `$request_uri` and
+> `$fastcgi_script_name` — with empty strings, because they are not environment
+> variables. The result parses, starts, and serves nothing correctly.
+
 ### TLS
 
-One wildcard certificate covers every tenant:
+One wildcard covers every tenant: `<apex>` and `*.<apex>`.
 
-```
-mobishop.ir, *.mobishop.ir
-```
+Wildcard issuance requires a **DNS-01** challenge, so certbot needs API credentials for
+the DNS provider rather than a webroot — the plugin depends on the registrar. Port 80
+still serves `/.well-known/acme-challenge/` for anything that needs HTTP-01 later.
 
-Wildcard issuance needs a DNS-01 challenge, so the ACME client requires API
-credentials for the DNS provider. Renewal must be automated and monitored — an
-expired wildcard takes **every** tenant offline at once.
-
-### Deployment
-
-Zero-downtime, two-container swap:
-
-1. Build and tag the image in CI.
-2. Start the new container alongside the old one.
-3. `php artisan migrate --force` (migrations must be backward-compatible for one
-   release — never drop a column in the same deploy that stops writing it).
-4. Health-check the new container.
-5. Switch nginx upstream, drain, stop the old container.
-6. `php artisan horizon:terminate` so workers restart on the new code.
+🔲 **Renewal must be watched.** An expired wildcard takes *every* tenant offline
+simultaneously. The renewal loop runs twice a day (Let's Encrypt's own recommendation);
+the alert that it has *stopped* running is part of the uptime setup in §5.
 
 ---
 
-## 3. Backups *(Phase 11)*
+## 3. Releasing
 
-Single shared database, so backup is simple and **restore granularity is the hard
-part**: a per-tenant restore means extracting rows by `tenant_id`, not restoring a
+```bash
+bin/deploy ghcr.io/<owner>/mobishop-app:<sha>
+bin/deploy ghcr.io/<owner>/mobishop-app:<previous-sha> --rollback
+```
+
+Blue/green, on one box. The order is the design: **every irreversible step happens after
+every reversible one**, so a failure before the cutover leaves the previous release
+serving and exits non-zero.
+
+1. Pull the image.
+2. Start the **idle** container beside the live one.
+3. `migrate --force` *(skipped on `--rollback`)*.
+4. `config:cache`, `route:cache`, `view:cache` — **here, on the box, not at image build
+   time**. Caching config in the Dockerfile bakes the build machine's environment into
+   the artefact, starting with `APP_DOMAIN`.
+5. Copy `public/` out of the new container into `release/public`, **additively**. Vite
+   fingerprints filenames, so a page already served by the old container must still be
+   able to fetch what it references during the overlap.
+6. `artisan health:check` against the new container — not an HTTP request, because
+   php-fpm speaks FastCGI and going through nginx would mean cutting over first.
+7. **Cutover**: rewrite `docker/nginx/upstream/app.conf`, `nginx -t`, `nginx -s reload`.
+   Reload rather than restart, so workers finish in-flight requests on the old config.
+8. Recreate `horizon` and `scheduler` on the new image — *after* the cutover, never
+   before.
+9. Stop (do not remove) the old container. It still holds the previous image, which is
+   what makes rollback a cutover rather than a rebuild.
+
+🔲 Never run end to end. It is the one script whose failure mode is an outage; the first
+run belongs on staging, watched.
+
+### The migration rule the script cannot enforce
+
+For a few seconds **both releases serve traffic against one already-migrated database**.
+So a migration must be backward-compatible for one release:
+
+> add a column → deploy → start writing it → deploy → *then* stop reading the old one.
+
+Dropping a column in the same release that stops writing it takes the site down for the
+length of the overlap — and the 500s come from the **old** container, which reads as a
+reason to roll back rather than as the new release's fault.
+
+---
+
+## 4. Backups
+
+Single shared database, so taking a backup is simple and **restore granularity is the
+hard part**: a per-tenant restore means extracting rows by `tenant_id`, not restoring a
 file.
 
-- Nightly `pg_dump` → offsite S3, 30-day retention.
-- Continuous WAL archiving for point-in-time recovery.
-- File storage replicated to a second S3 bucket.
-- **Monthly restore drill**, logged in `docs/restore-drills/`. A backup that has never
-  been restored is not a backup — Phase 11 performs one and commits the log.
+```
+17 2 * * *  cd /srv/mobishop && ./bin/backup-nightly >> /var/log/mobishop-backup.log 2>&1
+```
 
-Per-tenant recovery procedure (write and test in Phase 11): restore the dump to a
-scratch database, `COPY` the tenant's rows out per table in dependency order, and
-re-insert with RLS disabled on the target.
+Two levels, for two different disasters:
+
+| | recovers | survives |
+|---|---|---|
+| **WAL archive** (local volume, continuous) | a dropped table or a bad migration, to the second | nothing — it is on the same machine |
+| **Nightly `pg_dump -Fc`** (offsite S3) | the whole platform to last night | losing the machine |
+
+`archive_timeout = 300` forces a segment every five minutes even when idle, so the
+recovery window is bounded by *time* rather than by write volume — a quiet Friday night
+must not mean "recoverable to Friday lunchtime".
+
+### The failure this is built to catch
+
+The application connects as `mobishop_app`, a **NOSUPERUSER** role, so that RLS is a real
+boundary (ADR 0002). A dump taken as that role is filtered by those same policies: with
+no tenant pinned RLS fails closed, and the backup contains **zero rows from every tenant
+table** — while exiting 0 and reporting a plausible size.
+
+So `bin/backup-nightly` dumps as the superuser, and then reads its own archive back and
+**refuses one with no `stock_movements` data in it**. A green backup job producing a file
+that restores an empty platform is the worst outcome available in this document.
+
+### Restore drill
+
+```bash
+bin/restore-drill /var/backups/mobishop/mobishop-<stamp>.dump
+```
+
+Restores into a scratch database (never the live one — it refuses), then asserts four
+things and writes `docs/restore-drills/<stamp>.md`:
+
+1. Tenant rows came back at all.
+2. `stock_movements` came back — the ledger is the product's source of truth for stock
+   (golden rule 3), and a restore without it is not a restore.
+3. **RLS is enabled on every `tenant_id` table.** Policies travel with the schema, but a
+   restore run as a superuser can leave a table with row security off — and a restored
+   platform without RLS has no tenancy boundary, which nothing about it reveals until two
+   shops see each other's customers.
+4. **The policies actually deny**: the app role, connecting with no tenant pinned, reads
+   zero rows. Not "a policy exists" — that it works.
+
+🔲 **Never run.** This is the largest unhardened thing in the project. It reports the
+**RTO observed**, and the RTO quoted to anybody must also include provisioning a host and
+fetching the dump from the object store, neither of which the drill measures.
+
+### Per-tenant recovery
+
+🔲 Written, untested. Restore the dump to a scratch database, `COPY` the tenant's rows
+out per table in dependency order, and re-insert into the live database inside
+`TenantContext::runFor()` so `tenant_id` is filled and RLS accepts the writes. The custom
+dump format exists for this: `pg_restore -t <table>` pulls single tables out of a 5.5GB
+archive without a text-processing exercise.
 
 ---
 
-## 4. Monitoring *(Phase 11)*
+## 5. Monitoring
 
 | Signal | Tool | Alert when |
 |---|---|---|
-| Errors | Sentry | New issue, or spike |
-| Uptime | External probe on `/up` | Two consecutive failures |
-| Queue | Horizon | Wait time > 60s on `sms` |
+| Errors | Sentry | New issue, or a spike |
+| Uptime | External probe on `/health` | Two consecutive failures |
+| Queue | Horizon | Wait > 60s on `sms` (configured in `config/horizon.php`) |
 | Database | `pg_stat_statements` | p95 query > 300ms |
 | Disk | Host | > 80% |
+| TLS | Certificate expiry | < 21 days remaining |
 | SMS credit | Application | Tenant below threshold |
 
-Iranian payment and SMS gateways have outages. Every external call retries with
-backoff and, after repeated failure, lands in an error inbox the shop owner can see
-and resend from — never silently dropped.
+### The two health endpoints, and why both
+
+| | costs | answers |
+|---|---|---|
+| `/up` | booting the framework, nothing else | is this container alive? |
+| `/health` | a Postgres round trip, a Redis round trip, a read of the migration repository | are its dependencies there? |
+
+`/health` **grades** what it finds. Database, cache and pending migrations are critical
+and return **503**; a queue backlog is reported at **200**. That distinction is the whole
+point: grading a backlog critical would pull a healthy web tier out of rotation because a
+third-party SMS gateway is slow, turning a delayed text message into a shop that cannot
+take payment.
+
+The body is not public. An anonymous caller gets `{"status":"ok"}` and the status code —
+everything an uptime probe needs. Details need `X-Health-Secret`, and with no
+`HEALTH_SECRET` configured **nobody** gets them: the detailed body names internal
+hostnames and driver-level failures, and it reads best exactly when something is already
+broken and somebody is already looking.
+
+```bash
+make health                                    # locally
+docker compose exec app_blue php artisan health:check
+curl -s https://<apex>/health                  # {"status":"ok"}
+curl -s -H "X-Health-Secret: $HEALTH_SECRET" https://<apex>/health | jq
+```
+
+### What Sentry is and is not allowed to send
+
+A crash reporter's job is to take production data somewhere else, so the decision is
+written down in `config/sentry.php` rather than left to a vendor default. Three settings
+are **hardcoded, not env-driven** — an environment variable is an invitation to flip one
+on mid-incident:
+
+- `send_default_pii = false` — no IP, no cookie jar, no `Authorization`, no operator's
+  email.
+- `breadcrumbs.sql_bindings = false` **and** `tracing.sql_bindings = false` — two
+  switches for the same values. A binding array is the single richest leak in the
+  product: `select * from parties where national_id = ?` carries the national id, and a
+  customer's phone, a handset's IMEI and a repair passcode all reach the database the
+  same way, after every model-level protection has already been satisfied.
+- Request bodies are scrubbed by `App\Support\SensitiveInput` — the same list
+  `dontFlash` uses, so a key added for one door closes the other.
+
+Events carry `tenant_id` and the shop's slug as **tags**. That answers the question an
+incident actually asks — *which shop?* — without carrying anyone's data to answer it.
+
+### Horizon
+
+The dashboard lives on the central domain and is gated on the `platform` guard. **This is
+a tenancy boundary, not an admin convenience.** Horizon renders job payloads:
+`SendSmsJob` carries a customer's phone number and the text of the message, from every
+shop, on one screen — and none of it is a database row, so RLS cannot reach it. A shop
+owner who reached this page would read the other forty-nine shops' customers.
+
+One supervisor per queue (`default`, `sms`, `moadian`) rather than one pool over three: a
+shared pool lets Moadian, a government endpoint with 180-second timeouts, starve fifty
+shops' repair-ready texts.
+
+Iranian payment and SMS gateways have outages. Every external call retries with backoff
+and, after repeated failure, lands in an error inbox the shop owner can see and resend
+from — never silently dropped.
 
 ---
 
-## 5. Go-live checklist *(Phase 11)*
+## 6. Go-live checklist
 
+**Configuration**
+- [ ] `.env.production` written from `.env.production.example`, every `CHANGE-ME` replaced
 - [ ] `APP_DEBUG=false`, `APP_ENV=production`
-- [ ] `APP_KEY` set and backed up separately from the database
-- [ ] Wildcard TLS installed, auto-renewal verified
-- [ ] Security headers + CSP
+- [ ] `APP_KEY` set and **backed up separately from the database** — it decrypts
+      `device_passcode` and the Moadian private key; a backup holding both is one theft
+      rather than two
+- [ ] `APP_DOMAIN` is the registered apex; `domains.hostname` rows migrated to it
+- [ ] `HEALTH_SECRET` generated (`openssl rand -hex 32`)
+- [ ] `SESSION_DOMAIN` **empty** — a leading-dot cookie is shared across every tenant
+      subdomain
+
+**Verified by CI already, re-checked against the production schema**
+- [ ] `php artisan tenancy:check` green
+- [ ] `composer test:isolation` green against production's schema
+- [ ] `php bin/check-apex-domain` green
+- [ ] Security headers + CSP present on a 404 as well as a real page
 - [ ] Rate limits on login, OTP, public tracking and price-list pages
-- [ ] RLS verified on **every** tenant table (`php artisan tenancy:check`)
-- [ ] Isolation suite green against the production schema
-- [ ] Backups running; restore drill performed and logged
-- [ ] Sentry receiving events; uptime probe live
-- [ ] Horizon supervisors configured and auto-restarting
-- [ ] Load test report committed
+
+**Needs the box**
+- [ ] Wildcard TLS installed, **auto-renewal verified by watching one succeed**
+- [ ] `bin/deploy` run end to end, with a deliberate rollback afterwards
+- [ ] Backups running; **restore drill performed and its log committed**
+- [ ] Sentry receiving events; uptime probe live on `/health`
+- [ ] Horizon supervisors running and auto-restarting
+- [ ] Load test report committed to `docs/`
+
+**Product**
 - [ ] Terms and privacy pages published
+- [ ] Final pricing validated against Iranian competitors (roadmap 11.4)
+
+---
+
+## 7. What still needs a server
+
+Collected here because none of it is design work — the point of §2–§5 is that this list
+is short and mechanical.
+
+| # | what | why not here |
+|---|---|---|
+| 1 | **Restore drill** — `bin/restore-drill` | Reports an RTO measured against real hardware; a laptop number is not the number. |
+| 2 | **Load test** — `tests/Load/endpoints.js` | The load generator competes with the app for cores on one machine; the result measures Docker. |
+| 3 | **Wildcard TLS** | DNS-01 needs the registered domain and the provider's API credentials. |
+| 4 | **First `bin/deploy`** | Written and unexercised, and its failure mode is an outage. |
+| 5 | **Sentry DSN, `HEALTH_SECRET`, uptime probe** | Configuration, not code. |
+
+Everything else is built and parameterised. Pointing at a real server is writing
+`.env.production` and running:
+
+```bash
+docker compose -f compose.prod.yaml --env-file .env.production up -d postgres redis
+bin/deploy <image>
+```

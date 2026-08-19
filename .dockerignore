@@ -1,0 +1,61 @@
+# What must not enter the production build context.
+#
+# There was no .dockerignore until 11.3, and `COPY . .` in Dockerfile.prod therefore
+# copied the whole working tree. Inspecting the built image found two things in it that
+# the Dockerfile's own comments promised were not:
+#
+#   1. **`.env`** — the developer's local secrets, baked into an artefact that goes to a
+#      registry. The image header says "no secrets of any kind"; it was wrong, and
+#      nothing would have said so.
+#   2. **`vendor/pestphp`** — the local vendor tree, complete with dev dependencies.
+#      `COPY --from=vendor /build/vendor ./vendor` *merges* into an existing directory
+#      rather than replacing it, so `--no-dev` bought nothing: Pest, Larastan, Mockery
+#      and Faker all shipped, and the production autoloader could reach them.
+#
+# It is also most of the image size: node_modules and .git are pure context.
+
+# --- secrets -----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# --- built or installed inside the image, in their own stages ----------------
+vendor/
+node_modules/
+public/build/
+public/hot
+
+# --- history and tooling -----------------------------------------------------
+.git/
+.gitignore
+.githooks/
+.github/
+.claude/
+.idea/
+.vscode/
+
+# --- not shipped -------------------------------------------------------------
+docs/
+tests/
+release/
+certbot/
+compose.yaml
+compose.prod.yaml
+Makefile
+phpunit.xml
+phpstan.neon.dist
+pint.json
+*.md
+
+# --- runtime state, recreated by the app -------------------------------------
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+bootstrap/cache/*
+
+# --- local noise -------------------------------------------------------------
+.DS_Store
+.phpunit.result.cache
