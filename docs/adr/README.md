@@ -36,6 +36,9 @@ given — and the next person to disagree with the decision is arguing with a gh
 | [0010](0010-job-context-teardown.md) | Tenant-context teardown is conditional on how a job entered | Accepted | Directed capture, autonomous-run authorization 2026-08-14 |
 | [0011](0011-moadian-adapter-without-a-provider.md) | Moadian ships as an adapter with no real provider, flag off | Accepted | **Gate 4 (part 2)**, cleared 2026-08-16 |
 | [0012](0012-tenant-keyed-caches.md) | A cache outliving a request leads its key with the tenant id | Accepted | Directed capture 2026-08-18 · lineage of 0002 |
+| [0013](0013-flat-product-import.md) | Products import is flat: one row = one product + one variant, grouping opt-in | Accepted | **Checkpoint 2**, cleared 2026-08-18 |
+| [0014](0014-audit-surface-and-log-isolation.md) | What the audit log records, and how its own rows stay tenant-isolated | Accepted | 11c delivery, PROGRESS 2026-08-18 |
+| [0015](0015-observability-without-disclosure.md) | Observability sees the platform's shape, never the tenants' data | Accepted | Directed capture 2026-08-20 · lineage of 0002 |
 
 ## Writing a new one
 

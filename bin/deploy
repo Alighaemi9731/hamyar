@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+#
+# MobiShop — zero-downtime release.
+#
+#   bin/deploy ghcr.io/you/mobishop-app:9f2c1ab
+#   bin/deploy <image> --rollback     # cut straight back, no migrations
+#
+# Run ON the server, from the directory holding compose.prod.yaml and .env.production.
+#
+# ## What "zero-downtime" actually means here
+#
+# One nginx, two application containers, and exactly one file deciding which is live.
+# The new container is started beside the old one, migrated, warmed and health-checked
+# BEFORE anything points at it; the cutover is a rewrite of one upstream file and
+# `nginx -s reload`, which lets in-flight requests finish on the old worker instead of
+# dropping them.
+#
+# If any step before the cutover fails, nothing has moved. The old container is still
+# serving and the script exits non-zero. That is the whole design: every irreversible
+# thing happens after every reversible one.
+#
+# ## The migration rule this cannot enforce
+#
+# For a few seconds both releases serve traffic against ONE database, already migrated.
+# So a migration must be backward-compatible for one release: add a column, deploy,
+# start writing it, deploy again, and only then stop reading the old one. Dropping a
+# column in the same release that stops writing it takes the site down for the length
+# of the overlap — and the failure is a 500 on the OLD container, which reads as a
+# rollback candidate rather than as the new release's fault.
+
+set -Eeuo pipefail
+
+readonly COMPOSE_FILE="compose.prod.yaml"
+readonly ENV_FILE=".env.production"
+readonly UPSTREAM_FILE="docker/nginx/upstream/app.conf"
+readonly RELEASE_PUBLIC="release/public"
+readonly HEALTH_TIMEOUT=90
+
+log()  { printf '\033[36m▸\033[0m %s\n' "$*"; }
+ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
+die()  { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
+
+trap 'die "failed at line $LINENO — nothing was cut over; the previous release is still serving"' ERR
+
+readonly IMAGE="${1:-}"
+readonly MODE="${2:-}"
+[[ -n "$IMAGE" ]] || die "usage: bin/deploy <image[:tag]> [--rollback]"
+
+command -v docker >/dev/null || die "docker is not installed"
+[[ -f "$COMPOSE_FILE" ]] || die "$COMPOSE_FILE not found — run this from the deploy directory"
+[[ -f "$ENV_FILE" ]]     || die "$ENV_FILE not found — production configuration is not in the image, by design"
+
+dc() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
+
+# ---------------------------------------------------------------- which slot ----
+#
+# Read from the upstream file rather than from `docker ps`, because that file is the
+# single source of truth for what nginx is actually sending traffic to. A container can
+# be up and receiving nothing.
+if grep -q 'app_blue' "$UPSTREAM_FILE"; then
+    readonly LIVE=app_blue IDLE=app_green
+else
+    readonly LIVE=app_green IDLE=app_blue
+fi
+
+log "live: $LIVE   →   deploying to: $IDLE"
+log "image: $IMAGE"
+
+# ------------------------------------------------------------------- 1. pull ----
+log "pulling the image"
+APP_IMAGE="$IMAGE" dc pull "$IDLE" >/dev/null
+ok "image present"
+
+# ------------------------------------------------------------- 2. start idle ----
+#
+# `--no-deps`: postgres and redis are already up and must not be recreated by a deploy.
+log "starting $IDLE"
+APP_IMAGE="$IMAGE" dc up -d --no-deps --force-recreate "$IDLE"
+
+# --------------------------------------------------------------- 3. migrate ----
+#
+# Skipped on a rollback. Migrations do not run backwards here — reverting code to a
+# release that predates a column is safe (it ignores it); running `migrate:rollback`
+# during an incident is how data is lost.
+if [[ "$MODE" == "--rollback" ]]; then
+    log "rollback: skipping migrations (the schema stays forward)"
+else
+    log "running migrations"
+    APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan migrate --force --no-interaction
+    ok "schema up to date"
+fi
+
+# ----------------------------------------------------------------- 4. caches ----
+#
+# HERE, not at image build time. Caching config in the Dockerfile bakes the build
+# machine's environment into the artefact — starting with APP_DOMAIN, which golden rule
+# 1b requires to stay a configuration change (see docker/app/Dockerfile.prod).
+log "warming caches"
+APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan config:cache >/dev/null
+APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan route:cache  >/dev/null
+APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan view:cache   >/dev/null
+ok "config, routes and views cached"
+
+# --------------------------------------------------------- 5. publish assets ----
+#
+# Copied ADDITIVELY. Vite fingerprints filenames, so during the overlap a page served
+# by the old container must still be able to fetch the files it references — deleting
+# first would break every already-open tab for the length of the cutover.
+#
+# The stale files are pruned by bin/prune-releases, deliberately not from here: a
+# deploy that also deletes is a deploy that can delete the wrong thing at 3am.
+log "publishing assets"
+mkdir -p "$RELEASE_PUBLIC"
+docker cp "$(dc ps -q "$IDLE")":/var/www/html/public/. "$RELEASE_PUBLIC"/
+ok "assets published"
+
+# ----------------------------------------------------------------- 6. health ----
+#
+# `artisan health:check` and not an HTTP request, because there is nothing here to make
+# one against: the application container runs php-fpm, which speaks FastCGI, and going
+# through nginx would mean cutting over first and checking afterwards.
+#
+# Same HealthCheck the /health endpoint serves, same grading — so a queue backlog does
+# not block a deploy, and a dead Redis does. Exit code is the answer.
+log "health-checking $IDLE (up to ${HEALTH_TIMEOUT}s)"
+deadline=$(( SECONDS + HEALTH_TIMEOUT ))
+until APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan health:check >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || {
+        log "still unhealthy after ${HEALTH_TIMEOUT}s — the detail follows"
+        APP_IMAGE="$IMAGE" dc exec -T "$IDLE" php artisan health:check || true
+        die "$IDLE never became healthy; it has NOT been cut over and $LIVE is still serving"
+    }
+    sleep 3
+done
+ok "$IDLE is healthy"
+
+# ----------------------------------------------------------------- 7. cutover ----
+#
+# The only irreversible step, and it is one file and one signal. `reload` rather than
+# `restart`: workers holding an open request finish it on the old configuration.
+log "cutting traffic over to $IDLE"
+cat > "$UPSTREAM_FILE" <<UPSTREAM
+# Written by bin/deploy on $(date -u +%Y-%m-%dT%H:%M:%SZ) — do not edit by hand.
+# Release: $IMAGE
+upstream mobishop_app {
+    server ${IDLE}:9000;
+}
+UPSTREAM
+dc exec -T nginx nginx -t
+dc exec -T nginx nginx -s reload
+ok "traffic is on $IDLE"
+
+# ------------------------------------------------------------------ 8. queue ----
+#
+# AFTER the cutover, not before. `horizon:terminate` waits for the running job to
+# finish and then exits so the supervisor restarts it on the new image — restarting it
+# earlier would have workers on the new code while the web tier is still on the old.
+log "restarting queue workers on the new release"
+APP_IMAGE="$IMAGE" dc up -d --no-deps --force-recreate horizon scheduler
+ok "horizon and scheduler restarted"
+
+# ------------------------------------------------------------------ 9. drain ----
+#
+# The old container is STOPPED, not removed, and this is the rollback path: it still
+# holds the previous image, so `bin/deploy <previous-image> --rollback` is a cutover
+# and not a rebuild.
+log "draining $LIVE"
+sleep 5
+dc stop "$LIVE" >/dev/null
+ok "$LIVE stopped"
+
+printf '\n'
+ok "deployed $IMAGE  ($LIVE → $IDLE)"
+printf '  rollback:  bin/deploy <previous-image> --rollback\n\n'

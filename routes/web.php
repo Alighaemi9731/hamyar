@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\HealthController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Platform\Http\Controllers\BillingController;
 use App\Modules\Platform\Http\Controllers\ImpersonationController;
@@ -22,6 +23,28 @@ use Inertia\Inertia;
 | below for the same paths.
 |
 */
+
+/*
+|--------------------------------------------------------------------------
+| Health — every host, no tenant, no session
+|--------------------------------------------------------------------------
+|
+| Registered before both groups below and deliberately NOT domain-constrained, because
+| its three callers arrive at three different hostnames: the uptime probe hits the
+| apex, `bin/deploy` hits the new container's own address before nginx knows about it,
+| and a human on the box hits localhost.
+|
+| Outside the `tenant` middleware for the same reason. That group 404s a hostname
+| belonging to no shop — correct for a shop screen, and for a health check it would
+| mean the monitor reports the platform down whenever it is pointed somewhere the
+| `domains` table has not heard of.
+|
+| Laravel's own `/up` stays where it is (bootstrap/app.php) and answers a different
+| question: it boots the framework and touches nothing, which is the cheap liveness
+| signal. This one costs a round trip to Postgres and Redis and reports what it found.
+|
+*/
+Route::get('/health', HealthController::class)->name('health');
 
 Route::domain(config()->string('app.domain'))->group(function (): void {
     Route::get('/', fn () => Inertia::render('welcome'))->name('welcome');

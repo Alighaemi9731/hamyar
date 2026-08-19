@@ -1353,8 +1353,31 @@ would, and the worst place to discover one is in front of a customer.*
       products list put 553px of buttons in a 375px viewport and pushed the whole page
       sideways. One `flex-wrap`, in the one place every screen inherits. Judgement stays
       human; the tripwires do not
-- [ ] Extend the smoke suite to light **and** dark, and to the print layouts, once the
-      invoice conversion above lands
+- [x] **Extend the smoke suite to light and dark, and to the print layouts.** Done in
+      11.3, and the stated precondition — "once the invoice conversion above lands" — was
+      dropped on purpose: that conversion is parked behind print-media emulation, and it
+      gated the wrong thing. Nothing about rendering four screens in dark mode depends on
+      whether a *source-level* layout guard was replaced.
+      `SmokeTest` now runs 4 screens × 2 devices × **2 themes** = 16 cases, and
+      `InvoicePrintLayoutTest` gained 3 papers × 2 themes — which is how `thermal80`
+      finally got covered at all, having no table and therefore no geometry test. That
+      is the paper most of these shops actually print on.
+      **The theme is driven through `prefers-color-scheme`, not the toggle**, because
+      that is the path a first visit takes: `app.blade.php` reads localStorage and falls
+      back to the OS preference before first paint. Clicking the toggle would test the
+      *second* visit and skip the flash-of-wrong-theme logic entirely.
+      **And each case asserts the theme actually applied.** Without that witness the dark
+      half is the light half run eight more times — sixteen green cases reporting twice
+      the coverage they have, which is the same defect this suite was written to stop and
+      which it had already made once with mounting. Verified by forcing light and watching
+      all eight dark cases fail
+- [→] **Not covered, and it is the same gap as the bullet above: a receipt printing as
+      ink on white.** The rule exists (`@media print { html, body { background: #fff } }`
+      in `resources/css/app.css`) and is guarded by nothing but itself, because reaching
+      it needs `page.emulateMedia({ media: 'print' })`, which Pest's browser plugin does
+      not expose. The dark-mode print cases prove the *page* survives a shop working in
+      dark mode; they cannot prove the *paper* does. Recorded rather than implied — a
+      screen-media test that looked like it covered this would be worse than the gap
 
 ### 11.2 Performance
 - [x] **Seed 50 tenants × realistic volumes** — `php artisan platform:seed-volume`.
@@ -1371,9 +1394,22 @@ would, and the worst place to discover one is in front of a customer.*
       shape — invoices for a month, items joined to invoices, stock valuation, ledger
       aging — used an index and read only its own tenant's slice (3,094 invoices out of
       2,000,000; 102,400 movements out of 5,120,000), at 1.9–83ms
-- [ ] Load test top 10 endpoints (k6 or artisan bench) — the fixture above is what this
-      runs against; the query shapes it touches are already spot-checked with `EXPLAIN`,
-      but nothing has yet measured an *endpoint* under concurrency
+- [→] **Load test top 10 endpoints — script written, run parked until the staging box
+      exists.** `tests/Load/endpoints.js` (k6) and its runbook are committed and point at
+      the 11.2 platform fixture; what is missing is a machine to point them at, and that
+      is deliberate rather than outstanding.
+      **Running it here would measure the wrong thing.** A concurrency test on a
+      developer laptop — the app, Postgres, Redis and the load generator all competing
+      for the same cores, through Docker Desktop's network stack — produces a number
+      that is dominated by the harness. Publishing it as "p95 under load" would be
+      worse than having no number: an optimistic one hides a problem, a pessimistic one
+      sends somebody optimising a virtualised filesystem.
+      **Destination: the staging VPS**, which is being provisioned. The moment it has an
+      address this is `k6 run` plus a report in `docs/` — the runbook is
+      [`docs/load-testing.md`](load-testing.md): how to seed the box, where to run the
+      generator from (not on the box), what counts as a pass, what to record, and which
+      of the three items below each kind of failure feeds. See also the needs-the-box
+      list at the end of 11.3
 - [ ] Fix N+1s
 - [ ] Add missing composite indexes
 - [ ] Queue latency dashboards
@@ -1395,12 +1431,121 @@ would, and the worst place to discover one is in front of a customer.*
 > to be slow. It is written down because the cheapest moment to learn this was on a
 > fixture, and the most expensive would be on a customer asking to be forgotten under a
 > data-protection deadline.
-- [ ] Production compose + nginx + SSL guide in `docs/deploy.md`
-- [ ] Zero-downtime deploy script
-- [ ] Nightly `pg_dump` + WAL archiving
-- [ ] Restore drill documented **and performed once** (log committed)
-- [ ] Sentry + health endpoint + uptime hook
-- [ ] Horizon production config
+> **Everything below that does not need a server is built. The list of what does is at
+> the end of this section**, so the moment there is an address, deployment is a
+> checklist rather than a project.
+>
+> Two packages the stack has claimed since ADR 0001 turned out never to have been
+> installed: **Horizon** (`make horizon` would have failed) and **Sentry** (whose env
+> keys were already reserved in `.env.example`). Both are in now.
+
+- [x] **Production compose + nginx + SSL** — `compose.prod.yaml`,
+      `docker/nginx/templates/default.conf.template`, `docker/app/Dockerfile.prod`,
+      `docker/app/php.prod.ini`, `docker/postgres/postgresql.prod.conf`, and the runbook
+      rewritten in [`docs/deploy.md`](deploy.md).
+      **Nothing names a domain, a host or a secret.** nginx gets the apex from
+      `${APP_DOMAIN}` through the image's own envsubst pass — with
+      `NGINX_ENVSUBST_FILTER='^APP_'`, without which envsubst also eats nginx's `$uri`,
+      `$host` and `$fastcgi_script_name` and produces a config that starts and serves
+      nothing correctly.
+      **The production image caches no config, and that is golden rule 1b.**
+      `config:cache` at build time bakes the *build machine's* environment into the
+      artefact, starting with `APP_DOMAIN` — which would turn the apex into an image
+      rebuild instead of a config change, silently, because the cached value simply wins.
+      `bin/deploy` caches on the box, after the environment exists
+- [x] **Enforced, not asserted: `bin/check-apex-domain`**, in CI. Rule 1b's five surfaces
+      — printed receipts, repair-tracking QR codes, reseller price-list links, SMS
+      templates, emails — are the five nobody greps, and a literal there works perfectly
+      until the domain is registered and the receipts are already in customers' pockets.
+      It found one on the day it was written: `MAIL_FROM_ADDRESS` in `.env.example` was
+      `no-reply@mobishop.ir`, a working name nobody owns; it is now interpolated from
+      `${APP_DOMAIN}`.
+      Its first draft reported **ninety** findings, every one false — `invoices.store` is
+      a route name, `report.net` is JSX, `index.php` is a filename, and all of them
+      collide with a real TLD. A gate with ninety false positives is one somebody deletes
+      in its first week, so it matches hostnames only in *hostname position* (after a
+      scheme, after an `@`, any `.ir`, or anywhere at all inside infrastructure files)
+- [x] **Zero-downtime deploy script** — `bin/deploy`. Two application containers, one
+      nginx, and exactly one file deciding which is live: the new container is started,
+      migrated, warmed and health-checked **before** anything points at it, and the
+      cutover is a rewrite of `docker/nginx/upstream/app.conf` plus `nginx -s reload`,
+      which lets in-flight requests finish instead of dropping them. Every irreversible
+      step happens after every reversible one, so a failure before cutover leaves the old
+      release serving and exits non-zero.
+      The old container is **stopped, not removed**, which is what makes
+      `bin/deploy <previous-image> --rollback` a cutover rather than a rebuild. Rollback
+      skips migrations deliberately: reverting code to a release that predates a column
+      is safe, and `migrate:rollback` during an incident is how data is lost
+- [x] **Nightly `pg_dump` + WAL archiving** — `bin/backup-nightly`, plus `archive_mode`
+      and a retrying `archive_command` in `docker/postgres/postgresql.prod.conf`. Two
+      levels for two disasters: the WAL archive recovers a bad migration to the second on
+      a box that still exists, the offsite dump survives losing the machine.
+      **The dump is taken as the superuser, and the script asserts why.** The application
+      connects as a NOSUPERUSER role so that RLS is a real boundary — and a dump taken as
+      *that* role is silently filtered by those same policies. With no tenant pinned RLS
+      fails closed, so the backup would contain **zero rows from every tenant table**
+      while exiting 0 and reporting a plausible size. That is the most dangerous failure
+      available here, so every run reads its own archive back and refuses one with no
+      `stock_movements` data in it
+- [x] **Sentry + health endpoint** — `config/sentry.php`, `ScrubSensitiveData`, `/health`,
+      `artisan health:check`.
+      **A crash reporter is a tenancy problem**, because its job is to take production
+      data somewhere else. Three settings carry that decision and all three are hardcoded
+      rather than env-driven — an environment variable is an invitation to flip one on
+      mid-incident: `send_default_pii` off, and `sql_bindings` off in **both**
+      breadcrumbs and traces (separate switches for the same values; a binding array is
+      the richest leak in the product — `where national_id = ?` carries the national id).
+      Request bodies are scrubbed through `App\Support\SensitiveInput`, which is now the
+      **one** list behind two doors: the session flash (`dontFlash`, which had it) and the
+      crash report (which did not). Events carry the tenant's id and slug as tags — enough
+      to answer "which shop?", which is the question an incident actually asks, without
+      carrying anyone's data to answer it.
+      **The health endpoint grades its checks, and that is the point of it.** Database,
+      cache and pending migrations are critical and return 503; a queue backlog is
+      reported at 200. Grading a backlog critical would remove a healthy web tier from
+      rotation because a third-party SMS gateway is slow — turning a delayed text message
+      into a shop that cannot take payment. The detailed body needs `X-Health-Secret` and
+      is withheld from everyone when none is configured: it names internal hostnames and
+      driver-level failures, and reads best exactly when something is broken
+- [x] **Horizon production config** — installed, and gated. One supervisor per queue
+      rather than one pool over three, because a shared pool lets Moadian (a government
+      endpoint, 180s timeouts) starve fifty shops' repair-ready texts.
+      **The dashboard is a tenancy boundary, not an admin convenience**, and it is the
+      widest leak available in the product because it does not look like one. Horizon
+      renders **job payloads** — `SendSmsJob` carries a customer's phone number and
+      message text — from every shop, on one screen, and none of it is a database row, so
+      RLS cannot reach it. The gate asks the `platform` guard directly and re-checks
+      `is_active` per request; `HorizonAccessTest` proves a shop **Owner**, the most
+      privileged tenant role, gets 403
+- [ ] **Restore drill documented and performed once (log committed)** — `bin/restore-drill`
+      is written and asserts more than a restore normally would: that tenant rows came
+      back, that **RLS was re-enabled on every tenant table**, and that the app role
+      genuinely reads zero rows with no tenant pinned. A restored platform without RLS
+      has no tenancy boundary and nothing about it looks wrong until two shops see each
+      other's customers.
+      **Cannot be ticked without a machine, and must not be.** It reports the RTO
+      *observed*, and there is nothing here to observe it against
+- [ ] Uptime hook — needs the probe pointed at a real `/health`
+- [ ] Queue latency dashboards *(moved from 11.2 — Horizon supplies these once it runs
+      somewhere with traffic; the `waits` thresholds are configured)*
+
+#### Needs the box
+
+*Written down as a checklist rather than a phase, because none of it is design work — it
+is the same five things every time, and the point of everything above is that this list
+is short.*
+
+| # | what | why it cannot be done here |
+|---|---|---|
+| 1 | **Restore drill** (`bin/restore-drill`) | The largest unhardened thing in the project, and it reports an RTO measured against real hardware. A number from a laptop is not the number. |
+| 2 | **Load test** (`tests/Load/endpoints.js`) | On one machine the load generator competes with the app for cores; the result measures Docker, not the product. |
+| 3 | **Wildcard TLS** (`*.<apex>`) | DNS-01 needs the registered domain and the DNS provider's API credentials. Renewal must then be watched — an expired wildcard takes **every** tenant offline at once. |
+| 4 | **First `bin/deploy` run end to end** | The blue/green swap is written and unexercised. It is the one script whose failure mode is an outage. |
+| 5 | **Sentry DSN, `HEALTH_SECRET`, uptime probe** | Configuration, not code: `.env.production.example` has every key with a `CHANGE-ME`. |
+
+Everything else — image, compose, nginx, TLS config, deploy, backup, WAL, Sentry wiring,
+health, Horizon — is built and parameterised. Pointing at a real server is writing
+`.env.production` and running one command.
 
 ### 11b — Products import
 
@@ -1544,12 +1689,30 @@ trail worth reading**.*
       against what Iranian shop-management products actually charge, confirm the add-on
       stack still prices above the plan that contains it, and re-check the ladder against
       inflation since 1405.
-- [ ] **Collect 2–3 real هلو/سپیدار/محک exports from pilot shops and pin them as
-      fixtures** for the products-import header hints. The mapping screen is deliberately
-      built not to depend on knowing these layouts, so this is not blocking — it is the
-      difference between a guesser that usually works and one that is measured. Inventing
-      plausible column names instead would tune the guesser to a fiction *and look tested*,
-      which is worse than the gap
+> **Removed, deliberately: "collect real هلو/سپیدار/محک exports and pin them as
+> fixtures".** This was never a dependency — it was an *upgrade* to the header-hint
+> guesser, and the owner has decided not to collect the files. Recording it as a scope
+> decision rather than leaving it open, because an unticked box reads as an unmet
+> dependency and this one is not: nothing is waiting on it and nothing is degraded by
+> its absence.
+>
+> **What the import actually relies on, and why the guesser was never load-bearing**
+> ([ADR 0013](adr/0013-flat-product-import.md)): the mapping screen was built not to
+> know these layouts. Three things carry the weight, and all three shipped in 11b —
+>
+> - a **dry run** before anything is written,
+> - an **explicit user mapping**, with the guesser's suggestion as a default the operator
+>   overrides rather than an answer they have to accept,
+> - **per-row verdicts**, so a wrong guess surfaces as "this row would do X" on a screen
+>   before it is a wrong product in the catalogue.
+>
+> The guesser stays tuned to its current guesses. That is the accepted mitigation, not a
+> temporary one: a shopkeeper whose column names are unrecognised maps four columns by
+> hand once, which is a minute of work, not a blocked onboarding.
+>
+> Inventing plausible column names instead would have been the genuinely bad outcome —
+> it would tune the guesser to a fiction **and look tested**. Not doing that remains
+> right; what has changed is that the alternative is no longer waiting to happen.
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages

@@ -106,6 +106,17 @@ artisan: ## Run an artisan command: make artisan CMD="route:list"
 composer: ## Run a composer command: make composer CMD="require foo/bar"
 	$(APP_IT) composer $(CMD)
 
+.PHONY: gates
+gates: ## Run every bin/check-* gate (the same ones CI runs)
+	@for gate in bin/check-*; do \
+		printf '\n\033[36m▸ %s\033[0m\n' "$$gate"; \
+		$(APP) php "$$gate" || exit 1; \
+	done
+
+.PHONY: health
+health: ## Database, cache, migrations and queue — the check /health and bin/deploy run
+	$(APP_IT) php artisan health:check
+
 .PHONY: horizon
 horizon: ## Run Horizon in the foreground
 	$(APP_IT) php artisan horizon

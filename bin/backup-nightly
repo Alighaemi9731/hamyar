@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# MobiShop — nightly database backup, offsite.
+#
+#   bin/backup-nightly                 # dump, verify, upload, prune
+#   bin/backup-nightly --local-only    # skip the upload (a pre-migration snapshot)
+#
+# Run from the deploy directory, on the server, from cron:
+#
+#   17 2 * * *  cd /srv/mobishop && ./bin/backup-nightly >> /var/log/mobishop-backup.log 2>&1
+#
+# 02:17 rather than 02:00 deliberately — every cron on every machine fires on the hour,
+# and the object store throttles accordingly.
+#
+# ## What this is and is not
+#
+# This is the copy that survives losing the machine. The WAL archive configured in
+# docker/postgres/postgresql.prod.conf is the other half and answers a different
+# question: it recovers a dropped table or a bad migration to the second, on a box that
+# still exists. Neither substitutes for the other, which is why both run.
+#
+# ## Custom format, not SQL text
+#
+# `pg_dump -Fc` is compressed, and — the part that matters — restorable **selectively**.
+# The per-tenant recovery procedure in docs/deploy.md needs single tables out of a
+# 5.5GB dump; from a plain SQL file that is a text-processing exercise, and from this it
+# is `pg_restore -t`.
+#
+# ## Dumped as the SUPERUSER, and that is not an oversight
+#
+# The application connects as `mobishop_app`, a NOSUPERUSER role, so that RLS is a real
+# boundary (ADR 0002). A dump taken as that role would be silently filtered by those
+# same policies — with no tenant pinned, RLS fails closed, and the backup would contain
+# **zero rows from every tenant table** while succeeding and reporting a plausible size.
+#
+# That is the single most dangerous failure available in this script: a green backup
+# job producing a file that restores an empty platform. The row-count assertion below
+# exists specifically to catch it.
+
+set -Eeuo pipefail
+
+readonly COMPOSE_FILE="compose.prod.yaml"
+readonly ENV_FILE=".env.production"
+readonly RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+readonly LOCAL_DIR="${BACKUP_LOCAL_DIR:-/var/backups/mobishop}"
+
+log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+die() { printf '[%s] FATAL: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; exit 1; }
+
+trap 'die "failed at line $LINENO"' ERR
+
+[[ -f "$ENV_FILE" ]] || die "$ENV_FILE not found — run this from the deploy directory"
+# shellcheck disable=SC1090
+set -a; source "$ENV_FILE"; set +a
+
+: "${DB_DATABASE:?}" "${DB_ROOT_USERNAME:?}" "${DB_ROOT_PASSWORD:?}"
+
+dc() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
+
+readonly STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+readonly DUMP="${LOCAL_DIR}/mobishop-${STAMP}.dump"
+
+mkdir -p "$LOCAL_DIR"
+
+# ------------------------------------------------------------------ 1. dump ----
+log "dumping ${DB_DATABASE} → ${DUMP}"
+dc exec -T \
+    -e PGPASSWORD="$DB_ROOT_PASSWORD" \
+    postgres pg_dump \
+        --username="$DB_ROOT_USERNAME" \
+        --dbname="$DB_DATABASE" \
+        --format=custom \
+        --compress=9 \
+        --no-owner \
+        --no-privileges \
+    > "$DUMP"
+
+[[ -s "$DUMP" ]] || die "the dump is empty"
+log "dump written: $(du -h "$DUMP" | cut -f1)"
+
+# ---------------------------------------------------------------- 2. verify ----
+#
+# A backup that has never been read is not a backup. This is not a restore drill —
+# that is bin/restore-drill and it needs a scratch database — but it is the cheap half,
+# and it runs every night rather than every month.
+log "verifying the archive is readable"
+pg_restore --list "$DUMP" > "${DUMP}.toc" 2>/dev/null \
+    || die "pg_restore cannot read the dump — it is corrupt, and the job that wrote it exited 0"
+
+# The RLS trap described in the header. `stock_movements` is the platform's largest
+# tenant-scoped table and can never legitimately be absent from a dump of a live
+# system, so an archive that does not mention it was taken through a policy filter.
+grep -q 'TABLE DATA public stock_movements' "${DUMP}.toc" \
+    || die "the dump contains no stock_movements data — it was almost certainly taken as a NOSUPERUSER role, and RLS filtered every tenant row"
+
+readonly TABLE_COUNT="$(grep -c 'TABLE DATA' "${DUMP}.toc" || true)"
+(( TABLE_COUNT > 20 )) || die "only ${TABLE_COUNT} tables carry data in this dump; expected the full schema"
+log "archive readable: ${TABLE_COUNT} tables with data"
+rm -f "${DUMP}.toc"
+
+# ------------------------------------------------------------------- 3. wal ----
+#
+# Shipped with the dump, in the same run, so the pair is always consistent: a dump
+# without the WAL segments that follow it can only be restored to the instant it was
+# taken, which throws away the day's work the archive exists to recover.
+log "packing the WAL archive"
+readonly WAL_TAR="${LOCAL_DIR}/wal-${STAMP}.tar"
+dc exec -T postgres tar -cf - -C /var/lib/postgresql/wal_archive . > "$WAL_TAR"
+log "wal written: $(du -h "$WAL_TAR" | cut -f1)"
+
+# ---------------------------------------------------------------- 4. offsite ----
+if [[ "${1:-}" == "--local-only" ]]; then
+    log "--local-only: skipping the upload"
+else
+    : "${BACKUP_S3_BUCKET:?set BACKUP_S3_BUCKET in .env.production}"
+    command -v aws >/dev/null || die "the aws cli is not installed on this host"
+
+    log "uploading to s3://${BACKUP_S3_BUCKET}/"
+    for file in "$DUMP" "$WAL_TAR"; do
+        aws s3 cp "$file" "s3://${BACKUP_S3_BUCKET}/$(basename "$file")" \
+            ${BACKUP_S3_ENDPOINT:+--endpoint-url "$BACKUP_S3_ENDPOINT"} \
+            --only-show-errors
+    done
+    log "uploaded"
+fi
+
+# ------------------------------------------------------------------ 5. prune ----
+#
+# Local only. Remote retention is a lifecycle rule on the bucket, not a delete loop
+# here — a bug in this script must never be able to erase the offsite copies, which are
+# the last line when everything else is gone.
+log "pruning local copies older than ${RETENTION_DAYS} days"
+find "$LOCAL_DIR" -name 'mobishop-*.dump' -mtime "+${RETENTION_DAYS}" -delete
+find "$LOCAL_DIR" -name 'wal-*.tar'       -mtime "+${RETENTION_DAYS}" -delete
+
+# Old WAL segments inside the container, once they are safely in a shipped tar.
+# Without this the archive volume grows until the disk fills, and a full disk stops
+# `archive_command` succeeding, which stops Postgres recycling WAL, which fills the
+# data volume — the failure cascades into an outage rather than a stale backup.
+dc exec -T postgres find /var/lib/postgresql/wal_archive -type f -mtime +7 -delete
+
+log "done: $(basename "$DUMP")"

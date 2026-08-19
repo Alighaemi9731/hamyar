@@ -1,0 +1,271 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * MobiShop — apex-domain gate (golden rule 1b).
+ *
+ * ## The rule
+ *
+ * The production domain is not chosen yet, and when it is chosen, changing it must be a
+ * configuration change plus a data migration — never a code change. So it comes from
+ * `config('app.domain')` (or `${APP_DOMAIN}` in infrastructure), and a hostname literal
+ * in code, a template, a fixture or a compose file is a bug.
+ *
+ * ## Why it needs a gate rather than a rule
+ *
+ * Because the failure is invisible until it is expensive. A literal apex works
+ * perfectly on the machine it was written on and in every test, and surfaces only when
+ * somebody registers the real domain and finds it hardcoded in a printed receipt, a
+ * repair-tracking QR code, an SMS template or a price-list link — the five places
+ * golden rule 1b names, and the five places nobody greps.
+ *
+ * The receipts are the worst of them: those are *printed*, handed to a customer, and
+ * carry a tracking URL. A wrong hostname there is not a redeploy, it is paper in
+ * somebody's pocket pointing at a domain that does not exist.
+ *
+ * ## What it does not flag, on purpose
+ *
+ * Comments and docblocks. `routes/web.php` says "Central routes — app.mobishop.ir" as
+ * an illustration and that is genuinely useful; flagging it would make the gate a
+ * nuisance, and a gate that cries wolf is one somebody comments out. Only code is
+ * checked — the same reasoning as `bin/check-direction-classes`.
+ *
+ * Reserved and loopback names are allowed everywhere: `localhost`, `*.localhost`,
+ * `127.0.0.1`, and the RFC 2606 example domains, which exist precisely to be written
+ * down. Third-party hosts a file genuinely has to name (a font CDN, an ACME resolver)
+ * are allow-listed individually, so each one is a decision somebody made rather than a
+ * pattern that lets everything through.
+ */
+$root = dirname(__DIR__);
+
+/**
+ * Where a hardcoded apex would actually do damage. Deliberately not the whole tree:
+ * docs/ is prose, vendor/ is not ours, and .github/ names GitHub.
+ *
+ * @var list<string>
+ */
+$scan = [
+    'app',
+    'config',
+    'routes',
+    'resources/views',
+    'resources/js',
+    'lang',
+    'docker/nginx',
+    'database',
+];
+
+/** @var list<string> */
+$scanFiles = [
+    'compose.prod.yaml',
+    'compose.yaml',
+    '.env.example',
+];
+
+/**
+ * Hosts a file is allowed to name outright.
+ *
+ * @var list<string>
+ */
+$allowed = [
+    // Reserved for exactly this (RFC 6761 / RFC 2606).
+    'localhost',
+    'example.com',
+    'example.org',
+    'example.net',
+    'example.test',
+    // Loopback, and the reserved suffixes fixtures are supposed to use. `.test` and
+    // `.invalid` exist so that `demo.test` and `a-host-no-tenant-owns.invalid` are the
+    // CORRECT thing to write in a seeder — flagging them would push somebody toward a
+    // real domain, which is the opposite of the point.
+    '127.0.0.1',
+    '.invalid',
+    '.test',
+    '.localhost',
+    // Third parties named on purpose, each with a reason.
+    'fonts.googleapis.com',   // referenced in CSP reasoning
+    'fonts.gstatic.com',
+    'sentry.io',
+    'ghcr.io',                // container registry, named in a compose error hint
+    'schema.org',
+    'www.w3.org',             // xmlns in SVG and print templates
+    // Iranian third parties the product must name, each a real external system
+    // rather than our own apex. These are the addresses of somebody else's service:
+    // they do not move when our domain is chosen.
+    'hamta.ir',               // HAMTA IMEI registry — the شناسه/رجیستری portal
+    'hamta.ntsw.ir',          // its operational host, linked from the Hamta guide
+    'tax.gov.ir',             // Moadian / سامانه مودیان
+    'my.irancell.ir',
+    'zarinpal.com',           // payment gateway (shetabit/multipay)
+    'kavenegar.com',          // SMS
+    'sms.ir',
+];
+
+$violations = [];
+
+/**
+ * Strip comments so prose is not policed.
+ *
+ * Crude on purpose — a real parser here would be more accurate and much easier to get
+ * subtly wrong, and the cost of a missed literal inside a comment is zero.
+ */
+$stripComments = static function (string $line, string $extension): string {
+    if (in_array($extension, ['php', 'ts', 'tsx', 'js', 'conf', 'template'], true)) {
+        $line = preg_replace('~//.*$~', '', $line) ?? $line;
+        $line = preg_replace('~/\*.*?\*/~', '', $line) ?? $line;
+        // Docblock and block-comment continuation lines.
+        if (preg_match('~^\s*(\*|/\*)~', $line) === 1) {
+            return '';
+        }
+    }
+
+    if (in_array($extension, ['yaml', 'yml', 'conf', 'template', 'example', 'sh'], true)) {
+        $line = preg_replace('~(^|\s)#.*$~', '', $line) ?? $line;
+    }
+
+    if ($extension === 'php' && preg_match('~^\s*(\||;)~', $line) === 1) {
+        // Laravel's config-header comment style: `| Bare domain that tenant ...`
+        return '';
+    }
+
+    return $line;
+};
+
+$check = static function (string $path) use ($root, $allowed, $stripComments, &$violations): void {
+    $relative = str_replace($root.'/', '', $path);
+    $extension = pathinfo($path, PATHINFO_EXTENSION);
+    $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+
+    // nginx configs, compose files and .env carry hostnames and nothing that merely
+    // looks like one, so they are checked with a wider net than application code.
+    $infrastructure = str_starts_with($relative, 'docker/')
+        || str_starts_with($relative, 'compose')
+        || str_starts_with($relative, '.env');
+
+    foreach ($lines as $number => $raw) {
+        $line = $stripComments($raw, $extension);
+
+        if (trim($line) === '') {
+            continue;
+        }
+
+        /*
+        | Matched in HOSTNAME POSITION only, never as a bare dotted token.
+        |
+        | The first version of this gate looked for `something.tld` anywhere and
+        | reported ninety findings, all false: `invoices.store` is a route name,
+        | `report.net` is a property in JSX, `import.meta.env.dev` is Vite. Every one of
+        | those collides with a real TLD, and a gate with ninety false positives is a
+        | gate somebody deletes in its first week.
+        |
+        | So a match needs evidence that it IS a host:
+        |
+        |   A. after a scheme — `https://shop.example.ir/...`
+        |   B. after an `@`   — an email's domain
+        |   C. any `.ir` host — the market this product ships to, and a suffix that
+        |      never appears as an identifier in this codebase
+        |
+        | Infrastructure files get a wider net (see $infrastructure below): there is no
+        | such thing as an incidental dotted identifier in an nginx server_name.
+        */
+        $host = '(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}';
+
+        $patterns = [
+            'url' => '~(?:https?:)?//('.$host.')~i',
+            'email' => '~@('.$host.')~i',
+            'iran' => '~(?<![\\w.@-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+ir)(?![\\w-])~i',
+        ];
+
+        if ($infrastructure) {
+            /*
+            | A restricted TLD list, not `[a-z]{2,}`, and the reason is filenames.
+            | An nginx config is full of `index.php`, `favicon.ico`, `app.conf` and
+            | `fullchain.pem`, every one of which is `name.suffix` and none of which is
+            | a host. The second version of this gate reported sixteen of them.
+            */
+            $tld = 'ir|com|net|org|io|dev|app|co|me|info|biz|cloud|sh|ai';
+            $bare = '(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:'.$tld.')';
+            $patterns['bare'] = '~(?<![\\w.@-])('.$bare.')(?![\\w-])~i';
+        }
+
+        $found = [];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match_all($pattern, $line, $matches) > 0) {
+                foreach ($matches[1] as $match) {
+                    $found[] = $match;
+                }
+            }
+        }
+
+        foreach (array_unique($found) as $host) {
+            $host = mb_strtolower($host);
+
+            foreach ($allowed as $safe) {
+                if ($host === $safe || str_ends_with($host, '.'.ltrim($safe, '.')) || str_ends_with($host, $safe)) {
+                    continue 2;
+                }
+            }
+
+            $violations[] = sprintf('%s:%d  %s', $relative, $number + 1, $host);
+        }
+    }
+};
+
+$walk = static function (string $directory) use ($check): void {
+    if (! is_dir($directory)) {
+        return;
+    }
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+
+    foreach ($files as $file) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if (! in_array($file->getExtension(), ['php', 'ts', 'tsx', 'js', 'yaml', 'yml', 'conf', 'template', 'json'], true)) {
+            continue;
+        }
+
+        $check($file->getPathname());
+    }
+};
+
+foreach ($scan as $directory) {
+    $walk($root.'/'.$directory);
+}
+
+foreach ($scanFiles as $file) {
+    if (is_file($root.'/'.$file)) {
+        $check($root.'/'.$file);
+    }
+}
+
+if ($violations === []) {
+    echo "\033[32m✓\033[0m apex-domain gate: no hardcoded hostnames.\n";
+
+    exit(0);
+}
+
+echo "\033[31m✗ Hardcoded hostname(s) — golden rule 1b.\033[0m\n\n";
+
+foreach ($violations as $violation) {
+    echo "  {$violation}\n";
+}
+
+echo <<<'TEXT'
+
+The production apex is not chosen yet and must never be a literal. Read it from
+`config('app.domain')` in PHP, from `${APP_DOMAIN}` in infrastructure, and resolve
+tenants through `domains.hostname` rows.
+
+If this host is genuinely a third party the file has to name, add it to the allow-list
+in bin/check-apex-domain with a reason beside it.
+
+TEXT;
+
+exit(1);

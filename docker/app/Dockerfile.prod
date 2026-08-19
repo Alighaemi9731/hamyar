@@ -1,0 +1,175 @@
+### MobiShop — production application image (PHP 8.4 FPM)
+#
+# Unlike docker/app/Dockerfile, which is a runtime for a bind-mounted working copy,
+# this image CONTAINS the application: source, vendor tree and built assets, at one
+# commit. That is what makes a deploy a container swap and a rollback the previous tag.
+#
+# Build:
+#   docker build -f docker/app/Dockerfile.prod -t mobishop-app:<sha> .
+#
+# Three things are deliberately NOT in here, and each has cost somebody a day
+# somewhere:
+#
+#   1. No Node, and no Chromium. The dev image carries both for Pest's browser tests
+#      (~700MB of it). Production runs no tests and serves no JavaScript from Node —
+#      Vite's output is static files, built in a stage that is then thrown away.
+#
+#   2. No `.env`, and no secrets of any kind. The image is a public artefact in a
+#      registry; configuration arrives at run time. An image with an APP_KEY baked in
+#      cannot be shared, cannot be rolled back across an environment, and leaks the
+#      moment the registry does.
+#
+#   3. **No `artisan config:cache` / `route:cache` / `view:cache`.** These are run by
+#      `bin/deploy`, on the box, after the environment exists — never here. Caching
+#      config at build time bakes the *build machine's* environment into the image,
+#      and the first thing it freezes is `APP_DOMAIN`. That would turn the apex domain
+#      into an image rebuild instead of a config change, which is precisely what golden
+#      rule 1b exists to prevent, and it would do it silently: the cached value simply
+#      wins and nothing warns.
+
+# ---------------------------------------------------------------- assets ----
+# Built first and separately, so a PHP-only change does not reinstall npm and a
+# frontend-only change does not reinstall Composer.
+FROM node:22-bookworm-slim AS assets
+
+WORKDIR /build
+
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY vite.config.ts tsconfig.json components.json ./
+COPY resources ./resources
+COPY public ./public
+
+RUN npm run build
+
+# ------------------------------------------------------------------ base ----
+#
+# PHP with every extension the application declares, shared by the vendor stage and the
+# final image. Splitting it out is not tidiness — it is the fix for a real build failure.
+#
+# The obvious spelling of the vendor stage is `FROM composer:2`, and it does not work
+# here: that image is PHP with almost no extensions, so `composer install` reads the
+# lockfile, checks the platform it is running on, and refuses —
+#
+#   filament/support requires ext-intl -> it is missing from your system
+#   laravel/horizon  requires ext-pcntl
+#   phpoffice/phpspreadsheet requires ext-gd
+#
+# The tempting escape is `--ignore-platform-reqs`, which turns off the one check that
+# would catch a genuinely incompatible dependency. Installing into an image that HAS the
+# extensions keeps the check meaningful, and it verifies on every build that the
+# production runtime can actually satisfy the lockfile.
+FROM php:8.4-fpm-bookworm AS base
+
+# `postgresql-client` is here for a reason beyond debugging: bin/backup-nightly runs
+# `pg_dump` from inside this container, so the client version has to match the server.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        postgresql-client \
+        gzip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
+RUN install-php-extensions \
+        pdo_pgsql \
+        pgsql \
+        redis \
+        gd \
+        zip \
+        bcmath \
+        intl \
+        exif \
+        pcntl \
+        sockets \
+        opcache \
+    && rm -f /usr/local/bin/install-php-extensions
+
+COPY docker/app/php.ini /usr/local/etc/php/conf.d/99-mobishop.ini
+# `zz-`, not `99-`, and this is a bug fix rather than a preference.
+#
+# PHP scans conf.d alphabetically and the last file wins. `99-mobishop-prod.ini` sorts
+# BEFORE `99-mobishop.ini`, because `-` is 0x2D and `.` is 0x2E — so the DEVELOPMENT
+# settings were loading last and overriding these. The built image was verified to have
+# `opcache.validate_timestamps = On` and `display_errors = STDOUT`: a production
+# container re-stat'ing every file on every request and printing stack traces to a
+# shop's screen, from a file whose comment said it was the override.
+COPY docker/app/php.prod.ini /usr/local/etc/php/conf.d/zz-mobishop-prod.ini
+
+# ---------------------------------------------------------------- vendor ----
+FROM base AS vendor
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+WORKDIR /build
+
+COPY composer.json composer.lock ./
+
+# `--no-scripts`: the post-install hooks call artisan, and the application source is
+# not here yet. They run in the final stage, once it is.
+#
+# **No `--classmap-authoritative` here, and that is the whole point of this comment.**
+# The first version had it, and the resulting image could not load a single application
+# class: `Class "App\Support\SensitiveInput" not found`, from `bootstrap/app.php`, on
+# every artisan command. The classmap is built from what is on disk, only
+# `composer.json` and `composer.lock` are on disk in this stage, and *authoritative*
+# means the autoloader will not fall back to a PSR-4 filesystem lookup for anything
+# missing from it. So the entire `App\` namespace was unreachable.
+#
+# It fails nowhere else. Dev installs with dev flags, CI installs the same way, and the
+# tests never touch this image — it would have failed on first boot, on the box.
+#
+# The optimised, authoritative dump happens in the final stage instead, once the source
+# is actually there.
+RUN composer install \
+        --no-dev \
+        --no-scripts \
+        --no-interaction \
+        --prefer-dist
+
+# ----------------------------------------------------------------- final ----
+FROM base AS app
+
+# Runs as an unprivileged user. The php:fpm image ships `www-data` as uid 33; the
+# application only ever writes to storage/ and bootstrap/cache/, which are chowned below.
+WORKDIR /var/www/html
+
+COPY --chown=www-data:www-data . .
+COPY --from=vendor --chown=www-data:www-data /build/vendor ./vendor
+COPY --from=assets --chown=www-data:www-data /build/public/build ./public/build
+
+# Now that the source IS present:
+#
+#   1. Regenerate the autoloader over it. `--classmap-authoritative` earns its place here
+#      — every class miss otherwise hits the filesystem, and Filament plus eighteen
+#      module providers produce a lot of lookups on a cold opcache. Composer is copied in
+#      for this one command and deleted again; a shipped image has no business carrying a
+#      package manager.
+#   2. Run what `--no-scripts` skipped. `package:discover` writes
+#      bootstrap/cache/packages.php, a manifest of installed packages — it depends on the
+#      vendor tree, not on the environment, so it is correct to bake in. Config, routes
+#      and views are NOT cached here; see the header.
+#
+# `mkdir -p bootstrap/cache`: .dockerignore excludes its contents, and Docker does not
+# create a directory whose every entry was ignored — so without this the directory is
+# absent and `config:cache` on the box has nowhere to write.
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+RUN mkdir -p bootstrap/cache storage/framework/{cache/data,sessions,views} storage/logs \
+    && composer dump-autoload --no-dev --optimize --classmap-authoritative --no-interaction \
+    && php artisan package:discover --ansi \
+    && rm -f /usr/local/bin/composer \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwX storage bootstrap/cache
+
+USER www-data
+
+# Consumed by config/sentry.php so an error report can name the code it came from.
+# Passed at build time by bin/deploy; an unset value is not fatal, it just makes an
+# incident harder to read.
+ARG APP_RELEASE=unknown
+ENV SENTRY_RELEASE=${APP_RELEASE}
+
+EXPOSE 9000
+
+CMD ["php-fpm"]

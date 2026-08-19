@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Support\SensitiveInput;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -113,22 +114,12 @@ return Application::configure(basePath: dirname(__DIR__))
         | The list is deliberately broader than "the one field that bit us": anything
         | named like a secret gets the same treatment, because the next one will be added
         | by somebody who has never read this comment.
+        |
+        | It lives in App\Support\SensitiveInput because the session is not the only
+        | door. Sentry attaches the same request body to every crash report, which ships
+        | it to a third party instead of to the session table — the same hole in a
+        | different wall. Both read this one list, so a key added for either is closed
+        | for both. `SensitiveInputTest` asserts they stay wired together.
         */
-        $exceptions->dontFlash([
-            'current_password',
-            'password',
-            'password_confirmation',
-            // Repairs — the customer's unlock code or pattern.
-            'device_passcode',
-            // Identity — TOTP enrolment and recovery.
-            'two_factor_secret',
-            'two_factor_recovery_codes',
-            'code',
-            'otp',
-            'token',
-            // Payments — a card or account number typed into a reference field.
-            'card_number',
-            'iban',
-            'account_number',
-        ]);
+        $exceptions->dontFlash(SensitiveInput::keys());
     })->create();

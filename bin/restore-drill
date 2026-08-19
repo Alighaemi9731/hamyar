@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+#
+# MobiShop — restore drill.
+#
+#   bin/restore-drill /var/backups/mobishop/mobishop-20260901T021700Z.dump
+#
+# Restores a real backup into a scratch database, proves the data is there, and prints
+# the **RTO actually observed**. Writes a log to docs/restore-drills/.
+#
+# ## Why this is a script and not a checklist
+#
+# A backup nobody has restored is not a backup, and a restore procedure nobody has run
+# is not a procedure — it is a guess with formatting. The roadmap asks for the RTO
+# *observed*, never an estimate, because the estimate is always "about twenty minutes"
+# and the number that matters is the one measured against 5.5GB and 19M rows.
+#
+# Writing it as a script rather than a runbook section also settles the argument about
+# whether the drill was done properly: it either exits 0 having asserted the checks
+# below, or it did not happen.
+#
+# ## What it deliberately does NOT do
+#
+# It never touches the production database. Every statement runs against a scratch
+# database created for the run and dropped at the end, and the script refuses to start
+# if the target name is the live one.
+#
+# ## Two safeguards this drill exists to check, which no other test can
+#
+#   1. That the dump contains tenant rows at all. A dump taken as a NOSUPERUSER role is
+#      silently filtered by RLS and restores an empty platform. bin/backup-nightly
+#      asserts this nightly from the archive's table of contents; here it is asserted
+#      from rows that actually came back.
+#   2. That RLS is REAPPLIED on the restored copy. Policies travel with the schema, but
+#      `--no-owner` and a restore run as a superuser can leave a table without its
+#      policy enabled — and a restored platform without RLS is a platform with no
+#      tenancy boundary, which would be discovered later, in production, by a customer.
+
+set -Eeuo pipefail
+
+readonly COMPOSE_FILE="compose.prod.yaml"
+readonly ENV_FILE=".env.production"
+readonly SCRATCH_DB="mobishop_restore_drill"
+readonly LOG_DIR="docs/restore-drills"
+
+log()  { printf '[%s] %s\n' "$(date -u +%H:%M:%SZ)" "$*" | tee -a "$LOG_FILE"; }
+die()  { printf '[%s] FATAL: %s\n' "$(date -u +%H:%M:%SZ)" "$*" | tee -a "${LOG_FILE:-/dev/null}" >&2; exit 1; }
+
+readonly DUMP="${1:-}"
+[[ -n "$DUMP" && -f "$DUMP" ]] || { echo "usage: bin/restore-drill <path-to.dump>" >&2; exit 1; }
+[[ -f "$ENV_FILE" ]] || { echo "$ENV_FILE not found — run this from the deploy directory" >&2; exit 1; }
+
+# shellcheck disable=SC1090
+set -a; source "$ENV_FILE"; set +a
+: "${DB_DATABASE:?}" "${DB_ROOT_USERNAME:?}" "${DB_ROOT_PASSWORD:?}" "${DB_USERNAME:?}"
+
+[[ "$SCRATCH_DB" != "$DB_DATABASE" ]] || { echo "refusing to drill onto the live database" >&2; exit 1; }
+
+mkdir -p "$LOG_DIR"
+readonly STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+readonly LOG_FILE="${LOG_DIR}/${STAMP}.md"
+
+dc()   { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
+psqlc(){ dc exec -T -e PGPASSWORD="$DB_ROOT_PASSWORD" postgres psql -U "$DB_ROOT_USERNAME" -v ON_ERROR_STOP=1 "$@"; }
+
+trap 'printf "\n**Result: FAILED at line %s.**\n" "$LINENO" >> "$LOG_FILE"' ERR
+
+{
+    echo "# Restore drill — ${STAMP}"
+    echo
+    echo "| | |"
+    echo "|---|---|"
+    echo "| dump | \`$(basename "$DUMP")\` |"
+    echo "| size | $(du -h "$DUMP" | cut -f1) |"
+    echo "| host | $(uname -sr) |"
+    echo
+    echo '```'
+} > "$LOG_FILE"
+
+readonly STARTED=$SECONDS
+
+log "dropping and recreating the scratch database"
+psqlc -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};"
+psqlc -d postgres -c "CREATE DATABASE ${SCRATCH_DB} OWNER ${DB_ROOT_USERNAME};"
+
+# ---------------------------------------------------------------- 1. restore ----
+log "restoring (this is the number that matters)"
+readonly RESTORE_STARTED=$SECONDS
+dc exec -T -e PGPASSWORD="$DB_ROOT_PASSWORD" postgres pg_restore \
+    --username="$DB_ROOT_USERNAME" \
+    --dbname="$SCRATCH_DB" \
+    --no-owner \
+    --jobs=4 \
+    < "$DUMP"
+readonly RESTORE_SECONDS=$(( SECONDS - RESTORE_STARTED ))
+log "restored in ${RESTORE_SECONDS}s"
+
+# ------------------------------------------------------------- 2. is it there ----
+log "counting what came back"
+counts="$(psqlc -d "$SCRATCH_DB" -At -F'|' -c "
+    SELECT 'tenants',         count(*) FROM tenants
+    UNION ALL SELECT 'users',           count(*) FROM users
+    UNION ALL SELECT 'invoices',        count(*) FROM invoices
+    UNION ALL SELECT 'stock_movements', count(*) FROM stock_movements
+    UNION ALL SELECT 'product_units',   count(*) FROM product_units;
+")"
+log "$counts"
+
+tenant_count="$(printf '%s\n' "$counts" | awk -F'|' '$1=="tenants"{print $2}')"
+(( tenant_count > 0 )) || die "the restored database has no tenants — the dump was taken through an RLS filter"
+
+movements="$(printf '%s\n' "$counts" | awk -F'|' '$1=="stock_movements"{print $2}')"
+(( movements > 0 )) || die "no stock movements restored; the ledger is the product's source of truth for stock (golden rule 3)"
+
+# ------------------------------------------------------------------- 3. rls ----
+#
+# The check that a generic restore procedure would never think to make, and the one
+# whose absence is worst: a restored platform without RLS has no tenancy boundary, and
+# nothing about it looks wrong until two shops see each other's customers.
+log "verifying row-level security survived the restore"
+unprotected="$(psqlc -d "$SCRATCH_DB" -At -c "
+    SELECT count(*)
+    FROM information_schema.columns c
+    JOIN pg_class pc ON pc.relname = c.table_name
+    JOIN pg_namespace pn ON pn.oid = pc.relnamespace AND pn.nspname = 'public'
+    WHERE c.table_schema = 'public'
+      AND c.column_name = 'tenant_id'
+      AND pc.relrowsecurity IS NOT TRUE;
+")"
+(( unprotected == 0 )) || die "${unprotected} tenant table(s) came back with RLS disabled"
+
+policies="$(psqlc -d "$SCRATCH_DB" -At -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public';")"
+(( policies > 0 )) || die "no RLS policies exist on the restored database"
+log "rls: every tenant table protected, ${policies} policies present"
+
+# ------------------------------------------------------ 4. isolation, for real ----
+#
+# Not "a policy exists" but "the policy denies". Connects as the application's own
+# NOSUPERUSER role with no tenant pinned; RLS fails closed, so a correct restore
+# returns zero rows here while the superuser count above was non-zero.
+log "proving the restored policies actually deny"
+denied="$(dc exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
+    psql -U "$DB_USERNAME" -d "$SCRATCH_DB" -At -c "SELECT count(*) FROM invoices;")"
+(( denied == 0 )) || die "the app role read ${denied} invoices with no tenant set — RLS is not enforcing on the restored copy"
+log "isolation: the app role sees 0 rows with no tenant pinned, as it must"
+
+# ---------------------------------------------------------------- 5. teardown ----
+readonly TOTAL_SECONDS=$(( SECONDS - STARTED ))
+log "dropping the scratch database"
+psqlc -d postgres -c "DROP DATABASE ${SCRATCH_DB};"
+
+{
+    echo '```'
+    echo
+    echo "## Observed"
+    echo
+    echo "| | |"
+    echo "|---|---|"
+    echo "| **restore time** | **${RESTORE_SECONDS}s** |"
+    echo "| drill total (incl. verification) | ${TOTAL_SECONDS}s |"
+    echo "| tenants restored | ${tenant_count} |"
+    echo "| stock movements restored | ${movements} |"
+    echo "| RLS policies present | ${policies} |"
+    echo
+    echo "**Result: PASSED.**"
+    echo
+    echo "RTO is the restore time above plus the time to provision a host and fetch the"
+    echo "dump from the object store — neither of which this drill measures, and both of"
+    echo "which belong in the number quoted to anybody. Measure them the first time this"
+    echo "runs on a machine that is not the production box."
+} >> "$LOG_FILE"
+
+printf '\n\033[32m✓\033[0m restore drill passed — restore %ss, total %ss\n' "$RESTORE_SECONDS" "$TOTAL_SECONDS"
+printf '  log: %s\n\n' "$LOG_FILE"
