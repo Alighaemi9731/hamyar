@@ -172,6 +172,7 @@ do the thing; if the answer needs a terminal, the box stays open with a reason b
 - Design system, tokens & landing brief: docs/design-system.md
 - Testing policy & suites: docs/testing.md
 - Deploy runbook: docs/deploy.md
+- Load-test runbook (parked until a staging box exists): docs/load-testing.md
 - Persian source docs (business plan / design & tooling supplement):
   docs/01-master-plan-fa.md · docs/03-design-and-claude-setup-fa.md
 

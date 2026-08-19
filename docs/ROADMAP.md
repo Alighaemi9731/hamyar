@@ -1405,8 +1405,11 @@ would, and the worst place to discover one is in front of a customer.*
       worse than having no number: an optimistic one hides a problem, a pessimistic one
       sends somebody optimising a virtualised filesystem.
       **Destination: the staging VPS**, which is being provisioned. The moment it has an
-      address this is `k6 run` plus a report in `docs/` — see the needs-the-box list at
-      the end of 11.3
+      address this is `k6 run` plus a report in `docs/` — the runbook is
+      [`docs/load-testing.md`](load-testing.md): how to seed the box, where to run the
+      generator from (not on the box), what counts as a pass, what to record, and which
+      of the three items below each kind of failure feeds. See also the needs-the-box
+      list at the end of 11.3
 - [ ] Fix N+1s
 - [ ] Add missing composite indexes
 - [ ] Queue latency dashboards
