@@ -178,6 +178,37 @@ still serves `/.well-known/acme-challenge/` for anything that needs HTTP-01 late
 simultaneously. The renewal loop runs twice a day (Let's Encrypt's own recommendation);
 the alert that it has *stopped* running is part of the uptime setup in §5.
 
+#### First boot is a chicken-and-egg, and it will bite
+
+nginx **will not start** without the certificate files, and certbot cannot obtain them
+until it can run — so the very first `up` on a fresh box fails with
+`cannot load certificate … no such file or directory`, which reads like a broken config
+rather than a missing prerequisite. Issue the certificate before nginx is ever started:
+
+```bash
+mkdir -p certbot/conf certbot/www release/public
+
+# Bring up only what does not depend on TLS.
+docker compose -f compose.prod.yaml --env-file .env.production up -d postgres redis
+
+# Wildcard ⇒ DNS-01 ⇒ a provider plugin and its API credentials. The plugin depends on
+# the registrar (certbot-dns-cloudflare, -route53, …); with an Iranian registrar that
+# has no plugin, use `--manual --preferred-challenges dns` and add the TXT record by
+# hand — it works, it just cannot auto-renew, which makes the §5 expiry alert essential
+# rather than a nicety.
+docker compose -f compose.prod.yaml --env-file .env.production run --rm --entrypoint "" certbot \
+  certbot certonly --agree-tos --no-eff-email -m <ops-email> \
+  --preferred-challenges dns \
+  -d "$APP_DOMAIN" -d "*.$APP_DOMAIN"
+
+# Only now.
+docker compose -f compose.prod.yaml --env-file .env.production up -d nginx
+bin/deploy <image>
+```
+
+`release/public` is created here for the same reason: `bin/deploy` writes into it, and
+Docker would otherwise create the bind-mount target as a root-owned empty directory.
+
 ---
 
 ## 3. Releasing
@@ -418,5 +449,7 @@ Everything else is built and parameterised. Pointing at a real server is writing
 
 ```bash
 docker compose -f compose.prod.yaml --env-file .env.production up -d postgres redis
+# …obtain the wildcard certificate (§2 "First boot"), then:
+docker compose -f compose.prod.yaml --env-file .env.production up -d nginx
 bin/deploy <image>
 ```
