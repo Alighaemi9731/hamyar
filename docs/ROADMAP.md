@@ -1317,8 +1317,11 @@ would, and the worst place to discover one is in front of a customer.*
         stop exactly that
       - `tests/Browser` sits outside every declared testsuite, so a default `pest` on a
         machine that has not run `npm run build` does not fail
-- [x] **Rendered assertion added — but it did not replace the source one, and the
-      difference is the finding.** `tests/Browser/InvoicePrintLayoutTest.php` sells the
+- [→] **Rendered assertion added; the replacement itself moves to post-launch, destination:
+      print-media emulation.** The bullet asks for the source test to be *replaced*, and
+      that literal claim is not met — so it is not ticked. Ticking it would make the phase
+      read tidy at the cost of the one thing this list is for.
+      What shipped, and what is still owed: `tests/Browser/InvoicePrintLayoutTest.php` sells the
       seeded handset at the collision's own figure (`۹۶,۶۳۶,۷۹۸` toman) under the long
       Persian name, then measures every cell on A4 and A5: no box overlaps a neighbour,
       and no cell's content is wider than the cell that owns it — the second being the
@@ -1333,7 +1336,12 @@ would, and the worst place to discover one is in front of a customer.*
       its own deletion. Two fixture facts worth keeping: the price must land on a whole
       toman or `Money::inUnit()` refuses it (golden rule 2 — the guard has eyes), and a
       VAT total the cash payment does not cover needs a party, or the POS correctly
-      rejects the credit sale
+      rejects the credit sale.
+      **Still owed, post-launch:** the rendered test measures the *screen preview* of A4,
+      and the collision lives in **print media**. Catching the squeeze needs
+      `page.emulateMedia({ media: 'print' })` — which Pest's browser plugin does not
+      expose today — or a fixture narrow enough to force the squeeze on screen. Until one
+      of those exists the source test is load-bearing and stays
 - [ ] Audit for other mechanism-level guards standing in for rendered ones and convert
       them in the same pass (`grep -rn "asserts the \*mechanism\*" app/Modules`); each
       conversion deletes the "when browser testing lands" caveat from its docblock rather

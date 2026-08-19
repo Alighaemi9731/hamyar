@@ -114,7 +114,12 @@ beforeEach(function (): void {
         fn (): array => app(PriceListAccess::class)->mint(
             priceLevelId: (int) ($options['level'] ?? $this->reseller->getKey()),
             password: $options['password'] ?? null,
-            expiresAt: $options['expires'] ?? CarbonImmutable::parse('2026-09-01 12:00:00'),
+            // Relative, not a literal. The default only has to mean "a token that has
+            // not expired"; pinned to 2026-09-01 it meant that until 2026-09-01, after
+            // which five tests in this file would have started failing with nothing
+            // committed. A date literal is only safe when the date is the point — see
+            // PriceListSecurityTest, where it is, and is pinned on both sides instead.
+            expiresAt: $options['expires'] ?? CarbonImmutable::now()->addMonth(),
         ),
     );
 });
@@ -221,9 +226,24 @@ it('renders no raw machine timestamps on any public page', function (): void {
 });
 
 it('renders the expiry as a Jalali date with Persian digits', function (): void {
-    // The positive half of the assertion above: something date-shaped IS there, so the
-    // negative is not passing on a page that simply shows no date at all.
-    $minted = ($this->mint)();
+    /*
+    | The positive half of the assertion above: something date-shaped IS there, so the
+    | negative is not passing on a page that simply shows no date at all.
+    |
+    | The expiry is passed explicitly and the clock is pinned to meet it. It used to
+    | rely on the *default* mint expiry happening to be `2026-09-01`, which made this
+    | the one test in the file that cared what that default was — invisibly, from four
+    | screens away, so relaxing the default to `now()->addMonth()` broke an assertion
+    | about Jalali formatting with a message about a missing string.
+    |
+    | `2026-09-01` and «۱۴۰۵/۰۶/۱۰» are the same day in two calendars, and holding those
+    | two literals side by side is the entire test — it is what catches a date rendered
+    | by the wrong helper. So the pair stays visible here, where it is read, rather than
+    | living in a fixture default that reads as arbitrary.
+    */
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00:00'));
+
+    $minted = ($this->mint)(['expires' => CarbonImmutable::parse('2026-09-01 12:00:00')]);
 
     $this->get($this->url.'/p/'.$minted['token'])
         ->assertOk()

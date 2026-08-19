@@ -32,6 +32,27 @@ use Carbon\CarbonImmutable;
  * leads the key, and this test is what says so.
  */
 beforeEach(function (): void {
+    /*
+    | The clock is frozen, and this is a bug fix rather than housekeeping.
+    |
+    | See the block below: the instant a price is asked for has to be pinned, or the two
+    | calls under test get different cache keys and the file proves nothing. That was
+    | done — with a date literal, `2026-08-18 09:00:00`. The *fixture* underneath it was
+    | left on the wall clock (`now()->subDay()`).
+    |
+    | So half the comparison was pinned and half of it kept moving, and on 2026-08-19
+    | they crossed: `effective_from` drifted past the hardcoded query instant, the price
+    | was no longer in effect at the moment being asked about, and `priceFor()` began
+    | correctly returning null for a test that expects a number. Nothing was committed
+    | that day. **The suite went red on main because the date changed.**
+    |
+    | Freezing is the fix rather than another literal, because two literals kept in step
+    | by hand is the same defect with a longer fuse. Now the fixture's `now()` and the
+    | test's `$at` are the same instant by construction, and no calendar page can put
+    | them on opposite sides of each other again.
+    */
+    $this->freezeTime();
+
     $this->shopA = Tenant::factory()->withDomain()->create();
     $this->shopB = Tenant::factory()->withDomain()->create();
 
@@ -65,6 +86,9 @@ beforeEach(function (): void {
 |
 | Green without witness, in a file written to catch a leak. Pinning the instant is what
 | makes the shared key actually shared.
+|
+| `now()` on a frozen clock, not a date literal — a literal pins only one side of an
+| effective-dated comparison, and the other side expires. See `beforeEach`.
 */
 afterEach(function (): void {
     app(TenantContext::class)->forget();
@@ -89,7 +113,7 @@ it('never serves one shop’s cached price to another', function (): void {
     ($this->seed)($this->shopB, 12_340_000);
 
     $resolver = app(PriceResolver::class);
-    $at = CarbonImmutable::parse('2026-08-18 09:00:00');
+    $at = CarbonImmutable::now();
 
     /*
     | BOTH ids are shop A's, and passed explicitly — which is the whole test.
@@ -125,7 +149,7 @@ it('still memoises within one tenant', function (): void {
     $variant = $a['variant'];
     $level = $a['level'];
 
-    $at = CarbonImmutable::parse('2026-08-18 09:00:00');
+    $at = CarbonImmutable::now();
 
     app(TenantContext::class)->runFor($this->shopA, function () use ($variant, $level, $at): void {
         $resolver = app(PriceResolver::class);

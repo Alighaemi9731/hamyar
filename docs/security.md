@@ -187,9 +187,24 @@ because browsers ignore a nonce once `'unsafe-inline'` is present.
 
 | Item | Why it is still open |
 |---|---|
-| `shadcn` is in `dependencies`, not `devDependencies` | It is a scaffolding CLI, not shipped code, and it is what pulls `postcss` → `nanoid` into the **production** tree — which is how 11.1's first `npm audit` found a high-severity advisory in a package no shop's browser ever loads. Moving it is a one-line change to `package.json` and a dependency change, so it is proposed rather than taken |
 | Penetration test | Not scheduled. ASVS L1 is a floor; it is not a substitute for somebody trying |
 | `SESSION_SECURE_COOKIE`, `APP_DEBUG` | Env values. Verified at go-live, not by code — see [deploy.md](deploy.md) |
+
+## Closed since the first audit
+
+**`shadcn` moved to `devDependencies` (approved, 11d).** It is a scaffolding CLI, not
+shipped code, and while it sat in `dependencies` it dragged `postcss` — and `postcss`'s
+`nanoid` — into the **production** tree. That is how 11.1's first `npm audit` found a
+high-severity advisory in a package no shop's browser ever loads.
+
+The patch bump fixed the advisory; this removes the reachability. `npm ls nanoid
+--omit=dev` now returns empty: the package is not in the production tree at all, so the
+next advisory against it is not our problem either. Typecheck and production build are
+unaffected — nothing imports it, because a CLI is not a library.
+
+The general form is worth keeping: **a dependency audit's most useful output is often not
+the advisory but the question of why the package was reachable.** Patching `nanoid` would
+have closed the finding and left the path open.
 
 ## What this document is not
 
@@ -197,4 +212,4 @@ It is not evidence of compliance with anything. It is a record of what was check
 whom, and when — so the next person can tell the difference between a control that was
 verified and one that was assumed.
 
-Last audited: **1405/05/27 (2026-08-18)**, Phase 11.1.
+Last audited: **1405/05/27 (2026-08-18)**, Phase 11.1. Open items revisited 1405/05/28.
