@@ -46,8 +46,12 @@ return [
     | Which deployment an event came from. Falls back to APP_ENV so a staging box that
     | forgot the variable still separates itself from production rather than polluting
     | it — the failure mode is a mislabelled event, never a lost one.
+    |
+    | `?:`, not a second argument to env(): a key that is present and blank in a `.env`
+    | is an empty string rather than absent, so the default would never be reached. The
+    | same shape cost the Horizon dashboard its domain constraint — see config/horizon.php.
     */
-    'environment' => env('SENTRY_ENVIRONMENT', env('APP_ENV', 'production')),
+    'environment' => env('SENTRY_ENVIRONMENT') ?: env('APP_ENV', 'production'),
 
     /*
     | The commit the box is running. Set by `bin/deploy` from the image tag, which is

@@ -40,8 +40,19 @@ return [
     | Read from the environment because config files load before `config()` is
     | populated; it is still the one `APP_DOMAIN` everything else resolves from, so
     | changing the apex stays a config change (golden rule 1b).
+    |
+    | **`?:` and not `env('HORIZON_DOMAIN', env('APP_DOMAIN'))`.** A key that is *present
+    | and blank* in a `.env` file — `HORIZON_DOMAIN=`, which is how this one is
+    | documented — is an empty string, not absent, so the second argument is never
+    | reached. The result is `domain => ''`, which Horizon reads as "no constraint" and
+    | serves the dashboard on **every tenant subdomain**.
+    |
+    | Caught by `HorizonAccessTest` in CI and nowhere else: CI builds its environment
+    | with `cp .env.example .env`, so it is the only place that actually exercises the
+    | documented file. Locally the key is usually missing and the default works, which is
+    | the worst version of this bug — it behaves correctly for whoever wrote it.
     */
-    'domain' => env('HORIZON_DOMAIN', env('APP_DOMAIN')),
+    'domain' => env('HORIZON_DOMAIN') ?: env('APP_DOMAIN'),
 
     /*
     |--------------------------------------------------------------------------
