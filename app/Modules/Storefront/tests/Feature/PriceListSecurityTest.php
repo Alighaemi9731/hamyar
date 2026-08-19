@@ -328,6 +328,19 @@ it('renders the expiry as a Jalali date, not a raw timestamp', function (): void
     | and the package's autoloaded first. It rendered «1405-06-02 21:18:47» where every other
     | screen shows «۱۴۰۵/۰۶/۰۲». Ours is now `jalali()`.
     */
+    /*
+    | The clock is pinned, and here the literal date is the substance rather than
+    | scaffolding: `2026-09-01` and «۱۴۰۵/۰۶/۱۰» are the same day in two calendars, and
+    | that correspondence is the whole assertion. It cannot be derived from the helper
+    | under test without the test agreeing with whatever the helper does — which is
+    | exactly how the shadowed `jdate()` stayed invisible for eight phases.
+    |
+    | So the pair stays, and the *clock* moves to meet it. Without this the token is
+    | expired from 2026-09-01 onward, the page stops returning 200, and a formatting
+    | test starts failing for a reason that has nothing to do with formatting.
+    */
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00:00'));
+
     $minted = ($this->mint)(['expires' => CarbonImmutable::parse('2026-09-01 12:00:00')]);
 
     $this->get($this->url.'/p/'.$minted['token'])
