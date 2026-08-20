@@ -174,9 +174,33 @@ Wildcard issuance requires a **DNS-01** challenge, so certbot needs API credenti
 the DNS provider rather than a webroot — the plugin depends on the registrar. Port 80
 still serves `/.well-known/acme-challenge/` for anything that needs HTTP-01 later.
 
-🔲 **Renewal must be watched.** An expired wildcard takes *every* tenant offline
-simultaneously. The renewal loop runs twice a day (Let's Encrypt's own recommendation);
-the alert that it has *stopped* running is part of the uptime setup in §5.
+Two things carry that, and both were wrong when this was written down and unexercised.
+
+**`CERTBOT_IMAGE`, not `certbot/certbot`.** The plain image ships **no DNS plugins**, so
+a wildcard renewal in it exits with `Could not select or initialize the requested
+authenticator dns-cloudflare` — twice a day, quietly, into a container log nobody reads.
+The plugin is a separate image per provider (`certbot/dns-cloudflare`,
+`certbot/dns-route53`, …), so it is an env var beside `APP_DOMAIN` rather than a literal
+in `compose.prod.yaml`. Credentials go in `certbot/secrets/`, mounted `:ro` into certbot
+**and nowhere else** — `certbot/conf/` is also mounted into nginx, and a token that can
+edit the zone's DNS has no business being readable by the internet-facing container.
+
+**nginx reloads itself every six hours, and that is the renewal mechanism.** nginx caches
+the certificate it read at start-up. certbot's `--deploy-hook` touched
+`/etc/letsencrypt/.renewed` and **nothing anywhere read that file**, so the real sequence
+was: certbot renews, reports success, the files on disk are valid, every check that
+inspects the *file* is green — and sixty days later the certificate nginx is still
+holding expires. Only a probe of the served TLS handshake would have seen it coming. The
+reload is unconditional rather than flag-driven because `/etc/letsencrypt` is read-only
+in nginx: it can see the flag and cannot clear it, so "reload if the flag exists" reloads
+forever after the first renewal. A graceful reload drops no connection and has no state
+to get wrong.
+
+🔲 **Renewal must still be watched.** An expired wildcard takes *every* tenant offline
+simultaneously, and the two fixes above remove two silent failures rather than the need
+for an alarm. The renewal loop runs twice a day (Let's Encrypt's own recommendation); the
+alert that it has *stopped* — and the check on the **served** certificate, not the file —
+are part of the uptime setup in §5.
 
 #### First boot is a chicken-and-egg, and it will bite
 
@@ -196,9 +220,15 @@ docker compose -f compose.prod.yaml --env-file .env.production up -d postgres re
 # has no plugin, use `--manual --preferred-challenges dns` and add the TXT record by
 # hand — it works, it just cannot auto-renew, which makes the §5 expiry alert essential
 # rather than a nicety.
+# The credentials file the plugin reads. 0600, and never in the repository.
+mkdir -p certbot/secrets
+printf 'dns_cloudflare_api_token = %s\n' "<token>" > certbot/secrets/cloudflare.ini
+chmod 600 certbot/secrets/cloudflare.ini
+
 docker compose -f compose.prod.yaml --env-file .env.production run --rm --entrypoint "" certbot \
   certbot certonly --agree-tos --no-eff-email -m <ops-email> \
-  --preferred-challenges dns \
+  --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini \
+  --dns-cloudflare-propagation-seconds 30 \
   -d "$APP_DOMAIN" -d "*.$APP_DOMAIN"
 
 # Only now.

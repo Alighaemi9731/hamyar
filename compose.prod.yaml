@@ -84,6 +84,36 @@ services:
       - ./release/public:/var/www/html/public:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+    # nginx caches the certificate it read at start-up, so a renewal on disk changes
+    # nothing about what is actually served until the master process is reloaded — and
+    # NOTHING reloaded it. certbot's --deploy-hook touched /etc/letsencrypt/.renewed and
+    # no process anywhere read that file, so the sequence was: certbot renews, reports
+    # success, the files on disk are valid, every check that inspects the FILE is green,
+    # and sixty days later the certificate nginx is still holding expires and takes every
+    # tenant offline simultaneously. Only a probe of the served TLS handshake would have
+    # seen it coming.
+    #
+    # The reload is unconditional and periodic rather than triggered by the flag file,
+    # because /etc/letsencrypt is mounted read-only here: this container can see the flag
+    # but cannot clear it, so a "reload if the flag exists" loop reloads forever after the
+    # first renewal. A graceful reload is what nginx does for log rotation anyway — it
+    # costs nothing, it drops no connection, and having no state is what makes it correct
+    # every time instead of correct until the flag handling drifts.
+    #
+    # The re-entrant call to /docker-entrypoint.sh is NOT redundant, and leaving it out
+    # is a silent, total failure. The image's entrypoint runs its /docker-entrypoint.d
+    # scripts — the envsubst pass over /etc/nginx/templates among them — only when its
+    # FIRST ARGUMENT is literally `nginx`:
+    #
+    #     if [ "$$1" = "nginx" ] || [ "$$1" = "nginx-debug" ]; then ... fi
+    #     exec "$$@"
+    #
+    # A command starting with `/bin/sh` therefore skips substitution altogether and nginx
+    # starts on a template with a literal ${APP_DOMAIN} in server_name and in the
+    # ssl_certificate paths — the exact failure NGINX_ENVSUBST_FILTER above is documented
+    # against, reached by a different door. Calling the entrypoint again with `nginx` as
+    # $$1 puts the substitution back.
+    command: ["/bin/sh", "-c", "(while :; do sleep 6h; nginx -s reload 2>/dev/null || true; done) & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
     depends_on: [app_blue]
     logging: *logging
 
@@ -180,11 +210,25 @@ services:
   # provider rather than a webroot. The plugin is chosen per provider at deploy time —
   # see docs/deploy.md; `certbot/conf` is shared read-only with nginx above.
   certbot:
-    image: certbot/certbot:latest
+    # NOT certbot/certbot — that image contains no DNS plugins, so a wildcard renewal
+    # dies with "Could not select or initialize the requested authenticator
+    # dns-cloudflare" on every attempt. The plugin ships in a per-provider image
+    # (certbot/dns-cloudflare, certbot/dns-route53, …), so which one is correct depends
+    # on the registrar and therefore belongs in .env.production beside APP_DOMAIN rather
+    # than hardcoded here. The default is the plugin-less image because a webroot/HTTP-01
+    # setup genuinely wants it, and a wrong default that fails loudly at issuance beats
+    # one that fails quietly at renewal.
+    image: ${CERTBOT_IMAGE:-certbot/certbot:latest}
     restart: unless-stopped
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+      # DNS provider API credentials, mounted only here. Kept OUT of ./certbot/conf on
+      # purpose: that directory is mounted into nginx as well, and a token that can edit
+      # the zone's DNS has no business being readable by the internet-facing container.
+      # certbot records this path in the renewal config, so it must be the same path at
+      # renewal as at issuance — which it is, because only this service mounts it.
+      - ./certbot/secrets:/secrets:ro
     # Twice a day is Let's Encrypt's own recommendation: renewal is a no-op until the
     # certificate is inside its window, and an expired wildcard takes EVERY tenant
     # offline simultaneously.

@@ -101,6 +101,17 @@ $allowed = [
     'zarinpal.com',           // payment gateway (shetabit/multipay)
     'kavenegar.com',          // SMS
     'sms.ir',
+    // Not hosts at all: filenames whose extension collides with a real ccTLD, on
+    // non-comment lines of infrastructure files — where the net is deliberately wide
+    // enough to match any dotted token in any position. `.sh` is Saint Helena.
+    //
+    // This is the class the gate's first draft was tuned against (`index.php` is a
+    // filename, `report.net` is JSX), and it survived that round only because `.php`
+    // is not a TLD. `.sh` is, so a shell script named on a `command:` line reads as a
+    // hostname. Allow the specific filename rather than the `.sh` suffix: a wildcard
+    // here would silently un-check every future `something.sh`, and the whole value of
+    // this gate is that it is the thing nobody has to remember.
+    'docker-entrypoint.sh',   // the nginx image's own entrypoint, re-invoked in compose.prod.yaml
 ];
 
 $violations = [];
