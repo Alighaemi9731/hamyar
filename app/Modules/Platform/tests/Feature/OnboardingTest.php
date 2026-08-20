@@ -202,3 +202,48 @@ it('sends an Inertia submission to the new shop with a full page visit, not an X
 
     expect(Tenant::query()->where('slug', 'iranian-mobile')->exists())->toBeTrue();
 });
+
+/*
+| The sign-up form stopped asking for an address.
+|
+| ADR 0017 retires per-shop hostnames, so the field is gone from the page and the slug
+| is generated. These pin the generated path, because every test above submits a
+| subdomain explicitly and would keep passing if the derivation were removed tomorrow —
+| the form would then post nothing, validation would reject it, and no test would say so.
+*/
+
+it('provisions a shop when the form sends no subdomain at all', function (): void {
+    $payload = onboardingPayload();
+    unset($payload['subdomain']);
+
+    $this->post(centralUrl('/register'), $payload)->assertRedirect();
+
+    $tenant = Tenant::query()->latest('id')->firstOrFail();
+
+    expect($tenant->slug)->toStartWith('shop-')
+        ->and($tenant->slug)->toMatch('/^shop-[a-z0-9]{6}$/');
+});
+
+it('gives two shops registered without a subdomain different addresses', function (): void {
+    $first = onboardingPayload(['owner_mobile' => '09120000001']);
+    $second = onboardingPayload(['owner_mobile' => '09120000002']);
+    unset($first['subdomain'], $second['subdomain']);
+
+    $this->post(centralUrl('/register'), $first)->assertRedirect();
+    $this->post(centralUrl('/register'), $second)->assertRedirect();
+
+    $slugs = Tenant::query()
+        ->where('slug', 'like', 'shop-%')
+        ->pluck('slug');
+
+    expect($slugs)->toHaveCount(2)
+        ->and($slugs->unique())->toHaveCount(2);
+});
+
+it('still honours a subdomain when one is supplied', function (): void {
+    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => 'chosen-name']))
+        ->assertRedirect();
+
+    expect(Tenant::query()->latest('id')->firstOrFail()->slug)
+        ->toBe('chosen-name');
+});

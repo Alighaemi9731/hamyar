@@ -80,6 +80,25 @@ if (faq) {
   );
 }
 
+/* --------------------------------------------------------------- reveal ---- */
+/*
+ | Password show/hide on the auth pages.
+ |
+ | The button is `type="button"` in the markup so that with this file absent it is inert
+ | rather than submitting the form — a reveal toggle that posts your half-typed password
+ | is the failure worth designing against.
+ */
+
+for (const button of document.querySelectorAll('[data-reveal]')) {
+  button.addEventListener('click', () => {
+    const input = document.getElementById(button.dataset.reveal);
+    if (!input) return;
+    const shown = input.type === 'text';
+    input.type = shown ? 'password' : 'text';
+    button.setAttribute('aria-label', shown ? 'نمایش رمز عبور' : 'پنهان کردن رمز عبور');
+  });
+}
+
 /* --------------------------------------------------------------- motion ---- */
 /*
  | The only animation on the page.

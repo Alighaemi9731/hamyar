@@ -943,3 +943,260 @@ h3 {
     transition: none !important;
   }
 }
+
+/* ================================================================== auth === */
+/*
+ | Login and register.
+ |
+ | Built to a reference the owner supplied: a full-bleed light ground, one large rounded
+ | card, an illustration on the inline-start half and the form on the inline-end half,
+ | tall placeholder-only fields, and a full-width navy button with a plain text link
+ | under it.
+ |
+ | Two things are ours rather than the reference's, on purpose:
+ |
+ | · The illustration is our own thermal receipt, not a 3D render of coins and a bank
+ |   card. It is the object this product is actually about, it is already built in CSS,
+ |   and lifting somebody else's artwork into our sign-up page would be both wrong and
+ |   off-subject — we sell shop software, not currency exchange.
+ | · The accent stays #0066cc. The reference uses orange; ours is one family with the
+ |   app (ADR 0016) and there is no reason to import a second brand's palette.
+ */
+
+.auth {
+  min-block-size: 100dvh;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  background:
+    radial-gradient(1200px 600px at 85% -10%, #eef4fb 0%, transparent 60%),
+    var(--color-page-alt);
+}
+
+.auth__card {
+  background: var(--color-page);
+  border: 1px solid var(--color-hair);
+  border-radius: 1.5rem;
+  min-block-size: calc(100dvh - 2.5rem);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  display: grid;
+  gap: 2rem;
+  align-content: start;
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.03), 0 24px 64px -40px rgb(14 27 44 / 0.25);
+}
+
+.auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--color-navy);
+  letter-spacing: -0.02em;
+  justify-self: start;
+}
+
+.auth__brand svg {
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  flex: none;
+}
+
+.auth__body {
+  display: grid;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+/* The reference puts the artwork on the inline-start half and the form on the
+   inline-end half. In RTL the first grid column is the right one, so `art` first. */
+@media (min-width: 900px) {
+  .auth__body {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.auth__art {
+  display: none;
+  place-items: center;
+}
+
+@media (min-width: 900px) {
+  .auth__art {
+    display: grid;
+  }
+}
+
+.auth__form {
+  inline-size: min(30rem, 100%);
+  margin-inline: auto;
+}
+
+.auth__title {
+  font-size: 1.75rem;
+  margin-block-end: 1.75rem;
+}
+
+.auth__grid {
+  display: grid;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+
+@media (min-width: 620px) {
+  .auth__grid--two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Tall, rounded, placeholder-only — the reference's field shape. The visible label is
+   omitted deliberately to match it; every input still carries an associated <label>
+   for assistive technology, because a placeholder is not a label and disappears the
+   moment somebody types. */
+.auth__field {
+  position: relative;
+}
+
+.auth__input {
+  inline-size: 100%;
+  min-block-size: 3.5rem;
+  padding-inline: 1.125rem;
+  border: 1px solid var(--color-hair);
+  border-radius: 0.875rem;
+  background: var(--color-page);
+  color: var(--color-navy);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.auth__input::placeholder {
+  color: var(--color-navy-mute);
+}
+
+.auth__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.auth__input[aria-invalid='true'] {
+  border-color: #b3261e;
+}
+
+/* Latin-only fields — mobile, national id, email, password — read left-to-right even on
+   an RTL page, or the caret jumps and a half-typed number reads backwards. */
+.auth__input--ltr {
+  direction: ltr;
+  text-align: right;
+}
+
+.auth__reveal {
+  position: absolute;
+  inset-inline-end: 0.75rem;
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  inline-size: 2rem;
+  block-size: 2rem;
+  display: grid;
+  place-items: center;
+  color: var(--color-navy-mute);
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.auth__reveal:hover {
+  color: var(--color-navy);
+}
+
+.auth__error {
+  color: #b3261e;
+  font-size: 0.8125rem;
+  margin-block-start: 0.375rem;
+}
+
+/* The general error region. Golden rule from CLAUDE.md: every form has a home for
+   errors that belong to no field, or a failed submit silently does nothing and the
+   operator presses the button again. */
+.auth__alert {
+  border: 1px solid #f0c8c5;
+  background: #fdf3f2;
+  color: #8c1d18;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  margin-block-end: 1.25rem;
+}
+
+.auth__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.auth__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  cursor: pointer;
+  line-height: 1.7;
+}
+
+.auth__check input {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin-block-start: 0.3rem;
+  flex: none;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.auth__check a {
+  color: var(--color-accent);
+}
+
+.auth__submit {
+  inline-size: 100%;
+  min-block-size: 3.5rem;
+  font-size: 1rem;
+  margin-block-start: 0.5rem;
+}
+
+.auth__alt {
+  text-align: center;
+  margin-block-start: 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.auth__alt a {
+  color: var(--color-navy);
+  font-weight: 700;
+}
+
+.auth__alt a:hover {
+  color: var(--color-accent);
+}
+
+.auth__link {
+  color: var(--color-navy-soft);
+}
+
+.auth__link:hover {
+  color: var(--color-accent);
+}
+
+/* The receipt, used as the artwork. Slightly larger than the hero's and without the
+   page-coloured tear notches, since it sits on the card rather than on the ground. */
+.auth__art .receipt {
+  inline-size: 21rem;
+  rotate: -1.4deg;
+}
+
+.auth__art .receipt::before,
+.auth__art .receipt::after {
+  background: repeating-radial-gradient(circle at 6px 0, var(--color-page) 0 4.5px, transparent 4.5px 11px);
+}

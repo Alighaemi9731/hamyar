@@ -8,10 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Modules\Platform\Http\Requests\OnboardTenantRequest;
 use App\Modules\Platform\Models\Domain;
 use App\Modules\Platform\Services\TenantProvisioner;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
@@ -23,11 +23,16 @@ final class OnboardingController extends Controller
 {
     public function __construct(private readonly TenantProvisioner $provisioner) {}
 
-    public function create(): Response
+    /**
+     * Blade, not Inertia, and that is the same call the landing and the legal pages
+     * made: this page is read by somebody with no session, it has to match the public
+     * design language exactly, and that language lives in a Blade stylesheet
+     * (ADR 0016). Rendering it through React meant it inherited the *application's*
+     * look instead — which is precisely why it did not match.
+     */
+    public function create(): View
     {
-        return Inertia::render('auth/register', [
-            'domain' => config()->string('app.domain'),
-        ]);
+        return view('auth.register');
     }
 
     /**
