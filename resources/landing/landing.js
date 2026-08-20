@@ -131,6 +131,8 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   if (spine && fill && window.matchMedia('(min-width: 900px)').matches) {
     let queued = false;
 
+    const nodes = [...document.querySelectorAll('[data-node]')];
+
     const paint = () => {
       queued = false;
       const box = spine.getBoundingClientRect();
@@ -139,6 +141,15 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const middle = window.innerHeight / 2;
       const progress = (middle - box.top) / (box.height || 1);
       fill.style.setProperty('--spine', String(Math.min(1, Math.max(0, progress))));
+
+      // The nodes light from the SAME point the rail fills to, not from their own
+      // IntersectionObserver. Driven separately they disagree by most of a screen —
+      // a row entering from the bottom lit its node while the line was still half a
+      // viewport above it, so the rail visibly trailed its own markers.
+      for (const node of nodes) {
+        const rect = node.getBoundingClientRect();
+        node.toggleAttribute('data-lit', rect.top + rect.height / 2 <= middle);
+      }
     };
 
     const onScroll = () => {

@@ -535,7 +535,7 @@ h3 {
     transition: border-color 260ms ease, background 260ms ease, scale 260ms ease;
   }
 
-  .feature[data-seen='true'] .feature__node {
+  .feature[data-lit] .feature__node {
     border-color: var(--color-accent);
     background: var(--color-accent);
     scale: 1.15;
