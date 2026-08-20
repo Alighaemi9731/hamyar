@@ -1,0 +1,931 @@
+/*
+ | MobiYar — public landing.
+ |
+ | A SEPARATE stylesheet from resources/css/app.css, and that separation is the point.
+ | The in-app design system is a light, near-monochrome, single-blue product surface
+ | (ADR 0008) and it is not changing. This file is a landing-only dark theme
+ | (ADR 0016): the same brand soul, a different skin, and nothing here is imported by
+ | the application.
+ |
+ | Direction: «پشت پیشخوان، بعد از تعطیلی» — the page is lit like a phone shop after
+ | closing. Near-black, and the only light sources are the things that actually glow in
+ | that room: phone screens (turquoise), price labels (yellow), and one sheet of thermal
+ | paper — which is deliberately the brightest object on the page.
+ */
+
+@import 'tailwindcss';
+
+/* Arabic subsets ONLY. The app imports every subset fontsource ships — latin-ext,
+   vietnamese, cyrillic — which is fine for an authenticated tool nobody measures LCP
+   on, and wrong for a landing page. Persian digits live in the arabic subset, so this
+   is the whole of what the page actually renders. */
+@import '@fontsource/vazirmatn/arabic-400.css';
+@import '@fontsource/vazirmatn/arabic-500.css';
+@import '@fontsource/vazirmatn/arabic-700.css';
+@import '@fontsource/estedad/arabic-800.css';
+
+@theme {
+  /* --- ground ------------------------------------------------------------- */
+  --color-night: #070b0e; /* near-black with a blue-green cast: a room lit by screens */
+  --color-night-lift: #0e151a; /* counter glass */
+  --color-night-edge: #1b262d; /* hairlines */
+
+  /* --- light sources ------------------------------------------------------ */
+  /* Persian turquoise. LANDING ONLY — the product's brand stays #0066cc blue, and the
+     divergence is deliberate (ADR 0016). 11.3:1 on --color-night. */
+  --color-firooze: #3fd9c8;
+  --color-firooze-dim: #2fb8aa;
+
+  /* The physical price label, carried over from the product unchanged. 14.3:1 on
+     --color-night. PRIMARY CTA AND PRICE TAGS ONLY — never a decorative fill. */
+  --color-label: #ffd84d;
+
+  /* The receipt. The brightest thing on the page, on purpose. */
+  --color-paper: #f2ede3;
+  --color-paper-ink: #23201b;
+
+  /* --- text --------------------------------------------------------------- */
+  --color-say: #c9d4da; /* body — 13.1:1 */
+  --color-say-soft: #8a9aa4; /* secondary — 6.8:1 */
+
+  /* --- type --------------------------------------------------------------- */
+  --font-display: 'Estedad', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+
+  /* One step above the product scale, landing only, and only above 1280 — see the
+     clamp() on .l-hero__title. */
+  --text-hero: clamp(2.5rem, 7vw, 6rem);
+  --text-section: clamp(1.875rem, 4.2vw, 3.5rem);
+}
+
+/* ---------------------------------------------------------------- base ---- */
+
+html {
+  scroll-behavior: smooth;
+  /* Lenis takes over on desktop; this is the no-JS and reduced-motion path. */
+}
+
+body {
+  background: var(--color-night);
+  color: var(--color-say);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  /* Guardrail: zero horizontal overflow at every width. A single transformed child
+     that overshoots would otherwise give the whole document a horizontal scrollbar,
+     which on RTL is doubly confusing because it appears on the left. */
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-firooze);
+  color: var(--color-night);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-firooze);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+  color: #fff;
+}
+
+/* Persian numerals everywhere numbers are prose rather than input. */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.l-shell {
+  width: min(1180px, 100% - 2.5rem);
+  margin-inline: auto;
+}
+
+@media (max-width: 480px) {
+  .l-shell {
+    width: min(1180px, 100% - 1.75rem);
+  }
+}
+
+/* ----------------------------------------------------------------- nav ---- */
+
+.l-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(14px) saturate(140%);
+  background: color-mix(in srgb, var(--color-night) 72%, transparent);
+  border-block-end: 1px solid transparent;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.l-nav[data-stuck='true'] {
+  border-block-end-color: var(--color-night-edge);
+  background: color-mix(in srgb, var(--color-night) 88%, transparent);
+}
+
+.l-nav__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 4.25rem;
+}
+
+.l-nav__brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3125rem;
+  color: #fff;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.l-nav__mark {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: none;
+}
+
+.l-nav__links {
+  display: none;
+  gap: 1.75rem;
+  margin-inline-start: auto;
+}
+
+.l-nav__links a {
+  color: var(--color-say-soft);
+  font-size: 0.9375rem;
+  transition: color 160ms ease;
+}
+
+.l-nav__links a:hover {
+  color: var(--color-firooze);
+}
+
+.l-nav__cta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-inline-start: auto;
+}
+
+@media (min-width: 900px) {
+  .l-nav__links {
+    display: flex;
+  }
+  .l-nav__cta {
+    margin-inline-start: 0;
+  }
+}
+
+/* --------------------------------------------------------------- button --- */
+
+.l-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  /* 44px minimum target. */
+  min-block-size: 2.75rem;
+  padding-inline: 1.125rem;
+  border-radius: 0.625rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  white-space: nowrap;
+}
+
+.l-btn:active {
+  transform: translateY(1px);
+}
+
+/* The one yellow fill on the page. Label is near-black: 14.3:1.
+   NEVER yellow with white text — that measures 1.4:1. */
+.l-btn--label {
+  background: var(--color-label);
+  color: var(--color-night);
+}
+
+.l-btn--label:hover {
+  background: #ffe27a;
+}
+
+.l-btn--ghost {
+  border: 1px solid var(--color-night-edge);
+  color: var(--color-say);
+}
+
+.l-btn--ghost:hover {
+  border-color: var(--color-firooze);
+  color: var(--color-firooze);
+}
+
+.l-btn--lg {
+  min-block-size: 3.25rem;
+  padding-inline: 1.75rem;
+  font-size: 1.0625rem;
+}
+
+/* ---------------------------------------------------------------- hero ---- */
+
+.l-hero {
+  position: relative;
+  padding-block: clamp(3rem, 8vw, 6rem) clamp(4rem, 10vw, 8rem);
+  overflow: clip;
+}
+
+/* The room. A single soft turquoise pool of light behind the receipt, and nothing
+   else — no mesh gradient, no orbs. */
+.l-hero::before {
+  content: '';
+  position: absolute;
+  inset-block-start: -14rem;
+  inset-inline-end: -10rem;
+  inline-size: 46rem;
+  block-size: 46rem;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-firooze) 13%, transparent) 0%, transparent 62%);
+  pointer-events: none;
+}
+
+.l-hero__grid {
+  display: grid;
+  gap: clamp(2.5rem, 6vw, 4.5rem);
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .l-hero__grid {
+    grid-template-columns: 1fr 22rem;
+  }
+}
+
+.l-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-firooze);
+  border: 1px solid color-mix(in srgb, var(--color-firooze) 30%, transparent);
+  border-radius: 999px;
+  padding: 0.375rem 0.875rem;
+  margin-block-end: 1.5rem;
+}
+
+.l-hero__title {
+  font-size: var(--text-hero);
+  margin-block-end: 1.25rem;
+}
+
+.l-hero__title em {
+  font-style: normal;
+  color: var(--color-firooze);
+}
+
+.l-hero__lede {
+  font-size: clamp(1.0625rem, 1.6vw, 1.3125rem);
+  color: var(--color-say-soft);
+  max-inline-size: 34rem;
+  margin-block-end: 2rem;
+}
+
+.l-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-end: 1rem;
+}
+
+.l-hero__note {
+  font-size: 0.875rem;
+  color: var(--color-say-soft);
+}
+
+/* ------------------------------------------------------------- receipt ---- */
+
+.l-receipt {
+  --receipt-w: 20.5rem;
+  inline-size: var(--receipt-w);
+  max-inline-size: 100%;
+  margin-inline: auto;
+  background: var(--color-paper);
+  color: var(--color-paper-ink);
+  font-size: 0.8125rem;
+  line-height: 1.85;
+  padding: 1.5rem 1.25rem 1.75rem;
+  position: relative;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 60px -12px rgb(0 0 0 / 0.75),
+    0 0 90px -30px color-mix(in srgb, var(--color-firooze) 55%, transparent);
+  /* The perforated tear edge, top and bottom — a real 80mm receipt, not a card. */
+  --tear: radial-gradient(circle at 50% 0, transparent 0 6px, var(--color-paper) 6px);
+  -webkit-mask-image: var(--tear), linear-gradient(#000 0 0);
+  transform: rotate(-1.1deg);
+}
+
+.l-receipt::before,
+.l-receipt::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  block-size: 8px;
+  background: repeating-radial-gradient(circle at 6px 0, var(--color-night) 0 5px, transparent 5px 12px);
+}
+
+.l-receipt::before {
+  inset-block-start: -1px;
+}
+
+.l-receipt::after {
+  inset-block-end: -1px;
+  transform: rotate(180deg);
+}
+
+.l-receipt__head {
+  text-align: center;
+  border-block-end: 1px dashed color-mix(in srgb, var(--color-paper-ink) 35%, transparent);
+  padding-block-end: 0.75rem;
+  margin-block-end: 0.75rem;
+}
+
+.l-receipt__shop {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.l-receipt__kind {
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+/* Every printed line starts hidden and is revealed by scroll. The no-JS and
+   reduced-motion paths override this to visible — see .l-receipt[data-print='off']
+   below and the <noscript> rule in the page head. */
+.l-receipt__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.l-receipt__line dt {
+  opacity: 0.7;
+}
+
+.l-receipt__line dd {
+  font-weight: 500;
+  text-align: start;
+}
+
+.l-receipt__rule {
+  border-block-start: 1px dashed color-mix(in srgb, var(--color-paper-ink) 35%, transparent);
+  margin-block: 0.75rem;
+}
+
+.l-receipt__act {
+  font-size: 0.75rem;
+  text-align: center;
+  opacity: 0.75;
+  letter-spacing: 0.04em;
+}
+
+.l-receipt__total {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  margin-block-start: 0.5rem;
+}
+
+.l-receipt__sms {
+  background: color-mix(in srgb, var(--color-paper-ink) 8%, transparent);
+  border-inline-start: 3px solid var(--color-paper-ink);
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------- strip ---- */
+
+.l-strip {
+  border-block: 1px solid var(--color-night-edge);
+  padding-block: 1.25rem;
+}
+
+.l-strip__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: var(--color-say-soft);
+}
+
+.l-strip__row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ------------------------------------------------------------ sections ---- */
+
+.l-sec {
+  padding-block: clamp(4rem, 9vw, 7.5rem);
+}
+
+.l-sec__eyebrow {
+  color: var(--color-firooze);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-block-end: 0.875rem;
+}
+
+.l-sec__title {
+  font-size: var(--text-section);
+  margin-block-end: 1rem;
+}
+
+.l-sec__lede {
+  color: var(--color-say-soft);
+  max-inline-size: 42rem;
+  font-size: 1.0625rem;
+}
+
+/* ------------------------------------------------------- pinned modules --- */
+/*
+ | ONE pin, five scenes.
+ |
+ | The brief asked for a pinned section per flagship module. Five pins fight native
+ | scroll and are miserable on a phone, so this is a single pinned stage that five
+ | scenes move through — the same reading experience, one scroll hijack instead of
+ | five. Below 900px it degrades to an ordinary stacked list with no pin at all.
+ */
+
+.l-stage {
+  position: relative;
+}
+
+.l-stage__inner {
+  display: grid;
+  gap: 2rem;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .l-stage__inner {
+    grid-template-columns: 20rem 1fr;
+    min-block-size: 30rem;
+  }
+}
+
+.l-stage__list {
+  display: grid;
+  gap: 0.25rem;
+  align-content: center;
+}
+
+.l-scene__tab {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  color: var(--color-say-soft);
+  transition: color 200ms ease, background 200ms ease, border-color 200ms ease;
+  text-align: start;
+}
+
+.l-scene__tab[data-active='true'] {
+  color: #fff;
+  background: var(--color-night-lift);
+  border-color: var(--color-night-edge);
+}
+
+.l-scene__tab strong {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  display: block;
+}
+
+.l-scene__tab span {
+  font-size: 0.8125rem;
+  display: block;
+  line-height: 1.5;
+}
+
+.l-stage__frames {
+  position: relative;
+  min-block-size: 18rem;
+}
+
+/* Device frame: a browser chrome hairline, not a photorealistic laptop render. */
+.l-frame {
+  border: 1px solid var(--color-night-edge);
+  border-radius: 0.875rem;
+  overflow: hidden;
+  background: var(--color-night-lift);
+  box-shadow: 0 30px 70px -24px rgb(0 0 0 / 0.85);
+}
+
+.l-frame__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-block-end: 1px solid var(--color-night-edge);
+}
+
+.l-frame__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-night-edge);
+}
+
+.l-frame img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+/* Desktop: frames stack and cross-fade inside the pin. Mobile: they simply flow. */
+@media (min-width: 900px) {
+  .l-stage__frames > .l-frame {
+    position: absolute;
+    inset: 0;
+    block-size: fit-content;
+  }
+}
+
+@media (max-width: 899px) {
+  .l-scene {
+    margin-block-end: 2.5rem;
+  }
+  .l-scene__tab {
+    padding-inline: 0;
+  }
+}
+
+/* ---------------------------------------------------------- IMEI spot ----- */
+
+.l-imei {
+  background: var(--color-night-lift);
+  border-block: 1px solid var(--color-night-edge);
+}
+
+.l-imei__digits {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 5.5vw, 3.25rem);
+  letter-spacing: 0.06em;
+  color: var(--color-firooze);
+  direction: ltr;
+  text-align: center;
+  margin-block: 1.5rem;
+  /* The 15-digit string as texture. Each digit is animated in turn. */
+}
+
+.l-imei__digits span {
+  display: inline-block;
+}
+
+.l-imei__trail {
+  display: grid;
+  gap: 1px;
+  background: var(--color-night-edge);
+  border: 1px solid var(--color-night-edge);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-block-start: 2.5rem;
+}
+
+@media (min-width: 760px) {
+  .l-imei__trail {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.l-imei__step {
+  background: var(--color-night);
+  padding: 1.25rem 1.125rem;
+}
+
+.l-imei__step b {
+  color: var(--color-firooze);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  display: block;
+  margin-block-end: 0.375rem;
+}
+
+.l-imei__step p {
+  font-size: 0.9375rem;
+  color: var(--color-say-soft);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------- pricing ---- */
+
+.l-toggle {
+  display: inline-flex;
+  padding: 0.25rem;
+  background: var(--color-night-lift);
+  border: 1px solid var(--color-night-edge);
+  border-radius: 999px;
+  margin-block: 1.75rem;
+}
+
+.l-toggle button {
+  min-block-size: 2.5rem;
+  padding-inline: 1.125rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-say-soft);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.l-toggle button[aria-pressed='true'] {
+  background: var(--color-firooze);
+  color: var(--color-night);
+}
+
+.l-plans {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 880px) {
+  .l-plans {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.l-plan {
+  border: 1px solid var(--color-night-edge);
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem;
+  background: var(--color-night-lift);
+  display: flex;
+  flex-direction: column;
+}
+
+.l-plan[data-featured='true'] {
+  border-color: color-mix(in srgb, var(--color-firooze) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-firooze) 20%, transparent),
+    0 24px 60px -30px color-mix(in srgb, var(--color-firooze) 60%, transparent);
+}
+
+.l-plan__badge {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-night);
+  background: var(--color-firooze);
+  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
+  margin-block-end: 0.75rem;
+}
+
+.l-plan__name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3125rem;
+  color: #fff;
+}
+
+.l-plan__tag {
+  font-size: 0.875rem;
+  color: var(--color-say-soft);
+  min-block-size: 2.75rem;
+  margin-block-start: 0.25rem;
+}
+
+.l-plan__price {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.25rem;
+  color: var(--color-label);
+  font-variant-numeric: tabular-nums;
+  margin-block: 1rem 0.125rem;
+  line-height: 1.1;
+}
+
+.l-plan__unit {
+  font-size: 0.875rem;
+  color: var(--color-say-soft);
+  margin-block-end: 1.25rem;
+}
+
+.l-plan__list {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  margin-block-end: 1.5rem;
+}
+
+.l-plan__list li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.l-plan__list svg {
+  flex: none;
+  margin-block-start: 0.4rem;
+  color: var(--color-firooze);
+}
+
+.l-plan .l-btn {
+  margin-block-start: auto;
+}
+
+.l-addons {
+  margin-block-start: 2.5rem;
+  border: 1px solid var(--color-night-edge);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.l-addons__grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
+}
+
+@media (min-width: 640px) {
+  .l-addons__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .l-addons__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.l-addon {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--color-night-lift);
+  border-radius: 0.625rem;
+}
+
+.l-addon b {
+  color: var(--color-label);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ----------------------------------------------------------------- faq ---- */
+
+.l-faq {
+  display: grid;
+  gap: 0.75rem;
+  max-inline-size: 46rem;
+  margin-block-start: 2.5rem;
+}
+
+.l-faq details {
+  border: 1px solid var(--color-night-edge);
+  border-radius: 0.75rem;
+  background: var(--color-night-lift);
+  overflow: hidden;
+}
+
+.l-faq summary {
+  cursor: pointer;
+  padding: 1.125rem 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  list-style: none;
+  min-block-size: 3.25rem;
+}
+
+.l-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.l-faq summary::after {
+  content: '+';
+  color: var(--color-firooze);
+  font-size: 1.3125rem;
+  line-height: 1;
+  flex: none;
+}
+
+.l-faq details[open] summary::after {
+  content: '−';
+}
+
+.l-faq p {
+  padding: 0 1.25rem 1.25rem;
+  color: var(--color-say-soft);
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- foot ---- */
+
+.l-final {
+  text-align: center;
+  padding-block: clamp(4rem, 10vw, 8rem);
+  position: relative;
+  overflow: clip;
+}
+
+.l-final::before {
+  content: '';
+  position: absolute;
+  inset-block-end: -18rem;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: 42rem;
+  block-size: 42rem;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-firooze) 15%, transparent) 0%, transparent 62%);
+  pointer-events: none;
+}
+
+.l-foot {
+  border-block-start: 1px solid var(--color-night-edge);
+  padding-block: 2.5rem;
+  font-size: 0.875rem;
+  color: var(--color-say-soft);
+}
+
+.l-foot__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.l-foot a:hover {
+  color: var(--color-firooze);
+}
+
+/* --------------------------------------------------- motion, and its off --- */
+/*
+ | Everything the scroll choreography hides starts hidden ONLY when JS has confirmed
+ | it will be able to reveal it again. `data-anim="on"` is set by landing.js after it
+ | decides motion is appropriate; until then — and forever, if JS fails, or the
+ | connection drops the module, or the visitor asked for reduced motion — every
+ | element is in its final, readable state.
+ |
+ | This is the reverse of the usual pattern (hide in CSS, reveal in JS), and it is the
+ | reason a JS failure here degrades to a plain page rather than a blank one.
+ */
+
+[data-anim='on'] .l-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__line,
+[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__rule,
+[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__act,
+[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__sms,
+[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__total {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  /* Belt and braces: even if landing.js somehow set data-anim, nothing hides. */
+  [data-anim='on'] .l-reveal,
+  [data-anim='on'] .l-receipt .l-receipt__line,
+  [data-anim='on'] .l-receipt .l-receipt__rule,
+  [data-anim='on'] .l-receipt .l-receipt__act,
+  [data-anim='on'] .l-receipt .l-receipt__sms,
+  [data-anim='on'] .l-receipt .l-receipt__total {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

@@ -260,14 +260,26 @@ would put an un-audited surface on every tenant subdomain.
 Built in Phase 11. **Blade + Tailwind, no React** — the public pages must be fast and
 SEO-friendly.
 
-### Position: "immersive-lite"
+### Position: full immersive — superseded 2026-08-20
 
-Not a heavy immersive site. The audience is a shop owner on a mid-range Android on an
-Iranian connection; WebGL, 3D and scroll-jacking mean a high LCP, a bounce, and worse
-SEO. The page's job is conversion to a 14-day trial, not a design award. For a B2B
-tool, clarity of value beats spectacle.
+> **This section previously ruled the landing "immersive-lite".** That ruling is
+> superseded by [ADR 0016](adr/0016-immersive-landing.md), accepted at Decision Gate 5:
+> the landing is now a scroll-driven immersive experience on its own dark theme and its
+> own Vite entry.
+>
+> **Its constraints did not move**, and the built page beats them: no WebGL, ≤180KB gz
+> of landing JS (measured: 0.9KB on the critical path, 50.8KB with every effect loaded),
+> `prefers-reduced-motion` fully honoured, and no scroll-jacking on touch. What changed
+> is the goal — the page has to make a shopkeeper stop, and a calm competent page does
+> not, because every competitor already has one.
+>
+> **The landing is turquoise; the product is blue. That is deliberate** and ADR 0016
+> explains why, so that a future reviewer harmonises nothing.
 
-So: **one signature interactive moment, and everything else calm, fast and precise.**
+The reasoning that produced the original position, kept because it is still the correct
+frame for every decision *inside* the new one: the audience is a shop owner on a
+mid-range Android on an Iranian connection, and the page's job is conversion to a 14-day
+trial, not a design award.
 
 ### Performance budget (hard limits)
 

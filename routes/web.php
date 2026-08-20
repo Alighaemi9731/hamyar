@@ -6,6 +6,7 @@ use App\Http\Controllers\HealthController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Platform\Http\Controllers\BillingController;
 use App\Modules\Platform\Http\Controllers\ImpersonationController;
+use App\Modules\Platform\Http\Controllers\LandingController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -47,7 +48,19 @@ use Inertia\Inertia;
 Route::get('/health', HealthController::class)->name('health');
 
 Route::domain(config()->string('app.domain'))->group(function (): void {
-    Route::get('/', fn () => Inertia::render('welcome'))->name('welcome');
+    /*
+    | The public landing, and the two legal pages it links to.
+    |
+    | Blade, not Inertia — deliberately, and it is the one place in this application
+    | where that is true. These three pages are read by people who have never signed in
+    | and by crawlers that do not run JavaScript, so their content has to be in the HTML
+    | the server sends rather than assembled by React afterwards. They also carry their
+    | own dark theme and their own Vite entry (ADR 0016); nothing here touches the
+    | in-app design system.
+    */
+    Route::get('/', LandingController::class)->name('welcome');
+    Route::view('/terms', 'legal.terms')->name('legal.terms');
+    Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
 
     Route::middleware('guest')->group(function (): void {
         Route::get('/register', [OnboardingController::class, 'create'])->name('register');
