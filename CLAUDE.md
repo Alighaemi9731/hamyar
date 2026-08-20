@@ -148,6 +148,23 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    not a stopping point.** The only places to stop are DECISION GATES and design-review
    checkpoints defined in the roadmap.
    If checks are red or the DoD is unwalked, that is work to do, not a question to ask.
+   **Check the checks, never `mergeStateStatus`.** Wait until `gh pr checks <n>` lists
+   every job and none is `pending`, then merge only if none is failing. `mergeStateStatus`
+   answers a different question — *may this branch merge* — and on a **private repository
+   with no required checks it returns `CLEAN` before CI has even been queued**, because
+   nothing is required. Branch protection is Pro-gated here (see the `make hooks` note
+   above), so "required" is empty by construction and that field is permanently
+   optimistic. It merged #38 with zero checks reported; they happened to pass afterwards,
+   which is luck rather than a gate:
+
+   ```bash
+   # WRONG — CLEAN just means "nothing is blocking", including "nothing has run".
+   until [ "$(gh pr view "$n" --json mergeStateStatus -q .mergeStateStatus)" = CLEAN ]; do sleep 30; done
+
+   # RIGHT — wait for the jobs themselves, then read their verdicts.
+   until [ "$(gh pr checks "$n" | grep -c pending)" = 0 ] && [ "$(gh pr checks "$n" | wc -l)" -gt 0 ]; do sleep 30; done
+   gh pr checks "$n" | grep -qv $'\tpass\t' && echo "not merging" || gh pr merge "$n" --squash --delete-branch
+   ```
 7. **End every session with a push.** `git push` the working branch before the session
    closes — always, even mid-phase, even with no PR open and the phase half-built.
    Unpushed commits exist on exactly one disk. A branch nobody has pushed is not

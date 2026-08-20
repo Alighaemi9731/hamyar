@@ -686,6 +686,53 @@ page rendered errors only beside `device_model` and `reported_issue`, so a failu
 `accessories` redirected back and changed nothing on screen. Assert the general region
 exists, and assert a field-less error reaches it.
 
+### The check must live where the fault can live
+
+**A green build from the full repository proves nothing about the image.**
+
+The production image shipped with **64 of the product's 78 page components missing**.
+Pages live in two places (ADR 0003) — `resources/js/pages` and
+`app/Modules/<Name>/resources/js/pages` — and the asset stage of `Dockerfile.prod` copied
+`resources` and never `app/`. `import.meta.glob` matched nothing, and **a glob that
+matches nothing is not an error**, so the build succeeded and produced a plausible 1.9MB
+bundle containing auth and the landing page and nothing else. Every screen a shopkeeper
+uses, the till included, mounted nothing and logged to a console nobody was reading.
+
+Every test that could have caught it passed, and would pass again:
+
+| | why it could not see the fault |
+|---|---|
+| `Typecheck & build` in CI | runs `npm run build` against the **whole repository**, where `app/` is present |
+| Browser smoke (Pest v4) | visits a module page and asserts no JavaScript errors — and also builds from the whole repository |
+| Feature and Inertia tests | assert the **server** names a component, which it did, correctly, the entire time |
+
+None of them was weak. They were all testing a different artefact from the one that
+shipped. **The fault existed only inside the image, so only a check inside the image
+build could see it** — which is why `Dockerfile.prod` now reads its own manifest back and
+refuses to produce an image whose frontend has no module pages in it:
+
+```dockerfile
+RUN npm run build \
+ && if ! grep -q '"app/Modules/' public/build/manifest.json; then \
+        echo "FATAL: the built manifest contains no module pages." >&2; exit 1; \
+    fi
+```
+
+Same shape as `bin/backup-nightly` reading its own archive back and refusing a dump with
+no `stock_movements`, and it belongs in this file for the same reason: **an artefact that
+is never read back is not verified, it is merely produced.** Ask, of any build step that
+emits something: what reads this, and would it notice if the file were empty?
+
+Two footnotes worth keeping, both paid for:
+
+- **Assert against the real path.** The first version of that check read
+  `public/build/.vite/manifest.json`; laravel-vite-plugin writes `public/build/manifest.json`.
+  It failed for its own reasons and looked exactly like the fix not working. A failing
+  assertion must fail *honestly*, or it costs more than it saves.
+- **`--dry-run` the guard.** Confirm a new assertion fails on the broken input before
+  trusting it to pass on the fixed one. Both states are cheap to produce at build time
+  and only one of them is ever tested by accident.
+
 ---
 
 ## 4. Coverage targets
