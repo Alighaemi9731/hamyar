@@ -488,7 +488,13 @@ h3 {
 @media (min-width: 900px) {
   .l-stage__inner {
     grid-template-columns: 20rem 1fr;
-    min-block-size: 30rem;
+    /* Viewport-height while pinned, so the stage's own centre IS the screen's centre.
+       At 30rem the grid was shorter than the viewport, its content centred against
+       itself rather than the screen, and the pin left a band of dead space above the
+       frame. 88vh keeps the section's breathing room without pushing the frame past
+       the fold. */
+    min-block-size: 88vh;
+    align-content: center;
   }
 }
 
@@ -589,6 +595,11 @@ h3 {
     inset-block-start: 50%;
     inset-inline-end: 0;
     inline-size: calc(100% - 22rem);
+    /* Cap the height so a 1440x900 screenshot cannot push the frame past the fold on a
+       laptop; the image keeps its aspect ratio and the frame crops from the bottom,
+       which is where a long table has least to say. */
+    max-block-size: 74vh;
+    overflow: hidden;
     translate: 0 -50%;
     margin-block-start: 0 !important;
   }
