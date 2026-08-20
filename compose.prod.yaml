@@ -157,6 +157,27 @@ services:
       APP_DB_USER: ${DB_USERNAME:?}
       APP_DB_PASSWORD: ${DB_PASSWORD:?}
       POSTGRES_INITDB_ARGS: "--data-checksums"
+    # The archive directory is a NAMED VOLUME, so Docker creates its mount point
+    # root-owned — and postgres runs as `postgres`. Every archive_command therefore
+    # failed with "Permission denied" from the moment the volume was created.
+    #
+    # Postgres does not treat that as fatal, which is the entire problem. It retries
+    # forever, serves every query normally, and reports the failure only in
+    # `pg_stat_archiver.failed_count` and a log line. Two things are silently true
+    # meanwhile:
+    #
+    #   1. There is NO point-in-time recovery. The WAL archive that §4 of the runbook
+    #      describes as recovering a bad migration "to the second" is empty.
+    #   2. Disk fills without bound. A segment that has not been archived cannot be
+    #      recycled, so pg_wal grows forever — measured at 14.5GB across 927 segments
+    #      on this box after one day — until the disk is full and postgres stops
+    #      accepting writes. The platform goes down for a reason nothing pointed at.
+    #
+    # The entrypoint is wrapped rather than the ownership being set in an init script,
+    # because /docker-entrypoint-initdb.d runs as postgres (it cannot chown) and only
+    # on first initialisation (it would not repair an existing volume). This runs as
+    # root on every start, is idempotent, and then hands off unchanged.
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /var/lib/postgresql/wal_archive && chown postgres:postgres /var/lib/postgresql/wal_archive && exec docker-entrypoint.sh \"$$@\"", "--"]
     command:
       - postgres
       - -c
