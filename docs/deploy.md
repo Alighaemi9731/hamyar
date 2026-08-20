@@ -139,7 +139,7 @@ partition `sms_messages` and `stock_movements` by month.
 | `docker/app/Dockerfile.prod` | the image: source, vendor, built assets, at one commit |
 | `docker/app/php.prod.ini` | opcache, error display, memory — the production overrides only |
 | `docker/nginx/templates/default.conf.template` | the vhost, TLS, static caching |
-| `docker/nginx/upstream/app.conf` | **which container is live** — rewritten by `bin/deploy`, nothing else |
+| `docker/nginx/upstream/app.conf` | **which container is live** — rewritten by `bin/deploy`, nothing else. Tracked *and* runtime state; see the warning below |
 | `docker/postgres/postgresql.prod.conf` | tuning, WAL archiving, `pg_stat_statements` |
 | `bin/deploy` | the release |
 | `bin/backup-nightly` | the offsite copy |
@@ -281,6 +281,25 @@ serving and exits non-zero.
 
 🔲 Never run end to end. It is the one script whose failure mode is an outage; the first
 run belongs on staging, watched.
+
+### Do not sync the repository over the deploy directory
+
+`docker/nginx/upstream/app.conf` is the one file that is **both** tracked and runtime
+state. It is committed with the blue slot so a fresh box has something valid to read, and
+`bin/deploy` rewrites it at every cutover. An `rsync`, a `git pull`, a fresh checkout or a
+config-management run therefore resets it to `app_blue` while `app_green` may be the slot
+actually serving.
+
+Before this was guarded, that swapped `LIVE` and `IDLE` and sent step 2's
+`--force-recreate` at the container **currently taking traffic** — ahead of the health
+check and ahead of the cutover, so the ordering guarantee above bought nothing. It is not
+hypothetical: it happened on the first staging box, between the first deploy and the
+second.
+
+`bin/deploy` now derives the live slot from which container is actually running and treats
+the file as a first-boot fallback, warning when the two disagree. Sync the repository
+anyway if you must — but read the warning when it appears, because it means something in
+the deploy path is resetting state it does not own.
 
 ### The migration rule the script cannot enforce
 

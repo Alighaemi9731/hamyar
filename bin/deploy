@@ -54,14 +54,60 @@ dc() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 
 # ---------------------------------------------------------------- which slot ----
 #
-# Read from the upstream file rather than from `docker ps`, because that file is the
-# single source of truth for what nginx is actually sending traffic to. A container can
-# be up and receiving nothing.
+# Reality first, the upstream file second, and the two are cross-checked because they
+# can disagree — with the file being the one that is wrong.
+#
+# `docker/nginx/upstream/app.conf` is BOTH runtime state and a tracked file. bin/deploy
+# rewrites it at every cutover, and it is committed with the blue slot so that a first
+# boot on a fresh box has something valid to read. So anything that puts the repository
+# over the deploy directory — rsync, git pull, a fresh checkout, a config-management
+# run — silently resets it to `app_blue` while `app_green` may be the slot actually
+# serving. That is not hypothetical; it happened on the first staging box, between the
+# first deploy and the second.
+#
+# Trusting the file alone in that state is an OUTAGE rather than a cosmetic error. LIVE
+# and IDLE come out swapped, and step 2 runs `--force-recreate` against the container
+# that is currently taking traffic — before the health check, before the cutover. The
+# ordering guarantee this whole script is built on (every irreversible step happens
+# after every reversible one) does not survive being lied to about which slot is idle.
+#
+# A running container is the stronger signal: after a successful deploy exactly one app
+# container is up, because step 9 stops the other one.
+running_slots="$(dc ps --services --status running 2>/dev/null | grep -E '^app_(blue|green)$' | sort | tr '\n' ' ' | sed 's/ $//')"
+
 if grep -q 'app_blue' "$UPSTREAM_FILE"; then
-    readonly LIVE=app_blue IDLE=app_green
+    file_slot=app_blue
 else
-    readonly LIVE=app_green IDLE=app_blue
+    file_slot=app_green
 fi
+
+case "$running_slots" in
+    app_blue|app_green)
+        # Exactly one is up, so that is what nginx can be talking to whatever the file
+        # says. Trust it, and say so loudly if the file disagreed.
+        LIVE="$running_slots"
+        if [[ "$LIVE" != "$file_slot" ]]; then
+            log "WARNING: $UPSTREAM_FILE names $file_slot but only $LIVE is running."
+            log "         Trusting the running container. Something reset the upstream"
+            log "         file — syncing the repository over this directory does exactly"
+            log "         that, because the file is tracked AND rewritten at cutover."
+        fi
+        ;;
+    *)
+        # Neither (a genuine first boot) or both (a previous deploy was interrupted
+        # between cutover and drain). The file is the only signal left, and on a first
+        # boot it is the correct one.
+        LIVE="$file_slot"
+        [[ -n "$running_slots" ]] && log "note: both app slots are running — a previous deploy did not finish draining"
+        ;;
+esac
+
+if [[ "$LIVE" == "app_blue" ]]; then
+    IDLE=app_green
+else
+    IDLE=app_blue
+fi
+readonly LIVE IDLE
 
 log "live: $LIVE   →   deploying to: $IDLE"
 log "image: $IMAGE"
