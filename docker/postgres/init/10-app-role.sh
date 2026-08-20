@@ -51,3 +51,21 @@ SQL
 
 grant_database "${POSTGRES_DB}"
 grant_database "${TEST_DB}"
+
+# ---------------------------------------------------------------------------
+# pg_stat_statements is PRELOADED by postgresql.prod.conf, but a preloaded
+# library is not an available view: the extension still has to be created in
+# the database. Without this the runbook's advice to read the slowest
+# statements after a load test fails with `relation "pg_stat_statements" does
+# not exist` — found exactly that way, during the first real load test.
+# ---------------------------------------------------------------------------
+# Guarded on the library actually being preloaded, because this script is shared with
+# the dev stack (compose.yaml mounts the same directory) and only postgresql.prod.conf
+# preloads it. `set -euo pipefail` plus ON_ERROR_STOP would turn a failure here into a
+# database that never finishes initialising.
+if psql -At --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
+        -c "SHOW shared_preload_libraries" | grep -q pg_stat_statements; then
+    psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-SQL
+        CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+SQL
+fi

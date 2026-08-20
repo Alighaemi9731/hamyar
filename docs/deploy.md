@@ -335,6 +335,26 @@ Two levels, for two different disasters:
 recovery window is bounded by *time* rather than by write volume — a quiet Friday night
 must not mean "recoverable to Friday lunchtime".
 
+> **The archive directory must be owned by `postgres`, and this is not a detail.** It is a
+> named volume, so Docker creates its mount point root-owned while the server runs as
+> `postgres`. On the first staging box every `archive_command` had failed with
+> `Permission denied` since the volume was created — `archived_count = 0`,
+> `failed_count = 3595` — and **nothing else looked wrong**. Postgres retries an archive
+> failure forever and serves every query normally, so two things were quietly true:
+> there was no point-in-time recovery at all, and `pg_wal` had grown to **14.5GB across
+> 927 segments**, because a segment that has not been archived cannot be recycled. Left
+> alone that ends with a full disk and a database that stops accepting writes — an outage
+> whose cause is a counter nobody reads. `compose.prod.yaml` now chowns the directory in a
+> wrapped entrypoint on every start. Check it with:
+>
+> ```bash
+> docker compose -f compose.prod.yaml --env-file .env.production exec -T postgres \
+>   psql -U "$DB_ROOT_USERNAME" -d "$DB_DATABASE" \
+>   -c "select archived_count, failed_count, last_archived_time from pg_stat_archiver;"
+> ```
+>
+> A `failed_count` that climbs is the alert; §5 should carry it.
+
 ### The failure this is built to catch
 
 The application connects as `mobishop_app`, a **NOSUPERUSER** role, so that RLS is a real
@@ -388,6 +408,8 @@ archive without a text-processing exercise.
 | Queue | Horizon | Wait > 60s on `sms` (configured in `config/horizon.php`) |
 | Database | `pg_stat_statements` | p95 query > 300ms |
 | Disk | Host | > 80% |
+| WAL archiving | `pg_stat_archiver.failed_count` | It increases at all — see §4; the database stays healthy while recovery quietly does not exist |
+| `pg_stat_statements` | Extension present | Missing means §5's "the slowest statements are already being recorded" is false |
 | TLS | Certificate expiry | < 21 days remaining |
 | SMS credit | Application | Tenant below threshold |
 
