@@ -77,6 +77,27 @@ Route::domain(config()->string('app.domain'))->group(function (): void {
 */
 
 Route::middleware('tenant')->group(function (): void {
+    /*
+    | The shop's own address, and the reason it needs a route at all.
+    |
+    | Registration redirects to `/login` on the new subdomain, so the FIRST visit always
+    | worked. Every visit after that starts where a shopkeeper naturally starts — typing
+    | the shop's address, opening a bookmark, or handing it to a new employee — and `/`
+    | had no route on a tenant host. That is not a tidy 404: with no `resources/views/
+    | errors/`, it is the framework's bare `<html lang="en">Not Found`, in English and
+    | LTR, on a Persian product, to somebody who has just signed up and is trying to get
+    | in. Reported from production by the first person to register a shop.
+    |
+    | Deliberately outside both `guest` and `auth`. Signed in, this lands on the
+    | dashboard; signed out, `/dashboard`'s own guard forwards to `/login`. One rule
+    | covers both, and neither needs to know about the other.
+    |
+    | The apex `/` is registered above inside `Route::domain(...)`, so it still wins for
+    | the central site; an unknown hostname still reaches `tenant` middleware here and
+    | still 404s, which is the behaviour the isolation tests pin.
+    */
+    Route::redirect('/', '/dashboard')->name('tenant.home');
+
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [LoginController::class, 'create'])->name('login');
         Route::post('/login', [LoginController::class, 'store'])->name('login.store');

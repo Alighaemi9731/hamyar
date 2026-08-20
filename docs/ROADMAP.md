@@ -1740,6 +1740,16 @@ trail worth reading**.*
 > Inventing plausible column names instead would have been the genuinely bad outcome —
 > it would tune the guesser to a fiction **and look tested**. Not doing that remains
 > right; what has changed is that the alternative is no longer waiting to happen.
+- [ ] **Branded error pages (404 / 403 / 419 / 500)** — new, found in production on the
+      staging box. `resources/views/errors/` **does not exist**, so every error in this
+      Persian, RTL product renders as the framework's bare `<html lang="en">Not Found`.
+      That is not only ugly: `ResolveTenant` aborts with written Persian messages —
+      «فروشگاهی با این نشانی پیدا نشد.» and «دسترسی به این فروشگاه موقتاً غیرفعال است.» —
+      and **nobody has ever seen either of them**, because there is no view to render
+      them into and `APP_DEBUG=false` withholds the default. 419 matters most of the
+      four: a session that expired while a shop was mid-invoice currently produces an
+      English page with no explanation and no way back. Needs the `mobishop-ui` skill and
+      a pass through `/design`, so it is UI work rather than a one-line fix
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages
