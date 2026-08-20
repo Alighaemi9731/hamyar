@@ -1517,17 +1517,32 @@ would, and the worst place to discover one is in front of a customer.*
       RLS cannot reach it. The gate asks the `platform` guard directly and re-checks
       `is_active` per request; `HorizonAccessTest` proves a shop **Owner**, the most
       privileged tenant role, gets 403
-- [ ] **Restore drill documented and performed once (log committed)** — `bin/restore-drill`
-      is written and asserts more than a restore normally would: that tenant rows came
-      back, that **RLS was re-enabled on every tenant table**, and that the app role
-      genuinely reads zero rows with no tenant pinned. A restored platform without RLS
-      has no tenancy boundary and nothing about it looks wrong until two shops see each
-      other's customers.
-      **Cannot be ticked without a machine, and must not be.** It reports the RTO
-      *observed*, and there is nothing here to observe it against
-- [ ] Uptime hook — needs the probe pointed at a real `/health`
-- [ ] Queue latency dashboards *(moved from 11.2 — Horizon supplies these once it runs
-      somewhere with traffic; the `waits` thresholds are configured)*
+- [x] **Restore drill documented and performed once (log committed)** — performed on the
+      staging box 2026-08-20, log in [`docs/restore-drills/20260820T104721Z.md`](restore-drills/20260820T104721Z.md).
+      **RTO observed: 102s to restore**, 111s for the whole drill, from a 373MB dump of a
+      5.5GB / 19.1M-row platform. 52 tenants and 5,240,003 stock movements back, 80
+      policies present.
+      **Running it found four faults in it, and the fourth is the lesson.** It could not
+      complete at all (`--jobs` cannot read stdin; it counted a table named `invoices`
+      that does not exist; its RLS rule contradicted `TenancyCheckCommand`'s and failed on
+      three legitimately-exempt tables). But the isolation check — the reason this drill
+      exists — *could never have tested isolation*: the scratch database is restored as
+      the superuser, so the app role had no privileges in it, and "denied by RLS" and
+      "cannot see the table" are the same zero. It now grants the role first and asserts
+      **both** directions: 0 rows with no tenant pinned, 40,000 with one pinned. A zero
+      only means RLS if the same role on the same table can read when a tenant is set
+- [ ] Uptime hook — `/health` is live on the staging apex and correctly graded (503 for
+      database/cache/migrations, 200 for a queue backlog; detail behind `X-Health-Secret`).
+      What is missing is an **external** probe pointed at it, which needs a monitoring
+      account somebody has to create — a credential decision, not work
+- [ ] Queue latency dashboards *(moved from 11.2 — Horizon is now running on staging with
+      all three supervisors and the `waits` thresholds configured, but the dashboards mean
+      nothing until there is sustained real traffic to put in them)*
+- [ ] **WAL archiving alert** — new, from the 11.4 deploy. `pg_stat_archiver.failed_count`
+      must be watched: archiving had failed 3,595 times on the staging box without a single
+      symptom anywhere else, while `pg_wal` grew to 14.5GB. Ownership is fixed
+      (`compose.prod.yaml`), but the class of failure — postgres retries forever and stays
+      healthy while recovery quietly does not exist — is exactly what an alert is for
 
 #### Needs the box
 
@@ -1535,13 +1550,25 @@ would, and the worst place to discover one is in front of a customer.*
 is the same five things every time, and the point of everything above is that this list
 is short.*
 
-| # | what | why it cannot be done here |
+*All five were done on 2026-08-20 against `mobiyar.com` on a Hetzner box in Helsinki.
+Every one of them found a fault that could not have been found without a machine — which
+is the argument for the list, and the argument against ever trusting this layer until it
+has run somewhere.*
+
+| # | what | outcome |
 |---|---|---|
-| 1 | **Restore drill** (`bin/restore-drill`) | The largest unhardened thing in the project, and it reports an RTO measured against real hardware. A number from a laptop is not the number. |
-| 2 | **Load test** (`tests/Load/endpoints.js`) | On one machine the load generator competes with the app for cores; the result measures Docker, not the product. |
-| 3 | **Wildcard TLS** (`*.<apex>`) | DNS-01 needs the registered domain and the DNS provider's API credentials. Renewal must then be watched — an expired wildcard takes **every** tenant offline at once. |
-| 4 | **First `bin/deploy` run end to end** | The blue/green swap is written and unexercised. It is the one script whose failure mode is an outage. |
-| 5 | **Sentry DSN, `HEALTH_SECRET`, uptime probe** | Configuration, not code: `.env.production.example` has every key with a `CHANGE-ME`. |
+| 1 | **Restore drill** (`bin/restore-drill`) | ✅ RTO **102s** observed. Found four faults in the drill itself; its key assertion could never have tested isolation ([log](restore-drills/20260820T104721Z.md)) |
+| 2 | **Load test** (`tests/Load/endpoints.js`) | ✅ Run from a second Helsinki box, 4.4ms away. **Aggregate p95 1.62s — FAILS** the 1000ms threshold; 0.00% errors ([report](load-tests/2026-08-20.md)) |
+| 3 | **Wildcard TLS** (`*.<apex>`) | ✅ Issued for `mobiyar.com` + `*.mobiyar.com` via DNS-01/Cloudflare, expires 2026-11-18, **renewal rehearsed and passing**. Found that the renewal container had no DNS plugin and that nothing ever reloaded nginx after a renewal |
+| 4 | **First `bin/deploy` run end to end** | ✅ Four runs. Found that it could not deploy a locally built image, that neither script was executable, and that it could **force-recreate the live container** after any repo sync |
+| 5 | **Sentry DSN, `HEALTH_SECRET`, uptime probe** | ◐ Sentry live and privacy-verified; `HEALTH_SECRET` set and `/health` grading correctly. **Uptime probe still open** — it needs an external monitoring account |
+
+> **The largest single find was not in this list.** WAL archiving had **never once
+> succeeded** — `archived_count = 0`, `failed_count = 3595` — because the named volume's
+> mount point is root-owned and postgres is not. There was no point-in-time recovery at
+> all, and `pg_wal` had grown to 14.5GB because unarchived segments cannot be recycled,
+> heading for a full disk and a database that stops accepting writes. Nothing else looked
+> wrong at any layer.
 
 Everything else — image, compose, nginx, TLS config, deploy, backup, WAL, Sentry wiring,
 health, Horizon — is built and parameterised. Pointing at a real server is writing
@@ -1722,9 +1749,12 @@ trail worth reading**.*
 > Show the landing at wireframe and first-styled-pass before polishing.
 
 ### Phase 11 — Definition of Done
-- [ ] Staging deploy from CI
-- [ ] Restore drill log committed
-- [ ] Load test report in `docs/`
+- [ ] Staging deploy from CI — staging is deployed and `bin/deploy` has now run end to end
+      four times, but **from the box, not from CI**. No workflow builds or pushes an image;
+      the repository is private, so wiring this needs a registry decision and a token
+      (GHCR + a PAT, or a self-hosted registry). Deliberately not guessed at
+- [x] Restore drill log committed — [`docs/restore-drills/20260820T104721Z.md`](restore-drills/20260820T104721Z.md), RTO 102s observed
+- [x] Load test report in `docs/` — [`docs/load-tests/2026-08-20.md`](load-tests/2026-08-20.md). **The aggregate threshold fails** (p95 1.62s against 1000ms) with **zero errors** in 1339 requests; `/dashboard` is the cause and is 1.3s with a single user
 - [ ] Go-live checklist all green
 
 ---
