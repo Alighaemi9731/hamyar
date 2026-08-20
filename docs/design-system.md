@@ -262,19 +262,24 @@ SEO-friendly.
 
 ### Position: full immersive — superseded 2026-08-20
 
-> **This section previously ruled the landing "immersive-lite".** That ruling is
-> superseded by [ADR 0016](adr/0016-immersive-landing.md), accepted at Decision Gate 5:
-> the landing is now a scroll-driven immersive experience on its own dark theme and its
-> own Vite entry.
+> **This section previously ruled the landing "immersive-lite".** Superseded by
+> [ADR 0016](adr/0016-landing-direction.md), which records **two** directions: a dark
+> scroll-driven one that was built, deployed and **rejected on taste at Gate 5**
+> (preserved on `archive/landing-dark-immersive`), and the one that shipped —
+> «سرمه‌ای و سفید، مینیمال و شیک»: white ground, navy `#0E1B2C` ink, and the **product's
+> own `#0066cc`** as the single accent.
 >
-> **Its constraints did not move**, and the built page beats them: no WebGL, ≤180KB gz
-> of landing JS (measured: 0.9KB on the critical path, 50.8KB with every effect loaded),
-> `prefers-reduced-motion` fully honoured, and no scroll-jacking on touch. What changed
-> is the goal — the page has to make a shopkeeper stop, and a calm competent page does
-> not, because every competitor already has one.
+> **Typography and whitespace carry it.** Motion is one 220ms fade-and-rise on section
+> entry via IntersectionObserver; there is no animation library, no pinning and no
+> smooth-scroll hijack, so `prefers-reduced-motion` is satisfied by having almost nothing
+> to reduce. No WebGL, no gradients, no glassmorphism — one border value and one shadow.
 >
-> **The landing is turquoise; the product is blue. That is deliberate** and ADR 0016
-> explains why, so that a future reviewer harmonises nothing.
+> **Label yellow is not used here.** It measures 1.4:1 on white and can only ever be a
+> filled chip; on a page arguing for calm that is a distraction with a contrast caveat
+> attached. It keeps its meaning in the product, against a different ground.
+>
+> One divergence is still open and ADR 0016 names it: the landing's ink is navy, the
+> product's is `#1d1d1f`.
 
 The reasoning that produced the original position, kept because it is still the correct
 frame for every decision *inside* the new one: the audience is a shop owner on a

@@ -1,18 +1,23 @@
 /*
- | MobiYar landing — entry.
+ | MobiYar landing — the whole of its JavaScript.
  |
- | Deliberately small. Everything in this file must work with no GSAP, no Lenis and no
- | network beyond the initial document: the sticky nav, the pricing toggle and the FAQ
- | are page FUNCTIONALITY, not decoration, and a visitor whose effects chunk never
- | arrives must still be able to read a price and open a question.
+ | There is no second chunk. The rejected dark direction (ADR 0016) dynamically imported
+ | ~50KB of GSAP, ScrollTrigger and Lenis to drive a pinned, scrubbed hero; this
+ | direction asks typography and whitespace to carry the page, so the only motion left is
+ | a 220ms fade-and-rise on section entry — which is an IntersectionObserver and a CSS
+ | transition.
  |
- | The choreography lives in ./effects.js and is imported dynamically, after first
- | paint, and only when motion is appropriate. That is the whole of the performance
- | story: the page is readable and usable before ~50KB of animation library is even
- | requested.
+ | Everything here is page FUNCTIONALITY except the observer: the sticky-nav hairline,
+ | the pricing toggle, the FAQ and the shop-entry form all have to work whether or not
+ | this file ever arrives.
  */
 
 /* ------------------------------------------------------------------ nav ---- */
+/*
+ | A hairline appears under the nav once the page has scrolled. An observer on a
+ | sentinel rather than a scroll listener: the browser does the work, and there is no
+ | handler running on every frame.
+ */
 
 const nav = document.querySelector('[data-nav]');
 
@@ -21,9 +26,6 @@ if (nav) {
   sentinel.setAttribute('aria-hidden', 'true');
   nav.parentNode.insertBefore(sentinel, nav);
 
-  // An IntersectionObserver rather than a scroll listener: the browser does the work
-  // off the main thread, and there is no handler firing on every frame of a page whose
-  // whole point is smooth scrolling.
   new IntersectionObserver(
     ([entry]) => nav.setAttribute('data-stuck', String(!entry.isIntersecting)),
     { threshold: 0 },
@@ -32,11 +34,9 @@ if (nav) {
 
 /* -------------------------------------------------------------- pricing ---- */
 /*
- | Monthly ⇄ yearly.
- |
- | The yearly figure is derived in the markup (data-yearly), not computed here, because
- | the price a customer is shown should be a value somebody chose rather than the
- | output of an expression in a script.
+ | Monthly ⇄ yearly. The yearly figure is rendered into the markup by Blade
+ | (data-yearly), not computed here: a price a customer is shown should be a value
+ | somebody chose, not the output of an expression in a script.
  */
 
 const toggle = document.querySelector('[data-plan-toggle]');
@@ -62,11 +62,11 @@ if (toggle) {
   apply('month');
 }
 
-/* ---------------------------------------------------------------- FAQ ------ */
+/* ------------------------------------------------------------------ FAQ ---- */
 /*
- | <details> is already accessible and keyboard-operable with no script at all; this
- | only enforces one-open-at-a-time, which is a preference rather than a requirement.
- | If it never runs, every question still opens.
+ | <details> is accessible and keyboard-operable with no script at all; this only
+ | enforces one-open-at-a-time, which is a preference. If it never runs, every question
+ | still opens.
  */
 
 const faq = document.querySelector('[data-faq]');
@@ -80,16 +80,16 @@ if (faq) {
   );
 }
 
-/* --------------------------------------------------------------- enter ----- */
+/* ---------------------------------------------------------------- enter ---- */
 /*
- | Every shop lives on its own hostname, so there is no single login URL to link to
- | from the apex — `/login` exists on `<shop>.<apex>` and nowhere else. This turns the
- | shop name into that address.
+ | Every shop lives on its own hostname, so there is no single login URL to link to from
+ | the apex — `/login` exists on `<shop>.<apex>` and nowhere else. This turns a shop name
+ | into that address.
  |
  | Client-side on purpose: the apex must not be able to confirm whether a given shop
- | exists. Posting this to the server would turn it into an oracle for enumerating
- | tenant names, and the honest answer for a wrong name is the tenant middleware's own
- | 404, on the shop's own hostname.
+ | exists. Posting this to the server would make it an oracle for enumerating tenant
+ | names, and the honest answer for a wrong name is the tenant middleware's own 404, on
+ | the shop's own hostname.
  */
 
 const enter = document.querySelector('[data-enter]');
@@ -99,44 +99,47 @@ if (enter) {
     event.preventDefault();
     const raw = new FormData(enter).get('shop') || '';
     // A shopkeeper may paste the whole address; keep only the label.
-    const slug = String(raw).trim().toLowerCase().replace(/^https?:\/\//, '').split('.')[0].replace(/[^a-z0-9-]/g, '');
+    const slug = String(raw)
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .split('.')[0]
+      .replace(/[^a-z0-9-]/g, '');
     if (slug) window.location.href = `${window.location.protocol}//${slug}.${window.location.host}/login`;
   });
 }
 
-/* ------------------------------------------------------------- effects ----- */
+/* --------------------------------------------------------------- motion ---- */
 /*
- | Three gates before a byte of animation library is fetched:
+ | The only animation on the page.
  |
- |   1. prefers-reduced-motion — a complete, finished page is the correct experience,
- |      not a degraded one. Nothing is imported at all.
- |   2. Coarse pointer under 900px — the mobile tier. The hero receipt still prints
- |      (it is the story), but the pinned module stage does not exist there, so most of
- |      the choreography has nothing to drive and Lenis is never engaged. No scroll
- |      jacking on touch, per the brief.
- |   3. Data saver / 2G — an Iranian shopkeeper on a bad connection gets the page,
- |      not the show.
+ | `data-io` is set on <html> BEFORE anything is observed, and the CSS hides `.rise`
+ | only under that attribute — so the hidden state exists exactly as long as something
+ | is guaranteed to reveal it. With this file absent, blocked, or broken, nothing is
+ | ever hidden and the page is simply a page.
  |
- | requestIdleCallback keeps the import off the critical path so it cannot compete with
- | the LCP element, which is the hero heading.
+ | Reduced motion skips the observer entirely rather than animating instantly: there is
+ | nothing to reveal because nothing was hidden.
  */
 
-const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const conn = navigator.connection;
-const thrifty = Boolean(conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '')));
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const targets = document.querySelectorAll('.rise');
 
-if (!reduced && !thrifty) {
-  const start = () =>
-    import('./effects.js')
-      .then((m) => m.init())
-      // A failed chunk must leave a readable page, not a half-hidden one. Nothing was
-      // hidden before this point — see the data-anim note in landing.css — so there is
-      // nothing to restore.
-      .catch(() => {});
+  if (targets.length && 'IntersectionObserver' in window) {
+    document.documentElement.setAttribute('data-io', 'on');
 
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(start, { timeout: 2500 });
-  } else {
-    window.addEventListener('load', () => setTimeout(start, 200));
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.setAttribute('data-seen', 'true');
+          io.unobserve(entry.target); // once, never on the way back up
+        }
+      },
+      // A little before the element arrives, so it is finished by the time it is read.
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.01 },
+    );
+
+    targets.forEach((el) => io.observe(el));
   }
 }

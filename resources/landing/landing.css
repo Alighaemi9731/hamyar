@@ -1,862 +1,741 @@
 /*
  | MobiYar — public landing.
  |
- | A SEPARATE stylesheet from resources/css/app.css, and that separation is the point.
- | The in-app design system is a light, near-monochrome, single-blue product surface
- | (ADR 0008) and it is not changing. This file is a landing-only dark theme
- | (ADR 0016): the same brand soul, a different skin, and nothing here is imported by
- | the application.
+ | «سرمه‌ای و سفید، مینیمال و شیک». Premium minimal: white ground, navy ink, one accent,
+ | and whitespace doing the work decoration usually does.
  |
- | Direction: «پشت پیشخوان، بعد از تعطیلی» — the page is lit like a phone shop after
- | closing. Near-black, and the only light sources are the things that actually glow in
- | that room: phone screens (turquoise), price labels (yellow), and one sheet of thermal
- | paper — which is deliberately the brightest object on the page.
+ | ## History, so the next reader does not re-litigate it
+ |
+ | This file previously held a dark, scroll-driven immersive theme with a pinned hero,
+ | GSAP/ScrollTrigger and Lenis. It was built, deployed to staging, reviewed live at
+ | Decision Gate 5 and **rejected on taste** — see ADR 0016. The code is preserved on
+ | `archive/landing-dark-immersive` rather than deleted.
+ |
+ | What the reversal bought: typography and rhythm carry the page now, so there is
+ | nothing to fail. No pins, no scrub, no smooth-scroll hijack, no animation library at
+ | all — reduced motion is satisfied by having almost nothing to reduce.
+ |
+ | ## One family with the product
+ |
+ | Unlike the rejected direction, this shares the application's accent (#0066cc) rather
+ | than inventing one. The navy ink is the single remaining difference from the product's
+ | near-black, and ADR 0016 records how to close it.
  */
 
 @import 'tailwindcss';
 
-/* Arabic subsets ONLY. The app imports every subset fontsource ships — latin-ext,
-   vietnamese, cyrillic — which is fine for an authenticated tool nobody measures LCP
-   on, and wrong for a landing page. Persian digits live in the arabic subset, so this
-   is the whole of what the page actually renders. */
+/* Arabic subsets only: Persian digits live there, and it is the whole of what this page
+   renders. The app imports every subset fontsource ships, which is right for an
+   authenticated tool nobody measures LCP on and wrong here. */
 @import '@fontsource/vazirmatn/arabic-400.css';
 @import '@fontsource/vazirmatn/arabic-500.css';
 @import '@fontsource/vazirmatn/arabic-700.css';
+@import '@fontsource/estedad/arabic-700.css';
 @import '@fontsource/estedad/arabic-800.css';
 
 @theme {
   /* --- ground ------------------------------------------------------------- */
-  --color-night: #070b0e; /* near-black with a blue-green cast: a room lit by screens */
-  --color-night-lift: #0e151a; /* counter glass */
-  --color-night-edge: #1b262d; /* hairlines */
+  --color-page: #ffffff;
+  --color-page-alt: #f7f9fb;
 
-  /* --- light sources ------------------------------------------------------ */
-  /* Persian turquoise. LANDING ONLY — the product's brand stays #0066cc blue, and the
-     divergence is deliberate (ADR 0016). 11.3:1 on --color-night. */
-  --color-firooze: #3fd9c8;
-  --color-firooze-dim: #2fb8aa;
+  /* --- ink ---------------------------------------------------------------- */
+  --color-navy: #0e1b2c; /* headings and body — 17.3:1 on white */
+  --color-navy-soft: #4a5a6b; /* secondary — 7.1:1 */
+  --color-navy-mute: #64748b; /* captions — 4.8:1, the floor */
 
-  /* The physical price label, carried over from the product unchanged. 14.3:1 on
-     --color-night. PRIMARY CTA AND PRICE TAGS ONLY — never a decorative fill. */
-  --color-label: #ffd84d;
+  /* --- the one accent ------------------------------------------------------
+     The PRODUCT's blue, not a landing invention. That is the point: "one family with
+     the app" is the brief, and sharing the accent is most of what that means. 5.6:1. */
+  --color-accent: #0066cc;
 
-  /* The receipt. The brightest thing on the page, on purpose. */
-  --color-paper: #f2ede3;
-  --color-paper-ink: #23201b;
+  /* --- lines and lift ------------------------------------------------------
+     Exactly one border value and one shadow. A second of either is how a calm page
+     starts to look busy without anyone being able to say where. */
+  --color-hair: #e7e8ea; /* 10% navy on white */
+  --shadow-card: 0 1px 2px rgb(14 27 44 / 0.04), 0 8px 24px -12px rgb(14 27 44 / 0.12);
 
-  /* --- text --------------------------------------------------------------- */
-  --color-say: #c9d4da; /* body — 13.1:1 */
-  --color-say-soft: #8a9aa4; /* secondary — 6.8:1 */
+  /* --- paper -------------------------------------------------------------- */
+  --color-paper: #fffdf8;
+  --color-paper-edge: #ece7dd;
 
   /* --- type --------------------------------------------------------------- */
   --font-display: 'Estedad', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 
-  /* One step above the product scale, landing only, and only above 1280 — see the
-     clamp() on .l-hero__title. */
-  --text-hero: clamp(2.5rem, 7vw, 6rem);
-  --text-section: clamp(1.875rem, 4.2vw, 3.5rem);
+  --text-hero: clamp(2.25rem, 5.4vw, 4.25rem);
+  --text-section: clamp(1.75rem, 3.4vw, 2.75rem);
 }
 
 /* ---------------------------------------------------------------- base ---- */
 
 html {
   scroll-behavior: smooth;
-  /* Lenis takes over on desktop; this is the no-JS and reduced-motion path. */
 }
 
 body {
-  background: var(--color-night);
-  color: var(--color-say);
+  background: var(--color-page);
+  color: var(--color-navy-soft);
   font-family: var(--font-sans);
   font-size: 1.0625rem;
-  line-height: 1.75;
+  /* Persian needs more leading than Latin at the same size, and this direction spends
+     its budget on air. */
+  line-height: 1.85;
   -webkit-font-smoothing: antialiased;
-  /* Guardrail: zero horizontal overflow at every width. A single transformed child
-     that overshoots would otherwise give the whole document a horizontal scrollbar,
-     which on RTL is doubly confusing because it appears on the left. */
+  /* Zero horizontal overflow at every width — on RTL a stray scrollbar appears on the
+     left, which reads as a broken page rather than a wide one. */
   overflow-x: clip;
 }
 
 ::selection {
-  background: var(--color-firooze);
-  color: var(--color-night);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-navy);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-firooze);
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
+  color: var(--color-navy);
+  letter-spacing: -0.024em;
+  line-height: 1.15;
   font-weight: 800;
-  letter-spacing: -0.022em;
-  line-height: 1.1;
-  color: #fff;
 }
 
-/* Persian numerals everywhere numbers are prose rather than input. */
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.016em;
+}
+
+/* Numbers here are read, compared and trusted, so they are tabular wherever they are
+   prose rather than input. */
 .nums {
   font-variant-numeric: tabular-nums;
 }
 
-.l-shell {
-  width: min(1180px, 100% - 2.5rem);
+.shell {
+  width: min(1120px, 100% - 3rem);
   margin-inline: auto;
 }
 
-@media (max-width: 480px) {
-  .l-shell {
-    width: min(1180px, 100% - 1.75rem);
+@media (max-width: 520px) {
+  .shell {
+    width: min(1120px, 100% - 2rem);
   }
+}
+
+/* Whitespace is the luxury: 1.5× the product's section rhythm. */
+.sec {
+  padding-block: clamp(4.5rem, 9vw, 8.5rem);
+}
+
+.sec--alt {
+  background: var(--color-page-alt);
+  border-block: 1px solid var(--color-hair);
+}
+
+.sec__eyebrow {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-block-end: 0.75rem;
+}
+
+.sec__title {
+  font-size: var(--text-section);
+  margin-block-end: 0.875rem;
+}
+
+.sec__lede {
+  color: var(--color-navy-soft);
+  max-inline-size: 40rem; /* a reading measure, not the container width */
+}
+
+.sec__head {
+  margin-block-end: clamp(2.5rem, 5vw, 4rem);
 }
 
 /* ----------------------------------------------------------------- nav ---- */
 
-.l-nav {
+.nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  backdrop-filter: blur(14px) saturate(140%);
-  background: color-mix(in srgb, var(--color-night) 72%, transparent);
+  /* Solid, not frosted. No glassmorphism anywhere on this page. */
+  background: var(--color-page);
   border-block-end: 1px solid transparent;
-  transition: border-color 200ms ease, background 200ms ease;
+  transition: border-color 200ms ease;
 }
 
-.l-nav[data-stuck='true'] {
-  border-block-end-color: var(--color-night-edge);
-  background: color-mix(in srgb, var(--color-night) 88%, transparent);
+.nav[data-stuck='true'] {
+  border-block-end-color: var(--color-hair);
 }
 
-.l-nav__inner {
+.nav__inner {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  min-height: 4.25rem;
+  min-height: 4.5rem;
 }
 
-.l-nav__brand {
+.nav__brand {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.3125rem;
-  color: #fff;
+  font-size: 1.25rem;
+  color: var(--color-navy);
   letter-spacing: -0.02em;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.l-nav__mark {
-  inline-size: 1.75rem;
-  block-size: 1.75rem;
+.nav__mark {
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
   flex: none;
 }
 
-.l-nav__links {
+.nav__links {
   display: none;
-  gap: 1.75rem;
+  gap: 2rem;
   margin-inline-start: auto;
 }
 
-.l-nav__links a {
-  color: var(--color-say-soft);
+.nav__links a {
+  color: var(--color-navy-soft);
   font-size: 0.9375rem;
+  font-weight: 500;
   transition: color 160ms ease;
 }
 
-.l-nav__links a:hover {
-  color: var(--color-firooze);
+.nav__links a:hover {
+  color: var(--color-navy);
 }
 
-.l-nav__cta {
+.nav__cta {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
   margin-inline-start: auto;
 }
 
 @media (min-width: 900px) {
-  .l-nav__links {
+  .nav__links {
     display: flex;
   }
-  .l-nav__cta {
+  .nav__cta {
     margin-inline-start: 0;
   }
 }
 
 /* --------------------------------------------------------------- button --- */
 
-.l-btn {
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  /* 44px minimum target. */
-  min-block-size: 2.75rem;
-  padding-inline: 1.125rem;
+  min-block-size: 2.75rem; /* 44px touch target */
+  padding-inline: 1.25rem;
   border-radius: 0.625rem;
   font-weight: 700;
   font-size: 0.9375rem;
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease;
   white-space: nowrap;
 }
 
-.l-btn:active {
-  transform: translateY(1px);
+/* Navy, not blue: the loudest thing on the page should still be quiet, and the accent
+   is worth more kept for links and small marks. White on navy is 17.3:1. */
+.btn--primary {
+  background: var(--color-navy);
+  color: #fff;
 }
 
-/* The one yellow fill on the page. Label is near-black: 14.3:1.
-   NEVER yellow with white text — that measures 1.4:1. */
-.l-btn--label {
-  background: var(--color-label);
-  color: var(--color-night);
+.btn--primary:hover {
+  background: #1a2b40;
 }
 
-.l-btn--label:hover {
-  background: #ffe27a;
+.btn--quiet {
+  border: 1px solid var(--color-hair);
+  color: var(--color-navy);
 }
 
-.l-btn--ghost {
-  border: 1px solid var(--color-night-edge);
-  color: var(--color-say);
+.btn--quiet:hover {
+  border-color: var(--color-navy-mute);
 }
 
-.l-btn--ghost:hover {
-  border-color: var(--color-firooze);
-  color: var(--color-firooze);
-}
-
-.l-btn--lg {
-  min-block-size: 3.25rem;
+.btn--lg {
+  min-block-size: 3.125rem;
   padding-inline: 1.75rem;
-  font-size: 1.0625rem;
+  font-size: 1rem;
 }
 
 /* ---------------------------------------------------------------- hero ---- */
 
-.l-hero {
-  position: relative;
-  padding-block: clamp(3rem, 8vw, 6rem) clamp(4rem, 10vw, 8rem);
-  overflow: clip;
+.hero {
+  padding-block: clamp(3.5rem, 7vw, 6.5rem) clamp(4rem, 8vw, 7rem);
 }
 
-/* The room. A single soft turquoise pool of light behind the receipt, and nothing
-   else — no mesh gradient, no orbs. */
-.l-hero::before {
-  content: '';
-  position: absolute;
-  inset-block-start: -14rem;
-  inset-inline-end: -10rem;
-  inline-size: 46rem;
-  block-size: 46rem;
-  background: radial-gradient(circle, color-mix(in srgb, var(--color-firooze) 13%, transparent) 0%, transparent 62%);
-  pointer-events: none;
-}
-
-.l-hero__grid {
+.hero__grid {
   display: grid;
-  gap: clamp(2.5rem, 6vw, 4.5rem);
+  gap: clamp(3rem, 6vw, 5rem);
   align-items: center;
 }
 
-@media (min-width: 1024px) {
-  .l-hero__grid {
-    grid-template-columns: 1fr 22rem;
+@media (min-width: 980px) {
+  .hero__grid {
+    grid-template-columns: 1fr 21rem;
   }
 }
 
-.l-hero__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--color-firooze);
-  border: 1px solid color-mix(in srgb, var(--color-firooze) 30%, transparent);
-  border-radius: 999px;
-  padding: 0.375rem 0.875rem;
-  margin-block-end: 1.5rem;
-}
-
-.l-hero__title {
+.hero__title {
   font-size: var(--text-hero);
   margin-block-end: 1.25rem;
 }
 
-.l-hero__title em {
-  font-style: normal;
-  color: var(--color-firooze);
+.hero__lede {
+  font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+  color: var(--color-navy-soft);
+  max-inline-size: 33rem;
+  margin-block-end: 2.25rem;
 }
 
-.l-hero__lede {
-  font-size: clamp(1.0625rem, 1.6vw, 1.3125rem);
-  color: var(--color-say-soft);
-  max-inline-size: 34rem;
-  margin-block-end: 2rem;
-}
-
-.l-hero__actions {
+.hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-block-end: 1rem;
 }
 
-.l-hero__note {
+.hero__note {
   font-size: 0.875rem;
-  color: var(--color-say-soft);
+  color: var(--color-navy-mute);
 }
 
 /* ------------------------------------------------------------- receipt ---- */
+/*
+ | The brand's signature object, and now STATIC — no printing animation, nothing to
+ | trigger, nothing to fail. A rendered artefact rather than a performance: navy ink on
+ | paper white, one degree of curl, one shadow.
+ */
 
-.l-receipt {
-  --receipt-w: 20.5rem;
-  inline-size: var(--receipt-w);
+.receipt {
+  inline-size: 19.5rem;
   max-inline-size: 100%;
   margin-inline: auto;
   background: var(--color-paper);
-  color: var(--color-paper-ink);
+  color: var(--color-navy);
   font-size: 0.8125rem;
-  line-height: 1.85;
-  padding: 1.5rem 1.25rem 1.75rem;
+  line-height: 1.9;
+  padding: 1.5rem 1.375rem 1.75rem;
   position: relative;
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 60px -12px rgb(0 0 0 / 0.75),
-    0 0 90px -30px color-mix(in srgb, var(--color-firooze) 55%, transparent);
-  /* The perforated tear edge, top and bottom — a real 80mm receipt, not a card. */
-  --tear: radial-gradient(circle at 50% 0, transparent 0 6px, var(--color-paper) 6px);
-  -webkit-mask-image: var(--tear), linear-gradient(#000 0 0);
-  transform: rotate(-1.1deg);
+  rotate: -0.8deg;
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.05), 0 18px 40px -16px rgb(14 27 44 / 0.22);
+  font-variant-numeric: tabular-nums;
 }
 
-.l-receipt::before,
-.l-receipt::after {
+/* Perforated tear edges. Drawn in the page ground so the notches read as cut paper
+   rather than as dots printed on it. */
+.receipt::before,
+.receipt::after {
   content: '';
   position: absolute;
-  inset-inline: 0;
-  block-size: 8px;
-  background: repeating-radial-gradient(circle at 6px 0, var(--color-night) 0 5px, transparent 5px 12px);
+  inset-inline: -1px;
+  block-size: 7px;
+  background: repeating-radial-gradient(circle at 6px 0, var(--color-page) 0 4.5px, transparent 4.5px 11px);
 }
 
-.l-receipt::before {
+.receipt::before {
   inset-block-start: -1px;
 }
 
-.l-receipt::after {
+.receipt::after {
   inset-block-end: -1px;
-  transform: rotate(180deg);
+  rotate: 180deg;
 }
 
-.l-receipt__head {
+.receipt__head {
   text-align: center;
-  border-block-end: 1px dashed color-mix(in srgb, var(--color-paper-ink) 35%, transparent);
-  padding-block-end: 0.75rem;
-  margin-block-end: 0.75rem;
+  border-block-end: 1px dashed var(--color-paper-edge);
+  padding-block-end: 0.875rem;
+  margin-block-end: 0.875rem;
 }
 
-.l-receipt__shop {
+.receipt__shop {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1rem;
 }
 
-.l-receipt__kind {
+.receipt__kind {
   font-size: 0.8125rem;
-  opacity: 0.75;
+  color: var(--color-navy-mute);
 }
 
-/* Every printed line starts hidden and is revealed by scroll. The no-JS and
-   reduced-motion paths override this to visible — see .l-receipt[data-print='off']
-   below and the <noscript> rule in the page head. */
-.l-receipt__line {
+.receipt__line {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  font-variant-numeric: tabular-nums;
 }
 
-.l-receipt__line dt {
-  opacity: 0.7;
+.receipt__line dt {
+  color: var(--color-navy-mute);
 }
 
-.l-receipt__line dd {
+.receipt__line dd {
   font-weight: 500;
   text-align: start;
 }
 
-.l-receipt__rule {
-  border-block-start: 1px dashed color-mix(in srgb, var(--color-paper-ink) 35%, transparent);
-  margin-block: 0.75rem;
+.receipt__rule {
+  border-block-start: 1px dashed var(--color-paper-edge);
+  margin-block: 0.875rem;
 }
 
-.l-receipt__act {
+.receipt__act {
   font-size: 0.75rem;
   text-align: center;
-  opacity: 0.75;
-  letter-spacing: 0.04em;
+  color: var(--color-navy-mute);
 }
 
-.l-receipt__total {
+.receipt__sms {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  border-inline-start: 2px solid var(--color-accent);
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+.receipt__total {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.0625rem;
-  font-variant-numeric: tabular-nums;
-  margin-block-start: 0.5rem;
-}
-
-.l-receipt__sms {
-  background: color-mix(in srgb, var(--color-paper-ink) 8%, transparent);
-  border-inline-start: 3px solid var(--color-paper-ink);
-  padding: 0.5rem 0.625rem;
-  font-size: 0.75rem;
-  line-height: 1.6;
+  margin-block-start: 0.625rem;
 }
 
 /* --------------------------------------------------------------- strip ---- */
 
-.l-strip {
-  border-block: 1px solid var(--color-night-edge);
-  padding-block: 1.25rem;
+.strip {
+  border-block: 1px solid var(--color-hair);
+  padding-block: 1.375rem;
 }
 
-.l-strip__row {
+.strip__row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 2rem;
+  gap: 0.75rem 2.5rem;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
-  color: var(--color-say-soft);
+  font-size: 0.9375rem;
+  color: var(--color-navy-mute);
 }
 
-.l-strip__row span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ------------------------------------------------------------ sections ---- */
-
-.l-sec {
-  padding-block: clamp(4rem, 9vw, 7.5rem);
-}
-
-.l-sec__eyebrow {
-  color: var(--color-firooze);
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin-block-end: 0.875rem;
-}
-
-.l-sec__title {
-  font-size: var(--text-section);
-  margin-block-end: 1rem;
-}
-
-.l-sec__lede {
-  color: var(--color-say-soft);
-  max-inline-size: 42rem;
-  font-size: 1.0625rem;
-}
-
-/* ------------------------------------------------------- pinned modules --- */
+/* ------------------------------------------------------------ features ---- */
 /*
- | ONE pin, five scenes.
- |
- | The brief asked for a pinned section per flagship module. Five pins fight native
- | scroll and are miserable on a phone, so this is a single pinned stage that five
- | scenes move through — the same reading experience, one scroll hijack instead of
- | five. Below 900px it degrades to an ordinary stacked list with no pin at all.
+ | Alternating rows. No pins, no stage, no cross-fade — the screenshot sits beside its
+ | text and the eye moves down the page the way it does in a document.
  */
 
-.l-stage {
-  position: relative;
+.feature {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: center;
+  padding-block: clamp(2.5rem, 5vw, 4.5rem);
 }
 
-.l-stage__inner {
-  display: grid;
-  gap: 2rem;
-  align-items: center;
+.feature + .feature {
+  border-block-start: 1px solid var(--color-hair);
 }
 
 @media (min-width: 900px) {
-  .l-stage__inner {
-    grid-template-columns: 20rem 1fr;
-    /* Viewport-height while pinned, so the stage's own centre IS the screen's centre.
-       At 30rem the grid was shorter than the viewport, its content centred against
-       itself rather than the screen, and the pin left a band of dead space above the
-       frame. 88vh keeps the section's breathing room without pushing the frame past
-       the fold. */
-    min-block-size: 88vh;
-    align-content: center;
+  .feature {
+    grid-template-columns: 1fr 1.35fr;
+  }
+  /* Every other row swaps sides. `order` rather than anything directional, so RTL is
+     untouched by the alternation. */
+  .feature:nth-child(even) .feature__text {
+    order: 2;
   }
 }
 
-.l-stage__list {
-  display: grid;
-  gap: 0.25rem;
-  align-content: center;
+.feature__title {
+  font-size: clamp(1.375rem, 2.2vw, 1.75rem);
+  margin-block-end: 0.75rem;
 }
 
-.l-scene__tab {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+.feature__body {
+  color: var(--color-navy-soft);
+  max-inline-size: 30rem;
+}
+
+/* Light browser chrome — a hairline and three dots, not a photorealistic device. */
+.frame {
+  border: 1px solid var(--color-hair);
   border-radius: 0.75rem;
-  border: 1px solid transparent;
-  color: var(--color-say-soft);
-  transition: color 200ms ease, background 200ms ease, border-color 200ms ease;
-  text-align: start;
-}
-
-.l-scene__tab[data-active='true'] {
-  color: #fff;
-  background: var(--color-night-lift);
-  border-color: var(--color-night-edge);
-}
-
-.l-scene__tab strong {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.0625rem;
-  display: block;
-}
-
-.l-scene__tab span {
-  font-size: 0.8125rem;
-  display: block;
-  line-height: 1.5;
-}
-
-.l-stage__frames {
-  position: relative;
-  min-block-size: 18rem;
-}
-
-/* Device frame: a browser chrome hairline, not a photorealistic laptop render. */
-.l-frame {
-  border: 1px solid var(--color-night-edge);
-  border-radius: 0.875rem;
   overflow: hidden;
-  background: var(--color-night-lift);
-  box-shadow: 0 30px 70px -24px rgb(0 0 0 / 0.85);
+  background: var(--color-page);
+  box-shadow: var(--shadow-card);
 }
 
-.l-frame__bar {
+.frame__bar {
   display: flex;
   align-items: center;
   gap: 0.375rem;
   padding: 0.625rem 0.875rem;
-  border-block-end: 1px solid var(--color-night-edge);
+  border-block-end: 1px solid var(--color-hair);
+  background: var(--color-page-alt);
 }
 
-.l-frame__dot {
+.frame__dot {
   inline-size: 0.5rem;
   block-size: 0.5rem;
   border-radius: 999px;
-  background: var(--color-night-edge);
+  background: var(--color-hair);
 }
 
-.l-frame img {
+.frame img {
   display: block;
   inline-size: 100%;
   block-size: auto;
 }
 
-/*
- | Desktop: the five frames stack in the left-hand column and cross-fade. Mobile: each
- | one simply follows its own text.
- |
- | They are positioned against `.l-stage__inner` — the grid itself — and NOT lifted into
- | a separate container, because an earlier version of this file claimed CSS would "move
- | them" there and CSS cannot move an element to a different parent. It rendered as five
- | frames strung down the right-hand column beside their tabs, with the whole left half
- | of the stage empty. Sharing one positioning context is what makes a single copy of the
- | markup work at both widths.
- |
- | RTL: the 20rem tab column is the FIRST grid column, which in RTL sits on the right, so
- | the frames are pinned to `inset-inline-end` — the left edge — and sized to what is
- | left over.
- */
-@media (min-width: 900px) {
-  .l-stage__inner {
-    position: relative;
-  }
-
-  .l-scene .l-frame {
-    position: absolute;
-    inset-block-start: 50%;
-    inset-inline-end: 0;
-    inline-size: calc(100% - 22rem);
-    /* Cap the height so a 1440x900 screenshot cannot push the frame past the fold on a
-       laptop; the image keeps its aspect ratio and the frame crops from the bottom,
-       which is where a long table has least to say. */
-    max-block-size: 74vh;
-    overflow: hidden;
-    translate: 0 -50%;
-    margin-block-start: 0 !important;
-  }
-
-  /* The desktop stack target is vestigial now that the frames position against the
-     grid; it stays in the markup only as the grid's second column placeholder. */
-  .l-stage__frames {
-    min-block-size: 26rem;
-  }
-}
-
-@media (max-width: 899px) {
-  .l-scene {
-    margin-block-end: 2.5rem;
-  }
-  .l-scene__tab {
-    padding-inline: 0;
-  }
-}
-
 /* ---------------------------------------------------------- IMEI spot ----- */
 
-.l-imei {
-  background: var(--color-night-lift);
-  border-block: 1px solid var(--color-night-edge);
-}
-
-.l-imei__digits {
+.imei__digits {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.5rem, 5.5vw, 3.25rem);
-  letter-spacing: 0.06em;
-  color: var(--color-firooze);
+  font-weight: 700;
+  font-size: clamp(1.375rem, 4.6vw, 2.75rem);
+  letter-spacing: 0.08em;
+  color: var(--color-navy);
   direction: ltr;
   text-align: center;
-  margin-block: 1.5rem;
-  /* The 15-digit string as texture. Each digit is animated in turn. */
+  margin-block: 1.75rem 2rem;
 }
 
-.l-imei__digits span {
-  display: inline-block;
-}
-
-.l-imei__trail {
+.imei__trail {
   display: grid;
-  gap: 1px;
-  background: var(--color-night-edge);
-  border: 1px solid var(--color-night-edge);
-  border-radius: 0.75rem;
-  overflow: hidden;
+  gap: 1.25rem;
   margin-block-start: 2.5rem;
+  text-align: start;
 }
 
 @media (min-width: 760px) {
-  .l-imei__trail {
+  .imei__trail {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.l-imei__step {
-  background: var(--color-night);
-  padding: 1.25rem 1.125rem;
+.imei__step {
+  background: var(--color-page);
+  border: 1px solid var(--color-hair);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.375rem;
+  box-shadow: var(--shadow-card);
 }
 
-.l-imei__step b {
-  color: var(--color-firooze);
-  font-size: 0.8125rem;
+.imei__step b {
+  color: var(--color-navy);
+  font-family: var(--font-display);
+  font-size: 1rem;
   font-weight: 700;
   display: block;
-  margin-block-end: 0.375rem;
+  margin-block-end: 0.5rem;
 }
 
-.l-imei__step p {
+.imei__step p {
   font-size: 0.9375rem;
-  color: var(--color-say-soft);
+  color: var(--color-navy-soft);
   margin: 0;
 }
 
 /* ------------------------------------------------------------- pricing ---- */
 
-.l-toggle {
+.toggle {
   display: inline-flex;
   padding: 0.25rem;
-  background: var(--color-night-lift);
-  border: 1px solid var(--color-night-edge);
+  background: var(--color-page-alt);
+  border: 1px solid var(--color-hair);
   border-radius: 999px;
-  margin-block: 1.75rem;
+  margin-block: 1.75rem 0.75rem;
 }
 
-.l-toggle button {
+.toggle button {
   min-block-size: 2.5rem;
-  padding-inline: 1.125rem;
+  padding-inline: 1.25rem;
   border-radius: 999px;
   font-size: 0.9375rem;
   font-weight: 700;
-  color: var(--color-say-soft);
+  color: var(--color-navy-soft);
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease;
 }
 
-.l-toggle button[aria-pressed='true'] {
-  background: var(--color-firooze);
-  color: var(--color-night);
+.toggle button[aria-pressed='true'] {
+  background: var(--color-page);
+  color: var(--color-navy);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.08);
 }
 
-.l-plans {
+.plans {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
+  margin-block-start: 1.5rem;
 }
 
 @media (min-width: 880px) {
-  .l-plans {
+  .plans {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.l-plan {
-  border: 1px solid var(--color-night-edge);
-  border-radius: 1rem;
-  padding: 1.75rem 1.5rem;
-  background: var(--color-night-lift);
+.plan {
+  border: 1px solid var(--color-hair);
+  border-radius: 0.75rem;
+  padding: 2rem 1.75rem;
+  background: var(--color-page);
   display: flex;
   flex-direction: column;
+  box-shadow: var(--shadow-card);
 }
 
-.l-plan[data-featured='true'] {
-  border-color: color-mix(in srgb, var(--color-firooze) 45%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-firooze) 20%, transparent),
-    0 24px 60px -30px color-mix(in srgb, var(--color-firooze) 60%, transparent);
+/* The featured plan is marked by its border and one small line of type — not by a
+   different fill, a gradient, or a scale transform. */
+.plan[data-featured='true'] {
+  border-color: var(--color-accent);
 }
 
-.l-plan__badge {
+.plan__badge {
   align-self: flex-start;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--color-night);
-  background: var(--color-firooze);
-  border-radius: 999px;
-  padding: 0.25rem 0.625rem;
-  margin-block-end: 0.75rem;
+  color: var(--color-accent);
+  margin-block-end: 0.625rem;
 }
 
-.l-plan__name {
+.plan__name {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.3125rem;
-  color: #fff;
+  font-size: 1.25rem;
+  color: var(--color-navy);
 }
 
-.l-plan__tag {
-  font-size: 0.875rem;
-  color: var(--color-say-soft);
-  min-block-size: 2.75rem;
-  margin-block-start: 0.25rem;
-}
-
-.l-plan__price {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 2.25rem;
-  color: var(--color-label);
-  font-variant-numeric: tabular-nums;
-  margin-block: 1rem 0.125rem;
-  line-height: 1.1;
-}
-
-.l-plan__unit {
-  font-size: 0.875rem;
-  color: var(--color-say-soft);
-  margin-block-end: 1.25rem;
-}
-
-.l-plan__list {
-  display: grid;
-  gap: 0.5rem;
+.plan__tag {
   font-size: 0.9375rem;
+  color: var(--color-navy-mute);
+  min-block-size: 3.25rem;
+  margin-block-start: 0.375rem;
+  line-height: 1.65;
+}
+
+.plan__price {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.5rem;
+  color: var(--color-navy);
+  font-variant-numeric: tabular-nums;
+  margin-block: 1.25rem 0.125rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.plan__unit {
+  font-size: 0.875rem;
+  color: var(--color-navy-mute);
   margin-block-end: 1.5rem;
 }
 
-.l-plan__list li {
+.plan__list {
+  display: grid;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  margin-block-end: 1.75rem;
+}
+
+.plan__list li {
   display: flex;
   gap: 0.5rem;
   align-items: flex-start;
 }
 
-.l-plan__list svg {
+.plan__list svg {
   flex: none;
-  margin-block-start: 0.4rem;
-  color: var(--color-firooze);
+  margin-block-start: 0.45rem;
+  color: var(--color-accent);
 }
 
-.l-plan .l-btn {
+.plan .btn {
   margin-block-start: auto;
 }
 
-.l-addons {
-  margin-block-start: 2.5rem;
-  border: 1px solid var(--color-night-edge);
-  border-radius: 1rem;
-  padding: 1.5rem;
+.addons {
+  margin-block-start: 3rem;
+  border-block-start: 1px solid var(--color-hair);
+  padding-block-start: 2.5rem;
 }
 
-.l-addons__grid {
+.addons__grid {
   display: grid;
-  gap: 0.75rem;
-  margin-block-start: 1rem;
+  gap: 0 2rem;
+  margin-block-start: 1.25rem;
 }
 
 @media (min-width: 640px) {
-  .l-addons__grid {
+  .addons__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (min-width: 960px) {
-  .l-addons__grid {
+  .addons__grid {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-.l-addon {
+.addon {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.9375rem;
-  padding: 0.75rem 0.875rem;
-  background: var(--color-night-lift);
-  border-radius: 0.625rem;
+  padding-block: 0.75rem;
+  border-block-end: 1px solid var(--color-hair);
+  color: var(--color-navy-soft);
 }
 
-.l-addon b {
-  color: var(--color-label);
+.addon b {
+  color: var(--color-navy);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 /* ----------------------------------------------------------------- faq ---- */
 
-.l-faq {
+.faq {
   display: grid;
-  gap: 0.75rem;
-  max-inline-size: 46rem;
+  max-inline-size: 44rem;
   margin-block-start: 2.5rem;
+  border-block-start: 1px solid var(--color-hair);
 }
 
-.l-faq details {
-  border: 1px solid var(--color-night-edge);
-  border-radius: 0.75rem;
-  background: var(--color-night-lift);
-  overflow: hidden;
+.faq details {
+  border-block-end: 1px solid var(--color-hair);
 }
 
-.l-faq summary {
+.faq summary {
   cursor: pointer;
-  padding: 1.125rem 1.25rem;
+  padding-block: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-navy);
+  font-size: 1.0625rem;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -865,99 +744,104 @@ h3 {
   min-block-size: 3.25rem;
 }
 
-.l-faq summary::-webkit-details-marker {
+.faq summary::-webkit-details-marker {
   display: none;
 }
 
-.l-faq summary::after {
-  content: '+';
-  color: var(--color-firooze);
-  font-size: 1.3125rem;
-  line-height: 1;
+.faq summary::after {
+  content: '';
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
   flex: none;
+  border-inline-end: 2px solid var(--color-navy-mute);
+  border-block-end: 2px solid var(--color-navy-mute);
+  rotate: 45deg;
+  transition: rotate 180ms ease;
 }
 
-.l-faq details[open] summary::after {
-  content: '−';
+.faq details[open] summary::after {
+  rotate: 225deg;
 }
 
-.l-faq p {
-  padding: 0 1.25rem 1.25rem;
-  color: var(--color-say-soft);
+.faq p {
+  padding-block-end: 1.5rem;
+  color: var(--color-navy-soft);
   margin: 0;
+  max-inline-size: 40rem;
 }
 
 /* ---------------------------------------------------------------- foot ---- */
 
-.l-final {
+.final {
   text-align: center;
-  padding-block: clamp(4rem, 10vw, 8rem);
-  position: relative;
-  overflow: clip;
 }
 
-.l-final::before {
-  content: '';
-  position: absolute;
-  inset-block-end: -18rem;
-  inset-inline-start: 50%;
-  translate: -50% 0;
-  inline-size: 42rem;
-  block-size: 42rem;
-  background: radial-gradient(circle, color-mix(in srgb, var(--color-firooze) 15%, transparent) 0%, transparent 62%);
-  pointer-events: none;
-}
-
-.l-foot {
-  border-block-start: 1px solid var(--color-night-edge);
+.foot {
+  border-block-start: 1px solid var(--color-hair);
   padding-block: 2.5rem;
-  font-size: 0.875rem;
-  color: var(--color-say-soft);
+  font-size: 0.9375rem;
+  color: var(--color-navy-mute);
 }
 
-.l-foot__row {
+.foot__row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem 1.75rem;
+  gap: 1rem 2rem;
   align-items: center;
   justify-content: space-between;
 }
 
-.l-foot a:hover {
-  color: var(--color-firooze);
+.foot a:hover {
+  color: var(--color-navy);
 }
 
-/* --------------------------------------------------- motion, and its off --- */
+.field {
+  min-block-size: 2.75rem;
+  padding-inline: 0.875rem;
+  border-radius: 0.625rem;
+  background: var(--color-page);
+  border: 1px solid var(--color-hair);
+  color: var(--color-navy);
+  direction: ltr;
+  text-align: left;
+}
+
+.field:focus {
+  border-color: var(--color-accent);
+}
+
+/* --------------------------------------------------------------- motion --- */
 /*
- | Everything the scroll choreography hides starts hidden ONLY when JS has confirmed
- | it will be able to reveal it again. `data-anim="on"` is set by landing.js after it
- | decides motion is appropriate; until then — and forever, if JS fails, or the
- | connection drops the module, or the visitor asked for reduced motion — every
- | element is in its final, readable state.
+ | The whole of it.
  |
- | This is the reverse of the usual pattern (hide in CSS, reveal in JS), and it is the
- | reason a JS failure here degrades to a plain page rather than a blank one.
+ | A 220ms fade-and-rise as a section enters, once, driven by IntersectionObserver. No
+ | animation library, no scroll listener, no scrub, no pin. The rejected direction
+ | needed ~50KB of GSAP and Lenis to do its work; this needs none, and the
+ | reduced-motion branch is satisfied by having almost nothing to switch off.
+ |
+ | `.rise` is made invisible ONLY when the observer is actually running (`data-io` is
+ | set by landing.js). With no JavaScript the page is simply a page.
  */
 
-[data-anim='on'] .l-reveal {
+[data-io='on'] .rise {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translateY(14px);
 }
 
-/* Only acts two and three are withheld. The intake receipt is printed on arrival —
-   see the note in landing.blade.php. */
-[data-anim='on'] .l-receipt[data-print='on'] [data-act] {
-  opacity: 0;
+[data-io='on'] .rise[data-seen='true'] {
+  opacity: 1;
+  transform: none;
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
-  /* Belt and braces: even if landing.js somehow set data-anim, nothing hides. */
-  [data-anim='on'] .l-reveal,
-  [data-anim='on'] .l-receipt [data-act] {
+  [data-io='on'] .rise,
+  [data-io='on'] .rise[data-seen='true'] {
     opacity: 1 !important;
     transform: none !important;
+    transition: none !important;
   }
 }
