@@ -906,11 +906,9 @@ h3 {
   transform: translateY(24px);
 }
 
-[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__line,
-[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__rule,
-[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__act,
-[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__sms,
-[data-anim='on'] .l-receipt[data-print='on'] .l-receipt__total {
+/* Only acts two and three are withheld. The intake receipt is printed on arrival —
+   see the note in landing.blade.php. */
+[data-anim='on'] .l-receipt[data-print='on'] [data-act] {
   opacity: 0;
 }
 
@@ -920,11 +918,7 @@ h3 {
   }
   /* Belt and braces: even if landing.js somehow set data-anim, nothing hides. */
   [data-anim='on'] .l-reveal,
-  [data-anim='on'] .l-receipt .l-receipt__line,
-  [data-anim='on'] .l-receipt .l-receipt__rule,
-  [data-anim='on'] .l-receipt .l-receipt__act,
-  [data-anim='on'] .l-receipt .l-receipt__sms,
-  [data-anim='on'] .l-receipt .l-receipt__total {
+  [data-anim='on'] .l-receipt [data-act] {
     opacity: 1 !important;
     transform: none !important;
   }

@@ -79,9 +79,10 @@ function build() {
   if (receipt) {
     receipt.setAttribute('data-print', 'on');
 
-    const rows = receipt.querySelectorAll(
-      '.l-receipt__line, .l-receipt__rule, .l-receipt__act, .l-receipt__sms, .l-receipt__total',
-    );
+    // Acts two and three only — the intake block is already printed. See the note in
+    // landing.blade.php: a receipt that is blank when you arrive is not a signature,
+    // it is a sheet of paper.
+    const rows = receipt.querySelectorAll('[data-act]');
 
     mm.add(
       {

@@ -108,22 +108,32 @@
                 <div class="l-receipt__line"><dt>برآورد اولیه</dt><dd>۴۵۰٬۰۰۰ تومان</dd></div>
             </dl>
 
-            <div class="l-receipt__rule"></div>
-            <p class="l-receipt__act">— دستگاه آمادهٔ تحویل شد —</p>
+            {{--
+                Acts two and three only.
 
-            <p class="l-receipt__sms">
+                The intake block above is NOT animated, and that is a correction made
+                after seeing the first build on the box: with the whole receipt driven
+                from scroll position zero, a visitor arriving at the top was looking at
+                a blank sheet of paper — the signature element of the page, empty. A
+                pristine قبض پذیرش is itself a real artifact, so it is simply there on
+                arrival, and scrolling continues the job through the shop.
+            --}}
+            <div class="l-receipt__rule" data-act></div>
+            <p class="l-receipt__act" data-act>— دستگاه آمادهٔ تحویل شد —</p>
+
+            <p class="l-receipt__sms" data-act>
                 پیامک به ۰۹۳۵۱۲۳۴۵۶۷:<br>
                 «موبایل مویار — دستگاه شما آمادهٔ تحویل است. لطفاً قبض را همراه بیاورید.»
             </p>
 
-            <div class="l-receipt__rule"></div>
+            <div class="l-receipt__rule" data-act></div>
 
             <dl>
-                <div class="l-receipt__line"><dt>هزینهٔ نهایی</dt><dd>۴۲۰٬۰۰۰ تومان</dd></div>
-                <div class="l-receipt__line"><dt>پیش‌پرداخت</dt><dd>۱۰۰٬۰۰۰ تومان</dd></div>
+                <div class="l-receipt__line" data-act><dt>هزینهٔ نهایی</dt><dd>۴۲۰٬۰۰۰ تومان</dd></div>
+                <div class="l-receipt__line" data-act><dt>پیش‌پرداخت</dt><dd>۱۰۰٬۰۰۰ تومان</dd></div>
             </dl>
 
-            <div class="l-receipt__total"><span>تسویه</span><span>۳۲۰٬۰۰۰ تومان</span></div>
+            <div class="l-receipt__total" data-act><span>تسویه</span><span>۳۲۰٬۰۰۰ تومان</span></div>
         </div>
     </div>
 </section>
