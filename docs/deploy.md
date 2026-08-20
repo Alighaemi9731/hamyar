@@ -324,6 +324,12 @@ file.
 17 2 * * *  cd /srv/mobishop && ./bin/backup-nightly >> /var/log/mobishop-backup.log 2>&1
 ```
 
+**Host prerequisite: `postgresql-client`, matching the server's major version.** The dump
+is taken *inside* the container, but `bin/backup-nightly` verifies the archive with
+`pg_restore --list` on the **host** — and that verification is the step that catches an
+RLS-filtered empty backup, which is the worst outcome in this document. Without the client
+the job dies there. `apt-get install postgresql-client-16` on Ubuntu 24.04.
+
 Two levels, for two different disasters:
 
 | | recovers | survives |
