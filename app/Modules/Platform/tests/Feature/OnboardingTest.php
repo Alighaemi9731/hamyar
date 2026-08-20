@@ -174,3 +174,31 @@ it('rolls the whole thing back if any step fails', function (): void {
     expect(Tenant::query()->count())->toBe(1);
     expect(Tenant::query()->where('name', 'Second')->exists())->toBeFalse();
 });
+
+/*
+| Found on staging, by filling the real form on the real domain.
+|
+| The test above posts a PLAIN request, so `Inertia::location()` degrades to an ordinary
+| 302 and it passes — and it passed just as happily when the controller returned
+| `redirect()->away()`, which nobody could actually complete. The browser submits this
+| form with axios and follows redirects as XHR; a shop lives on its own hostname, so the
+| destination is a different origin and our own `connect-src 'self'` blocks the fetch.
+|
+| The shop was provisioned either way. What differed was whether the person who asked for
+| it ever found out — the failure left them on an unchanged form with a console error, and
+| pressing the button again told them the address was taken, by their own shop.
+|
+| So this test sends the header that makes the request Inertia, which is the only
+| condition under which the fault exists.
+*/
+it('sends an Inertia submission to the new shop with a full page visit, not an XHR redirect', function (): void {
+    $response = $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => ''])
+        ->post(centralUrl('/register'), onboardingPayload());
+
+    // 409 + X-Inertia-Location is what the client turns into `window.location = …`.
+    // A 302 here would be followed by axios as a cross-origin fetch and blocked by CSP.
+    $response->assertStatus(409);
+    $response->assertHeader('X-Inertia-Location', 'http://'.Domain::hostnameFor('iranian-mobile').'/login');
+
+    expect(Tenant::query()->where('slug', 'iranian-mobile')->exists())->toBeTrue();
+});
