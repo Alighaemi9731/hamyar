@@ -569,7 +569,9 @@ h3 {
 }
 
 .toggle button {
-  min-block-size: 2.5rem;
+  /* 44px, not 40. Measured at 390px: this was the only target on the page under the
+     minimum, and it is the one control a shopkeeper taps while deciding what to pay. */
+  min-block-size: 2.75rem;
   padding-inline: 1.25rem;
   border-radius: 999px;
   font-size: 0.9375rem;
