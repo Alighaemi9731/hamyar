@@ -7,8 +7,8 @@
  | a 220ms fade-and-rise on section entry — which is an IntersectionObserver and a CSS
  | transition.
  |
- | Everything here is page FUNCTIONALITY except the observer: the sticky-nav hairline,
- | the pricing toggle, the FAQ and the shop-entry form all have to work whether or not
+ | Everything here is page FUNCTIONALITY except the observer and the spine: the
+ | sticky-nav hairline, the pricing toggle and the FAQ all have to work whether or not
  | this file ever arrives.
  */
 
@@ -80,35 +80,6 @@ if (faq) {
   );
 }
 
-/* ---------------------------------------------------------------- enter ---- */
-/*
- | Every shop lives on its own hostname, so there is no single login URL to link to from
- | the apex — `/login` exists on `<shop>.<apex>` and nowhere else. This turns a shop name
- | into that address.
- |
- | Client-side on purpose: the apex must not be able to confirm whether a given shop
- | exists. Posting this to the server would make it an oracle for enumerating tenant
- | names, and the honest answer for a wrong name is the tenant middleware's own 404, on
- | the shop's own hostname.
- */
-
-const enter = document.querySelector('[data-enter]');
-
-if (enter) {
-  enter.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const raw = new FormData(enter).get('shop') || '';
-    // A shopkeeper may paste the whole address; keep only the label.
-    const slug = String(raw)
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .split('.')[0]
-      .replace(/[^a-z0-9-]/g, '');
-    if (slug) window.location.href = `${window.location.protocol}//${slug}.${window.location.host}/login`;
-  });
-}
-
 /* --------------------------------------------------------------- motion ---- */
 /*
  | The only animation on the page.
@@ -141,5 +112,43 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     );
 
     targets.forEach((el) => io.observe(el));
+  }
+
+  /* ------------------------------------------------------------- spine ---- */
+  /*
+  | The scroll line. The page's only scroll-linked effect, and deliberately the cheap
+  | kind: a passive listener, throttled to one read per frame, writing a single CSS
+  | custom property. No library, and nothing that can hold the scroll.
+  |
+  | The read (getBoundingClientRect) and the write (style.setProperty) are separated by
+  | the rAF boundary so this cannot cause layout thrash — measuring after writing in the
+  | same frame is what turns a cheap effect into a janky one.
+  */
+
+  const spine = document.querySelector('[data-spine]');
+  const fill = document.querySelector('[data-spine-fill]');
+
+  if (spine && fill && window.matchMedia('(min-width: 900px)').matches) {
+    let queued = false;
+
+    const paint = () => {
+      queued = false;
+      const box = spine.getBoundingClientRect();
+      // Fill in step with where the reader is: 0 when the rail's top reaches the middle
+      // of the screen, 1 when its bottom does.
+      const middle = window.innerHeight / 2;
+      const progress = (middle - box.top) / (box.height || 1);
+      fill.style.setProperty('--spine', String(Math.min(1, Math.max(0, progress))));
+    };
+
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(paint);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    paint();
   }
 }

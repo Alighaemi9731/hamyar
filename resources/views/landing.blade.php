@@ -20,13 +20,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>مویار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
-    <meta name="description" content="مویار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. ۱۴ روز رایگان، بدون کارت بانکی.">
+    <title>موبایل‌یار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
+    <meta name="description" content="موبایل‌یار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. ۱۴ روز رایگان، بدون کارت بانکی.">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="canonical" href="{{ url('/') }}">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="مویار — نرم‌افزار فروشگاه موبایل">
+    <meta property="og:title" content="موبایل‌یار — نرم‌افزار فروشگاه موبایل">
     <meta property="og:description" content="از پذیرش تعمیر تا تسویه، روی یک قبض.">
     <meta property="og:locale" content="fa_IR">
     <meta property="og:url" content="{{ url('/') }}">
@@ -47,7 +47,7 @@
                 <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="#0E1B2C" stroke-width="2"/>
                 <path d="M12 24.5h8" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            مویار
+            موبایل‌یار
         </a>
 
         <nav class="nav__links" aria-label="پیمایش اصلی">
@@ -56,9 +56,18 @@
             <a href="#faq">سوالات</a>
         </nav>
 
+        {{--
+            «ورود» is deliberately absent for the moment.
+
+            There is no single login URL yet: `/login` exists on `<shop>.<apex>` and
+            nowhere else, so anything this button pointed at would 404 or send the
+            visitor to a shop-address form that has just been removed. It returns as a
+            real link the moment the shared `app.<apex>` login lands.
+
+            A nav button that goes nowhere is worse than a nav without one.
+        --}}
         <div class="nav__cta">
-            <a href="#enter" class="btn btn--quiet">ورود</a>
-            <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام رایگان</a>
+            <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
         </div>
     </div>
 </header>
@@ -72,12 +81,12 @@
             <h1 class="hero__title">از پذیرش تعمیر تا تسویه،<br>روی یک قبض.</h1>
 
             <p class="hero__lede">
-                مویار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات،
+                موبایل‌یار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات،
                 اقساط و چک، پیامک خودکار به مشتری، و گزارش سودی که واقعاً سود است.
             </p>
 
             <div class="hero__actions">
-                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">۱۴ روز رایگان شروع کنید</a>
+                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">ساخت فروشگاه</a>
                 <a href="#features" class="btn btn--quiet btn--lg">امکانات را ببینید</a>
             </div>
 
@@ -94,7 +103,7 @@
         <div class="receipt" role="img"
              aria-label="نمونهٔ قبض پذیرش تعمیر: اپل آیفون ۱۳ با شناسهٔ ۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱، برآورد اولیه ۴۵۰٬۰۰۰ تومان، پیامک آماده تحویل، و تسویهٔ ۳۲۰٬۰۰۰ تومان.">
             <div class="receipt__head">
-                <div class="receipt__shop">موبایل مویار</div>
+                <div class="receipt__shop">موبایل‌یار</div>
                 <div class="receipt__kind">قبض پذیرش تعمیر</div>
             </div>
 
@@ -112,7 +121,7 @@
             <p class="receipt__act">— دستگاه آمادهٔ تحویل شد —</p>
 
             <p class="receipt__sms">
-                «موبایل مویار — دستگاه شما آمادهٔ تحویل است. لطفاً قبض را همراه بیاورید.»
+                «موبایل‌یار — دستگاه شما آمادهٔ تحویل است. لطفاً قبض را همراه بیاورید.»
             </p>
 
             <div class="receipt__rule"></div>
@@ -140,15 +149,27 @@
 
 {{-- =========================================================== features === --}}
 <section class="sec" id="features">
-    <div class="shell">
+    <div class="shell" data-spine-scope style="position:relative">
         <div class="sec__head rise">
             <p class="sec__eyebrow">امکانات</p>
             <h2 class="sec__title">پنج کاری که هر روز پشت پیشخوان تکرار می‌شود</h2>
             <p class="sec__lede">همهٔ تصویرها از خود محصول گرفته شده‌اند — نه طرح، نه ماکت.</p>
         </div>
 
+        {{--
+            The scroll spine. A single hairline down the inline-start edge that fills as
+            you scroll, with one node per row lighting as it arrives. It is decoration
+            with a job: five rows of alternating text and screenshot read as a list, and
+            the line makes them read as a sequence — the day, in order.
+
+            aria-hidden because it says nothing a screen reader needs; the rows are
+            already <article>s in document order.
+        --}}
+        <div class="spine" data-spine aria-hidden="true"><span class="spine__fill" data-spine-fill></span></div>
+
         @foreach ($features as [$title, $body, $file])
-            <article class="feature rise">
+            <article class="feature rise" data-node style="--i:{{ $loop->index }}">
+                <span class="feature__node" aria-hidden="true"></span>
                 <div class="feature__text">
                     <h3 class="feature__title">{{ $title }}</h3>
                     <p class="feature__body">{{ $body }}</p>
@@ -159,7 +180,7 @@
                         <span class="frame__dot"></span><span class="frame__dot"></span><span class="frame__dot"></span>
                     </div>
                     <img src="{{ Vite::asset("resources/landing/shots/{$file}.webp") }}"
-                         alt="نمای واقعی صفحهٔ {{ $title }} در مویار"
+                         alt="نمای واقعی صفحهٔ {{ $title }} در موبایل‌یار"
                          width="1440" height="900" loading="lazy" decoding="async">
                 </div>
             </article>
@@ -177,7 +198,7 @@
             <p class="imei__digits nums">۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱</p>
 
             <p class="sec__lede" style="margin-inline:auto">
-                دستگاه‌ها در مویار «تعداد» نیستند؛ هرکدام یک سطر با شناسهٔ خودشان هستند.
+                دستگاه‌ها در موبایل‌یار «تعداد» نیستند؛ هرکدام یک سطر با شناسهٔ خودشان هستند.
                 به همین دلیل این سه سؤال همیشه جواب دارند:
             </p>
         </div>
@@ -198,7 +219,7 @@
         </div>
 
         <p class="hero__note rise" style="margin-block-start:2rem;max-inline-size:40rem;margin-inline:auto">
-            دربارهٔ همتا صادق باشیم: سامانهٔ همتا API عمومی ندارد. مویار سوابق را نگه
+            دربارهٔ همتا صادق باشیم: سامانهٔ همتا API عمومی ندارد. موبایل‌یار سوابق را نگه
             می‌دارد و مسیر کار را نشان می‌دهد، اما جای ثبت در همتا را نمی‌گیرد.
         </p>
     </div>
@@ -245,7 +266,7 @@
                         @endif
                     </ul>
 
-                    <a href="{{ route('register') }}" class="btn {{ $featured ? 'btn--primary' : 'btn--quiet' }}">شروع رایگان</a>
+                    <a href="{{ route('register') }}" class="btn {{ $featured ? 'btn--primary' : 'btn--quiet' }}">شروع کنید</a>
                 </div>
             @endforeach
         </div>
@@ -276,7 +297,7 @@
         <div class="faq rise" data-faq>
             <details>
                 <summary>با سامانهٔ همتا چه می‌کند؟</summary>
-                <p>همتا API عمومی ندارد، پس هیچ نرم‌افزاری نمی‌تواند مستقیماً در آن ثبت کند — و ما هم ادعا نمی‌کنیم. مویار وضعیت همتای هر دستگاه را نگه می‌دارد، یادآوری می‌کند و راهنمای مرحله‌به‌مرحله دارد؛ ثبت نهایی را خودتان در سامانه انجام می‌دهید.</p>
+                <p>همتا API عمومی ندارد، پس هیچ نرم‌افزاری نمی‌تواند مستقیماً در آن ثبت کند — و ما هم ادعا نمی‌کنیم. موبایل‌یار وضعیت همتای هر دستگاه را نگه می‌دارد، یادآوری می‌کند و راهنمای مرحله‌به‌مرحله دارد؛ ثبت نهایی را خودتان در سامانه انجام می‌دهید.</p>
             </details>
             <details>
                 <summary>سامانهٔ مودیان چطور؟</summary>
@@ -292,7 +313,7 @@
             </details>
             <details>
                 <summary>اینترنت مغازه قطع شود چه؟</summary>
-                <p>مویار روی مرورگر کار می‌کند و به اینترنت نیاز دارد. برای همین قبض‌ها چاپ می‌شوند و خروجی اکسل همیشه در دسترس است؛ اما اگر اینترنت مغازه‌تان ناپایدار است، این را قبل از شروع بدانید.</p>
+                <p>موبایل‌یار روی مرورگر کار می‌کند و به اینترنت نیاز دارد. برای همین قبض‌ها چاپ می‌شوند و خروجی اکسل همیشه در دسترس است؛ اما اگر اینترنت مغازه‌تان ناپایدار است، این را قبل از شروع بدانید.</p>
             </details>
         </div>
 
@@ -304,30 +325,15 @@
     </div>
 </section>
 
-{{-- ============================================================== enter === --}}
-<section class="sec" id="enter" style="padding-block-end:0">
-    <div class="shell" style="max-inline-size:30rem">
-        <h2 style="font-size:1.5rem;margin-block-end:0.5rem">ورود به فروشگاه شما</h2>
-        <p class="hero__note" style="margin-block-end:1.25rem">
-            هر فروشگاه نشانی خودش را دارد. نام فروشگاه را بنویسید تا برویم.
-        </p>
-        <form data-enter style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-            <label for="shop" style="position:absolute;inset-inline-start:-9999px">نام فروشگاه</label>
-            <input id="shop" name="shop" class="field" required autocomplete="off" placeholder="mobitest" style="flex:1 1 11rem">
-            <span style="color:var(--color-navy-mute)">.{{ config('app.domain') }}</span>
-            <button type="submit" class="btn btn--quiet">ورود</button>
-        </form>
-    </div>
-</section>
-
 {{-- ============================================================== final === --}}
 <section class="sec final">
     <div class="shell rise">
-        <h2 class="sec__title">امروز عصر می‌توانید اولین فاکتور را بزنید</h2>
+        <h2 class="sec__title">فروشگاه‌تان را بسازید</h2>
         <p class="sec__lede" style="margin-inline:auto;margin-block-end:2rem">
-            ۱۴ روز رایگان، بدون کارت بانکی. اگر نپسندیدید، هیچ اتفاقی نمی‌افتد.
+            راه‌اندازی چند دقیقه طول می‌کشد و چیزی نصب نمی‌شود.
+            ۱۴ روز اول بدون هزینه است و کارت بانکی نمی‌خواهد.
         </p>
-        <a href="{{ route('register') }}" class="btn btn--primary btn--lg">ثبت‌نام رایگان</a>
+        <a href="{{ route('register') }}" class="btn btn--primary btn--lg">ثبت‌نام</a>
     </div>
 </section>
 
@@ -335,7 +341,7 @@
 
 <footer class="foot">
     <div class="shell foot__row">
-        <span>© ۱۴۰۵ مویار</span>
+        <span>© ۱۴۰۵ موبایل‌یار</span>
         <nav style="display:flex;gap:1.5rem" aria-label="پیوندهای حقوقی">
             <a href="{{ route('legal.terms') }}">قوانین و شرایط</a>
             <a href="{{ route('legal.privacy') }}">حریم خصوصی</a>

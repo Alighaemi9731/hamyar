@@ -476,6 +476,78 @@ h3 {
   max-inline-size: 30rem;
 }
 
+/* ---------------------------------------------------------------- spine ---- */
+/*
+ | The scroll line: one hairline down the inline-start edge of the features list, with a
+ | node per row. It fills as you scroll and each node lights as its row arrives.
+ |
+ | This is the page's only scroll-linked effect, and it is deliberately the cheap kind:
+ | a CSS custom property written from a rAF-throttled scroll handler, driving a
+ | `scaleY` on a single element. No library, no pinning, nothing that can hold the page.
+ |
+ | Hidden below 900px. On a phone the rows already stack into an obvious sequence, and a
+ | decorative rail would only steal width from the reading measure.
+ */
+
+.spine {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .spine {
+    display: block;
+    position: absolute;
+    inset-inline-start: -1.75rem;
+    /* Starts below the section heading and ends with the last row. */
+    inset-block: 13rem 4rem;
+    inline-size: 2px;
+    background: var(--color-hair);
+    border-radius: 2px;
+  }
+
+  .spine__fill {
+    display: block;
+    block-size: 100%;
+    inline-size: 100%;
+    background: var(--color-accent);
+    border-radius: inherit;
+    transform-origin: top;
+    /* Written by landing.js; 0 until it runs, so with no JS the rail is simply a
+       hairline and nothing looks half-finished. */
+    scale: 1 var(--spine, 0);
+    transition: scale 120ms linear;
+  }
+
+  .feature {
+    position: relative;
+  }
+
+  .feature__node {
+    position: absolute;
+    inset-inline-start: -2.125rem;
+    inset-block-start: 50%;
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    border-radius: 999px;
+    background: var(--color-page);
+    border: 2px solid var(--color-hair);
+    translate: 0 -50%;
+    transition: border-color 260ms ease, background 260ms ease, scale 260ms ease;
+  }
+
+  .feature[data-seen='true'] .feature__node {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    scale: 1.15;
+  }
+}
+
+@media (max-width: 899px) {
+  .feature__node {
+    display: none;
+  }
+}
+
 /* Light browser chrome — a hairline and three dots, not a photorealistic device. */
 .frame {
   border: 1px solid var(--color-hair);
@@ -833,7 +905,18 @@ h3 {
 [data-io='on'] .rise[data-seen='true'] {
   opacity: 1;
   transform: none;
-  transition: opacity 220ms ease-out, transform 220ms ease-out;
+  transition: opacity 260ms ease-out, transform 260ms ease-out;
+}
+
+/* A short stagger inside a feature row: the text settles, then its screenshot. 60ms is
+   under the threshold where a delay reads as lag, and it is what makes five identical
+   rows feel authored rather than generated. */
+[data-io='on'] .feature[data-seen='true'] .feature__text {
+  transition-delay: 40ms;
+}
+
+[data-io='on'] .feature[data-seen='true'] .frame {
+  transition-delay: 100ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -844,6 +927,19 @@ h3 {
   [data-io='on'] .rise[data-seen='true'] {
     opacity: 1 !important;
     transform: none !important;
+    transition: none !important;
+  }
+
+  /* The rail is filled and the nodes are lit, statically. Reduced motion gets the
+     finished state, not a disabled one — the same rule the receipt follows. */
+  .spine__fill {
+    scale: 1 1 !important;
+    transition: none !important;
+  }
+
+  .feature__node {
+    border-color: var(--color-accent) !important;
+    background: var(--color-accent) !important;
     transition: none !important;
   }
 }
