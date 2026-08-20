@@ -564,12 +564,39 @@ h3 {
   block-size: auto;
 }
 
-/* Desktop: frames stack and cross-fade inside the pin. Mobile: they simply flow. */
+/*
+ | Desktop: the five frames stack in the left-hand column and cross-fade. Mobile: each
+ | one simply follows its own text.
+ |
+ | They are positioned against `.l-stage__inner` — the grid itself — and NOT lifted into
+ | a separate container, because an earlier version of this file claimed CSS would "move
+ | them" there and CSS cannot move an element to a different parent. It rendered as five
+ | frames strung down the right-hand column beside their tabs, with the whole left half
+ | of the stage empty. Sharing one positioning context is what makes a single copy of the
+ | markup work at both widths.
+ |
+ | RTL: the 20rem tab column is the FIRST grid column, which in RTL sits on the right, so
+ | the frames are pinned to `inset-inline-end` — the left edge — and sized to what is
+ | left over.
+ */
 @media (min-width: 900px) {
-  .l-stage__frames > .l-frame {
+  .l-stage__inner {
+    position: relative;
+  }
+
+  .l-scene .l-frame {
     position: absolute;
-    inset: 0;
-    block-size: fit-content;
+    inset-block-start: 50%;
+    inset-inline-end: 0;
+    inline-size: calc(100% - 22rem);
+    translate: 0 -50%;
+    margin-block-start: 0 !important;
+  }
+
+  /* The desktop stack target is vestigial now that the frames position against the
+     grid; it stays in the markup only as the grid's second column placeholder. */
+  .l-stage__frames {
+    min-block-size: 26rem;
   }
 }
 
