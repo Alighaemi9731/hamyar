@@ -415,6 +415,15 @@ on mid-incident:
 - Request bodies are scrubbed by `App\Support\SensitiveInput` — the same list
   `dontFlash` uses, so a key added for one door closes the other.
 
+**`SENTRY_RELEASE` is not in `.env.production`, and must not be put there.**
+`Dockerfile.prod` bakes it from `APP_RELEASE` at build time, because the image is the
+only thing that knows which commit it contains. Compose's `env_file` **overrides** an
+image's `ENV`, so a bare `SENTRY_RELEASE=` line replaces the baked value with an empty
+string and every event arrives with no release attached — the one tag that answers
+"which deploy broke this". It fails silently and reads as Sentry not reporting the field
+rather than as a misconfiguration. Verified on the box: the image alone reports
+`7e09522fd`; the same image with `--env-file .env.production` reported nothing.
+
 Events carry `tenant_id` and the shop's slug as **tags**. That answers the question an
 incident actually asks — *which shop?* — without carrying anyone's data to answer it.
 
