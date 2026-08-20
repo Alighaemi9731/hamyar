@@ -116,13 +116,19 @@ it('restores the previous tenant even when the callback throws', function (): vo
 });
 
 it('serves each tenant its own login page and 404s an unknown host', function (): void {
+    // Blade now, not Inertia (ADR 0016 — the public surfaces share one design language).
+    // The ASSERTION is unchanged in substance and deliberately so: the page must name
+    // the shop it is serving, and checking only the 404 below would have let this page
+    // stop identifying its tenant without a single test going red.
     $this->get(tenantUrl($this->alpha, '/login'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tenant.name', 'Alpha'));
+        ->assertSee('Alpha', false)
+        ->assertDontSee('Beta', false);
 
     $this->get(tenantUrl($this->beta, '/login'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tenant.name', 'Beta'));
+        ->assertSee('Beta', false)
+        ->assertDontSee('Alpha', false);
 
     // Never a fallback to a default tenant — a typo must not serve someone else's shop.
     $this->get(unknownTenantUrl('/login'))->assertNotFound();

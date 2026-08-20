@@ -56,6 +56,7 @@
 
             <div class="auth__form">
                 <h1 class="auth__title">@yield('heading')</h1>
+                @yield('subheading')
 
                 {{--
                     The home for errors that belong to no field.

@@ -7,11 +7,12 @@ namespace App\Modules\Identity\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Models\User;
+use App\Support\Tenancy\TenantContext;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Inertia\Response;
 
 /**
  * Per-tenant login. Reached only through the `tenant` middleware, so the context —
@@ -23,9 +24,28 @@ use Inertia\Response;
  */
 final class LoginController extends Controller
 {
-    public function create(): Response
+    /**
+     * Blade, not Inertia.
+     *
+     * The public surfaces — landing, legal, sign-up and this — share one design language
+     * that lives in a Blade stylesheet (ADR 0016). Rendered through React this page
+     * inherited the *application's* look instead, which is why it did not match the page
+     * the visitor arrived from.
+     */
+    public function create(TenantContext $context): View
     {
-        return Inertia::render('auth/login');
+        /*
+        | The shop's name is passed because the page must SAY which shop you are signing
+        | into, and TenantIsolationTest asserts exactly that: alpha's login page shows
+        | "Alpha" and beta's shows "Beta".
+        |
+        | It is an isolation property, not decoration. This page is reached by hostname,
+        | and a page that looks identical whichever shop it is serving gives a person no
+        | way to notice they are about to type their password into the wrong one.
+        */
+        return view('auth.login', [
+            'shopName' => $context->tenant()?->name,
+        ]);
     }
 
     public function store(LoginRequest $request): RedirectResponse

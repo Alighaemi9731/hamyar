@@ -3,6 +3,15 @@
 @section('title', 'ورود')
 @section('heading', 'ورود')
 
+@section('subheading')
+    {{-- Which shop this is. TenantIsolationTest asserts it, because a login page that
+         looks the same for every shop gives nobody a way to notice they are about to
+         type their password into the wrong one. --}}
+    @isset($shopName)
+        <p style="color:var(--color-navy-mute);margin-block:-1.25rem 1.75rem;font-size:0.9375rem">{{ $shopName }}</p>
+    @endisset
+@endsection
+
 @section('form')
     <form method="POST" action="{{ route('login.store') }}" novalidate>
         @csrf
@@ -37,8 +46,17 @@
 
         <button type="submit" class="btn btn--primary auth__submit">ورود به حساب کاربری</button>
 
+        {{--
+            Absolute, to the apex.
+
+            This page is served on the SHOP's hostname, where `/register` does not exist —
+            registration lives on the central domain only. `route('register')` would build
+            it against the current host and 404. The apex comes from config, never a
+            literal (golden rule 1b).
+        --}}
         <p class="auth__alt">
-            <a href="{{ route('register') }}">ثبت نام</a>
+            حساب ندارید؟
+            <a href="{{ Illuminate\Support\Facades\URL::formatScheme().config('app.domain').'/register' }}">ثبت نام</a>
         </p>
     </form>
 @endsection
