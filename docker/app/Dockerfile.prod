@@ -41,7 +41,53 @@ COPY vite.config.ts tsconfig.json components.json ./
 COPY resources ./resources
 COPY public ./public
 
-RUN npm run build
+# `app/`, and without it this image ships a frontend with none of the application in it.
+#
+# Pages live in TWO places (see resources/js/lib/pages.ts): app-level pages under
+# resources/js/pages, and module-owned pages under app/Modules/<Name>/resources/js/pages,
+# which is what stops the frontend collapsing into one flat folder that ignores module
+# boundaries (ADR 0003). The resolver finds the second set with
+#
+#     import.meta.glob('../../../app/Modules/*/resources/js/pages/**/*.tsx')
+#
+# and this stage did not copy `app/` at all. **A glob that matches nothing is not an
+# error** — in Vite or anywhere else — so the build succeeded, the bundle was a plausible
+# 1.9MB across 31 chunks, and 64 of the product's 78 page components simply were not in
+# it. Everything except auth and the landing page rendered as a white screen in
+# production: the till, sales, catalog, inventory, repairs, CRM, treasury, cheques,
+# installments, reporting. The only symptom was a console error nobody was reading.
+#
+# CI could never have caught it. The "Typecheck & build" job runs `npm run build` against
+# the whole repository, where `app/` is present, so it builds correctly there every time.
+# The fault existed only in this file, and only inside the image.
+#
+# Copying `app/` here does mean a PHP-only change now invalidates the Vite build cache,
+# which the header above says it wants to avoid. That is the correct trade: a slower
+# rebuild costs minutes, and shipping an application with no screens in it cost a
+# production morning.
+COPY app ./app
+
+# The assertion that makes the above unrepeatable.
+#
+# The COPY is one line and a future refactor can drop it, move the pages, or change the
+# glob, and every signal will stay green — that is exactly what happened. So the build
+# now reads its own manifest back and refuses to produce an image whose frontend has no
+# module pages in it. Same discipline as bin/backup-nightly reading its own archive.
+RUN npm run build \
+ && if ! grep -q '"app/Modules/' public/build/manifest.json; then \
+        echo ""                                                                     >&2; \
+        echo "FATAL: the built manifest contains no module pages."                  >&2; \
+        echo "Every screen outside auth would render as a white page in production" >&2; \
+        echo "— the till included — with only a console error to say so."           >&2; \
+        echo ""                                                                     >&2; \
+        echo "resources/js/lib/pages.ts resolves them with"                         >&2; \
+        echo "  import.meta.glob('../../../app/Modules/*/resources/js/pages/**')"   >&2; \
+        echo "so check that this stage still COPYs app/ before npm run build, and"  >&2; \
+        echo "that the glob still matches where the pages actually live."           >&2; \
+        echo ""                                                                     >&2; \
+        exit 1; \
+    fi \
+ && echo "module page components bundled: $(grep -o '\"app/Modules/[^\"]*\.tsx\"' public/build/manifest.json | wc -l)"
 
 # ------------------------------------------------------------------ base ----
 #
