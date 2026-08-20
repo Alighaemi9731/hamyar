@@ -1889,3 +1889,25 @@ are literal, as the Cheques suites show — and found two more, both fused for *
 twelve days out**. Six tests fail on 2026-09-02 before the fix; all 33 across the four
 files pass on 2029-03-14 after it. Detail in the commit; the rule is that a fixture built
 from `now()` must never be measured against a fixed date.
+- **2026-08-20 — 11.4: staging on real hardware (`mobiyar.com`), and the eleven faults it found.**
+  Provisioned a Hetzner box in Helsinki, issued wildcard TLS for `mobiyar.com` + `*.mobiyar.com`
+  via DNS-01/Cloudflare, deployed from `main`, seeded the 50-shop fixture (19.1M rows, 87.6 min),
+  ran the k6 load test from a second Helsinki box 4.4ms away, and performed the restore drill.
+  **The deploy layer had never run, and essentially none of it worked first time.** In order of
+  severity: WAL archiving had *never once succeeded* (root-owned named volume; `failed_count`
+  3595, no point-in-time recovery at all, `pg_wal` at 14.5GB heading for a full disk);
+  `bin/deploy` could force-recreate the **live** container after any repo sync, because the
+  upstream file it trusts is both tracked and runtime state; the certbot container had no DNS
+  plugin so wildcard renewal could never have worked; nothing ever reloaded nginx after a
+  renewal, so a renewed certificate would have expired in place; the restore drill could not
+  complete a run and its isolation assertion could never have tested isolation (no privileges on
+  the scratch database — "denied by RLS" and "cannot see the table" are the same zero);
+  `SENTRY_RELEASE` was clobbered by an empty env line; `release/public` was unreadable by nginx;
+  `pg_stat_statements` was preloaded but never created; `pg_restore` was missing on the host that
+  verifies the backups. Six PRs. **Load test: aggregate p95 1.62s — FAILS the 1000ms threshold —
+  with 0.00% errors across 1339 requests.** `/dashboard` is the cause at 2.03s p95 and **1.3s with
+  a single user**, traced to a non-sargable date expression (26% of all DB time), a `select *` at
+  81.7ms mean, and a 20,600-call N+1. Raising FPM workers made it worse, not better: throughput is
+  flat at ~14 req/s, so the box is saturated and the dashboard is what saturates it. Restore drill
+  **RTO 102s observed**. Sentry live with `send_default_pii` and both `sql_bindings` verified off;
+  `sentry:publish` deliberately not run — it would have overwritten those with vendor defaults.

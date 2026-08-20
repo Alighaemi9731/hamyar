@@ -62,7 +62,7 @@ readonly LOG_FILE="${LOG_DIR}/${STAMP}.md"
 dc()   { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 psqlc(){ dc exec -T -e PGPASSWORD="$DB_ROOT_PASSWORD" postgres psql -U "$DB_ROOT_USERNAME" -v ON_ERROR_STOP=1 "$@"; }
 
-trap 'printf "\n**Result: FAILED at line %s.**\n" "$LINENO" >> "$LOG_FILE"' ERR
+trap 'printf "\n**Result: FAILED at line %s.**\n" "$LINENO" >> "$LOG_FILE"; cleanup_container_dump 2>/dev/null || true' ERR
 
 {
     echo "# Restore drill — ${STAMP}"
@@ -83,6 +83,24 @@ psqlc -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};"
 psqlc -d postgres -c "CREATE DATABASE ${SCRATCH_DB} OWNER ${DB_ROOT_USERNAME};"
 
 # ---------------------------------------------------------------- 1. restore ----
+#
+# The dump is copied INTO the container rather than piped in, and that is the whole
+# reason this script had never completed a run. pg_restore's parallel path has to seek
+# within the archive, so it refuses a stream outright:
+#
+#     pg_restore: error: parallel restore from standard input is not supported
+#
+# Piping is the obvious spelling when the file is on the host and the binary is in the
+# container, and it fails at the first byte rather than degrading — which is the good
+# version of this bug. Dropping --jobs would also "work", and would quietly report an
+# RTO several times worse than the real one; this drill exists to produce that number,
+# so the parallelism is the part worth keeping.
+readonly CONTAINER_DUMP="/tmp/restore-drill-$(basename "$DUMP")"
+cleanup_container_dump() { dc exec -T postgres rm -f "$CONTAINER_DUMP" >/dev/null 2>&1 || true; }
+
+log "copying the dump into the database container"
+docker cp "$DUMP" "$(dc ps -q postgres)":"$CONTAINER_DUMP"
+
 log "restoring (this is the number that matters)"
 readonly RESTORE_STARTED=$SECONDS
 dc exec -T -e PGPASSWORD="$DB_ROOT_PASSWORD" postgres pg_restore \
@@ -90,8 +108,9 @@ dc exec -T -e PGPASSWORD="$DB_ROOT_PASSWORD" postgres pg_restore \
     --dbname="$SCRATCH_DB" \
     --no-owner \
     --jobs=4 \
-    < "$DUMP"
+    "$CONTAINER_DUMP"
 readonly RESTORE_SECONDS=$(( SECONDS - RESTORE_STARTED ))
+cleanup_container_dump
 log "restored in ${RESTORE_SECONDS}s"
 
 # ------------------------------------------------------------- 2. is it there ----
@@ -99,7 +118,7 @@ log "counting what came back"
 counts="$(psqlc -d "$SCRATCH_DB" -At -F'|' -c "
     SELECT 'tenants',         count(*) FROM tenants
     UNION ALL SELECT 'users',           count(*) FROM users
-    UNION ALL SELECT 'invoices',        count(*) FROM invoices
+    UNION ALL SELECT 'sales_invoices',  count(*) FROM sales_invoices
     UNION ALL SELECT 'stock_movements', count(*) FROM stock_movements
     UNION ALL SELECT 'product_units',   count(*) FROM product_units;
 ")"
@@ -111,22 +130,58 @@ tenant_count="$(printf '%s\n' "$counts" | awk -F'|' '$1=="tenants"{print $2}')"
 movements="$(printf '%s\n' "$counts" | awk -F'|' '$1=="stock_movements"{print $2}')"
 (( movements > 0 )) || die "no stock movements restored; the ledger is the product's source of truth for stock (golden rule 3)"
 
+# ------------------------------------------------ 2b. grant the application role ----
+#
+# The scratch database is created and restored AS THE SUPERUSER, so the application
+# role has no privileges in it whatsoever. Step 4 below connects as that role to prove
+# the policies deny — and "permission denied for table sales_invoices" is not the same
+# finding as "RLS returned zero rows". One is a broken drill, the other is the thing
+# being tested, and they are indistinguishable from a row count of nothing.
+#
+# So reproduce what docker/postgres/init/10-app-role.sh gives the real database. RLS
+# then has to be what stops the read, because privileges no longer are.
+log "granting the application role, so the isolation check tests RLS and not privileges"
+psqlc -d "$SCRATCH_DB" -c "
+    GRANT USAGE ON SCHEMA public TO ${DB_USERNAME};
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${DB_USERNAME};
+" >/dev/null
+
 # ------------------------------------------------------------------- 3. rls ----
 #
 # The check that a generic restore procedure would never think to make, and the one
 # whose absence is worst: a restored platform without RLS has no tenancy boundary, and
 # nothing about it looks wrong until two shops see each other's customers.
-log "verifying row-level security survived the restore"
-unprotected="$(psqlc -d "$SCRATCH_DB" -At -c "
-    SELECT count(*)
+#
+# Compared against the SOURCE database rather than against an absolute rule, and that
+# is deliberate. "Every table with a tenant_id column has RLS" is not the project's
+# rule — `announcements`, `domains` and `sessions` legitimately do not, and the
+# authoritative list of why lives in TenancyCheckCommand::EXEMPT_TABLES. Restating that
+# list here would create a second definition that drifts from the first, and the first
+# is the one CI enforces.
+#
+# What this drill is actually for is narrower and not covered by tenancy:check: that the
+# RESTORE introduced no regression. So the question is "did anything lose RLS on the way
+# through pg_dump/pg_restore", and the source database is the only honest baseline for
+# it. (The first real run failed here, reporting three tables — all three of them
+# exempt, and all three identical in the live database.)
+rls_gap_sql="
+    SELECT string_agg(c.table_name, ',' ORDER BY c.table_name)
     FROM information_schema.columns c
     JOIN pg_class pc ON pc.relname = c.table_name
     JOIN pg_namespace pn ON pn.oid = pc.relnamespace AND pn.nspname = 'public'
     WHERE c.table_schema = 'public'
       AND c.column_name = 'tenant_id'
+      AND pc.relkind = 'r'
       AND pc.relrowsecurity IS NOT TRUE;
-")"
-(( unprotected == 0 )) || die "${unprotected} tenant table(s) came back with RLS disabled"
+"
+log "verifying row-level security survived the restore"
+source_gap="$(psqlc -d "$DB_DATABASE"  -At -c "$rls_gap_sql")"
+restored_gap="$(psqlc -d "$SCRATCH_DB" -At -c "$rls_gap_sql")"
+
+if [[ "$restored_gap" != "$source_gap" ]]; then
+    die "RLS differs after the restore. source without RLS: [${source_gap:-none}]; restored without RLS: [${restored_gap:-none}]"
+fi
+log "rls: unchanged by the restore (exempt in both: ${source_gap:-none})"
 
 policies="$(psqlc -d "$SCRATCH_DB" -At -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public';")"
 (( policies > 0 )) || die "no RLS policies exist on the restored database"
@@ -139,9 +194,25 @@ log "rls: every tenant table protected, ${policies} policies present"
 # returns zero rows here while the superuser count above was non-zero.
 log "proving the restored policies actually deny"
 denied="$(dc exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
-    psql -U "$DB_USERNAME" -d "$SCRATCH_DB" -At -c "SELECT count(*) FROM invoices;")"
-(( denied == 0 )) || die "the app role read ${denied} invoices with no tenant set — RLS is not enforcing on the restored copy"
-log "isolation: the app role sees 0 rows with no tenant pinned, as it must"
+    psql -U "$DB_USERNAME" -d "$SCRATCH_DB" -At -c "SELECT count(*) FROM sales_invoices;")"
+(( denied == 0 )) || die "the app role read ${denied} sales invoices with no tenant set — RLS is not enforcing on the restored copy"
+
+# And the other half, without which the line above proves nothing.
+#
+# A zero is only evidence that RLS denied if the same role, on the same table, CAN read
+# when a tenant IS pinned. Otherwise every way of reading nothing looks identical: a
+# missing GRANT, an empty restore, a typo in the table name. Each of those would have
+# reported "isolation verified" just as happily.
+#
+# This drill has already been wrong in exactly that direction once — before the GRANT
+# above existed, the application role had no privileges on the scratch database at all,
+# so the query could not have returned rows for any reason.
+pinned_tenant="$(psqlc -d "$SCRATCH_DB" -At -c "SELECT id FROM tenants ORDER BY id LIMIT 1;")"
+visible="$(dc exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
+    psql -U "$DB_USERNAME" -d "$SCRATCH_DB" -At \
+    -c "SELECT set_config('app.tenant_id', '${pinned_tenant}', false); SELECT count(*) FROM sales_invoices;" | tail -1)"
+(( visible > 0 )) || die "the app role read 0 sales invoices even WITH tenant ${pinned_tenant} pinned — the zero above proves nothing, and this restore has not been shown to be readable at all"
+log "isolation: 0 rows with no tenant pinned, ${visible} with tenant ${pinned_tenant} pinned — RLS is the thing denying"
 
 # ---------------------------------------------------------------- 5. teardown ----
 readonly TOTAL_SECONDS=$(( SECONDS - STARTED ))

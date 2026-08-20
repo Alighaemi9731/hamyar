@@ -1,8 +1,18 @@
 # Load testing — runbook
 
-**Status: parked, deliberately.** The script (`tests/Load/endpoints.js`) and this runbook
-are finished; what is missing is a machine to point them at. Roadmap 11.2 records it as
-`[→]` rather than `[ ]` for that reason — nothing is outstanding here except a server.
+**Status: run.** First execution 2026-08-20 against staging on `mobiyar.com` — results in
+[`docs/load-tests/2026-08-20.md`](load-tests/2026-08-20.md). The aggregate p95 threshold
+**failed** (1.62s against 1000ms) with **zero errors**; `/dashboard` is the cause and is
+1.3s with a single user, so it is not a concurrency problem.
+
+Two corrections to what follows, both learned by doing it:
+
+- **The seed takes ~88 minutes, not ~19.** The old figure came from a dev machine without
+  WAL archiving or `--data-checksums`. Plan the window accordingly.
+- **`pg_stat_statements` needs its EXTENSION created**, not just the library preloaded.
+  §5 below sends you to it when a run disappoints, and it answered `relation
+  "pg_stat_statements" does not exist` the first time. `docker/postgres/init/` now creates
+  it; an older box needs `CREATE EXTENSION pg_stat_statements;` once.
 
 ## Why not on a developer machine
 
