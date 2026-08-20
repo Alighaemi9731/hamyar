@@ -33,6 +33,10 @@ Homestead.yaml
 .DS_Store
 Thumbs.db
 /.playwright-mcp/
+# Playwright writes a screenshot wherever `filename` resolves to, and a bare name
+# resolves to the repository root rather than into .playwright-mcp/ above. One reached
+# a commit that way; this is cheaper than remembering.
+/*.png
 
 # Pest browser-test failure screenshots — diagnostic output, uploaded by CI as an
 # artifact rather than committed.
