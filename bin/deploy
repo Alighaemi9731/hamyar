@@ -124,6 +124,19 @@ ok "config, routes and views cached"
 # deploy that also deletes is a deploy that can delete the wrong thing at 3am.
 log "publishing assets"
 mkdir -p "$RELEASE_PUBLIC"
+
+# nginx runs as an unprivileged user inside its own container and only ever READS this
+# directory, so it has to be traversable by somebody other than root. `mkdir` applies
+# the invoking shell's umask, and a hardened box — or one operator command that ran
+# under `umask 077` — leaves it 0700, which nginx cannot stat.
+#
+# The failure that produces is a bad one to be handed at 3am, because it does not look
+# like a permission problem. php-fpm serves from its OWN copy of public/ inside the
+# image, so every dynamic route keeps working; only the static files 403. The site
+# renders with no stylesheet and no JavaScript and reads as "the deploy corrupted the
+# assets" rather than "one directory is 0700". Cheap to assert, so assert it.
+chmod 755 "$(dirname "$RELEASE_PUBLIC")" "$RELEASE_PUBLIC"
+
 docker cp "$(dc ps -q "$IDLE")":/var/www/html/public/. "$RELEASE_PUBLIC"/
 ok "assets published"
 

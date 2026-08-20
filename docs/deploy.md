@@ -239,6 +239,15 @@ bin/deploy <image>
 `release/public` is created here for the same reason: `bin/deploy` writes into it, and
 Docker would otherwise create the bind-mount target as a root-owned empty directory.
 
+**Mind the umask on these.** `release/public` and `certbot/www` are read by nginx's
+*worker* processes, which are unprivileged; `certbot/secrets` is read by certbot alone and
+should stay `0700`. Creating the first three under a restrictive umask leaves them `0700`
+and nginx cannot stat them — and the symptom points nowhere near the cause, because
+php-fpm serves from its own copy of `public/` inside the image. Dynamic routes keep
+answering while every static asset 403s, so the site renders unstyled and scriptless and
+reads as a corrupted build. `bin/deploy` now asserts the mode on `release/` itself; the
+certbot directories are created once, here.
+
 ---
 
 ## 3. Releasing
