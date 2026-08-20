@@ -49,45 +49,75 @@ final class OnboardingController extends Controller
     {
         $tenant = $this->provisioner->provision($request->provisioningData());
 
-        // Send them to their own subdomain to log in. We deliberately do NOT
-        // auto-authenticate across the hostname boundary: the session cookie is scoped
-        // to the tenant domain, and a first real login proves the credentials they just
-        // chose actually work before they walk away from the screen.
-        $hostname = Domain::hostnameFor($tenant->slug);
+        /*
+        | Same origin, always. A LINK crosses the hostname boundary, never this redirect.
+        |
+        | This is the THIRD form of one bug, and the second time it has shipped.
+        |
+        | `redirect()->away()` was blocked by `connect-src` when Inertia followed it as
+        | an XHR — fixed in eb76853 with `Inertia::location()`. Rebuilding this page in
+        | Blade then turned the form into an ordinary POST, `Inertia::location()`
+        | degraded to the plain 302 it promises for non-Inertia requests, and Chrome
+        | blocked THAT against `form-action 'self'`, which it checks against redirect
+        | targets while naming the original action in the error:
+        |
+        |     Sending form data to 'https://<apex>/register' violates the following
+        |     Content Security Policy directive: "form-action 'self'".
+        |
+        | The failure mode is the one worth designing against, and it is identical both
+        | times: the POST has already succeeded, so the shop exists and the owner's
+        | account exists, and the person is left on an unchanged form. Pressing the
+        | button again reports the number as taken — by themselves — for a shop whose
+        | address they were never shown.
+        |
+        | The lesson is narrower than "CSP is fiddly": **the destination is on another
+        | origin, and no redirect out of a form POST can reach it.** Only a link can. So
+        | the redirect stays here and the address is handed over on the next page.
+        |
+        | ADR 0017 removes the cross-origin destination altogether, at which point this
+        | could be a plain redirect again — but the hand-over page should stay, because
+        | "your shop is ready, here is its address" is worth reading rather than
+        | flashing past.
+        */
         $port = $request->getPort();
         $suffix = in_array($port, [80, 443], true) ? '' : ":{$port}";
-        $destination = $request->getScheme().'://'.$hostname.$suffix.'/login';
 
-        /*
-        | `Inertia::location()`, NOT `redirect()->away()`. This was the latter, and it
-        | meant nobody could finish signing up.
-        |
-        | This form is an Inertia page, so the browser submits it with axios and follows
-        | any redirect as an XHR. A shop lives on its own hostname, so the destination is
-        | a DIFFERENT ORIGIN — and `connect-src 'self'` in our own CSP blocks it:
-        |
-        |     Connecting to 'https://<shop>.<apex>/login' violates the following
-        |     Content Security Policy directive: "connect-src 'self'".
-        |
-        | The failure mode is the bad one. The POST had already succeeded, so the shop
-        | was provisioned and the owner's account created — and the shopkeeper was left
-        | on an unchanged registration form with a network error in a console they will
-        | never open. Pressing the button again then fails with "this address is taken",
-        | by their own shop, which they cannot reach because they were never told its
-        | address.
-        |
-        | `Inertia::location()` is the primitive for exactly this: it answers 409 with an
-        | `X-Inertia-Location` header, which the client turns into a full `window.location`
-        | visit rather than an XHR — no cross-origin fetch, so nothing to block. For a
-        | non-Inertia request it degrades to an ordinary 302, which is what a `<form>`
-        | with JavaScript disabled needs.
-        |
-        | The flash message that used to ride along is gone, and was always dead: sessions
-        | here are host-only cookies (SESSION_DOMAIN is deliberately empty, so a session
-        | established at shop-a cannot be presented at shop-b), which means nothing
-        | flashed on the apex can be read on the tenant's hostname. The login page it
-        | lands on says what to do.
-        */
-        return Inertia::location($destination);
+        return redirect()->route('register.done')->with('registered', [
+            'shop' => $tenant->name,
+            'login_url' => $request->getScheme().'://'.Domain::hostnameFor($tenant->slug).$suffix.'/login',
+        ]);
+    }
+
+    /**
+     * Hands over the new shop's address.
+     *
+     * The destination comes from the session flash and from nowhere else. Accepting it
+     * from the query string would let anybody render this page pointing at any hostname
+     * they chose — a phishing gift on a page whose entire job is "click here to sign in".
+     */
+    public function done(Request $request): SymfonyResponse
+    {
+        $registered = $request->session()->get('registered');
+
+        // Both values are checked as strings rather than cast. Session data is `mixed`
+        // as far as the analyser is concerned and it is right to insist: this page
+        // renders a URL as an href, so "whatever was in the session, stringified" is
+        // not a good enough guarantee for the one thing on it a person will click.
+        $shop = is_array($registered) && is_string($registered['shop'] ?? null)
+            ? $registered['shop']
+            : null;
+
+        $loginUrl = is_array($registered) && is_string($registered['login_url'] ?? null)
+            ? $registered['login_url']
+            : null;
+
+        if ($shop === null || $loginUrl === null) {
+            return redirect()->route('register');
+        }
+
+        return response()->view('auth.register-done', [
+            'shop' => $shop,
+            'loginUrl' => $loginUrl,
+        ]);
     }
 }

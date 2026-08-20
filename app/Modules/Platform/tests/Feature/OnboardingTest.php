@@ -39,9 +39,11 @@ it('provisions a working shop from the wizard', function (): void {
     // rather than on the slug.
     expect(Domain::query()->where('hostname', Domain::hostnameFor('iranian-mobile'))->exists())->toBeTrue();
 
-    // Sent to their own subdomain to log in — we never authenticate across the
-    // hostname boundary, because the session cookie is scoped to the tenant domain.
-    $response->assertRedirect('http://'.Domain::hostnameFor('iranian-mobile').'/login');
+    // The redirect stays on this origin and the shop's address is handed over on the
+    // next page — a cross-origin redirect out of a form POST is blocked by
+    // `form-action 'self'`, which is the bug this flow has shipped twice. We still never
+    // authenticate across the hostname boundary; the person signs in themselves.
+    $response->assertRedirect(centralUrl('/register/done'));
 });
 
 it('gives the owner the Owner role with every permission', function (): void {
@@ -176,31 +178,56 @@ it('rolls the whole thing back if any step fails', function (): void {
 });
 
 /*
-| Found on staging, by filling the real form on the real domain.
+| Found on staging TWICE, both times by filling the real form on the real domain, and
+| both times the same shape: the POST succeeds, the shop is created, and the person who
+| asked for it is left on an unchanged form with a console error they will never open.
 |
-| The test above posts a PLAIN request, so `Inertia::location()` degrades to an ordinary
-| 302 and it passes — and it passed just as happily when the controller returned
-| `redirect()->away()`, which nobody could actually complete. The browser submits this
-| form with axios and follows redirects as XHR; a shop lives on its own hostname, so the
-| destination is a different origin and our own `connect-src 'self'` blocks the fetch.
+| Round one: `redirect()->away()`, followed by Inertia's axios as a cross-origin XHR and
+| blocked by `connect-src 'self'`. Fixed with `Inertia::location()`.
 |
-| The shop was provisioned either way. What differed was whether the person who asked for
-| it ever found out — the failure left them on an unchanged form with a console error, and
-| pressing the button again told them the address was taken, by their own shop.
+| Round two: the page was rebuilt in Blade, so the form became an ordinary POST,
+| `Inertia::location()` degraded to the plain 302 it promises for non-Inertia requests,
+| and Chrome blocked that against `form-action 'self'` — which it evaluates against
+| redirect TARGETS while naming the original action in the message.
 |
-| So this test sends the header that makes the request Inertia, which is the only
-| condition under which the fault exists.
+| The durable lesson is narrower than "CSP is fiddly", and it is what this test pins:
+| **no redirect out of a form POST can reach another origin.** Only a link can. So the
+| redirect must stay on this host, whatever the mechanism above it happens to be.
+|
+| Asserting "the response is a 302 to somewhere" would pass for the cross-origin version
+| that broke twice. The assertion has to be about the HOST.
 */
-it('sends an Inertia submission to the new shop with a full page visit, not an XHR redirect', function (): void {
-    $response = $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => ''])
-        ->post(centralUrl('/register'), onboardingPayload());
+it('keeps the post-registration redirect on this origin, so no CSP directive can block it', function (): void {
+    $response = $this->post(centralUrl('/register'), onboardingPayload());
 
-    // 409 + X-Inertia-Location is what the client turns into `window.location = …`.
-    // A 302 here would be followed by axios as a cross-origin fetch and blocked by CSP.
-    $response->assertStatus(409);
-    $response->assertHeader('X-Inertia-Location', 'http://'.Domain::hostnameFor('iranian-mobile').'/login');
+    $response->assertRedirect(centralUrl('/register/done'));
 
-    expect(Tenant::query()->where('slug', 'iranian-mobile')->exists())->toBeTrue();
+    $target = $response->headers->get('Location');
+
+    expect(parse_url((string) $target, PHP_URL_HOST))
+        ->toBe(config()->string('app.domain'))
+        ->and(Tenant::query()->where('slug', 'iranian-mobile')->exists())->toBeTrue();
+});
+
+it('hands the new shop\'s address over on the next page', function (): void {
+    $this->post(centralUrl('/register'), onboardingPayload())
+        ->assertRedirect(centralUrl('/register/done'));
+
+    $this->get(centralUrl('/register/done'))
+        ->assertOk()
+        ->assertSee('موبایل ایرانیان', false)
+        ->assertSee(Domain::hostnameFor('iranian-mobile').'/login', false);
+});
+
+/*
+| The hand-over page reads the destination from the session and from nowhere else.
+|
+| A `?shop=` parameter would let anybody render "your shop is ready, click here to sign
+| in" pointing at a hostname they chose — phishing, on our own domain, in our own
+| wrapper. Reached directly with no flash, it must go back to the form.
+*/
+it('refuses to render the hand-over page without a registration behind it', function (): void {
+    $this->get(centralUrl('/register/done'))->assertRedirect(centralUrl('/register'));
 });
 
 /*

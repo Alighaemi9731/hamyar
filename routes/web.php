@@ -68,6 +68,10 @@ Route::domain(config()->string('app.domain'))->group(function (): void {
             ->middleware('throttle:6,1')
             ->name('register.store');
 
+        // The hand-over page. Same origin, because a cross-origin redirect out of a form
+        // POST is blocked by `form-action 'self'` — see OnboardingController::store().
+        Route::get('/register/done', [OnboardingController::class, 'done'])->name('register.done');
+
         // Live availability check for the wizard's subdomain step. Throttled: it is an
         // unauthenticated endpoint that reveals which shop names are taken.
         Route::post('/register/check-subdomain', [OnboardingController::class, 'checkSubdomain'])
