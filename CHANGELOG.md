@@ -74,6 +74,21 @@ Three of its rules are load-bearing and were chosen against the obvious alternat
 tag serving the request. That answer — *which build is live* — is what turns "the site is
 still broken" from a guess into a fact.
 
+### The repository is public
+
+Owner's decision, 2026-08-22, taken with the consequences on the table: this publishes the
+whole history — 178 commits, 72 revisions of the roadmap, the business plan, the security
+document and the specs of all eighteen modules. A secret audit ran first and came back
+clean: `.env` and `.env.production` have never been committed, no key, token or host
+appears in any commit, and the only credential-shaped string in the tree is a `<token>`
+placeholder in the deploy runbook.
+
+It has one consequence worth more than the reason it was done for: **branch protection and
+rulesets are Pro-gated for private repositories and free for public ones.** `main` now
+requires a pull request and all five checks at the platform level. `CLAUDE.md` said in
+plain words that nothing here was mechanically enforced — that paragraph was accurate and
+is now rewritten, with the condition under which it must be written back.
+
 ### And one thing this release learned by breaking
 
 The first deploy cut through this path lost its SSH connection partway through

@@ -121,16 +121,25 @@ contain**, because it goes on reading as permission long after the permission en
 - Migrations: tenant tables get `$table->foreignId('tenant_id')->index()` + RLS in same migration.
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
+- **`main` is protected by the platform, as of 2026-08-22.** Branch protection requires a
+  pull request and all five CI checks — Style & RTL, Larastan (level 8), Pest (PostgreSQL
+  16), Browser smoke (Chromium), Typecheck & build — to pass before anything lands.
+  **This paragraph said the opposite until the repository went public**, and it was right
+  to: rulesets and branch protection are Pro-gated for *private* repositories, so while
+  this one was private the platform genuinely enforced nothing. Public made them free, and
+  the owner's decision to publish (2026-08-22) is what turned the rule mechanical. Keep
+  this line honest the same way it was honest before — **if protection is ever removed,
+  or the repository goes private again, this paragraph goes back**. A rule everybody
+  believes is mechanical is one nobody checks.
+  `enforce_admins` is deliberately **off**, so the owner keeps an escape hatch for a
+  genuine emergency; the same philosophy as `ALLOW_MAIN_PUSH=1`.
 - **`make hooks`, once per clone.** Sets `core.hooksPath` so `.githooks/pre-push` refuses a
-  direct push to `main`. This is not belt-and-braces — the rule above was broken once, in
-  Phase 10, by finishing a merge and starting the next phase without branching.
-  **Be precise about what enforces it.** GitHub rulesets and branch protection are
-  **Pro-gated for private repositories**, and this repo is private because it is a
-  commercial product — so *the platform enforces nothing here*. What exists is a local hook
-  (prevention, only on a clone that ran `make hooks`) and `.github/workflows/guard-main.yml`
-  (detection: a red build when a commit reaches `main` without a PR). Neither is airtight,
-  and writing "enforced" in this file when it is not would be the more expensive error —
-  a rule everybody believes is mechanical is one nobody checks.
+  direct push to `main` before it reaches the network. Still worth running: it is
+  prevention where the ruleset is rejection, it says *why* rather than returning a remote
+  error, and it works offline. The rule above was broken once, in Phase 10, by finishing a
+  merge and starting the next phase without branching.
+  `.github/workflows/guard-main.yml` remains the detector — a red build if a commit ever
+  reaches `main` without a PR — and is now a backstop rather than the only net.
   Override for a genuine emergency: `ALLOW_MAIN_PUSH=1 git push`.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
 - **An idempotent insert that catches a unique violation must run in a nested
@@ -201,12 +210,12 @@ contain**, because it goes on reading as permission long after the permission en
    If checks are red or the DoD is unwalked, that is work to do, not a question to ask.
    **Check the checks, never `mergeStateStatus`.** Wait until `gh pr checks <n>` lists
    every job and none is `pending`, then merge only if none is failing. `mergeStateStatus`
-   answers a different question — *may this branch merge* — and on a **private repository
-   with no required checks it returns `CLEAN` before CI has even been queued**, because
-   nothing is required. Branch protection is Pro-gated here (see the `make hooks` note
-   above), so "required" is empty by construction and that field is permanently
-   optimistic. It merged #38 with zero checks reported; they happened to pass afterwards,
-   which is luck rather than a gate:
+   answers a different question — *may this branch merge* — and with no required checks it
+   returns `CLEAN` before CI has even been queued, because nothing is required. That is
+   how #38 merged with zero checks reported; they happened to pass afterwards, which is
+   luck rather than a gate. Required checks now exist (the branch-protection note above),
+   so the field is no longer permanently optimistic — but read the checks anyway. It still
+   answers "may this merge", never "is this correct", and the habit costs nothing:
 
    ```bash
    # WRONG — CLEAN just means "nothing is blocking", including "nothing has run".
