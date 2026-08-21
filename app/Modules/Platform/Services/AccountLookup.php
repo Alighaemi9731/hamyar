@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Services;
 
 use App\Modules\Identity\Models\User;
+use App\Support\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -36,10 +38,19 @@ use Illuminate\Support\Facades\Hash;
 final class AccountLookup
 {
     /**
-     * A bcrypt hash of a value nothing can match, used to spend the same time on a
-     * missing account as on a wrong password.
+     * A hash of a value nothing can match, computed once per process.
+     *
+     * Not a hardcoded constant. The first version was a literal bcrypt string and
+     * `HASH_DRIVER` is argon2id, so `Hash::check()` threw "This password does not use
+     * the Argon2id algorithm" — a 500 on the login page, from the branch that exists to
+     * make a missing account indistinguishable from a wrong password.
+     *
+     * Built through `Hash::make()` so it always matches the configured driver, and
+     * memoised so the cost is paid once rather than on every failed attempt.
      */
-    private const DUMMY = '$2y$12$usesomesillystringfore.Q7Vc7LQZ.7BwCLDIQ0lZKPMhVQ5W6';
+    private static ?string $dummy = null;
+
+    public function __construct(private readonly TenantContext $context) {}
 
     /**
      * The account for these credentials, or null.
@@ -50,13 +61,34 @@ final class AccountLookup
      */
     public function forCredentials(string $mobile, string $password): ?User
     {
-        /** @var User|null $user */
-        $user = User::withoutTenancy()
-            ->where('mobile', $mobile)
-            ->first();
+        if ($mobile === '' || $password === '') {
+            return null;
+        }
+
+        /*
+        | `runAsPlatform()`, not just `withoutTenancy()`.
+        |
+        | Tenancy has two layers (ADR 0002) and they fail differently. `withoutTenancy()`
+        | removes the Eloquent global scope; the Postgres policy is still there, and with
+        | no `app.tenant_id` set it denies every row. Without this the query returns
+        | nothing for a number that plainly exists — so every correct password is reported
+        | wrong, silently, with nothing in any log to explain it.
+        |
+        | The escape is narrow by construction: it reads one row, verifies a password
+        | against it, and the flag is cleared in a `finally` by TenantContext.
+        */
+        $found = $this->context->runAsPlatform(
+            static fn (): ?Model => User::withoutTenancy()->where('mobile', $mobile)->first(),
+        );
+
+        $user = $found instanceof User ? $found : null;
 
         if (! $user instanceof User) {
-            Hash::check($password, self::DUMMY);
+            // Spend comparable time on a missing account as on a wrong password.
+            // Returning early here makes "no such number" measurably faster, which turns
+            // this method into an oracle for which numbers have accounts.
+            self::$dummy ??= Hash::make('no-account-matches-this-value');
+            Hash::check($password, self::$dummy);
 
             return null;
         }
