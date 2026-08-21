@@ -39,17 +39,38 @@ return new class extends Migration
             // the table it is unique within any tenant. Keeping both would leave a second
             // index to maintain on every write for no additional guarantee.
             $table->dropUnique(['tenant_id', 'mobile']);
-
-            // Nullable, and Postgres treats NULLs as distinct — so any number of users
-            // may still have no mobile, which staff invited by email do.
-            $table->unique('mobile');
         });
+
+        /*
+        | PARTIAL, on `deleted_at is null`, and this is the correction that matters.
+        |
+        | The first version used `$table->unique('mobile')`, which covers every row —
+        | including soft-deleted ones. The guard above counts only live rows. So the two
+        | disagreed about which rows exist: the guard reported the table clean and
+        | Postgres refused the index with "Duplicate keys exist", during a deploy, from
+        | a migration whose entire job was to fail helpfully BEFORE that happened.
+        |
+        | **A guard and the constraint it guards must agree on which rows count.**
+        |
+        | Partial is also the right rule on its own terms. A retired account holding a
+        | phone number hostage forever is not a guarantee anybody wants: somebody who
+        | leaves a shop and is deleted should not stop that number ever being used again.
+        |
+        | Nullable too, and Postgres treats NULLs as distinct, so any number of users may
+        | still have no mobile — which staff invited by email do.
+        */
+        DB::statement(
+            'create unique index users_mobile_unique
+             on users (mobile)
+             where mobile is not null and deleted_at is null'
+        );
     }
 
     public function down(): void
     {
+        DB::statement('drop index if exists users_mobile_unique');
+
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropUnique(['mobile']);
             $table->unique(['tenant_id', 'mobile']);
         });
     }

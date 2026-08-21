@@ -93,6 +93,7 @@ final class TenancyCheckCommand extends Command
         // ADR 0017: with one address for every shop, these two are what tells a customer's
         // request which shop it belongs to. They were per-tenant while the hostname did
         // that job.
+        'users_mobile_unique' => 'One number, one account, one shop (ADR 0017) — the login form has no hostname left to disambiguate with.',
         'repair_tickets_tracking_token_unique' => 'Bearer credential: the QR on a repair receipt, scanned by a customer with no session (ADR 0017).',
         'repair_tickets_approval_token_unique' => 'Bearer credential: a quote-approval link, opened by a customer with no session (ADR 0017).',
         'invitations_token_hash_unique' => 'Bearer credential: an invite is opened by somebody with no session yet.',
