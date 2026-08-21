@@ -25,13 +25,14 @@ afterEach(fn () => app(TenantContext::class)->forget());
 
 /* ---------------------------------------------------------------- access -- */
 
-it('keeps the panel off tenant subdomains', function (): void {
-    $tenant = Tenant::factory()->withDomain()->create();
-
-    // Serving a platform login form on every shop's hostname would be a phishing
-    // surface and an invitation to credential-stuff.
+it('keeps the panel off the application host', function (): void {
+    // Was "off every shop's subdomain" until ADR 0017 removed those; the guarantee moved
+    // rather than disappeared. Serving a platform login form at the address every
+    // shopkeeper signs in at would be a phishing surface and an invitation to
+    // credential-stuff — one form, two user tables, and no way for a human to tell which
+    // one a page is asking for.
     $this->actingAs($this->staff, 'platform')
-        ->get(tenantUrl($tenant).'/admin')
+        ->get(appUrl().'/admin')
         ->assertNotFound();
 });
 
@@ -129,9 +130,18 @@ it('audits impersonation into the shop own activity log', function (): void {
     $url = app(ImpersonationService::class)->start($tenant, 'تیکت پشتیبانی ۱۲۳۴');
 
     expect($url)->toBeString();
-    // The link is minted on the SHOP's hostname, not the central one, or its signature
-    // would never validate where it is used.
-    expect($url)->toContain($tenant->domains()->value('hostname'));
+    /*
+    | Rewritten for ADR 0017, not relaxed. It used to assert the link carried the SHOP's
+    | own hostname, because that hostname was what told the receiving end which shop the
+    | link belonged to. Per-shop addresses are gone, so the assertion now names the host
+    | the link must actually be minted on — `app.<apex>`, the one every shop is reached
+    | at, and the one the signature is verified against.
+    |
+    | Still the same guarantee underneath: the signature covers the host, so a link minted
+    | anywhere else (the central domain the panel is served from, most plausibly) fails
+    | validation at the only place it is ever opened, with a 403 that explains nothing.
+    */
+    expect($url)->toStartWith(appUrl().'/impersonate/');
 
     $activity = app(TenantContext::class)->runFor(
         $tenant,
@@ -171,7 +181,7 @@ it('rejects an unsigned impersonation link', function (): void {
     /** @var int $ownerId */
     $ownerId = $owner->getKey();
 
-    $this->get(tenantUrl($tenant).'/impersonate/'.$ownerId)
+    $this->get(appUrl().'/impersonate/'.$ownerId)
         ->assertForbidden();
 
     $this->assertGuest();
@@ -194,7 +204,7 @@ it('logs the owner in through a valid signed link', function (): void {
     // Fresh session: this is the customer-facing side of the hand-off.
     auth('platform')->logout();
 
-    $this->get((string) $url)->assertRedirect(tenantUrl($tenant).'/dashboard');
+    $this->get((string) $url)->assertRedirect(appUrl().'/dashboard');
 
     expect(session('impersonating'))->toBeTrue();
 
@@ -227,7 +237,7 @@ it('shows a global announcement to every shop', function (): void {
 
     // A panel that writes notices nobody sees is not a feature.
     $this->actingAs($user)
-        ->get(tenantUrl($tenant).'/dashboard')
+        ->get(appUrl().'/dashboard')
         ->assertInertia(fn ($page) => $page->has('announcements', 1));
 });
 
@@ -255,7 +265,7 @@ it('shows a targeted announcement only to its shop', function (): void {
     // the inverse of everywhere else — so it gets its own leak test rather than
     // relying on an RLS policy it does not have.
     $this->actingAs($intruder)
-        ->get(tenantUrl($other).'/dashboard')
+        ->get(appUrl().'/dashboard')
         ->assertInertia(fn ($page) => $page->has('announcements', 0));
 });
 
@@ -274,6 +284,6 @@ it('hides an announcement outside its window', function (): void {
     $user = app(TenantContext::class)->runFor($tenant, fn (): User => User::factory()->create());
 
     $this->actingAs($user)
-        ->get(tenantUrl($tenant).'/dashboard')
+        ->get(appUrl().'/dashboard')
         ->assertInertia(fn ($page) => $page->has('announcements', 0));
 });

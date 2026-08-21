@@ -35,7 +35,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -514,7 +514,7 @@ it('will not let another shop scan, open or sell against this one', function ():
         return $user;
     });
 
-    $otherUrl = tenantUrl($other);
+    $otherUrl = appUrl();
 
     // Tenant A's invoice id, requested on tenant B's hostname by tenant B's owner.
     $this->actingAs($intruder)

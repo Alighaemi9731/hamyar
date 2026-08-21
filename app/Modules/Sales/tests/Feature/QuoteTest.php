@@ -25,7 +25,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -229,7 +229,7 @@ it('will not let another shop convert this one', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other).'/sales/quotes/'.$quote->id.'/convert')
+        ->post(appUrl().'/sales/quotes/'.$quote->id.'/convert')
         ->assertNotFound();
 
     ($this->inTenant)(fn () => expect($quote->refresh()->converted_to_id)->toBeNull());

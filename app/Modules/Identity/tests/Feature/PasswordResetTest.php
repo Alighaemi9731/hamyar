@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Hash;
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     $this->user = app(TenantContext::class)->runFor(
         $this->tenant,
@@ -46,6 +46,10 @@ it('stores only the token HASH, never the token', function (): void {
 
 it('answers identically for a known and an unknown number', function (): void {
     // Otherwise the form is an oracle for "does this person work at this shop?".
+    //
+    // Since ADR 0017 the two sides take visibly different code paths — the known number
+    // resolves a shop and mints a token inside it, the unknown one resolves nothing at
+    // all — so this assertion is doing more work than it was before, not less.
     $this->post($this->url.'/forgot-password', ['identifier' => '09121234567']);
     $known = session('success');
 
@@ -55,6 +59,39 @@ it('answers identically for a known and an unknown number', function (): void {
     $unknown = session('success');
 
     expect($known)->toBe($unknown)->not->toBeNull();
+});
+
+it('completes a reset over HTTP with no tenant in the session', function (): void {
+    /*
+    | The end-to-end shape of the flow after ADR 0017, and the reason APP FIX A exists.
+    |
+    | Somebody resetting a password has no session — that is the defining state of the
+    | flow — so nothing is pinned when the form arrives. The number is the only thing
+    | that can find the shop. While these routes sat behind `tenant` they were redirected
+    | to /login, the page the link exists to get somebody back to; a regression there is
+    | invisible at the service level, which is why this test goes over HTTP.
+    */
+    $token = app(TenantContext::class)->runFor(
+        $this->tenant,
+        fn (): ?string => app(PasswordResetService::class)->issue('09121234567')
+    );
+
+    // Nothing establishes a session here, deliberately: this is a stranger with a link.
+    //
+    // The `success` flash is what makes the assertion unambiguous. A route still behind
+    // `tenant` also redirects to /login — with no flash, and with the password
+    // unchanged — so the redirect alone would look like success.
+    $this->post($this->url.'/reset-password', [
+        'token' => (string) $token,
+        'identifier' => '09121234567',
+        'password' => 'brand-new-secret-1',
+        'password_confirmation' => 'brand-new-secret-1',
+    ])->assertRedirect(route('login'))->assertSessionHas('success');
+
+    app(TenantContext::class)->runFor(
+        $this->tenant,
+        fn () => expect(Hash::check('brand-new-secret-1', User::query()->firstOrFail()->password))->toBeTrue()
+    );
 });
 
 it('resets the password with a valid token', function (): void {
@@ -113,11 +150,26 @@ it('kills every other session on reset', function (): void {
 it('does not let a token from one shop reset an account at another', function (): void {
     pest()->group('isolation');
 
+    /*
+    | Rewritten for ADR 0017 rather than weakened, and the change is in the SETUP.
+    |
+    | This used to put the same number at both shops — "the same person may work at two
+    | shops" was the original migration's stated reason for scoping `users.mobile` per
+    | tenant. ADR 0017 reversed that deliberately: the number is globally unique now, so
+    | the old arrangement does not merely fail to prove anything, it cannot be built —
+    | the second insert is a unique violation.
+    |
+    | The property the test was written to protect is untouched and still load-bearing:
+    | `password_reset_tokens` is tenant-scoped, so a token row is redeemable only inside
+    | the shop that minted it. That is what makes the controller's new "resolve the shop
+    | from the number" step safe to get wrong — the service refuses a cross-shop reset
+    | even when it is handed the wrong context directly.
+    */
     $other = Tenant::factory()->withDomain()->create();
 
     app(TenantContext::class)->runFor(
         $other,
-        fn () => User::factory()->create(['mobile' => '09121234567'])
+        fn () => User::factory()->create(['mobile' => '09129999999'])
     );
 
     $token = app(TenantContext::class)->runFor(
@@ -131,4 +183,11 @@ it('does not let a token from one shop reset an account at another', function ()
     );
 
     expect($crossed)->toBeFalse();
+
+    // And nothing was written on the way to that `false`. A refusal that had already
+    // rotated the real account's password would read identically here.
+    app(TenantContext::class)->runFor(
+        $this->tenant,
+        fn () => expect(Hash::check('cross-tenant-1', User::query()->firstOrFail()->password))->toBeFalse()
+    );
 });

@@ -1911,3 +1911,49 @@ from `now()` must never be measured against a fixed date.
   flat at ~14 req/s, so the box is saturated and the dashboard is what saturates it. Restore drill
   **RTO 102s observed**. Sentry live with `send_default_pii` and both `sql_bindings` verified off;
   `sentry:publish` deliberately not run — it would have overwritten those with vendor defaults.
+
+## 1405/05/30 (2026-08-21) — the landing page, reviewed a third time: «بی‌روح»
+
+Direction B (navy-and-white premium minimal, ADR 0016) was reviewed live by the owner and
+called **بی‌روح و بی‌رنگ** — lifeless, and too white. The reference offered was
+`novinpardakht.com`, whose strength is not its typography: it is that the page has a
+full-bleed coloured band, filled tiles and imagery, so the eye has somewhere to land.
+
+The direction was **kept**, not replaced. What was missing was weight, and the diagnosis
+matters because the obvious reading — "add motion" — is exactly the answer Direction A
+already gave and had rejected:
+
+- **The grounds were not actually different.** `page-alt` was `#F7F9FB`, which measures
+  **1.03:1 against white**. On a shop's monitor the section alternation did not exist, so
+  six sections read as one endless sheet. Now `#EDF2F8`, with a third tint for panels.
+- **Nothing on the page was filled.** The only solid shapes were two buttons. Added: two
+  navy-900 anchors (the IMEI argument as a full-bleed band, the closing CTA as an inset
+  card) and a filled navy featured plan card.
+- **The featured plan was marked with a 1px border** — correct, and invisible against
+  three white cards on a white section. It is the thing the pricing section exists to
+  point at; it is now the dark one.
+- **Screenshots floated.** They sit on a tinted panel with a glow now, so a 1440px product
+  shot reads as a screen instead of a rectangle with a hairline.
+- **Rhythm.** 8.5rem section padding *plus* a 4rem heading margin put a screen and a half
+  of nothing between a heading and its content. Sections are 6.5rem and heads are centred —
+  a title aligned to the inline-start edge of a 1120px column leaves two thirds of the line
+  empty, five times down the page.
+- Icons, chips, numbered badges, a scan window around the IMEI, a 46px masked mesh on the
+  hero and both dark surfaces.
+
+Palette additions are measured on **both** light grounds, because an alternating page has
+no single background to check against: `navy-mute` moved `#64748B → #5D6B7E` (4.38:1 on the
+new alt ground would have been under the floor), `accent-lit #6BB4FF` is the same accent
+lifted for navy (8.3:1 on navy-900), and the dark-band body/caption pair measure 10.4:1 and
+7.0:1. Hairline `#E7E8EA → #DCE3EB`.
+
+Still **no animation library**, still one JavaScript file, still no glassmorphism. Landing
+bundle: **18.8KB gz CSS, 1.05KB gz JS** against a 180KB budget. RTL gate and Pint green;
+zero horizontal overflow at 390px.
+
+**Not fixed here, and it is pre-existing:** `composer test` is **95 failed / 1242 passed**
+on this branch. Every failure is a host mismatch left by ADR 0017 (`centralUrl()` still
+points at the apex while `/register`, `/login` and the shop routes moved to `app.<apex>`) —
+`OnboardingTest` ×18, `PriceListSecurityTest` ×14, `StorefrontRenderTest` ×8,
+`AuthenticatedNavigationTest` ×8, `LoginTest` ×6, and so on. The landing change touched
+three view/CSS files and moved that count by zero.

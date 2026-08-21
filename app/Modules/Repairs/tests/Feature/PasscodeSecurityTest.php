@@ -33,7 +33,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -236,7 +236,7 @@ it('will not hand another shop the passcode', function (): void {
     // Tenant A's ticket id, on tenant B's hostname, by a user who genuinely holds
     // `repairs.reveal_passcode` in their own shop.
     $this->actingAs($intruder)
-        ->getJson(tenantUrl($other).'/repairs/tickets/'.$ticket->id.'/passcode')
+        ->getJson(appUrl().'/repairs/tickets/'.$ticket->id.'/passcode')
         ->assertNotFound();
 });
 

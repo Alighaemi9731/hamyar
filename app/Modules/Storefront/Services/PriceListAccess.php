@@ -47,7 +47,14 @@ final class PriceListAccess
     /** The default the spec names. A link that never expires leaks and is never noticed. */
     public const DEFAULT_DAYS = 7;
 
-    private const LOOKUP_LENGTH = 12;
+    /**
+     * The non-secret prefix of a token, and the width of the `lookup` column.
+     *
+     * Public because `PublicTenantResolver` has to split a token exactly the same way to
+     * find the shop before anything is scoped. Two copies of `12` in two modules is the
+     * shape of bug where one of them is changed and the other keeps matching nothing.
+     */
+    public const LOOKUP_LENGTH = 12;
 
     /**
      * Mint a link. The plaintext token is returned **once** and never stored.

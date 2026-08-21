@@ -39,7 +39,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     $subscription = subscribe($this->tenant, 'pro');
 
@@ -106,6 +106,10 @@ beforeEach(function (): void {
 
         StorefrontSetting::query()->create([
             'is_enabled' => true,
+            // ADR 0017 moved the public window to `/shop/{slug}`; the hostname used to say
+            // whose window it was. The column is nullable, so a fixture without a slug has
+            // no public page at all — and the four assertions below would 404 silently.
+            'slug' => 'mobile-nemoone',
             'display_name' => 'موبایل نمونه',
             'phone' => '+989121234567',
             'whatsapp' => '+989121234567',
@@ -356,7 +360,7 @@ it('labels an unnamed variant by its options, not as a bare product name', funct
     | reads as a pricing error rather than as a product range. `ProductVariant::displayName()`
     | is the app's rule; the public catalogue's set-based query has to mirror it.
     */
-    $this->get($this->url.'/shop')
+    $this->get(appUrl('/shop/mobile-nemoone'))
         ->assertOk()
         ->assertSee('مشکی · ۲۵۶');
 });
@@ -364,7 +368,7 @@ it('labels an unnamed variant by its options, not as a bare product name', funct
 it('shows consumer prices publicly and never a reseller price or a cost', function (): void {
     // Spec: «The public catalogue leaks no cost, no non-consumer price level and no
     // customer data.»
-    $this->get($this->url.'/shop')
+    $this->get(appUrl('/shop/mobile-nemoone'))
         ->assertOk()
         ->assertSee('موبایل نمونه')
         ->assertSee('8,881,999', false)
@@ -378,11 +382,11 @@ it('404s the public page while the storefront is switched off', function (): voi
         StorefrontSetting::query()->firstOrFail()->forceFill(['is_enabled' => false])->save();
     });
 
-    $this->get($this->url.'/shop')->assertNotFound();
+    $this->get(appUrl('/shop/mobile-nemoone'))->assertNotFound();
 });
 
 it('builds a WhatsApp link the app can actually open', function (): void {
-    $this->get($this->url.'/shop')
+    $this->get(appUrl('/shop/mobile-nemoone'))
         ->assertOk()
         // wa.me wants digits with no plus. A number typed on a Persian keypad was
         // normalised on save, so this is the whole conversion.
@@ -437,11 +441,18 @@ it('never renders one shop’s catalogue under another shop’s link', function 
     });
 
     /*
-    | The link resolves on the OTHER shop's hostname — which is the interesting attack,
-    | because resolution is the one query that crosses tenants (ADR 0002's narrow escape).
-    | It must render the minting shop's catalogue and nothing of the host's.
+    | Both shops now answer on the SAME address, which is what makes this the interesting
+    | case rather than a weaker one.
+    |
+    | The hostname used to carry the tenant, so «one shop's link on another shop's host»
+    | was a question the URL answered before any query ran. ADR 0017 removed that: the
+    | token is now the only thing saying which shop this is, resolved by the one statement
+    | that crosses tenants (ADR 0002's narrow escape, `PublicTenantResolver`). So the
+    | request below is indistinguishable from a request for the neighbour's page except
+    | for the token — and it must still render the MINTING shop's catalogue and nothing
+    | of the neighbour's.
     */
-    $this->get(tenantUrl($other).'/p/'.$minted['token'])
+    $this->get(appUrl('/p/'.$minted['token']))
         ->assertOk()
         ->assertSee('iPhone 15')
         ->assertDontSee('گوشی همسایه')

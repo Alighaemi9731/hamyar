@@ -41,7 +41,7 @@ use Carbon\CarbonImmutable;
  */
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     /** @var array{PriceLevel, PriceLevel} $levels */
     $levels = app(TenantContext::class)->runFor($this->tenant, function (): array {
@@ -95,6 +95,10 @@ beforeEach(function (): void {
 
         StorefrontSetting::query()->create([
             'is_enabled' => true,
+            // The public window is `/shop/{slug}` since ADR 0017 — the hostname used to
+            // say whose window it was, and the slug says it now. The column is nullable,
+            // so a fixture without one renders no page at all rather than failing loudly.
+            'slug' => 'mobile-nemoone',
             'display_name' => 'موبایل نمونه',
             'about' => 'فروش و تعمیر گوشی موبایل',
             'address' => 'تهران، میدان ونک',
@@ -175,7 +179,7 @@ it('renders four distinct rows for four distinct variants', function (): void {
     | anybody having to predict the label format — which matters, because the person who
     | could predict it is the person who would not have written the bug.
     */
-    $labels = renderedRowLabels($this->get($this->url.'/shop')->assertOk()->getContent() ?: '');
+    $labels = renderedRowLabels($this->get(appUrl('/shop/mobile-nemoone'))->assertOk()->getContent() ?: '');
 
     expect($labels)->toHaveCount(4);
     expect(array_unique($labels))->toHaveCount(4);
@@ -212,7 +216,7 @@ it('renders no raw machine timestamps on any public page', function (): void {
     $minted = ($this->mint)();
 
     $pages = [
-        '/shop',
+        '/shop/mobile-nemoone',
         '/p/'.$minted['token'],
         '/p/'.$minted['token'].'/print',
     ];
@@ -263,7 +267,7 @@ it('leaves no unrendered Blade in any template', function (): void {
     $expired = ($this->mint)(['expires' => CarbonImmutable::now()->subMinute()]);
 
     $pages = [
-        ['/shop', 200],
+        ['/shop/mobile-nemoone', 200],
         ['/p/'.$minted['token'], 200],                 // the lock screen
         ['/p/'.$expired['token'], 410],                // the closed screen
     ];
@@ -297,7 +301,7 @@ it('renders every money figure formatted, never as raw rial', function (): void 
     | reads. A raw `88819990` on the page is the formatter having been skipped — which is
     | invisible to a test that asserts on the service's return value.
     */
-    $html = $this->get($this->url.'/shop')->assertOk()->getContent() ?: '';
+    $html = $this->get(appUrl('/shop/mobile-nemoone'))->assertOk()->getContent() ?: '';
 
     // The formatted figure is there…
     expect($html)->toContain('8,881,999');
@@ -309,7 +313,7 @@ it('renders every money figure formatted, never as raw rial', function (): void 
 it('renders the shop’s contact links as working hrefs', function (): void {
     // `assertSee` on a phone number passes even if the anchor is malformed. These are the
     // attributes a tap actually follows.
-    $html = $this->get($this->url.'/shop')->assertOk()->getContent() ?: '';
+    $html = $this->get(appUrl('/shop/mobile-nemoone'))->assertOk()->getContent() ?: '';
 
     expect($html)->toContain('href="tel:+982188889999"')
         ->and($html)->toContain('href="https://wa.me/989121234567"');

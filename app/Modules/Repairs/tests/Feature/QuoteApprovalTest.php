@@ -30,7 +30,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -152,13 +152,64 @@ it('answers a wrong approval token exactly like a missing one', function (): voi
     $this->get($this->url.'/a/short')->assertNotFound();
 });
 
-it('will not let another shop approve this quote', function (): void {
-    $ticket = quotedTicket();
+/*
+| Rewritten for ADR 0017, not weakened.
+|
+| It used to post shop A's token at shop B's hostname and demand a 404 — the host chose
+| the shop and RLS hid A's row from B's address. With one address that URL is the only
+| approval URL there is, so the old assertion now demands a 404 from the very link the
+| shop texted its customer, and it would have kept passing while demanding it.
+|
+| The token is globally unique now and names one ticket in one shop. What has to be true
+| is therefore stronger and more specific: answering one shop's question answers only
+| that shop's question, and does not spend anybody else's link.
+*/
+
+it('approves only the shop whose token it is', function (): void {
+    $mine = quotedTicket(4_500_000);
 
     $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
 
-    $this->post(tenantUrl($other).'/a/'.$ticket->approval_token.'/approve')->assertNotFound();
-});
+    /** @var RepairTicket $theirs */
+    $theirs = inTenantContext($other, function (): RepairTicket {
+        $owner = User::factory()->create();
+        $owner->assignRole('Owner');
+
+        $warehouse = Warehouse::factory()->create();
+
+        $ticket = app(TicketIntake::class)->take([
+            'branch_id' => $warehouse->branch_id,
+            'device_model' => 'گلکسی S23',
+            'reported_issue' => 'باتری',
+        ], $owner->id);
+
+        app(TicketStateMachine::class)->transition($ticket, TicketStatus::Diagnosing, $owner->id);
+
+        return app(QuoteApproval::class)->request($ticket, 2_000_000, $owner->id);
+    });
+
+    // The other shop's customer says yes. Same host, same shape of link, different token.
+    $this->post($this->url.'/a/'.$theirs->approval_token.'/approve')->assertRedirect();
+
+    inTenantContext($other, function () use ($theirs): void {
+        expect($theirs->fresh()?->approved_amount)->toBe(2_000_000);
+    });
+
+    // Ours is untouched — nobody has authorised a rial of work here — and the link is
+    // still live, so their «yes» did not spend our single-use token either.
+    ($this->inTenant)(function () use ($mine): void {
+        $fresh = $mine->fresh();
+
+        expect($fresh?->approved_at)->toBeNull()
+            ->and($fresh?->approved_amount)->toBeNull()
+            ->and($fresh?->approval_token)->toBe($mine->approval_token);
+    });
+
+    $this->get($this->url.'/a/'.$mine->approval_token)->assertOk();
+})->group('isolation');
 
 /* ------------------------------------------------------- what it unblocks -- */
 
@@ -318,8 +369,9 @@ it('lets the shop quote a job and hands back a link to send', function (): void 
             ->and($fresh->approval_token)->toBeString()
             ->and(strlen((string) $fresh->approval_token))->toBe(48);
 
-        // And the page can actually show it — the URL is built server-side from a
-        // `domains` row, never from whatever host the staff member happens to be on.
+        // And the page can actually show it — the URL is built server-side from
+        // `config('app.domain')` (golden rule 1b; it read a `domains` row until ADR 0017
+        // retired per-shop hosts), never from whatever host the staff member is on.
         expect(app(TrackingLink::class)->approvalFor($fresh))
             ->toContain('/a/'.$fresh->approval_token);
     });
@@ -404,13 +456,13 @@ it('will not let another shop quote our ticket', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/approval/request", [
+        ->post(appUrl()."/repairs/tickets/{$ticket->id}/approval/request", [
             'quoted_amount' => 1_000_000,
         ])
         ->assertNotFound();
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/approval/approve", [])
+        ->post(appUrl()."/repairs/tickets/{$ticket->id}/approval/approve", [])
         ->assertNotFound();
 });
 

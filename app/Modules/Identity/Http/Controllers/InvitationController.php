@@ -18,15 +18,26 @@ use Inertia\Response;
 /**
  * The invited user's side: open the link, choose a password, join the shop.
  *
- * Unauthenticated but tenant-scoped — the link lives on the shop's own hostname, so
- * the middleware has already pinned the context and the token lookup is automatically
- * confined to that shop.
+ * ## The token is what says which shop this is
+ *
+ * The link used to live on the shop's own hostname and `tenant` pinned the context from
+ * it. [ADR 0017](../../../../../docs/adr/0017-single-host-app.md) removed per-shop
+ * addresses, and an invited person has no session by definition — so `tenant` would
+ * bounce them to /login, which is the one page an invitation is not.
+ *
+ * So the token carries the tenant, as a PATH parameter that `tenant.public:invitation`
+ * reads before this controller runs. By the time either method is entered the shop that
+ * issued the invitation is pinned, and the lookup below is confined to it exactly as it
+ * always was. An unknown token never gets here at all — the middleware 404s it.
+ *
+ * The token stays a route argument rather than being re-read from the request, so there
+ * is exactly one value in play: the one the middleware resolved the tenant from.
  */
 final class InvitationController extends Controller
 {
-    public function accept(Request $request): Response|RedirectResponse
+    public function accept(string $token): Response|RedirectResponse
     {
-        $invitation = $this->resolve((string) $request->query('token'));
+        $invitation = $this->resolve($token);
 
         if (! $invitation instanceof Invitation) {
             return redirect()->route('login')->withErrors([
@@ -35,20 +46,19 @@ final class InvitationController extends Controller
         }
 
         return Inertia::render('auth/accept-invitation', [
-            'token' => (string) $request->query('token'),
+            'token' => $token,
             'name' => $invitation->name,
             'mobile' => $invitation->mobile,
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, string $token): RedirectResponse
     {
         $validated = $request->validate([
-            'token' => ['required', 'string'],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
-        $invitation = $this->resolve($validated['token']);
+        $invitation = $this->resolve($token);
 
         if (! $invitation instanceof Invitation) {
             return back()->withErrors([
@@ -73,6 +83,23 @@ final class InvitationController extends Controller
 
             return $user;
         });
+
+        /*
+        | The SECOND — and only other — place that writes `session('tenant_id')`.
+        |
+        | ResolveTenant's docblock states the rule this depends on: nothing outside the
+        | login flow may write that key, because it is the whole of the tenant boundary
+        | since ADR 0017. Accepting an invitation *is* a login flow — it ends with an
+        | authenticated session — so it has to write it, and it is written down here and
+        | there rather than left as an exception somebody has to notice.
+        |
+        | It obeys the same constraint LoginController::store() does: the value comes
+        | from a user row this request just created inside the tenant the TOKEN
+        | resolved, never from a parameter, a header or anything the visitor authored.
+        | Without it the redirect below lands on /dashboard with no pinned shop and
+        | bounces straight back to /login, having created the account.
+        */
+        $request->session()->put('tenant_id', $user->tenant_id);
 
         Auth::login($user);
         $request->session()->regenerate();

@@ -39,7 +39,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -259,7 +259,7 @@ it('reports a shop its own messages and not the shop next door', function (): vo
         ->assertInertia(fn ($page) => $page->where('totals.messages', 11)->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/operations')
+        ->get(appUrl().'/reporting/operations')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('rows', [])

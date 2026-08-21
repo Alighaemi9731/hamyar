@@ -23,8 +23,21 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['tenant'])->group(function (): void {
-    Route::get('/shop', [PublicShopController::class, 'show'])->name('storefront.shop');
+/*
+| The public window now carries the shop's slug in the path.
+|
+| It used to be `/shop` on the shop's own hostname, which is what said whose window it
+| was. ADR 0017 removed per-shop hostnames, so a bare `/shop` would have no way to know
+| which shop to render — it would have had to pick one, and there is no correct pick.
+|
+| `storefront_settings.slug` was already globally unique, because a public identifier is
+| exactly the thing two shops must not both claim.
+*/
+Route::middleware(['tenant.public:storefront,slug'])
+    ->get('/shop/{slug}', [PublicShopController::class, 'show'])
+    ->name('storefront.shop');
+
+Route::group([], function (): void {
 
     /*
     | Rate limits, and they are the security control the spec asks for by name.
@@ -34,15 +47,15 @@ Route::middleware(['tenant'])->group(function (): void {
     | endpoint with no identity behind it.
     */
     Route::get('/p/{token}', [PriceListController::class, 'show'])
-        ->middleware('throttle:60,1')
+        ->middleware(['tenant.public:price-list', 'throttle:60,1'])
         ->name('storefront.price-list');
 
     Route::post('/p/{token}/unlock', [PriceListController::class, 'unlock'])
-        ->middleware('throttle:10,1')
+        ->middleware(['tenant.public:price-list', 'throttle:10,1'])
         ->name('storefront.price-list.unlock');
 
     Route::get('/p/{token}/print', [PriceListController::class, 'download'])
-        ->middleware('throttle:30,1')
+        ->middleware(['tenant.public:price-list', 'throttle:30,1'])
         ->name('storefront.price-list.print');
 });
 

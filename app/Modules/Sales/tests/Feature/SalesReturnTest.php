@@ -37,7 +37,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -374,11 +374,11 @@ it('will not let another shop return against this one', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->get(tenantUrl($other).'/sales/invoices/'.$invoice->id.'/returns/create')
+        ->get(appUrl().'/sales/invoices/'.$invoice->id.'/returns/create')
         ->assertNotFound();
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other).'/sales/invoices/'.$invoice->id.'/returns', [
+        ->post(appUrl().'/sales/invoices/'.$invoice->id.'/returns', [
             'unit' => 'rial',
             'lines' => [['item_id' => 1, 'quantity' => 1]],
         ])

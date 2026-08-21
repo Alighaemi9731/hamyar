@@ -49,7 +49,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -292,7 +292,7 @@ it('values a shop its own shelf and not the shop next door', function (): void {
 
     // Over a billion rial of stock next door, including two handsets.
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/inventory')
+        ->get(appUrl().'/reporting/inventory')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('totals.value.value', 0)

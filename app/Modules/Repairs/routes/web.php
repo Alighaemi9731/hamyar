@@ -134,7 +134,7 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:repairs'])
 | customer think the shop has vanished with their phone.
 */
 
-Route::middleware(['tenant', 'throttle:30,1,repairs-tracking'])
+Route::middleware(['tenant.public:repair-tracking', 'throttle:30,1,repairs-tracking'])
     ->get('/t/{token}', [PublicTrackingController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{48}')
     ->name('repairs.tracking');
@@ -160,7 +160,7 @@ Route::middleware(['tenant', 'throttle:30,1,repairs-tracking'])
 | were texted. Naming the buckets is what makes the comment above true.
 */
 
-Route::middleware(['tenant', 'throttle:10,1,repairs-approval'])
+Route::middleware(['tenant.public:repair-approval', 'throttle:10,1,repairs-approval'])
     ->prefix('a')
     ->name('repairs.approval.')
     ->where(['token' => '[A-Za-z0-9]{48}'])

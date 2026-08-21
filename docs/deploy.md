@@ -253,9 +253,50 @@ certbot directories are created once, here.
 ## 3. Releasing
 
 ```bash
-bin/deploy ghcr.io/<owner>/mobishop-app:<sha>
-bin/deploy ghcr.io/<owner>/mobishop-app:<previous-sha> --rollback
+bin/deploy mobishop-app:<sha>
+bin/deploy mobishop-app:<previous-sha> --rollback
 ```
+
+### Where the image comes from — read this before following anything below
+
+This section described a registry pull (`ghcr.io/<owner>/mobishop-app:<sha>`) for its
+first several revisions, and **that is not how any release has actually been cut**.
+Checked against the running box on 2026-08-21:
+
+- There is no `docker login` for any registry on the server (`/root/.docker/config.json`
+  does not exist).
+- **Nothing in `.github/workflows/` builds or pushes an image.** CI runs style, Larastan,
+  Pest and a browser smoke, and stops there.
+- Every image on the box is local and unqualified — `mobishop-app:2e2951c6e`,
+  `mobishop-app:a168066d1`, … — tagged with the nine-character commit sha.
+
+So the real sequence is **sync, build on the box, deploy**:
+
+```bash
+# 1. from the workstation — the deploy directory is a copy of the tree, NOT a git checkout
+rsync -az --delete \
+      --exclude '.git' --exclude 'node_modules' --exclude 'vendor' \
+      --exclude '.env' --exclude '.env.production' --exclude 'certbot' \
+      --exclude 'docker/nginx/upstream/app.conf' \
+      ./ root@<box>:/srv/mobishop/
+
+# 2. on the box
+cd /srv/mobishop
+docker build -f docker/app/Dockerfile.prod -t mobishop-app:$(git -C . rev-parse --short=9 HEAD 2>/dev/null || echo manual) .
+bin/deploy mobishop-app:<tag>
+```
+
+`--exclude 'docker/nginx/upstream/app.conf'` is not optional — see *Do not sync the
+repository over the deploy directory* below. `.env.production` and `certbot/` live only on
+the box and must never be overwritten from a workstation.
+
+A registry would be better than this: it makes the artefact reproducible, auditable and
+rollback-able from anywhere rather than from whichever laptop last rsynced. Until one
+exists, **this** is the procedure, and writing the aspirational one here instead was worse
+than writing nothing — the first person to follow it would have pulled an image that was
+never pushed, on the one script whose failure mode is an outage.
+
+### The cutover
 
 Blue/green, on one box. The order is the design: **every irreversible step happens after
 every reversible one**, so a failure before the cutover leaves the previous release
@@ -279,8 +320,13 @@ serving and exits non-zero.
 9. Stop (do not remove) the old container. It still holds the previous image, which is
    what makes rollback a cutover rather than a rebuild.
 
-🔲 Never run end to end. It is the one script whose failure mode is an outage; the first
-run belongs on staging, watched.
+✅ **Run end to end, repeatedly.** First exercised 2026-08-20 on the staging box and used
+for every release since; the box was last cut over on 2026-08-21. The first four runs found
+that it could not deploy a locally built image, that neither script was executable, and
+that it could force-recreate the **live** container after a repo sync — all fixed. The
+warning this line used to carry still applies to any change made to the script from here:
+it is the one whose failure mode is an outage, so exercise a change on the idle slot before
+trusting it.
 
 ### Do not sync the repository over the deploy directory
 

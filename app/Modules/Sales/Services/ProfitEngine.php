@@ -8,7 +8,9 @@ use App\Modules\Sales\Enums\InvoiceStatus;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
 use App\Modules\Sales\Models\SalesReturnItem;
+use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\JoinClause;
 
 /**
  * What the shop actually made.
@@ -44,9 +46,25 @@ use Carbon\CarbonImmutable;
  * A void says the sale never happened, so it is excluded outright. A return did happen
  * and then partly un-happened, so its refunded lines are subtracted from both revenue
  * and cost — leaving the margin on what the customer kept.
+ *
+ * ## The tenant is carried across every join, by hand
+ *
+ * `BelongsToTenant`'s global scope only knows about the model the query starts from, so a
+ * joined table arrives with no `tenant_id` predicate of its own. RLS still holds — nothing
+ * leaks — but `tenant_id = current_setting('app.tenant_id')` is not an expression any index
+ * can be *entered* on, so Postgres abandons `(tenant_id, status, issued_at)` and walks the
+ * whole date range across every shop on the platform before joining. At fifty tenants that
+ * is fifty times the rows the report needed.
+ *
+ * So every join here equates `tenant_id` on both sides and every joined table gets the
+ * constant as well. That is not a bypass of the scope, it is the scope extended to the
+ * tables the scope cannot see — and it is the difference between an `Index Cond` and a
+ * `Filter` on the busiest query in the product.
  */
 final class ProfitEngine
 {
+    public function __construct(private readonly TenantContext $tenants) {}
+
     /**
      * The margin on one invoice, line by line.
      *
@@ -93,8 +111,14 @@ final class ProfitEngine
      */
     public function forPeriod(CarbonImmutable $from, CarbonImmutable $to, ?array $branchIds = null): array
     {
+        $tenantId = $this->tenants->id();
+
         $sold = SalesInvoiceItem::query()
-            ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+            ->join('sales_invoices', function (JoinClause $join): void {
+                $join->on('sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+                    ->on('sales_invoices.tenant_id', '=', 'sales_invoice_items.tenant_id');
+            })
+            ->when($tenantId !== null, fn ($query) => $query->where('sales_invoices.tenant_id', $tenantId))
             ->where('sales_invoices.type', SalesInvoice::TYPE_INVOICE)
             // Void excluded, not netted: it did not happen.
             ->where('sales_invoices.status', InvoiceStatus::Final->value)
@@ -140,10 +164,25 @@ final class ProfitEngine
         // `BelongsToTenant`'s global scope and lean on RLS alone. RLS would in fact hold
         // — it is the backstop, not the only lock — but golden rule 1 says the scope is
         // never bypassed, and a reader should not have to know which layer saved this.
+        $tenantId = $this->tenants->id();
+
         $row = SalesReturnItem::query()
-            ->join('sales_returns', 'sales_returns.id', '=', 'sales_return_items.sales_return_id')
-            ->join('sales_invoice_items', 'sales_invoice_items.id', '=', 'sales_return_items.sales_invoice_item_id')
-            ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_returns.sales_invoice_id')
+            ->join('sales_returns', function (JoinClause $join): void {
+                $join->on('sales_returns.id', '=', 'sales_return_items.sales_return_id')
+                    ->on('sales_returns.tenant_id', '=', 'sales_return_items.tenant_id');
+            })
+            ->join('sales_invoice_items', function (JoinClause $join): void {
+                $join->on('sales_invoice_items.id', '=', 'sales_return_items.sales_invoice_item_id')
+                    ->on('sales_invoice_items.tenant_id', '=', 'sales_return_items.tenant_id');
+            })
+            ->join('sales_invoices', function (JoinClause $join): void {
+                $join->on('sales_invoices.id', '=', 'sales_returns.sales_invoice_id')
+                    ->on('sales_invoices.tenant_id', '=', 'sales_returns.tenant_id');
+            })
+            ->when($tenantId !== null, fn ($query) => $query
+                ->where('sales_returns.tenant_id', $tenantId)
+                ->where('sales_invoice_items.tenant_id', $tenantId)
+                ->where('sales_invoices.tenant_id', $tenantId))
             ->whereBetween('sales_returns.returned_at', [$from, $to])
             ->when($branchIds !== null, fn ($query) => $query->whereIn('sales_invoices.branch_id', $branchIds))
             ->selectRaw('

@@ -43,7 +43,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -298,7 +298,7 @@ it('reports a shop its own profit and not the shop next door', function (): void
 
     // 410,000,000 of profit next door, including a handset with a real IMEI on it.
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/profit?cut=imei')
+        ->get(appUrl().'/reporting/profit?cut=imei')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('summary.profit.value', 0)

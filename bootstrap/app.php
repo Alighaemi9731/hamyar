@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Middleware\EnsureModuleEnabled;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolvePublicTenant;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\SensitiveInput;
@@ -48,6 +49,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // Applied per route group rather than globally: central routes
             // (onboarding, billing, the platform panel) legitimately have no tenant.
             'tenant' => ResolveTenant::class,
+            // For pages a CUSTOMER reaches with a token and no session — the QR on a
+            // repair receipt, a quote approval, a price list, a shop window. ADR 0017
+            // removed the hostname that used to say which shop they belonged to, so the
+            // token does. See ResolvePublicTenant.
+            'tenant.public' => ResolvePublicTenant::class,
             // Runs after `auth`: rejects a session belonging to another shop.
             'tenant.user' => EnsureUserBelongsToTenant::class,
             // Plan gating: `->middleware('module:repairs')`. Golden rule 7 — the nav

@@ -258,10 +258,19 @@ final class DashboardWidgets
     /**
      * Instalment rows past their due date and still owing something.
      *
-     * The outstanding figure comes from `CollectInstallment::outstandingOn()` rather than
-     * from `amount`, because a part payment leaves the row overdue at its original amount
-     * — deliberately, so the schedule stays the schedule. A dashboard summing `amount`
-     * would chase people for money they have already handed over.
+     * The outstanding figure comes from `CollectInstallment` rather than from `amount`,
+     * because a part payment leaves the row overdue at its original amount — deliberately,
+     * so the schedule stays the schedule. A dashboard summing `amount` would chase people
+     * for money they have already handed over.
+     *
+     * ## Asked for all the rows at once, and it has to be
+     *
+     * `outstandingOn()` per row inside the loop is what this originally did, and on a shop
+     * that actually sells on instalments it made the front page issue two hundred queries
+     * to render five lines — the single largest slice of the dashboard's latency, and
+     * invisible to any test whose fixture has no instalments in it.
+     * {@see CollectInstallment::outstandingForRows()} answers the same question for the
+     * whole page in one grouped SUM.
      *
      * @return array{count: int, total: array{value: int, formatted: string}, worst: list<array{id: int, plan_number: string, party_name: ?string, outstanding: array{value: int, formatted: string}, days_late: int}>}
      */
@@ -277,13 +286,15 @@ final class DashboardWidgets
             ->limit(200)
             ->get();
 
+        $outstandingByRow = $this->collections->outstandingForRows($rows);
+
         $total = 0;
         $worst = [];
 
         $counted = 0;
 
         foreach ($rows as $row) {
-            $outstanding = $this->collections->outstandingOn($row);
+            $outstanding = $outstandingByRow[$row->id] ?? 0;
 
             if ($outstanding <= 0) {
                 continue;

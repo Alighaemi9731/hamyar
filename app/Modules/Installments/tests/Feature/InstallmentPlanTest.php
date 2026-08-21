@@ -32,7 +32,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -314,7 +314,7 @@ it('will not let another shop write or read a plan here', function (): void {
         return $user;
     });
 
-    $otherUrl = tenantUrl($other);
+    $otherUrl = appUrl();
 
     $this->actingAs($intruder)->get($otherUrl.'/installments/plans/'.$plan->id)->assertNotFound();
     $this->actingAs($intruder)->get($otherUrl.'/installments/plans/'.$plan->id.'/print')->assertNotFound();

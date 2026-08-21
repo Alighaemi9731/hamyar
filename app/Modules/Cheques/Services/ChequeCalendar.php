@@ -51,6 +51,20 @@ final class ChequeCalendar
             // Open, not merely un-cleared: a returned or written-off cheque has been dealt
             // with and does not belong on a list of things to do.
             ->whereIn('status', $this->openStatuses())
+            /*
+            | The horizon belongs in SQL, not only in the loop below.
+            |
+            | Without it this selected every open cheque the shop has — a couple of thousand
+            | on an ordinary file — hydrated all of them with their party and account, and
+            | then threw away everything past `$horizon` in PHP to render six lines. The
+            | answer is identical either way: the loop keeps a cheque only if it is overdue
+            | (`due_date` before today, which is before the horizon) or due by the horizon,
+            | so nothing beyond `due_date <= $horizon` ever survived it.
+            |
+            | `cheques_tenant_due_idx (tenant_id, due_date)` serves this, and serves the
+            | `order by due_date` with it.
+            */
+            ->where('due_date', '<=', $horizon)
             ->orderBy('due_date');
 
         /*

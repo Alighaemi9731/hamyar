@@ -74,6 +74,19 @@ COPY app ./app
 # now reads its own manifest back and refuses to produce an image whose frontend has no
 # module pages in it. Same discipline as bin/backup-nightly reading its own archive.
 RUN npm run build \
+ && if ! grep -q '"resources/landing/landing.js"' public/build/manifest.json \
+    || ! grep -q '"resources/landing/shots/' public/build/manifest.json; then \
+        echo ""                                                                     >&2; \
+        echo "FATAL: the built manifest has no landing entry, or no screenshots."    >&2; \
+        echo "The public landing page would render unstyled and unillustrated —"    >&2; \
+        echo "and it is the only page a prospective customer ever sees."             >&2; \
+        echo ""                                                                     >&2; \
+        echo "The landing is a SEPARATE Vite entry from the app (ADR 0016), so a"   >&2; \
+        echo "green app bundle says nothing about it. Check the input list in"       >&2; \
+        echo "vite.config.ts still names resources/landing/*."                       >&2; \
+        echo ""                                                                     >&2; \
+        exit 1; \
+    fi \
  && if ! grep -q '"app/Modules/' public/build/manifest.json; then \
         echo ""                                                                     >&2; \
         echo "FATAL: the built manifest contains no module pages."                  >&2; \
@@ -87,7 +100,8 @@ RUN npm run build \
         echo ""                                                                     >&2; \
         exit 1; \
     fi \
- && echo "module page components bundled: $(grep -o '\"app/Modules/[^\"]*\.tsx\"' public/build/manifest.json | wc -l)"
+ && echo "module page components bundled: $(grep -o '\"app/Modules/[^\"]*\.tsx\"' public/build/manifest.json | wc -l)" \
+ && echo "landing screenshots bundled:      $(grep -o '\"resources/landing/shots/[^\"]*\"' public/build/manifest.json | wc -l)"
 
 # ------------------------------------------------------------------ base ----
 #

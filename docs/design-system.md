@@ -260,14 +260,31 @@ would put an un-audited surface on every tenant subdomain.
 Built in Phase 11. **Blade + Tailwind, no React** — the public pages must be fast and
 SEO-friendly.
 
-### Position: "immersive-lite"
+### Position: full immersive — superseded 2026-08-20
 
-Not a heavy immersive site. The audience is a shop owner on a mid-range Android on an
-Iranian connection; WebGL, 3D and scroll-jacking mean a high LCP, a bounce, and worse
-SEO. The page's job is conversion to a 14-day trial, not a design award. For a B2B
-tool, clarity of value beats spectacle.
+> **This section previously ruled the landing "immersive-lite".** Superseded by
+> [ADR 0016](adr/0016-landing-direction.md), which records **two** directions: a dark
+> scroll-driven one that was built, deployed and **rejected on taste at Gate 5**
+> (preserved on `archive/landing-dark-immersive`), and the one that shipped —
+> «سرمه‌ای و سفید، مینیمال و شیک»: white ground, navy `#0E1B2C` ink, and the **product's
+> own `#0066cc`** as the single accent.
+>
+> **Typography and whitespace carry it.** Motion is one 220ms fade-and-rise on section
+> entry via IntersectionObserver; there is no animation library, no pinning and no
+> smooth-scroll hijack, so `prefers-reduced-motion` is satisfied by having almost nothing
+> to reduce. No WebGL, no gradients, no glassmorphism — one border value and one shadow.
+>
+> **Label yellow is not used here.** It measures 1.4:1 on white and can only ever be a
+> filled chip; on a page arguing for calm that is a distraction with a contrast caveat
+> attached. It keeps its meaning in the product, against a different ground.
+>
+> One divergence is still open and ADR 0016 names it: the landing's ink is navy, the
+> product's is `#1d1d1f`.
 
-So: **one signature interactive moment, and everything else calm, fast and precise.**
+The reasoning that produced the original position, kept because it is still the correct
+frame for every decision *inside* the new one: the audience is a shop owner on a
+mid-range Android on an Iranian connection, and the page's job is conversion to a 14-day
+trial, not a design award.
 
 ### Performance budget (hard limits)
 

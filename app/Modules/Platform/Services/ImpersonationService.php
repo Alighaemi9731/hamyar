@@ -49,8 +49,8 @@ final class ImpersonationService
     /**
      * Begin impersonating `$tenant`'s owner.
      *
-     * @return string|null a one-time signed URL on the tenant's hostname, or null when
-     *                     the shop has no active owner to impersonate
+     * @return string|null a one-time signed URL on the application host, or null when the
+     *                     shop has no active owner to impersonate
      */
     public function start(Tenant $tenant, string $reason): ?string
     {
@@ -73,9 +73,9 @@ final class ImpersonationService
             return null;
         }
 
-        $hostname = $tenant->domains()->orderBy('id')->value('hostname');
+        $hostname = $this->applicationHost();
 
-        if (! is_string($hostname) || $hostname === '') {
+        if ($hostname === null) {
             return null;
         }
 
@@ -85,15 +85,42 @@ final class ImpersonationService
     }
 
     /**
-     * Mint the signed link on the TENANT's hostname.
+     * The host every shop is reached at — `app.<apex>`.
+     *
+     * This used to be `$tenant->domains()->value('hostname')`, because the link landed on
+     * the shop's own subdomain and that hostname was what told the receiving end which
+     * shop it belonged to. [ADR 0017](../../../../docs/adr/0017-single-host-app.md)
+     * removed per-shop addresses; the session carries the tenant now, written by
+     * {@see \App\Modules\Platform\Http\Controllers\ImpersonationController} from the
+     * impersonated user's own row.
+     *
+     * Assembled from `config('app.domain')` exactly the way
+     * {@see \App\Modules\Repairs\Services\TrackingLink} assembles it — `app.` is a
+     * subdomain label, the apex itself is never a literal (golden rule 1b). Null when the
+     * config is empty, so a misconfigured box declines to mint a link rather than signing
+     * one on the bare host `app.`.
+     */
+    private function applicationHost(): ?string
+    {
+        $domain = config()->string('app.domain');
+
+        return $domain !== '' ? 'app.'.$domain : null;
+    }
+
+    /**
+     * Mint the signed link on the APPLICATION host.
      *
      * The signature covers the whole URL, host included, and it is verified against the
-     * request that arrives at the shop's subdomain. Signing on the central domain and
-     * rewriting the host afterwards produces a link that always fails validation, so the
-     * root is switched before signing and restored immediately after.
+     * request that arrives at `app.<apex>`. Signing on the central domain — where the
+     * Filament panel that calls this is served — and rewriting the host afterwards
+     * produces a link that always fails validation, so the root is switched before
+     * signing and restored immediately after.
      *
-     * The hostname comes from the tenant's `domains` row — the apex is never assembled
-     * from a literal (golden rule 1b).
+     * The forced root stays even though `impersonate.start` is now domain-constrained and
+     * the generator therefore already builds this host from the route definition. It is
+     * one line, and without it a route that ever loses that constraint would silently
+     * start minting links on whichever host the panel was served from — a link that fails
+     * validation at the only place it is ever opened, with a 403 that says nothing.
      */
     private function signedOnHost(string $hostname, User $owner): string
     {
@@ -111,8 +138,8 @@ final class ImpersonationService
         } finally {
             // Cleared, NOT restored to config('app.url'). Passing a value here pins the
             // generator's root for the rest of the process, so every later route() —
-            // including redirects on a tenant subdomain — would come out on the central
-            // domain. Null puts it back to deriving the root from the request.
+            // including the panel's own redirects — would come out on the application
+            // host. Null puts it back to deriving the root from the request.
             URL::forceRootUrl(null);
         }
     }

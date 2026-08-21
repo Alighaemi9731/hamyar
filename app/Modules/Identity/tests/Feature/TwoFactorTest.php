@@ -11,7 +11,7 @@ use PragmaRX\Google2FA\Google2FA;
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
     $this->service = app(TwoFactorService::class);
 
     $this->user = app(TenantContext::class)->runFor(

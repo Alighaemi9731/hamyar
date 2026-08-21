@@ -8,6 +8,7 @@ use App\Modules\Platform\Models\Domain;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Digits;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,7 +26,31 @@ final class OnboardTenantRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        /*
+        | The sign-up form no longer asks for an address.
+        |
+        | ADR 0017 retires per-shop hostnames, so asking somebody to choose one — and to
+        | check whether it is taken — is asking them to care about something we are in
+        | the middle of removing. A slug is still needed as the tenant's identifier, so
+        | it is generated here when the request does not carry one.
+        |
+        | Random rather than derived from the shop name, and that is not laziness:
+        | `Str::slug()` strips Persian entirely, so «موبایل ایرانیان» slugs to an empty
+        | string and every shop would collide on the same empty address. Transliterating
+        | Persian to Latin well is a real problem and a wrong guess becomes a permanent
+        | identifier.
+        |
+        | The retry loop is bounded and the unique index on `domains.hostname` remains
+        | the actual guarantee — this only avoids losing a race to a validation error the
+        | person cannot act on.
+        */
         $subdomain = mb_strtolower(trim($this->string('subdomain')->value()));
+
+        if ($subdomain === '') {
+            do {
+                $subdomain = 'shop-'.mb_strtolower(Str::random(6));
+            } while (Domain::query()->where('hostname', Domain::hostnameFor($subdomain))->exists());
+        }
 
         $this->merge([
             'subdomain' => $subdomain,
