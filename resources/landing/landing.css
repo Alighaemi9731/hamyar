@@ -1,8 +1,8 @@
 /*
  | MobiYar — public landing.
  |
- | «سرمه‌ای و سفید، مینیمال و شیک». Premium minimal: white ground, navy ink, one accent,
- | and whitespace doing the work decoration usually does.
+ | «سرمه‌ای و سفید». White ground, navy ink, one accent — and, since the second design
+ | review, two full-bleed navy bands so the page has somewhere dark to land.
  |
  | ## History, so the next reader does not re-litigate it
  |
@@ -11,15 +11,30 @@
  | Decision Gate 5 and **rejected on taste** — see ADR 0016. The code is preserved on
  | `archive/landing-dark-immersive` rather than deleted.
  |
- | What the reversal bought: typography and rhythm carry the page now, so there is
- | nothing to fail. No pins, no scrub, no smooth-scroll hijack, no animation library at
- | all — reduced motion is satisfied by having almost nothing to reduce.
+ | What replaced it was navy-and-white premium minimal, and it was reviewed again: calm,
+ | correct, and **بی‌روح** — lifeless. The diagnosis was not "not enough animation", which
+ | is what the rejected direction had answered; it was that a page whose only filled
+ | shapes are two buttons has no visual weight anywhere, so the eye has nothing to land
+ | on and every section reads the same. Whitespace cannot structure a page that has
+ | nothing to space out.
+ |
+ | So this revision keeps the direction and adds **weight**, not motion:
+ |
+ | · Grounds actually differ. `page-alt` moved from #F7F9FB — invisible against white at
+ |   any real screen brightness — to #EDF2F8, and a third tint exists for panels.
+ | · Two navy-900 bands (the IMEI argument, the closing CTA) and one navy plan card.
+ |   These are the page's anchors; everything else is white *because* they are dark.
+ | · Screenshots sit on a tinted panel with a glow instead of floating on white.
+ | · Icons, chips and numbered badges give small elements a shape to be.
+ |
+ | Still no animation library, still one JavaScript file, still no glassmorphism. The
+ | motion is the same 260ms fade-and-rise on entry it was.
  |
  | ## One family with the product
  |
- | Unlike the rejected direction, this shares the application's accent (#0066cc) rather
- | than inventing one. The navy ink is the single remaining difference from the product's
- | near-black, and ADR 0016 records how to close it.
+ | The accent is the application's own #0066cc, not a landing invention. The navy ink is
+ | the single remaining difference from the product's near-black, and ADR 0016 records
+ | how to close it.
  */
 
 @import 'tailwindcss';
@@ -34,25 +49,53 @@
 @import '@fontsource/estedad/arabic-800.css';
 
 @theme {
-  /* --- ground ------------------------------------------------------------- */
+  /* --- ground --------------------------------------------------------------
+     Three light grounds, and they must be *distinguishable*. The previous alt
+     (#F7F9FB) measured 1.03:1 against white: on a shop's mid-range monitor the
+     alternation simply did not exist, which is most of why the page read as one
+     endless white sheet. */
   --color-page: #ffffff;
-  --color-page-alt: #f7f9fb;
+  --color-page-alt: #edf2f8; /* alternating section ground */
+  --color-page-tint: #e3ecf7; /* panels, chips, screenshot grounds */
 
-  /* --- ink ---------------------------------------------------------------- */
-  --color-navy: #0e1b2c; /* headings and body — 17.3:1 on white */
-  --color-navy-soft: #4a5a6b; /* secondary — 7.1:1 */
-  --color-navy-mute: #64748b; /* captions — 4.8:1, the floor */
+  /* --- ink -----------------------------------------------------------------
+     Every value measured on BOTH light grounds, because a landing that alternates
+     has no single background to check against. */
+  --color-navy: #0e1b2c; /* headings and body — 17.3:1 white · 15.9:1 alt */
+  --color-navy-soft: #46586d; /* secondary — 7.3:1 · 6.7:1 */
+  --color-navy-mute: #5d6b7e; /* captions — 5.4:1 · 4.8:1, the floor */
+
+  /* --- the dark band -------------------------------------------------------
+     The page's anchors. Two sections and one plan card are filled with these; the
+     white everywhere else is what they make legible. */
+  --color-navy-900: #0a1628; /* band ground */
+  --color-navy-800: #142943; /* raised surface inside a band */
+  --color-navy-700: #1b3556; /* hairlines and gradient stops on dark */
+
+  --color-on-dark: #ffffff; /* 18.1:1 on navy-900 */
+  --color-on-dark-soft: #b4c6dc; /* body on dark — 10.4:1 · 8.4:1 on navy-800 */
+  --color-on-dark-mute: #8ea3bd; /* captions on dark — 7.0:1 */
 
   /* --- the one accent ------------------------------------------------------
      The PRODUCT's blue, not a landing invention. That is the point: "one family with
-     the app" is the brief, and sharing the accent is most of what that means. 5.6:1. */
+     the app" is the brief, and sharing the accent is most of what that means.
+     5.6:1 on white, 5.1:1 on alt, 4.9:1 on tint — AA on all three grounds.
+
+     `accent-lit` is the same hue lifted to survive a navy ground (8.3:1 on navy-900).
+     It is not a second accent; it is the first one, on dark. */
   --color-accent: #0066cc;
+  --color-accent-lit: #6bb4ff;
 
   /* --- lines and lift ------------------------------------------------------
-     Exactly one border value and one shadow. A second of either is how a calm page
-     starts to look busy without anyone being able to say where. */
-  --color-hair: #e7e8ea; /* 10% navy on white */
-  --shadow-card: 0 1px 2px rgb(14 27 44 / 0.04), 0 8px 24px -12px rgb(14 27 44 / 0.12);
+     The hairline moved from #E7E8EA to a navy-tinted #DCE3EB. Same restraint, but a
+     card border that can actually be seen — the plan cards previously had a 1.2:1
+     edge against their own ground and read as floating text. */
+  --color-hair: #dce3eb;
+  --color-hair-soft: #e9edf2;
+
+  --shadow-card: 0 1px 2px rgb(14 27 44 / 0.04), 0 10px 28px -14px rgb(14 27 44 / 0.16);
+  --shadow-lift: 0 2px 4px rgb(14 27 44 / 0.05), 0 22px 46px -20px rgb(14 27 44 / 0.28);
+  --shadow-band: 0 30px 60px -30px rgb(10 22 40 / 0.55);
 
   /* --- paper -------------------------------------------------------------- */
   --color-paper: #fffdf8;
@@ -129,9 +172,12 @@ h3 {
   }
 }
 
-/* Whitespace is the luxury: 1.5× the product's section rhythm. */
+/* Section rhythm. Still generous — but the previous 8.5rem top and bottom PLUS a 4rem
+   heading margin put roughly a screen and a half of nothing between a heading and the
+   thing it introduced, which is what made the page feel empty rather than calm. */
 .sec {
-  padding-block: clamp(4.5rem, 9vw, 8.5rem);
+  padding-block: clamp(4rem, 7vw, 6.5rem);
+  position: relative;
 }
 
 .sec--alt {
@@ -157,7 +203,135 @@ h3 {
 }
 
 .sec__head {
-  margin-block-end: clamp(2.5rem, 5vw, 4rem);
+  margin-block-end: clamp(2.25rem, 4vw, 3.25rem);
+}
+
+/* Centred heads. A section title aligned to the inline-start edge of a 1120px column
+   leaves two thirds of the line empty, and five of those down a page is most of the
+   "too much white" complaint. The hero stays asymmetric; everything below is centred. */
+.sec__head--center {
+  text-align: center;
+}
+
+.sec__head--center .sec__lede {
+  margin-inline: auto;
+}
+
+/* ---------------------------------------------------------------- chip ---- */
+/*
+ | The small filled pill that replaces a bare coloured eyebrow. Same words, but it has
+ | a shape, and a shape is what a mostly-empty page is short of.
+ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.875rem;
+  border-radius: 999px;
+  background: var(--color-page-tint);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.chip__dot {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+.band .chip {
+  background: color-mix(in srgb, var(--color-accent-lit) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-lit) 28%, transparent);
+  color: var(--color-accent-lit);
+}
+
+/* ---------------------------------------------------------------- band ---- */
+/*
+ | A full-bleed navy section. Two of them: the IMEI argument, which is the one claim
+ | this product actually differs on, and the closing CTA.
+ |
+ | Colour carries meaning here too — dark means "this is the part to remember", and it
+ | is spent twice on a long page rather than sprinkled.
+ */
+
+.band {
+  background: var(--color-navy-900);
+  color: var(--color-on-dark-soft);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-block: 0;
+}
+
+.band h1,
+.band h2,
+.band h3,
+.band b {
+  color: var(--color-on-dark);
+}
+
+.band .sec__lede {
+  color: var(--color-on-dark-soft);
+}
+
+.band .sec__eyebrow {
+  color: var(--color-accent-lit);
+}
+
+/* Two soft lights, not a gradient across the whole band: the ground stays flat navy and
+   the glow only says where the middle is. */
+.band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(900px 420px at 50% -20%, color-mix(in srgb, var(--color-accent) 30%, transparent) 0%, transparent 65%),
+    radial-gradient(700px 500px at 50% 120%, var(--color-navy-700) 0%, transparent 70%);
+}
+
+/* --------------------------------------------------------------- mesh ----- */
+/*
+ | A 46px hairline grid, masked to fade out. It reads as "a surface" rather than as a
+ | pattern — which is the whole job: an unmarked white or navy field is what the page
+ | was short of, and a texture at 4% is cheaper than decoration at 100%.
+ |
+ | Angles rather than `to right` / `to bottom`: the grid is symmetric so direction is
+ | irrelevant, and this keeps the RTL gate's job unambiguous.
+ */
+
+.mesh {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, rgb(14 27 44 / 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(14 27 44 / 0.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 0%, transparent 72%);
+}
+
+.band .mesh,
+.final__card .mesh {
+  background-image:
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+}
+
+/* The card is a fraction of a band's height, so the same 46px cell that reads as a
+   surface across a full-bleed section reads as graph paper here. */
+.final__card .mesh {
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 0%, #000 0%, transparent 78%);
 }
 
 /* ----------------------------------------------------------------- nav ---- */
@@ -169,11 +343,12 @@ h3 {
   /* Solid, not frosted. No glassmorphism anywhere on this page. */
   background: var(--color-page);
   border-block-end: 1px solid transparent;
-  transition: border-color 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .nav[data-stuck='true'] {
   border-block-end-color: var(--color-hair);
+  box-shadow: 0 8px 24px -20px rgb(14 27 44 / 0.5);
 }
 
 .nav__inner {
@@ -211,10 +386,28 @@ h3 {
   font-size: 0.9375rem;
   font-weight: 500;
   transition: color 160ms ease;
+  position: relative;
+  padding-block: 0.25rem;
+}
+
+.nav__links a::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -0.125rem;
+  block-size: 2px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  scale: 0 1;
+  transition: scale 180ms ease;
 }
 
 .nav__links a:hover {
   color: var(--color-navy);
+}
+
+.nav__links a:hover::after {
+  scale: 1 1;
 }
 
 .nav__cta {
@@ -246,28 +439,59 @@ h3 {
   font-weight: 700;
   font-size: 0.9375rem;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease,
+    translate 160ms ease, color 160ms ease;
   white-space: nowrap;
 }
 
 /* Navy, not blue: the loudest thing on the page should still be quiet, and the accent
-   is worth more kept for links and small marks. White on navy is 17.3:1. */
+   is worth more kept for links and small marks. White on navy is 17.3:1.
+
+   The gradient is two steps of the same navy and the inset highlight is one pixel —
+   enough that the button reads as a solid object rather than a rectangle of colour. */
 .btn--primary {
-  background: var(--color-navy);
+  background: linear-gradient(180deg, #1a3050 0%, var(--color-navy-900) 100%);
   color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 8px 20px -12px rgb(10 22 40 / 0.7);
 }
 
 .btn--primary:hover {
-  background: #1a2b40;
+  background: linear-gradient(180deg, #22406b 0%, #12243c 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 12px 26px -12px rgb(10 22 40 / 0.75);
+  translate: 0 -1px;
 }
 
 .btn--quiet {
   border: 1px solid var(--color-hair);
   color: var(--color-navy);
+  background: var(--color-page);
 }
 
 .btn--quiet:hover {
   border-color: var(--color-navy-mute);
+  background: var(--color-page-alt);
+}
+
+/* The inverse of `--primary`, for use on a navy band: white fill, navy label. */
+.btn--light {
+  background: #fff;
+  color: var(--color-navy-900);
+  box-shadow: 0 10px 26px -14px rgb(0 0 0 / 0.7);
+}
+
+.btn--light:hover {
+  background: var(--color-page-tint);
+  translate: 0 -1px;
+}
+
+.btn--ghost {
+  border: 1px solid color-mix(in srgb, #fff 26%, transparent);
+  color: #fff;
+}
+
+.btn--ghost:hover {
+  border-color: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in srgb, #fff 8%, transparent);
 }
 
 .btn--lg {
@@ -276,10 +500,29 @@ h3 {
   font-size: 1rem;
 }
 
+.btn svg {
+  flex: none;
+}
+
 /* ---------------------------------------------------------------- hero ---- */
 
 .hero {
-  padding-block: clamp(3.5rem, 7vw, 6.5rem) clamp(4rem, 8vw, 7rem);
+  padding-block: clamp(3rem, 6vw, 5rem) clamp(3rem, 5vw, 4.5rem);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* The wash. Centred at 50% so it needs no direction, and stopped well before the fold
+   so the hero still reads as white — the point is a lit surface, not a coloured one. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(1100px 520px at 50% -25%, #dbe8f8 0%, transparent 68%),
+    linear-gradient(180deg, #f4f8fc 0%, var(--color-page) 55%);
 }
 
 .hero__grid {
@@ -296,21 +539,50 @@ h3 {
 
 .hero__title {
   font-size: var(--text-hero);
-  margin-block-end: 1.25rem;
+  margin-block: 1.25rem;
+}
+
+/* The second clause of the headline carries the accent. One coloured phrase in the
+   largest type on the page does more for "this has a colour" than a dozen tinted
+   captions, and it costs no contrast: 5.6:1 at 68px. */
+.hero__title em {
+  font-style: normal;
+  color: var(--color-accent);
 }
 
 .hero__lede {
   font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
   color: var(--color-navy-soft);
   max-inline-size: 33rem;
-  margin-block-end: 2.25rem;
+  margin-block-end: 2rem;
 }
 
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-block-end: 1rem;
+  margin-block-end: 1.75rem;
+}
+
+/* Three ticks instead of one grey run-on sentence. Same claims, but each is a line the
+   eye can take in without reading, which is what a hero note is for. */
+.hero__ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem 1.5rem;
+  font-size: 0.9375rem;
+  color: var(--color-navy-mute);
+}
+
+.hero__ticks li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hero__ticks svg {
+  flex: none;
+  color: var(--color-accent);
 }
 
 .hero__note {
@@ -320,10 +592,34 @@ h3 {
 
 /* ------------------------------------------------------------- receipt ---- */
 /*
- | The brand's signature object, and now STATIC — no printing animation, nothing to
+ | The brand's signature object, and STATIC — no printing animation, nothing to
  | trigger, nothing to fail. A rendered artefact rather than a performance: navy ink on
  | paper white, one degree of curl, one shadow.
+ |
+ | What changed at the second review is only what is *behind* it: a soft navy glow, so
+ | the paper reads as lit on a surface instead of pasted on a white void.
  */
+
+.hero__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* Insets on all four sides rather than a width and a height: an absolutely-positioned
+   box with no offsets resolves to its *static* position inside a grid — which is
+   wherever the flow would have put it, not the centre — and the glow rendered
+   off-screen for exactly that reason on the first pass. */
+.hero__art::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block: 8%;
+  inset-inline: -14%;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 34%, transparent), transparent 76%);
+  filter: blur(12px);
+}
 
 .receipt {
   inline-size: 19.5rem;
@@ -336,19 +632,24 @@ h3 {
   padding: 1.5rem 1.375rem 1.75rem;
   position: relative;
   rotate: -0.8deg;
-  box-shadow: 0 1px 2px rgb(14 27 44 / 0.05), 0 18px 40px -16px rgb(14 27 44 / 0.22);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.05), 0 26px 50px -20px rgb(14 27 44 / 0.34);
   font-variant-numeric: tabular-nums;
 }
 
 /* Perforated tear edges. Drawn in the page ground so the notches read as cut paper
-   rather than as dots printed on it. */
+   rather than as dots printed on it. `--tear` lets a receipt sitting on a different
+   ground (the auth card) restate what colour to cut against. */
+.receipt {
+  --tear: var(--color-page);
+}
+
 .receipt::before,
 .receipt::after {
   content: '';
   position: absolute;
   inset-inline: -1px;
   block-size: 7px;
-  background: repeating-radial-gradient(circle at 6px 0, var(--color-page) 0 4.5px, transparent 4.5px 11px);
+  background: repeating-radial-gradient(circle at 6px 0, var(--tear) 0 4.5px, transparent 4.5px 11px);
 }
 
 .receipt::before {
@@ -405,7 +706,7 @@ h3 {
 }
 
 .receipt__sms {
-  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   border-inline-start: 2px solid var(--color-accent);
   padding: 0.5rem 0.625rem;
   font-size: 0.75rem;
@@ -422,20 +723,47 @@ h3 {
 }
 
 /* --------------------------------------------------------------- strip ---- */
+/*
+ | The band directly under the hero. It was five grey words on white and did nothing;
+ | it is now five icon tiles on the alternate ground — the first thing below the fold,
+ | and the page's first evidence that it has more than one colour in it.
+ */
 
 .strip {
+  background: var(--color-page-alt);
   border-block: 1px solid var(--color-hair);
-  padding-block: 1.375rem;
+  padding-block: 1.75rem;
 }
 
 .strip__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .strip__row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.strip__item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 2.5rem;
   align-items: center;
-  justify-content: center;
+  gap: 0.625rem;
   font-size: 0.9375rem;
-  color: var(--color-navy-mute);
+  font-weight: 500;
+  color: var(--color-navy);
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--color-page);
+  border: 1px solid var(--color-hair);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
+}
+
+.strip__item svg {
+  flex: none;
+  color: var(--color-accent);
 }
 
 /* ------------------------------------------------------------ features ---- */
@@ -448,11 +776,11 @@ h3 {
   display: grid;
   gap: clamp(2rem, 4vw, 3.5rem);
   align-items: center;
-  padding-block: clamp(2.5rem, 5vw, 4.5rem);
+  padding-block: clamp(2.5rem, 5vw, 4rem);
 }
 
 .feature + .feature {
-  border-block-start: 1px solid var(--color-hair);
+  border-block-start: 1px solid var(--color-hair-soft);
 }
 
 @media (min-width: 900px) {
@@ -466,6 +794,22 @@ h3 {
   }
 }
 
+/* A rounded tile with the accent icon in it. The row previously opened with a bare
+   heading, and five bare headings down a page is a table of contents, not a feature
+   list. */
+.feature__icon {
+  inline-size: 2.875rem;
+  block-size: 2.875rem;
+  border-radius: 0.875rem;
+  display: grid;
+  place-items: center;
+  color: var(--color-accent);
+  background: linear-gradient(180deg, var(--color-page-tint) 0%, var(--color-page) 100%);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.05);
+  margin-block-end: 1.125rem;
+}
+
 .feature__title {
   font-size: clamp(1.375rem, 2.2vw, 1.75rem);
   margin-block-end: 0.75rem;
@@ -474,6 +818,34 @@ h3 {
 .feature__body {
   color: var(--color-navy-soft);
   max-inline-size: 30rem;
+}
+
+/* The ground under a screenshot. A 1440px product shot with a 1px border, floating on
+   white, has no edge the eye can find; on a tinted panel with a glow under it, it
+   reads as a screen. */
+.shot {
+  position: relative;
+  border-radius: 1.25rem;
+  padding: clamp(0.75rem, 1.8vw, 1.5rem);
+  background: linear-gradient(155deg, var(--color-page-tint) 0%, var(--color-page-alt) 58%, var(--color-page) 100%);
+  border: 1px solid var(--color-hair);
+}
+
+.shot::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset-inline: 12%;
+  inset-block-end: 4%;
+  block-size: 40%;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 26%, transparent), transparent 75%);
+  filter: blur(14px);
+}
+
+.shot > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------------------------------------------------------------- spine ---- */
@@ -499,7 +871,7 @@ h3 {
     position: absolute;
     inset-inline-start: -1.75rem;
     /* Starts below the section heading and ends with the last row. */
-    inset-block: 13rem 4rem;
+    inset-block: 11rem 4rem;
     inline-size: 2px;
     background: var(--color-hair);
     border-radius: 2px;
@@ -509,7 +881,7 @@ h3 {
     display: block;
     block-size: 100%;
     inline-size: 100%;
-    background: var(--color-accent);
+    background: linear-gradient(180deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 55%, transparent) 100%);
     border-radius: inherit;
     transform-origin: top;
     /* Written by landing.js; 0 until it runs, so with no JS the rail is simply a
@@ -532,13 +904,15 @@ h3 {
     background: var(--color-page);
     border: 2px solid var(--color-hair);
     translate: 0 -50%;
-    transition: border-color 260ms ease, background 260ms ease, scale 260ms ease;
+    transition: border-color 260ms ease, background 260ms ease, scale 260ms ease,
+      box-shadow 260ms ease;
   }
 
   .feature[data-lit] .feature__node {
     border-color: var(--color-accent);
     background: var(--color-accent);
     scale: 1.15;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 14%, transparent);
   }
 }
 
@@ -554,7 +928,7 @@ h3 {
   border-radius: 0.75rem;
   overflow: hidden;
   background: var(--color-page);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-lift);
 }
 
 .frame__bar {
@@ -579,18 +953,39 @@ h3 {
   block-size: auto;
 }
 
-/* ---------------------------------------------------------- IMEI spot ----- */
+/* ---------------------------------------------------------- IMEI band ----- */
+/*
+ | The one claim this product genuinely differs on, and now the page's first dark
+ | anchor. Navy ground, the serial lit in the accent, three numbered cards.
+ */
+
+/* The scan window the serial sits in. This was two corner brackets on the first pass
+   and they read as stray marks — an open shape needs all four corners to be read as a
+   frame, and two of them is just debris. A closed rounded rect says the same thing in
+   one border. */
+.imei__scan {
+  position: relative;
+  display: inline-block;
+  margin-block: 2rem 2.25rem;
+  padding: 0.875rem clamp(1.25rem, 4vw, 2.5rem);
+  max-inline-size: 100%;
+  border: 1px solid color-mix(in srgb, var(--color-accent-lit) 30%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
 
 .imei__digits {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: clamp(1.375rem, 4.6vw, 2.75rem);
+  font-size: clamp(1.25rem, 4.4vw, 2.625rem);
   letter-spacing: 0.08em;
-  color: var(--color-navy);
+  color: var(--color-accent-lit);
   direction: ltr;
   text-align: center;
-  margin-block: 1.75rem 2rem;
+  margin: 0;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--color-accent-lit) 45%, transparent);
 }
 
 .imei__trail {
@@ -607,15 +1002,31 @@ h3 {
 }
 
 .imei__step {
-  background: var(--color-page);
-  border: 1px solid var(--color-hair);
-  border-radius: 0.75rem;
-  padding: 1.5rem 1.375rem;
-  box-shadow: var(--shadow-card);
+  background: color-mix(in srgb, var(--color-navy-800) 82%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 10%, transparent);
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem 1.5rem;
+  position: relative;
+}
+
+.imei__step__n {
+  position: absolute;
+  inset-block-start: -0.9375rem;
+  inset-inline-start: 1.5rem;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.875rem;
+  color: var(--color-navy-900);
+  background: var(--color-accent-lit);
 }
 
 .imei__step b {
-  color: var(--color-navy);
+  color: var(--color-on-dark);
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
@@ -625,8 +1036,18 @@ h3 {
 
 .imei__step p {
   font-size: 0.9375rem;
-  color: var(--color-navy-soft);
+  color: var(--color-on-dark-soft);
   margin: 0;
+}
+
+/* The honesty note about HAMTA. Kept quiet, but on a navy ground `navy-mute` would be
+   3.8:1 — under the floor — so it takes the dark-band caption token instead. */
+.band__note {
+  font-size: 0.875rem;
+  color: var(--color-on-dark-mute);
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  margin-block-start: 2.25rem;
 }
 
 /* ------------------------------------------------------------- pricing ---- */
@@ -656,13 +1077,14 @@ h3 {
 .toggle button[aria-pressed='true'] {
   background: var(--color-page);
   color: var(--color-navy);
-  box-shadow: 0 1px 2px rgb(14 27 44 / 0.08);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.12);
 }
 
 .plans {
   display: grid;
   gap: 1.5rem;
   margin-block-start: 1.5rem;
+  align-items: stretch;
 }
 
 @media (min-width: 880px) {
@@ -673,26 +1095,68 @@ h3 {
 
 .plan {
   border: 1px solid var(--color-hair);
-  border-radius: 0.75rem;
+  border-radius: 1.125rem;
   padding: 2rem 1.75rem;
   background: var(--color-page);
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-card);
+  transition: box-shadow 200ms ease, translate 200ms ease;
 }
 
-/* The featured plan is marked by its border and one small line of type — not by a
-   different fill, a gradient, or a scale transform. */
+.plan:hover {
+  box-shadow: var(--shadow-lift);
+  translate: 0 -2px;
+}
+
+/* The featured plan is FILLED, and that is the change. Marking it with a 1px accent
+   border was correct and invisible: three white cards on a white section read as one
+   undifferentiated block, and the plan a shop should buy is exactly the thing the
+   pricing section exists to point at. */
 .plan[data-featured='true'] {
-  border-color: var(--color-accent);
+  background: linear-gradient(170deg, var(--color-navy-800) 0%, var(--color-navy-900) 62%);
+  border-color: transparent;
+  color: var(--color-on-dark-soft);
+  box-shadow: var(--shadow-band);
+}
+
+@media (min-width: 880px) {
+  .plan[data-featured='true'] {
+    /* Half a step taller than its neighbours — enough to read as chosen, not enough to
+       break the row. */
+    margin-block: -0.75rem;
+    padding-block: 2.75rem;
+  }
+}
+
+.plan[data-featured='true'] .plan__name,
+.plan[data-featured='true'] .plan__price {
+  color: var(--color-on-dark);
+}
+
+.plan[data-featured='true'] .plan__tag,
+.plan[data-featured='true'] .plan__unit {
+  color: var(--color-on-dark-mute);
+}
+
+.plan[data-featured='true'] .plan__list {
+  color: var(--color-on-dark-soft);
+}
+
+.plan[data-featured='true'] .plan__list svg {
+  color: var(--color-accent-lit);
 }
 
 .plan__badge {
   align-self: flex-start;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--color-accent);
-  margin-block-end: 0.625rem;
+  color: var(--color-accent-lit);
+  background: color-mix(in srgb, var(--color-accent-lit) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-lit) 30%, transparent);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-block-end: 1rem;
 }
 
 .plan__name {
@@ -753,8 +1217,10 @@ h3 {
 
 .addons {
   margin-block-start: 3rem;
-  border-block-start: 1px solid var(--color-hair);
-  padding-block-start: 2.5rem;
+  border-radius: 1.125rem;
+  border: 1px solid var(--color-hair);
+  background: var(--color-page-alt);
+  padding: clamp(1.5rem, 3vw, 2.25rem);
 }
 
 .addons__grid {
@@ -795,18 +1261,28 @@ h3 {
 
 .faq {
   display: grid;
-  max-inline-size: 44rem;
-  margin-block-start: 2.5rem;
-  border-block-start: 1px solid var(--color-hair);
+  gap: 0.75rem;
+  max-inline-size: 46rem;
+  margin-inline: auto;
 }
 
 .faq details {
-  border-block-end: 1px solid var(--color-hair);
+  background: var(--color-page);
+  border: 1px solid var(--color-hair);
+  border-radius: 1rem;
+  padding-inline: 1.375rem;
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.faq details[open] {
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  box-shadow: var(--shadow-card);
 }
 
 .faq summary {
   cursor: pointer;
-  padding-block: 1.25rem;
+  padding-block: 1.125rem;
   font-weight: 700;
   color: var(--color-navy);
   font-size: 1.0625rem;
@@ -822,37 +1298,88 @@ h3 {
   display: none;
 }
 
+/* The chevron gets a circle. A bare 2px corner on a 46rem-wide row is a target nobody
+   sees; a filled disc is where the eye expects the control to be. */
 .faq summary::after {
   content: '';
-  inline-size: 0.6rem;
-  block-size: 0.6rem;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
   flex: none;
-  border-inline-end: 2px solid var(--color-navy-mute);
-  border-block-end: 2px solid var(--color-navy-mute);
-  rotate: 45deg;
-  transition: rotate 180ms ease;
+  border-radius: 999px;
+  background:
+    linear-gradient(currentColor, currentColor) center / 0.625rem 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 2px 0.625rem no-repeat,
+    var(--color-page-tint);
+  color: var(--color-accent);
+  transition: rotate 200ms ease, background-size 200ms ease;
 }
 
 .faq details[open] summary::after {
-  rotate: 225deg;
+  rotate: 180deg;
+  background:
+    linear-gradient(currentColor, currentColor) center / 0.625rem 2px no-repeat,
+    var(--color-page-tint);
 }
 
 .faq p {
-  padding-block-end: 1.5rem;
+  padding-block-end: 1.375rem;
   color: var(--color-navy-soft);
   margin: 0;
-  max-inline-size: 40rem;
+}
+
+/* ---------------------------------------------------------------- final --- */
+/*
+ | The closing CTA, as a navy card inset in white rather than a full-bleed band. Two
+ | dark sections on one page want to differ, or the second reads as a repeat.
+ */
+
+.final {
+  padding-block: clamp(3.5rem, 6vw, 5.5rem);
+}
+
+.final__card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 4rem);
+  text-align: center;
+  background:
+    radial-gradient(700px 320px at 50% -10%, color-mix(in srgb, var(--color-accent) 34%, transparent) 0%, transparent 62%),
+    linear-gradient(165deg, var(--color-navy-800) 0%, var(--color-navy-900) 60%);
+  box-shadow: var(--shadow-band);
+  color: var(--color-on-dark-soft);
+}
+
+.final__card h2 {
+  color: var(--color-on-dark);
+}
+
+.final__card .sec__lede {
+  color: var(--color-on-dark-soft);
+  margin-inline: auto;
+  margin-block-end: 2rem;
+}
+
+.final__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.final__note {
+  font-size: 0.875rem;
+  color: var(--color-on-dark-mute);
+  margin-block-start: 1.5rem;
 }
 
 /* ---------------------------------------------------------------- foot ---- */
 
-.final {
-  text-align: center;
-}
-
 .foot {
+  background: var(--color-page-alt);
   border-block-start: 1px solid var(--color-hair);
-  padding-block: 2.5rem;
+  padding-block: 2.75rem;
   font-size: 0.9375rem;
   color: var(--color-navy-mute);
 }
@@ -865,8 +1392,28 @@ h3 {
   justify-content: space-between;
 }
 
-.foot a:hover {
+.foot__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.0625rem;
   color: var(--color-navy);
+}
+
+.foot__brand svg {
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  flex: none;
+}
+
+.foot a {
+  transition: color 160ms ease;
+}
+
+.foot a:hover {
+  color: var(--color-accent);
 }
 
 .field {
@@ -888,7 +1435,7 @@ h3 {
 /*
  | The whole of it.
  |
- | A 220ms fade-and-rise as a section enters, once, driven by IntersectionObserver. No
+ | A 260ms fade-and-rise as a section enters, once, driven by IntersectionObserver. No
  | animation library, no scroll listener, no scrub, no pin. The rejected direction
  | needed ~50KB of GSAP and Lenis to do its work; this needs none, and the
  | reduced-motion branch is satisfied by having almost nothing to switch off.
@@ -915,7 +1462,7 @@ h3 {
   transition-delay: 40ms;
 }
 
-[data-io='on'] .feature[data-seen='true'] .frame {
+[data-io='on'] .feature[data-seen='true'] .shot {
   transition-delay: 100ms;
 }
 
@@ -941,6 +1488,17 @@ h3 {
     border-color: var(--color-accent) !important;
     background: var(--color-accent) !important;
     transition: none !important;
+  }
+
+  /* Hover lifts are motion too, and they are the only other thing here that moves. */
+  .btn,
+  .plan {
+    transition: none !important;
+  }
+
+  .btn:hover,
+  .plan:hover {
+    translate: none !important;
   }
 }
 
@@ -1189,14 +1747,10 @@ h3 {
   color: var(--color-accent);
 }
 
-/* The receipt, used as the artwork. Slightly larger than the hero's and without the
-   page-coloured tear notches, since it sits on the card rather than on the ground. */
+/* The receipt, used as the artwork. Slightly larger than the hero's, and it restates
+   which colour its tear notches are cut out of: the card, not the page ground. */
 .auth__art .receipt {
   inline-size: 21rem;
   rotate: -1.4deg;
-}
-
-.auth__art .receipt::before,
-.auth__art .receipt::after {
-  background: repeating-radial-gradient(circle at 6px 0, var(--color-page) 0 4.5px, transparent 4.5px 11px);
+  --tear: var(--color-page);
 }

@@ -5,13 +5,28 @@
     /** Yearly = twelve months for the price of ten. Stated on screen, never implied. */
     $yearFactor = 10;
 
-    /** [title, body, screenshot] — five flagship modules, alternating down the page. */
+    /**
+     * [title, body, screenshot, icon] — five flagship modules, alternating down the page.
+     *
+     * The icon key names a path in the `landing.icon` partial. Each row opened with a
+     * bare heading before the second design review; five bare headings down a page read
+     * as a table of contents rather than a feature list.
+     */
     $features = [
-        ['فروش سریال‌دار با IMEI', 'بارکد یا IMEI را اسکن کنید؛ دستگاه با همان شناسه از انبار کم می‌شود و روی فاکتور می‌نشیند. معاوضه، تخفیف و چند روش پرداخت روی همان صفحه.', 'pos'],
-        ['تعمیرات، از پذیرش تا تحویل', 'قبض پذیرش با QR پیگیری، وضعیت‌های واقعی کارگاه، قطعات مصرفی از انبار، و دستگاه‌های رسوبی که فراموش نمی‌شوند.', 'repairs'],
-        ['اقساط و چک — میز وصول، نه دفترچه', 'اقساط و چک‌ها با سررسید و وضعیت. چه کسی امروز باید بیاید، چه کسی عقب افتاده، و چقدر هنوز وصول نشده.', 'installments'],
-        ['پیامک، از روی رویدادهای واقعی', 'پیامک آمادهٔ تحویل، یادآوری قسط، تشکر بعد از فروش — از روی اتفاق‌های خود سیستم، نه فهرست دستی.', 'sms'],
-        ['گزارش سود، نه فقط فروش', 'بهای تمام‌شده در لحظهٔ فروش ثبت می‌شود، پس سود هر کالا و هر دستگاه واقعی است — نه تفاضل قیمت امروز.', 'profit'],
+        ['فروش سریال‌دار با IMEI', 'بارکد یا IMEI را اسکن کنید؛ دستگاه با همان شناسه از انبار کم می‌شود و روی فاکتور می‌نشیند. معاوضه، تخفیف و چند روش پرداخت روی همان صفحه.', 'pos', 'scan'],
+        ['تعمیرات، از پذیرش تا تحویل', 'قبض پذیرش با QR پیگیری، وضعیت‌های واقعی کارگاه، قطعات مصرفی از انبار، و دستگاه‌های رسوبی که فراموش نمی‌شوند.', 'repairs', 'wrench'],
+        ['اقساط و چک — میز وصول، نه دفترچه', 'اقساط و چک‌ها با سررسید و وضعیت. چه کسی امروز باید بیاید، چه کسی عقب افتاده، و چقدر هنوز وصول نشده.', 'installments', 'calendar'],
+        ['پیامک، از روی رویدادهای واقعی', 'پیامک آمادهٔ تحویل، یادآوری قسط، تشکر بعد از فروش — از روی اتفاق‌های خود سیستم، نه فهرست دستی.', 'sms', 'message'],
+        ['گزارش سود، نه فقط فروش', 'بهای تمام‌شده در لحظهٔ فروش ثبت می‌شود، پس سود هر کالا و هر دستگاه واقعی است — نه تفاضل قیمت امروز.', 'profit', 'trend'],
+    ];
+
+    /** The band under the hero. Same five claims the grey word-list carried, with a shape each. */
+    $strip = [
+        ['scan', 'فروش سریال‌دار'],
+        ['wrench', 'تعمیرات'],
+        ['calendar', 'اقساط و چک'],
+        ['store', 'چندشعبه'],
+        ['calendar-fa', 'تقویم شمسی'],
     ];
 @endphp
 <!DOCTYPE html>
@@ -68,9 +83,18 @@
 
 {{-- ================================================================ hero === --}}
 <section class="hero">
+    {{-- A 46px hairline grid, masked to fade out. Decoration with one job: the hero was
+         an unmarked white field, and a field with no surface has no depth to read. --}}
+    <div class="mesh" aria-hidden="true"></div>
+
     <div class="shell hero__grid">
         <div>
-            <h1 class="hero__title">از پذیرش تعمیر تا تسویه،<br>روی یک قبض.</h1>
+            <p class="chip"><span class="chip__dot" aria-hidden="true"></span>نرم‌افزار ابری فروشگاه موبایل</p>
+
+            {{-- The accent lives in the largest type on the page. One coloured clause at
+                 68px does more for "this has a colour" than a dozen tinted captions, and
+                 #0066CC on white is 5.6:1 — it costs nothing in contrast. --}}
+            <h1 class="hero__title">از پذیرش تعمیر تا تسویه،<br><em>روی یک قبض.</em></h1>
 
             <p class="hero__lede">
                 موبایل‌یار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات،
@@ -78,52 +102,63 @@
             </p>
 
             <div class="hero__actions">
-                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">ساخت فروشگاه</a>
+                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">
+                    ساخت فروشگاه
+                    @include('landing.icon', ['name' => 'arrow', 'size' => 16])
+                </a>
                 <a href="#features" class="btn btn--quiet btn--lg">امکانات را ببینید</a>
             </div>
 
-            <p class="hero__note">بدون کارت بانکی · راه‌اندازی چند دقیقه‌ای · فارسی و تقویم شمسی</p>
+            <ul class="hero__ticks">
+                <li>@include('landing.icon', ['name' => 'check', 'size' => 15]) بدون کارت بانکی</li>
+                <li>@include('landing.icon', ['name' => 'check', 'size' => 15]) راه‌اندازی چند دقیقه‌ای</li>
+                <li>@include('landing.icon', ['name' => 'check', 'size' => 15]) فارسی و تقویم شمسی</li>
+            </ul>
         </div>
 
         {{--
-            The signature object, and now static.
+            The signature object, and static.
 
             The rejected direction printed this line by line on scroll, pinned, driven by
             GSAP (ADR 0016). It is a rendered artefact instead: there is nothing to
-            trigger, nothing to fail, and nothing to switch off for reduced motion.
+            trigger, nothing to fail, and nothing to switch off for reduced motion. What
+            the second review added is only the glow behind it — paper reads as lit on a
+            surface, where before it was pasted on a void.
         --}}
-        <div class="receipt" role="img"
-             aria-label="نمونهٔ قبض پذیرش تعمیر: اپل آیفون ۱۳ با شناسهٔ ۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱، برآورد اولیه ۴۵۰٬۰۰۰ تومان، پیامک آماده تحویل، و تسویهٔ ۳۲۰٬۰۰۰ تومان.">
-            <div class="receipt__head">
-                <div class="receipt__shop">موبایل‌یار</div>
-                <div class="receipt__kind">قبض پذیرش تعمیر</div>
+        <div class="hero__art">
+            <div class="receipt" role="img"
+                 aria-label="نمونهٔ قبض پذیرش تعمیر: اپل آیفون ۱۳ با شناسهٔ ۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱، برآورد اولیه ۴۵۰٬۰۰۰ تومان، پیامک آماده تحویل، و تسویهٔ ۳۲۰٬۰۰۰ تومان.">
+                <div class="receipt__head">
+                    <div class="receipt__shop">موبایل‌یار</div>
+                    <div class="receipt__kind">قبض پذیرش تعمیر</div>
+                </div>
+
+                <dl>
+                    <div class="receipt__line"><dt>شماره قبض</dt><dd>REP-۰۰۰۱۸۴</dd></div>
+                    <div class="receipt__line"><dt>تاریخ</dt><dd>۱۴۰۵/۰۵/۲۹</dd></div>
+                    <div class="receipt__line"><dt>مشتری</dt><dd>سمیرا احمدی</dd></div>
+                    <div class="receipt__line"><dt>دستگاه</dt><dd>اپل آیفون ۱۳</dd></div>
+                    <div class="receipt__line"><dt>IMEI</dt><dd>۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱</dd></div>
+                    <div class="receipt__line"><dt>ایراد</dt><dd>شکستگی گلس</dd></div>
+                    <div class="receipt__line"><dt>برآورد اولیه</dt><dd>۴۵۰٬۰۰۰ تومان</dd></div>
+                </dl>
+
+                <div class="receipt__rule"></div>
+                <p class="receipt__act">— دستگاه آمادهٔ تحویل شد —</p>
+
+                <p class="receipt__sms">
+                    «موبایل‌یار — دستگاه شما آمادهٔ تحویل است. لطفاً قبض را همراه بیاورید.»
+                </p>
+
+                <div class="receipt__rule"></div>
+
+                <dl>
+                    <div class="receipt__line"><dt>هزینهٔ نهایی</dt><dd>۴۲۰٬۰۰۰ تومان</dd></div>
+                    <div class="receipt__line"><dt>پیش‌پرداخت</dt><dd>۱۰۰٬۰۰۰ تومان</dd></div>
+                </dl>
+
+                <div class="receipt__total"><span>تسویه</span><span>۳۲۰٬۰۰۰ تومان</span></div>
             </div>
-
-            <dl>
-                <div class="receipt__line"><dt>شماره قبض</dt><dd>REP-۰۰۰۱۸۴</dd></div>
-                <div class="receipt__line"><dt>تاریخ</dt><dd>۱۴۰۵/۰۵/۲۹</dd></div>
-                <div class="receipt__line"><dt>مشتری</dt><dd>سمیرا احمدی</dd></div>
-                <div class="receipt__line"><dt>دستگاه</dt><dd>اپل آیفون ۱۳</dd></div>
-                <div class="receipt__line"><dt>IMEI</dt><dd>۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱</dd></div>
-                <div class="receipt__line"><dt>ایراد</dt><dd>شکستگی گلس</dd></div>
-                <div class="receipt__line"><dt>برآورد اولیه</dt><dd>۴۵۰٬۰۰۰ تومان</dd></div>
-            </dl>
-
-            <div class="receipt__rule"></div>
-            <p class="receipt__act">— دستگاه آمادهٔ تحویل شد —</p>
-
-            <p class="receipt__sms">
-                «موبایل‌یار — دستگاه شما آمادهٔ تحویل است. لطفاً قبض را همراه بیاورید.»
-            </p>
-
-            <div class="receipt__rule"></div>
-
-            <dl>
-                <div class="receipt__line"><dt>هزینهٔ نهایی</dt><dd>۴۲۰٬۰۰۰ تومان</dd></div>
-                <div class="receipt__line"><dt>پیش‌پرداخت</dt><dd>۱۰۰٬۰۰۰ تومان</dd></div>
-            </dl>
-
-            <div class="receipt__total"><span>تسویه</span><span>۳۲۰٬۰۰۰ تومان</span></div>
         </div>
     </div>
 </section>
@@ -131,18 +166,19 @@
 {{-- ============================================================== strip === --}}
 <div class="strip">
     <div class="shell strip__row">
-        <span>فروش سریال‌دار</span>
-        <span>تعمیرات</span>
-        <span>اقساط و چک</span>
-        <span>چندشعبه</span>
-        <span>تقویم شمسی، مبلغ به تومان</span>
+        @foreach ($strip as [$icon, $label])
+            <span class="strip__item">
+                @include('landing.icon', ['name' => $icon, 'size' => 18])
+                {{ $label }}
+            </span>
+        @endforeach
     </div>
 </div>
 
 {{-- =========================================================== features === --}}
 <section class="sec" id="features">
     <div class="shell" data-spine-scope style="position:relative">
-        <div class="sec__head rise">
+        <div class="sec__head sec__head--center rise">
             <p class="sec__eyebrow">امکانات</p>
             <h2 class="sec__title">پنج کاری که هر روز پشت پیشخوان تکرار می‌شود</h2>
             <p class="sec__lede">همهٔ تصویرها از خود محصول گرفته شده‌اند — نه طرح، نه ماکت.</p>
@@ -159,35 +195,49 @@
         --}}
         <div class="spine" data-spine aria-hidden="true"><span class="spine__fill" data-spine-fill></span></div>
 
-        @foreach ($features as [$title, $body, $file])
+        @foreach ($features as [$title, $body, $file, $icon])
             <article class="feature rise" data-node style="--i:{{ $loop->index }}">
                 <span class="feature__node" aria-hidden="true"></span>
                 <div class="feature__text">
+                    <span class="feature__icon" aria-hidden="true">
+                        @include('landing.icon', ['name' => $icon, 'size' => 22])
+                    </span>
                     <h3 class="feature__title">{{ $title }}</h3>
                     <p class="feature__body">{{ $body }}</p>
                 </div>
 
-                <div class="frame">
-                    <div class="frame__bar" aria-hidden="true">
-                        <span class="frame__dot"></span><span class="frame__dot"></span><span class="frame__dot"></span>
+                <div class="shot">
+                    <div class="frame">
+                        <div class="frame__bar" aria-hidden="true">
+                            <span class="frame__dot"></span><span class="frame__dot"></span><span class="frame__dot"></span>
+                        </div>
+                        <img src="{{ Vite::asset("resources/landing/shots/{$file}.webp") }}"
+                             alt="نمای واقعی صفحهٔ {{ $title }} در موبایل‌یار"
+                             width="1440" height="900" loading="lazy" decoding="async">
                     </div>
-                    <img src="{{ Vite::asset("resources/landing/shots/{$file}.webp") }}"
-                         alt="نمای واقعی صفحهٔ {{ $title }} در موبایل‌یار"
-                         width="1440" height="900" loading="lazy" decoding="async">
                 </div>
             </article>
         @endforeach
     </div>
 </section>
 
-{{-- =============================================================== IMEI === --}}
-<section class="sec sec--alt">
+{{-- =============================================================== IMEI ===
+    The one claim this product genuinely differs on, and the page's first dark anchor.
+    A full-bleed navy band: everything above and below it is white *because* this is
+    not, and a page with nowhere dark to land is what the second review called بی‌روح.
+--}}
+<section class="sec band">
+    <div class="mesh" aria-hidden="true"></div>
+
     <div class="shell" style="text-align:center">
         <div class="rise">
             <p class="sec__eyebrow">تفاوت اصلی</p>
             <h2 class="sec__title">هر گوشی یک شناسنامه دارد</h2>
 
-            <p class="imei__digits nums">۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱</p>
+            {{-- Scanner brackets, drawn with two pseudo-elements. No image, nothing to load. --}}
+            <div class="imei__scan">
+                <p class="imei__digits nums">۳۵۴۸۷۹۱۱۶۲۳۴۹۰۱</p>
+            </div>
 
             <p class="sec__lede" style="margin-inline:auto">
                 دستگاه‌ها در موبایل‌یار «تعداد» نیستند؛ هرکدام یک سطر با شناسهٔ خودشان هستند.
@@ -197,20 +247,23 @@
 
         <div class="imei__trail rise">
             <div class="imei__step">
+                <span class="imei__step__n nums" aria-hidden="true">۱</span>
                 <b>از چه کسی خریدم؟</b>
                 <p>تاریخ خرید، تأمین‌کننده و بهای تمام‌شدهٔ همان دستگاه.</p>
             </div>
             <div class="imei__step">
+                <span class="imei__step__n nums" aria-hidden="true">۲</span>
                 <b>به چه کسی فروختم؟</b>
                 <p>فاکتور، مشتری و تاریخ فروش — با همان شناسه.</p>
             </div>
             <div class="imei__step">
+                <span class="imei__step__n nums" aria-hidden="true">۳</span>
                 <b>کِی تعمیر شد؟</b>
                 <p>هر بار پذیرش، قطعهٔ مصرفی و هزینه‌ای که گرفته شد.</p>
             </div>
         </div>
 
-        <p class="hero__note rise" style="margin-block-start:2rem;max-inline-size:40rem;margin-inline:auto">
+        <p class="band__note rise">
             دربارهٔ همتا صادق باشیم: سامانهٔ همتا API عمومی ندارد. موبایل‌یار سوابق را نگه
             می‌دارد و مسیر کار را نشان می‌دهد، اما جای ثبت در همتا را نمی‌گیرد.
         </p>
@@ -220,7 +273,7 @@
 {{-- ============================================================ pricing === --}}
 <section class="sec" id="pricing">
     <div class="shell">
-        <div class="sec__head rise" style="margin-block-end:0">
+        <div class="sec__head sec__head--center rise" style="margin-block-end:0">
             <p class="sec__eyebrow">تعرفه‌ها</p>
             <h2 class="sec__title">به اندازهٔ مغازه‌تان</h2>
             <p class="sec__lede">۱۴ روز رایگان روی همهٔ پلن‌ها. بدون کارت بانکی، بدون قرارداد.</p>
@@ -235,6 +288,10 @@
         <div class="plans rise">
             @foreach ($plans as $plan)
                 @php $featured = $plan->code === 'pro'; @endphp
+                {{-- The featured plan is FILLED navy, not outlined. Marking it with a 1px
+                     accent border was correct and invisible: three white cards on a white
+                     section read as one block, and the plan a shop should buy is exactly
+                     what this section exists to point at. --}}
                 <div class="plan" data-featured="{{ $featured ? 'true' : 'false' }}">
                     @if ($featured)<span class="plan__badge">انتخاب بیشتر فروشگاه‌ها</span>@endif
 
@@ -249,16 +306,16 @@
                     <ul class="plan__list">
                         @foreach ($plan->modules->sortBy('name_fa')->take(7) as $module)
                             <li>
-                                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                @include('landing.icon', ['name' => 'check', 'size' => 13])
                                 {{ $module->name_fa }}
                             </li>
                         @endforeach
                         @if ($plan->modules->count() > 7)
-                            <li style="color:var(--color-navy-mute)">و {{ Digits::toPersian((string) ($plan->modules->count() - 7)) }} مورد دیگر</li>
+                            <li style="opacity:.72">و {{ Digits::toPersian((string) ($plan->modules->count() - 7)) }} مورد دیگر</li>
                         @endif
                     </ul>
 
-                    <a href="{{ route('register') }}" class="btn {{ $featured ? 'btn--primary' : 'btn--quiet' }}">شروع کنید</a>
+                    <a href="{{ route('register') }}" class="btn {{ $featured ? 'btn--light' : 'btn--quiet' }}">شروع کنید</a>
                 </div>
             @endforeach
         </div>
@@ -281,7 +338,7 @@
 {{-- ================================================================ FAQ === --}}
 <section class="sec sec--alt" id="faq">
     <div class="shell">
-        <div class="sec__head rise" style="margin-block-end:0">
+        <div class="sec__head sec__head--center rise">
             <p class="sec__eyebrow">سوالات پرتکرار</p>
             <h2 class="sec__title">چیزهایی که معمولاً می‌پرسند</h2>
         </div>
@@ -309,7 +366,7 @@
             </details>
         </div>
 
-        <p class="hero__note rise" style="margin-block-start:2rem">
+        <p class="hero__note rise" style="margin-block-start:2rem;text-align:center">
             <a href="{{ route('legal.terms') }}" style="color:var(--color-accent)">قوانین و شرایط</a>
             ·
             <a href="{{ route('legal.privacy') }}" style="color:var(--color-accent)">حریم خصوصی</a>
@@ -317,15 +374,31 @@
     </div>
 </section>
 
-{{-- ============================================================== final === --}}
-<section class="sec final">
+{{-- ============================================================== final ===
+    The closing CTA, as a navy card inset in white rather than a second full-bleed band.
+    Two dark sections on one page want to differ, or the second reads as a repeat.
+--}}
+<section class="final">
     <div class="shell rise">
-        <h2 class="sec__title">فروشگاه‌تان را بسازید</h2>
-        <p class="sec__lede" style="margin-inline:auto;margin-block-end:2rem">
-            راه‌اندازی چند دقیقه طول می‌کشد و چیزی نصب نمی‌شود.
-            ۱۴ روز اول بدون هزینه است و کارت بانکی نمی‌خواهد.
-        </p>
-        <a href="{{ route('register') }}" class="btn btn--primary btn--lg">ثبت‌نام</a>
+        <div class="final__card">
+            <div class="mesh" aria-hidden="true"></div>
+
+            <h2 class="sec__title">فروشگاه‌تان را بسازید</h2>
+            <p class="sec__lede">
+                راه‌اندازی چند دقیقه طول می‌کشد و چیزی نصب نمی‌شود.
+                ۱۴ روز اول بدون هزینه است و کارت بانکی نمی‌خواهد.
+            </p>
+
+            <div class="final__actions">
+                <a href="{{ route('register') }}" class="btn btn--light btn--lg">
+                    ثبت‌نام
+                    @include('landing.icon', ['name' => 'arrow', 'size' => 16])
+                </a>
+                <a href="#pricing" class="btn btn--ghost btn--lg">دیدن تعرفه‌ها</a>
+            </div>
+
+            <p class="final__note">بدون کارت بانکی · بدون قرارداد · خروجی اکسل هر وقت خواستید</p>
+        </div>
     </div>
 </section>
 
@@ -333,12 +406,20 @@
 
 <footer class="foot">
     <div class="shell foot__row">
-        <span>© ۱۴۰۵ موبایل‌یار</span>
-        <nav style="display:flex;gap:1.5rem" aria-label="پیوندهای حقوقی">
+        <span class="foot__brand">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="#0E1B2C" stroke-width="2"/>
+                <path d="M12 24.5h8" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            موبایل‌یار
+        </span>
+        <nav style="display:flex;flex-wrap:wrap;gap:1.5rem" aria-label="پیوندهای حقوقی">
             <a href="{{ route('legal.terms') }}">قوانین و شرایط</a>
             <a href="{{ route('legal.privacy') }}">حریم خصوصی</a>
             <a href="#pricing">تعرفه‌ها</a>
+            <a href="{{ route('login') }}">ورود</a>
         </nav>
+        <span>© ۱۴۰۵ موبایل‌یار</span>
     </div>
 </footer>
 

@@ -84,6 +84,50 @@ Three decisions inside it worth stating:
 Motion is a 220ms fade-and-rise on section entry, once, via `IntersectionObserver` and a
 CSS transition. **No animation library at all.**
 
+### Direction B, revised — the same direction, with weight · SHIPPED
+
+Direction B shipped, was reviewed live a second time, and came back **بی‌روح** — lifeless,
+and too white. The direction was kept; what was wrong was that the page had no visual
+weight anywhere, so nothing anchored the eye and six sections read as one sheet.
+
+Recording the diagnosis, because the obvious reading is the wrong one: *the answer was not
+more motion*. That is what Direction A was, and it was rejected on taste, not on a lack of
+polish. Whitespace cannot structure a page that has nothing in it to space out.
+
+What changed:
+
+| was | is | why |
+|---|---|---|
+| `page-alt` `#F7F9FB` | `#EDF2F8`, plus a `#E3ECF7` panel tint | 1.03:1 against white — the alternation did not exist on a real monitor |
+| `navy-mute` `#64748B` | `#5D6B7E` | 4.38:1 on the new alt ground was under the floor; now 4.8:1 there and 5.4:1 on white |
+| hairline `#E7E8EA` | `#DCE3EB` | a card border you can see |
+| — | `accent-lit` `#6BB4FF` | the same accent, lifted for a navy ground: 8.3:1 on navy-900. Not a second accent |
+| — | `navy-900` `#0A1628` / `navy-800` `#142943` | the dark anchors |
+| no filled shapes but two buttons | two navy bands and a filled featured plan | the page's weight |
+
+Three of those filled shapes are worth naming:
+
+- **The IMEI section is a full-bleed navy band.** It is the one claim this product actually
+  differs on, and it is now the thing you remember from scrolling the page. Everything
+  around it is white *because* it is not.
+- **The featured plan card is filled navy, not outlined.** A 1px accent border was correct
+  and invisible: three white cards on a white section read as one block, and the plan a
+  shop should buy is exactly what the pricing section exists to point at.
+- **The closing CTA is a navy card inset in white**, deliberately not a second full-bleed
+  band — two identical dark sections would read as a repeat.
+
+Section rhythm dropped from 8.5rem to 6.5rem and section heads are centred. A title aligned
+to the inline-start edge of a 1120px column leaves two thirds of its line empty; five of
+those down a page is most of what "too much white" meant.
+
+Screenshots sit on a tinted panel with a glow, the hero has a masked 46px mesh and a wash,
+and small elements (eyebrows, plan badges, the IMEI serial, the trust strip) got chips,
+icons and a scan frame. **No animation library was added back**, there is still one
+JavaScript file, and there is still no glassmorphism anywhere on the page.
+
+Budget after the revision: **18.8KB gz CSS, 1.05KB gz JS**, against the 180KB the design
+system allows.
+
 ## The honest remaining divergence
 
 The brief said `#0E1B2C` was "the existing product token". **It is not.** The product's
