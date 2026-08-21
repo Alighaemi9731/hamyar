@@ -1,6 +1,17 @@
 # --- MobiShop ---
-# .claude/skills/ IS tracked on purpose: the design-system skill ships with the repo.
+# .claude/skills/ and .claude/commands/ ARE tracked on purpose: the design-system skill
+# and the release commands ship with the repo.
 .claude/settings.local.json
+
+# Operator coordinates for the production box — host, path, deploy directory. Not
+# secrets, but the repository is PUBLIC, so they live on the machine that deploys and
+# nowhere else (golden rule 1b, and docs/RELEASE_PROCESS.md).
+.claude/OPS.local.md
+.deploy.local
+
+# Release archives built by bin/release. They are uploaded to the GitHub release; the
+# repository is not where a build artefact belongs.
+/dist-release/
 _tmp/
 /bin/.phpstan-cache
 

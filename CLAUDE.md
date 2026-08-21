@@ -107,6 +107,12 @@ contain**, because it goes on reading as permission long after the permission en
 - `composer test:isolation` — tenancy isolation suite only
 - `npm run dev` / `npm run build`
 - New module scaffold: `php artisan make:module <Name>` (custom generator, Phase 0)
+- **`bin/release --deploy`** — tag, publish, ship and prove one release. The whole
+  procedure and every refusal: `docs/RELEASE_PROCESS.md`. Version policy:
+  `docs/VERSIONING.md`. What each release contained: `CHANGELOG.md`.
+- **`bin/smoke <apex>`** — is the live site actually serving this? Runs from outside the
+  box, over the real certificate. Also `curl -s https://<apex>/health` for the version
+  alone, which needs nothing installed and no access to anything.
 
 ## Conventions
 - FormRequest for validation; thin controllers; domain logic in module Services/Actions.
@@ -115,16 +121,25 @@ contain**, because it goes on reading as permission long after the permission en
 - Migrations: tenant tables get `$table->foreignId('tenant_id')->index()` + RLS in same migration.
 - Persian UI strings in `lang/fa/**`; never hardcode Farsi in components.
 - Conventional commits (`feat(sales): …`); one logical change per commit; no direct pushes to main.
+- **`main` is protected by the platform, as of 2026-08-22.** Branch protection requires a
+  pull request and all five CI checks — Style & RTL, Larastan (level 8), Pest (PostgreSQL
+  16), Browser smoke (Chromium), Typecheck & build — to pass before anything lands.
+  **This paragraph said the opposite until the repository went public**, and it was right
+  to: rulesets and branch protection are Pro-gated for *private* repositories, so while
+  this one was private the platform genuinely enforced nothing. Public made them free, and
+  the owner's decision to publish (2026-08-22) is what turned the rule mechanical. Keep
+  this line honest the same way it was honest before — **if protection is ever removed,
+  or the repository goes private again, this paragraph goes back**. A rule everybody
+  believes is mechanical is one nobody checks.
+  `enforce_admins` is deliberately **off**, so the owner keeps an escape hatch for a
+  genuine emergency; the same philosophy as `ALLOW_MAIN_PUSH=1`.
 - **`make hooks`, once per clone.** Sets `core.hooksPath` so `.githooks/pre-push` refuses a
-  direct push to `main`. This is not belt-and-braces — the rule above was broken once, in
-  Phase 10, by finishing a merge and starting the next phase without branching.
-  **Be precise about what enforces it.** GitHub rulesets and branch protection are
-  **Pro-gated for private repositories**, and this repo is private because it is a
-  commercial product — so *the platform enforces nothing here*. What exists is a local hook
-  (prevention, only on a clone that ran `make hooks`) and `.github/workflows/guard-main.yml`
-  (detection: a red build when a commit reaches `main` without a PR). Neither is airtight,
-  and writing "enforced" in this file when it is not would be the more expensive error —
-  a rule everybody believes is mechanical is one nobody checks.
+  direct push to `main` before it reaches the network. Still worth running: it is
+  prevention where the ruleset is rejection, it says *why* rather than returning a remote
+  error, and it works offline. The rule above was broken once, in Phase 10, by finishing a
+  merge and starting the next phase without branching.
+  `.github/workflows/guard-main.yml` remains the detector — a red build if a commit ever
+  reaches `main` without a PR — and is now a backstop rather than the only net.
   Override for a genuine emergency: `ALLOW_MAIN_PUSH=1 git push`.
 - Counters (invoice/ticket numbers) via `counters` table with row lock — never MAX(+1).
 - **An idempotent insert that catches a unique violation must run in a nested
@@ -195,12 +210,12 @@ contain**, because it goes on reading as permission long after the permission en
    If checks are red or the DoD is unwalked, that is work to do, not a question to ask.
    **Check the checks, never `mergeStateStatus`.** Wait until `gh pr checks <n>` lists
    every job and none is `pending`, then merge only if none is failing. `mergeStateStatus`
-   answers a different question — *may this branch merge* — and on a **private repository
-   with no required checks it returns `CLEAN` before CI has even been queued**, because
-   nothing is required. Branch protection is Pro-gated here (see the `make hooks` note
-   above), so "required" is empty by construction and that field is permanently
-   optimistic. It merged #38 with zero checks reported; they happened to pass afterwards,
-   which is luck rather than a gate:
+   answers a different question — *may this branch merge* — and with no required checks it
+   returns `CLEAN` before CI has even been queued, because nothing is required. That is
+   how #38 merged with zero checks reported; they happened to pass afterwards, which is
+   luck rather than a gate. Required checks now exist (the branch-protection note above),
+   so the field is no longer permanently optimistic — but read the checks anyway. It still
+   answers "may this merge", never "is this correct", and the habit costs nothing:
 
    ```bash
    # WRONG — CLEAN just means "nothing is blocking", including "nothing has run".
@@ -216,7 +231,26 @@ contain**, because it goes on reading as permission long after the permission en
    "in progress", it is one hardware failure from gone. Set upstream on first push
    (`git push -u origin <branch>`); pushing a work-in-progress branch is normal and
    costs nothing, since only `main` is protected.
+8. **Green means merge, and merge means deploy.** A pull request whose checks have all
+   passed is not a decision waiting to be made; it is finished work nobody is shipping.
+   Merge it, then release it with `bin/release --deploy` (`docs/RELEASE_PROCESS.md`).
+   `bin/release` refuses to run while a green non-draft PR is still open, because that is
+   the exact state this rule exists to prevent.
+9. **A change that is not on the box is not done.** Not the checkbox, not the PROGRESS
+   line, not the report. The only evidence that counts is `bin/smoke` passing against the
+   live site — it reads the version the box itself reports, and it *follows* the links a
+   shopkeeper clicks instead of matching them.
+
+   This is rule 9 rather than a footnote because of what it cost. On 2026-08-21 the
+   landing rebuild and the fix for a live `/register` 404 sat finished on a branch while
+   production served the release from five commits earlier. **Every check was green.**
+   Nothing in the repository measured the distance between "the code is correct" and "the
+   correct code is running", so the only way to discover it was for the owner to open the
+   site and find it still broken — which is the most expensive possible place to find out,
+   and the one that reads as "the software does not work".
 Never mark a task done with failing tests. Never skip the isolation test.
+Never report a change as shipped on the strength of a merge — merges are not deploys, and
+`bin/smoke` is the only thing that knows the difference.
 **Never tick a box for user-facing behaviour that no route and no screen reach** — a
 service whose tests pass but which only Tinker can call is not a shipped feature, and the
 checkbox would be claiming something the tests never said. Ask whether a shopkeeper can
@@ -234,6 +268,10 @@ do the thing; if the answer needs a terminal, the box stays open with a reason b
 - Design system, tokens & landing brief: docs/design-system.md
 - Testing policy & suites: docs/testing.md
 - Deploy runbook: docs/deploy.md
+- **Release process (start here to ship anything): docs/RELEASE_PROCESS.md**
+- Version policy: docs/VERSIONING.md · Release history and reasons: CHANGELOG.md
+- Production coordinates: `.claude/OPS.local.md` and `.deploy.local` — **gitignored, and
+  the repository is public**. Never copy a host, an IP or a secret out of them.
 - Load-test runbook (run 2026-08-20 against `mobiyar.com`; p95 fails on `/dashboard`):
   docs/load-testing.md · docs/load-tests/2026-08-20.md
 - Persian source docs (business plan / design & tooling supplement):

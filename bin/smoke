@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+#
+# MobiShop — post-deploy smoke check, run against the LIVE site.
+#
+#   bin/smoke <apex-domain>
+#   EXPECT_VERSION=0.12.0 EXPECT_RELEASE=mobishop-app:eb971dd9c bin/smoke <apex-domain>
+#
+# ## Why this exists
+#
+# Every gate this project had answered "is the code correct". None of them answered
+# "is the correct code the code that is running", and the gap between those two is where
+# this product spent 2026-08-21: the landing rebuild and a 404 fix sat finished on a
+# branch while the box served the release before them. Nothing was red. The site was
+# just wrong, and the only way to find out was to open it.
+#
+# So this runs from OUTSIDE the box, over the real internet, against the real TLS, after
+# every deploy. It is deliberately not a test suite — it is the shortest list of things
+# that must be true for a shopkeeper to get through the front door, plus proof of which
+# build answered.
+#
+# ## No hostname literals
+#
+# The apex is an argument, never a default (golden rule 1b). `bin/release` reads it from
+# `APP_DOMAIN` in the box's own `.env.production`, so the value comes from the same place
+# the application reads it from and there is nothing to keep in sync.
+#
+# ## Exit code
+#
+# Every check runs even after one fails — a partial report during an incident is worth
+# more than a fast exit — and the script exits non-zero if any of them did.
+
+set -Eeuo pipefail
+
+readonly APEX="${1:-}"
+readonly APP_HOST="app.${APEX}"
+readonly CURL=(curl -sS --max-time 20)
+
+failures=0
+
+pass() { printf '\033[32m  ✓\033[0m %s\n' "$*"; }
+fail() { printf '\033[31m  ✗ %s\033[0m\n' "$*" >&2; failures=$(( failures + 1 )); }
+section() { printf '\n\033[36m▸\033[0m %s\n' "$*"; }
+die()  { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 2; }
+
+[[ -n "$APEX" ]] || die "usage: bin/smoke <apex-domain>   (no default — golden rule 1b)"
+command -v curl >/dev/null || die "curl is not installed"
+
+# Status code only, so a check can assert a 404 as deliberately as a 200.
+status() { "${CURL[@]}" -o /dev/null -w '%{http_code}' "$1" 2>/dev/null || echo 000; }
+
+expect_status() {
+    local url="$1" want="$2" label="$3" got
+    got="$(status "$url")"
+    if [[ "$got" == "$want" ]]; then
+        pass "$label — $got"
+    else
+        fail "$label — expected $want, got $got  ($url)"
+    fi
+}
+
+printf '\033[1mMobiShop smoke — %s\033[0m\n' "$APEX"
+
+# --------------------------------------------------------------------- health ----
+section "health"
+
+health_body="$("${CURL[@]}" "https://${APEX}/health" 2>/dev/null || true)"
+
+if grep -q '"status":"ok"' <<<"$health_body"; then
+    pass "/health reports ok"
+else
+    fail "/health did not report ok — body: ${health_body:-<empty>}"
+fi
+
+# The detailed body is the only place that names the build. Without HEALTH_SECRET the
+# rest of the checks still run; they just cannot prove WHICH release answered them,
+# which is most of the value, so it is a failure rather than a skip when a version was
+# expected.
+if [[ -n "${HEALTH_SECRET:-}" ]]; then
+    detail="$("${CURL[@]}" -H "X-Health-Secret: ${HEALTH_SECRET}" "https://${APEX}/health" 2>/dev/null || true)"
+
+    if [[ -n "${EXPECT_VERSION:-}" ]]; then
+        if grep -q "\"version\":\"${EXPECT_VERSION}\"" <<<"$detail"; then
+            pass "the running build reports version ${EXPECT_VERSION}"
+        else
+            fail "version mismatch — expected ${EXPECT_VERSION}; body: ${detail:-<empty>}"
+        fi
+    fi
+
+    if [[ -n "${EXPECT_RELEASE:-}" ]]; then
+        if grep -qF "\"release\":\"${EXPECT_RELEASE}\"" <<<"$detail"; then
+            pass "the running build reports release ${EXPECT_RELEASE}"
+        else
+            fail "release mismatch — expected ${EXPECT_RELEASE}; body: ${detail:-<empty>}"
+        fi
+    fi
+
+    # A 200 with a degraded check is the state that reads as healthy and is not: the
+    # queue is allowed to be behind, nothing else is.
+    if grep -q '"status":"failed"' <<<"$detail"; then
+        fail "a dependency check reports failed — body: $detail"
+    else
+        pass "no dependency check reports failed"
+    fi
+elif [[ -n "${EXPECT_VERSION:-}${EXPECT_RELEASE:-}" ]]; then
+    fail "HEALTH_SECRET is unset, so which build is live cannot be verified"
+fi
+
+# ----------------------------------------------------------------- front door ----
+section "the front door"
+
+expect_status "https://${APEX}/"                200 "the apex serves the landing"
+expect_status "https://${APP_HOST}/login"       200 "app host serves /login"
+expect_status "https://${APP_HOST}/register"    200 "app host serves /register"
+
+# ADR 0017 put every application route on the app host. A login form answering on the
+# apex would mean the split silently un-did itself, and the shape of that fault is two
+# origins again — which is what `form-action 'self'` broke sign-up over, twice.
+expect_status "https://${APEX}/login"           404 "the apex does NOT serve /login"
+
+# ------------------------------------------------------- the links people click ----
+section "the links people click"
+#
+# The check that would have caught the fault this file was written for. «ثبت نام» on the
+# login page was built from the landing host, so it rendered perfectly and 404'd on
+# click. Asserting the anchor exists, or that the HTML contains a path, both pass on the
+# broken page — the only assertion that does not is following the href.
+
+login_html="$("${CURL[@]}" "https://${APP_HOST}/login" 2>/dev/null || true)"
+
+register_href="$(
+    grep -o 'href="[^"]*"' <<<"$login_html" \
+        | sed 's/^href="//; s/"$//' \
+        | grep -i 'register' \
+        | head -n 1 || true
+)"
+
+if [[ -z "$register_href" ]]; then
+    fail "the login page offers no link to registration"
+else
+    case "$register_href" in
+        http*) register_url="$register_href" ;;
+        /*)    register_url="https://${APP_HOST}${register_href}" ;;
+        *)     register_url="https://${APP_HOST}/${register_href}" ;;
+    esac
+
+    expect_status "$register_url" 200 "«ثبت نام» on the login page resolves"
+
+    if [[ "$register_url" == "https://${APP_HOST}"* ]]; then
+        pass "sign-up stays on the sign-in origin"
+    else
+        fail "sign-up points off the sign-in origin: $register_url"
+    fi
+fi
+
+# The landing's own two calls to action. Same failure mode, same reason to follow them.
+landing_html="$("${CURL[@]}" "https://${APEX}/" 2>/dev/null || true)"
+
+while read -r url; do
+    [[ -n "$url" ]] || continue
+    expect_status "$url" 200 "landing link ${url#https://}"
+done < <(
+    grep -o 'href="https://[^"]*\(login\|register\)[^"]*"' <<<"$landing_html" \
+        | sed 's/^href="//; s/"$//' \
+        | sort -u
+)
+
+# ------------------------------------------------------------------------ TLS ----
+section "TLS"
+#
+# The wildcard renews through a DNS-01 plugin, and the way that fails is silently: the
+# certificate simply is not replaced. `docs/deploy.md` §5 alerts under 21 days; checking
+# it here means a deploy is also a renewal check, which is the moment somebody is
+# already looking at output.
+
+if command -v openssl >/dev/null; then
+    not_after="$(
+        printf '' \
+            | openssl s_client -servername "$APEX" -connect "${APEX}:443" 2>/dev/null \
+            | openssl x509 -noout -enddate 2>/dev/null \
+            | cut -d= -f2
+    )"
+
+    if [[ -z "$not_after" ]]; then
+        fail "could not read the TLS certificate"
+    else
+        # macOS and GNU date disagree about everything except -j/-d, so try both.
+        expiry_epoch="$(date -j -f '%b %e %T %Y %Z' "$not_after" +%s 2>/dev/null \
+            || date -d "$not_after" +%s 2>/dev/null || echo '')"
+
+        if [[ -z "$expiry_epoch" ]]; then
+            fail "could not parse the certificate expiry: $not_after"
+        else
+            days_left=$(( ( expiry_epoch - $(date +%s) ) / 86400 ))
+            if (( days_left < 21 )); then
+                fail "TLS expires in ${days_left} days ($not_after) — renewal is not working"
+            else
+                pass "TLS valid for ${days_left} more days"
+            fi
+        fi
+    fi
+else
+    printf '  \033[33m·\033[0m openssl absent — TLS expiry not checked\n'
+fi
+
+# ----------------------------------------------------------------------- verdict ----
+printf '\n'
+if (( failures == 0 )); then
+    printf '\033[32m✓ smoke passed\033[0m — %s is serving %s\n\n' \
+        "$APEX" "${EXPECT_VERSION:-an unverified build}"
+else
+    printf '\033[31m✗ smoke failed — %d check(s)\033[0m\n' "$failures"
+    printf '  The deploy is NOT verified. Roll back with: bin/deploy <previous-image> --rollback\n\n'
+    exit 1
+fi

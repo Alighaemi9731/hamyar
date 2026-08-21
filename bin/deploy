@@ -19,6 +19,26 @@
 # serving and the script exits non-zero. That is the whole design: every irreversible
 # thing happens after every reversible one.
 #
+# ## That guarantee assumes the script reaches the end
+#
+# It is about the ORDER of the steps, and it buys nothing against the script simply
+# stopping between two of them. Exactly one thing can do that from outside: the SSH
+# session dying, taking its child with it.
+#
+# It happened on the first release cut this way (2026-08-21, main a0468324d). Traffic had
+# been cut over to app_green, and steps 8 and 9 never ran — so **horizon and the scheduler
+# were left down on the old image**, with nothing red anywhere to say so, and compose's
+# mid-recreate rename left a container holding the name `mobishop-horizon-1` so the
+# obvious retry failed with a name conflict on top of it. The site looked completely fine;
+# it just stopped sending SMS.
+#
+# So do not run this over an interactive SSH session. `bin/release` starts it detached on
+# the box with `nohup`, writes the exit code to a sentinel file and polls for that — a
+# dropped connection then costs a reconnect instead of a half-deployed box. Running it by
+# hand, do the same:
+#
+#   nohup sh -c 'bin/deploy <image>; echo $? > /tmp/deploy.done' > /tmp/deploy.log 2>&1 &
+#
 # ## The migration rule this cannot enforce
 #
 # For a few seconds both releases serve traffic against ONE database, already migrated.

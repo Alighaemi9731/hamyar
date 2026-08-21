@@ -1,0 +1,363 @@
+#!/usr/bin/env bash
+#
+# MobiShop — cut a release, and optionally put it on the box.
+#
+#   bin/release                 # verify and tag whatever VERSION says, publish the release
+#   bin/release --deploy        # …then sync, build on the box, cut over, and smoke it
+#   bin/release --dry-run       # print every step, change nothing
+#
+# ## The shape, and why it is this shape
+#
+# A release here is NOT a commit. `VERSION` and the `CHANGELOG.md` entry are written in
+# the same pull request as the change they describe, so by the time a release happens
+# `main` already holds everything and this script only has to *publish* it: tag, GitHub
+# release, deploy, prove.
+#
+# That is deliberate. The alternative — bump the version in a commit pushed straight to
+# `main` at release time — needs `ALLOW_MAIN_PUSH=1` every single time, and a guard whose
+# override is part of the routine is not a guard. A tag is not `refs/heads/main`, so
+# nothing has to be waved through here.
+#
+# ## What it refuses to do
+#
+# Every check below exists because its absence produced a real, visible fault on
+# 2026-08-21, when twenty-one finished commits sat on a branch while the box served the
+# release before them and every check was green:
+#
+#   - it will not tag a commit whose CI is not green;
+#   - it will not tag a version with no CHANGELOG entry;
+#   - it will not release while a GREEN pull request is sitting unmerged, because that is
+#     the exact state that produced the mess (override: ALLOW_UNMERGED_GREEN=1);
+#   - it will not call a deploy successful until `bin/smoke` has confirmed, over the
+#     public internet, that the box is serving THIS version.
+#
+# ## What it never touches
+#
+# `.env.production` and `certbot/` live only on the box. `docker/nginx/upstream/app.conf`
+# is tracked AND runtime state — syncing it resets the live blue/green slot — so it is
+# excluded from the rsync. See `docs/deploy.md` §3.
+
+set -Eeuo pipefail
+
+readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+DEPLOY=0
+DRY_RUN=0
+for arg in "$@"; do
+    case "$arg" in
+        --deploy)  DEPLOY=1 ;;
+        --dry-run) DRY_RUN=1 ;;
+        *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
+    esac
+done
+
+log()  { printf '\033[36m▸\033[0m %s\n' "$*"; }
+ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m!\033[0m %s\n' "$*"; }
+die()  { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
+run()  { if (( DRY_RUN )); then printf '\033[90m   would run: %s\033[0m\n' "$*"; else "$@"; fi; }
+
+(( DRY_RUN )) && warn "dry run — nothing will be pushed, published or deployed"
+
+# ============================================================== 1. preflight ====
+log "preflight"
+
+command -v gh    >/dev/null || die "the GitHub CLI (gh) is not installed"
+command -v git   >/dev/null || die "git is not installed"
+command -v rsync >/dev/null || die "rsync is not installed"
+
+gh auth status >/dev/null 2>&1 || die "gh is not authenticated — run 'gh auth login'"
+
+[[ -f VERSION ]] || die "VERSION is missing"
+readonly VERSION="$(tr -d '[:space:]' < VERSION)"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || die "VERSION is not a semantic version: '$VERSION' (see docs/VERSIONING.md)"
+readonly TAG="v$VERSION"
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+default_branch="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+default_branch="${default_branch:-main}"
+
+[[ "$branch" == "$default_branch" ]] \
+    || die "on '$branch' — a release is cut from '$default_branch'. Merge the PR first."
+
+[[ -z "$(git status --porcelain --untracked-files=no)" ]] \
+    || die "the worktree has uncommitted changes — a release must be exactly what is on $default_branch"
+
+git fetch --quiet origin "$default_branch" --tags
+readonly HEAD_SHA="$(git rev-parse HEAD)"
+
+[[ "$HEAD_SHA" == "$(git rev-parse "origin/$default_branch")" ]] \
+    || die "$default_branch and origin/$default_branch differ — pull, or push, before releasing"
+
+if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+    die "$TAG already exists. Bump VERSION and add a CHANGELOG entry (docs/VERSIONING.md)."
+fi
+
+ok "on $default_branch at ${HEAD_SHA:0:9}, clean, in sync with origin"
+
+# ------------------------------------------------ the changelog entry exists ----
+#
+# Asserted rather than trusted: an entry written after the fact is written from the diff,
+# and the diff is the one thing that cannot say WHY.
+[[ -f CHANGELOG.md ]] || die "CHANGELOG.md is missing"
+grep -qE "^## +${VERSION//./\\.} " CHANGELOG.md \
+    || die "CHANGELOG.md has no '## $VERSION …' entry — write it before releasing"
+ok "CHANGELOG.md describes $VERSION"
+
+# ------------------------------------------------------- no green PR left open ----
+#
+# The root cause of 2026-08-21, made mechanical. A pull request whose every check has
+# passed is a finished piece of work that nobody is looking at, and the law this project
+# now runs on is: green means merge, and merge means deploy. Drafts are exempt — a draft
+# is a statement that it is not finished.
+green_open="$(
+    gh pr list --state open --draft=false --json number,title,statusCheckRollup \
+        --jq '[ .[]
+                | select((.statusCheckRollup | length) > 0)
+                | select([ .statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED") ] | length == 0)
+                | "#\(.number) \(.title)" ] | .[]' 2>/dev/null || true
+)"
+
+if [[ -n "$green_open" ]]; then
+    if [[ "${ALLOW_UNMERGED_GREEN:-}" == "1" ]]; then
+        warn "releasing with green pull requests still open (ALLOW_UNMERGED_GREEN=1):"
+        printf '    %s\n' "$green_open"
+    else
+        printf '\033[31m✗ a green pull request is sitting unmerged:\033[0m\n' >&2
+        printf '    %s\n' "$green_open" >&2
+        cat >&2 <<EOF
+
+  Green means merge, and merge means deploy (CLAUDE.md). Twenty-one finished commits sat
+  on a branch this way while the box served the release before them — nothing was red,
+  the site was just wrong.
+
+  Merge it:            gh pr merge <number> --squash --delete-branch
+  Or say so out loud:  ALLOW_UNMERGED_GREEN=1 bin/release${DEPLOY:+ --deploy}
+
+EOF
+        exit 1
+    fi
+else
+    ok "no green pull request left unmerged"
+fi
+
+# ------------------------------------------------------------------ CI is green ----
+#
+# The gate that counts, on the commit being tagged — not on "a recent run", and not on
+# the laptop. This project's suite runs on GitHub's machines by owner's instruction.
+log "checking CI on ${HEAD_SHA:0:9}"
+
+# `gh api --jq` rather than a pipe into jq(1): gh carries its own, so this needs one
+# fewer thing installed on whichever machine cuts a release.
+api_checks() { gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" --jq "$1" 2>/dev/null; }
+
+total="$(api_checks '.check_runs | length' || true)"
+[[ -n "$total" ]] || die "could not read check runs for ${HEAD_SHA:0:9}"
+[[ "$total" != "0" ]] || die "no CI run exists for ${HEAD_SHA:0:9} — push it and wait, do not release blind"
+
+pending="$(api_checks '[.check_runs[] | select(.status != "completed")] | length' || echo 0)"
+[[ "$pending" == "0" ]] || die "CI is still running on ${HEAD_SHA:0:9} ($pending job(s)) — wait for it"
+
+# Read line by line, never word by word: every job name in this workflow has a space in
+# it ("Pest (PostgreSQL 16)"), so splitting on whitespace reports four broken checks
+# where there is one.
+failed="$(api_checks '.check_runs[] | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped") | .name' || true)"
+
+if [[ -n "$failed" ]]; then
+    printf '\033[31m✗ CI is red on %s:\033[0m\n' "${HEAD_SHA:0:9}" >&2
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && printf '    %s\n' "$name" >&2
+    done <<<"$failed"
+    die "fix it forward; a red commit is not a release"
+fi
+ok "all $total checks passed on ${HEAD_SHA:0:9}"
+
+# =========================================================== 2. tag & publish ====
+log "tagging $TAG"
+
+changelog_title="$(grep -E "^## +${VERSION//./\\.} " CHANGELOG.md | head -n 1 | sed -E "s/^## +[0-9.]+ +-? *//")"
+run git tag -a "$TAG" -m "$TAG — ${changelog_title:-release}"
+run git push origin "refs/tags/$TAG"
+ok "tag pushed"
+
+# A checksum-verifiable archive of exactly this tree. The deploy below does not consume
+# it — that path is rsync-and-build (docs/deploy.md §3) — so its job is provenance: the
+# artefact that says what $TAG contained, independently of whichever machine last synced.
+readonly DIST="dist-release"
+readonly ASSET="mobishop-$TAG.tar.gz"
+run mkdir -p "$DIST"
+if (( ! DRY_RUN )); then
+    git archive --format=tar.gz --prefix="mobishop-$TAG/" "$TAG" > "$DIST/$ASSET"
+    ( cd "$DIST" && (shasum -a 256 "$ASSET" > "$ASSET.sha256" 2>/dev/null || sha256sum "$ASSET" > "$ASSET.sha256") )
+    ok "built $DIST/$ASSET ($(du -h "$DIST/$ASSET" | cut -f1))"
+else
+    printf '\033[90m   would run: git archive … > %s/%s (+ .sha256)\033[0m\n' "$DIST" "$ASSET"
+fi
+
+log "publishing the GitHub release"
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: gh release create %s --generate-notes …\033[0m\n' "$TAG"
+else
+    notes_file="$(mktemp)"
+    # The CHANGELOG entry IS the release note. --generate-notes would list commit
+    # subjects, which describe the diff; the entry describes the decision.
+    awk -v v="$VERSION" '
+        $0 ~ "^## +"v" " { grabbing = 1; next }
+        grabbing && /^## / { exit }
+        grabbing { print }
+    ' CHANGELOG.md > "$notes_file"
+
+    gh release create "$TAG" \
+        --title "$TAG — ${changelog_title:-release}" \
+        --notes-file "$notes_file" \
+        "$DIST/$ASSET" "$DIST/$ASSET.sha256"
+    rm -f "$notes_file"
+    ok "released $TAG"
+fi
+
+if (( ! DEPLOY )); then
+    printf '\n'
+    ok "$TAG is tagged and published — NOT deployed"
+    printf '  The box is still serving the previous release. To ship it:\n'
+    printf '    bin/release --deploy\n\n'
+    exit 0
+fi
+
+# ================================================================= 3. deploy ====
+#
+# The tree goes to the box, the box builds the image, and `bin/deploy` cuts it over. The
+# build happens THERE on purpose: the owner's laptop runs a Linux VM to speak Docker at
+# all, and a `docker build` on it is minutes of pinned cores for an artefact the box can
+# produce natively.
+log "deploying $TAG"
+
+[[ -f .deploy.local ]] || die ".deploy.local is missing — copy .deploy.local.example and fill it in"
+# shellcheck disable=SC1091
+set -a; . ./.deploy.local; set +a
+: "${MOBISHOP_SSH:?MOBISHOP_SSH is not set in .deploy.local}"
+: "${MOBISHOP_PATH:=/srv/mobishop}"
+
+ssh -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" true \
+    || die "cannot reach $MOBISHOP_SSH without a password prompt"
+
+readonly IMAGE_TAG="mobishop-app:${HEAD_SHA:0:9}"
+
+log "syncing the tree to $MOBISHOP_SSH:$MOBISHOP_PATH"
+#
+# --exclude 'docker/nginx/upstream/app.conf' is NOT optional. It is the one file that is
+# both tracked and runtime state: it names the live slot, and syncing it resets that to
+# app_blue while app_green may be the one serving. bin/deploy cross-checks against the
+# running container, but this is the fix rather than the net.
+run rsync -az --delete \
+    --exclude '.git' \
+    --exclude 'node_modules' \
+    --exclude 'vendor' \
+    --exclude 'dist-release' \
+    --exclude '.env' \
+    --exclude '.env.production' \
+    --exclude '.deploy.local' \
+    --exclude 'certbot' \
+    --exclude 'docker/nginx/upstream/app.conf' \
+    --exclude 'release/public' \
+    ./ "$MOBISHOP_SSH:$MOBISHOP_PATH/"
+ok "tree synced"
+
+# Both remote steps run DETACHED, with their output on the box, and this script polls.
+#
+# Not defensive programming — a repair. The first deploy cut this way lost its SSH
+# connection partway through `bin/deploy`, and because the command was a child of the
+# session it died with it: traffic had been cut over, but the queue workers had not been
+# recreated and one of them was left as a half-renamed container holding its own name, so
+# the obvious retry failed with a name conflict. Horizon was down and nothing said so.
+#
+# `bin/deploy` is careful about ORDER — every irreversible step after every reversible one
+# — and that guarantee assumes the script gets to run to the end. A dropped carrier is the
+# one thing that can take it out between two steps, and it is also the failure this setup
+# invites: a laptop over a long-haul link to Helsinki, mid-evening.
+#
+# So the box owns the process. A drop now costs a reconnect, not a half-deployed site.
+remote_detached() {
+    local name="$1" command="$2" log_file="/tmp/mobishop-release-$1.log"
+
+    ssh "$MOBISHOP_SSH" \
+        "cd '$MOBISHOP_PATH' && rm -f '$log_file' '$log_file.done' && \
+         nohup sh -c '{ $command; } > $log_file 2>&1; echo \$? > $log_file.done' >/dev/null 2>&1 & echo detached"
+
+    # Poll for the sentinel rather than for the process: a finished run leaves an exit
+    # code behind, so this reports the same answer whether or not the link survived it.
+    local waited=0
+    until ssh -o BatchMode=yes "$MOBISHOP_SSH" "test -f '$log_file.done'" 2>/dev/null; do
+        sleep 10
+        waited=$(( waited + 10 ))
+        (( waited % 60 == 0 )) && log "  …$name still running (${waited}s)"
+        (( waited < 1800 )) || die "$name has run for 30 minutes — look at $log_file on the box"
+    done
+
+    local code
+    code="$(ssh "$MOBISHOP_SSH" "cat '$log_file.done'" 2>/dev/null || echo 1)"
+
+    if [[ "$code" != "0" ]]; then
+        ssh "$MOBISHOP_SSH" "tail -40 '$log_file'" >&2 || true
+        die "$name failed on the box (exit $code) — full output in $log_file"
+    fi
+}
+
+log "building $IMAGE_TAG on the box"
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: docker build … -t %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
+else
+    remote_detached build \
+        "docker build -f docker/app/Dockerfile.prod --build-arg APP_RELEASE=$IMAGE_TAG -t $IMAGE_TAG ."
+fi
+ok "image built"
+
+log "cutting over"
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: bin/deploy %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
+else
+    remote_detached deploy "bin/deploy $IMAGE_TAG"
+    ssh "$MOBISHOP_SSH" "tail -20 '/tmp/mobishop-release-deploy.log'" || true
+fi
+ok "cut over"
+
+# ---------------------------------------------------------------- 4. prove it ----
+#
+# Until this passes, the deploy is not a release — it is a hope. Both values come from
+# the box's own .env.production, so nothing here needs a hostname or a secret written
+# down anywhere (golden rule 1b). HEALTH_SECRET is read into this shell and never
+# printed, logged or written.
+log "smoke-checking the live site"
+
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: bin/smoke <apex from the box>\033[0m\n\n'
+    exit 0
+fi
+
+# Strips surrounding quotes, whitespace and a stray CR. Written as a function because
+# doing it inline needs a `tr` argument that quotes both quote characters, which is how
+# the first draft of this line silently produced an empty apex.
+env_from_box() {
+    ssh "$MOBISHOP_SSH" "grep -m1 '^$1=' '$MOBISHOP_PATH/.env.production'" 2>/dev/null \
+        | cut -d= -f2- \
+        | sed -e 's/\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+}
+
+apex="$(env_from_box APP_DOMAIN)"
+secret="$(env_from_box HEALTH_SECRET)"
+
+[[ -n "$apex" ]] || die "APP_DOMAIN is not set in the box's .env.production — cannot smoke-check"
+
+if HEALTH_SECRET="$secret" EXPECT_VERSION="$VERSION" EXPECT_RELEASE="$IMAGE_TAG" bin/smoke "$apex"; then
+    printf '\n'
+    ok "released and verified: $TAG is live on $apex as $IMAGE_TAG"
+    printf '  https://%s/\n' "$apex"
+    printf '  Append the line to docs/PROGRESS.md and the roadmap box is honestly ticked.\n\n'
+else
+    printf '\n'
+    printf '\033[31m✗ %s is deployed but did NOT pass smoke.\033[0m\n' "$TAG" >&2
+    printf '  Roll back (a cutover, not a rebuild — the previous container is stopped, not removed):\n' >&2
+    printf "    ssh %s \"cd '%s' && bin/deploy <previous-image> --rollback\"\n\n" "$MOBISHOP_SSH" "$MOBISHOP_PATH" >&2
+    exit 1
+fi

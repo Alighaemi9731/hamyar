@@ -129,6 +129,39 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Release identity
+    |--------------------------------------------------------------------------
+    |
+    | Two answers to one question — "which build am I looking at?" — and the reason
+    | there are two is that they fail independently.
+    |
+    | `version` is the semantic version, read from the `VERSION` file at the repository
+    | root so there is exactly one place to bump (docs/VERSIONING.md). No mirror in a
+    | PHP constant, because a mirror is a thing that drifts. `config:cache` runs on the
+    | box after the tree is synced, so the cached value is the synced file's.
+    |
+    | `release` is the exact image tag, baked into the image by
+    | `docker/app/Dockerfile.prod` from its `APP_RELEASE` build argument — the image is
+    | the only thing that actually knows which commit it contains. **Never add
+    | `APP_RELEASE` to `.env.production`:** `env_file` overrides the image's own ENV, so
+    | an empty line there silently replaces the baked value with nothing. That is the
+    | same trap the `SENTRY_RELEASE` note in `.env.production.example` describes, and it
+    | is invisible — the field simply reads `null`, which looks like a build that
+    | predates this feature rather than like a misconfiguration.
+    |
+    | Surfaced through `/health`: the version publicly, the image tag only to a caller
+    | holding `HEALTH_SECRET`. Both exist because a finished change sitting on a branch
+    | and a deployed change look identical from the outside, and that cost this project
+    | a day.
+    |
+    */
+
+    'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
+
+    'release' => env('APP_RELEASE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

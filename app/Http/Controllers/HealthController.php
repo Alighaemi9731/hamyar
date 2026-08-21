@@ -21,11 +21,22 @@ use Illuminate\Http\Request;
  * Redis round trip and a read of the migration repository, which is cheap but not
  * free, and it is the endpoint `bin/deploy` waits on before moving traffic.
  *
- * ## The body is not public
+ * ## The body is not public — with one deliberate exception
  *
- * An unauthenticated caller gets `{"status":"ok"}` or `{"status":"unhealthy"}` and the
- * status code. That is everything an uptime probe needs and nothing an attacker can
- * use.
+ * An unauthenticated caller gets the status, the status code, and the semantic
+ * **version**. Everything else needs the secret.
+ *
+ * The version is public on purpose. "Is the fix I shipped actually running?" is a
+ * question that has to be answerable from a browser, by the person who asked for the
+ * change, without SSH and without asking anybody — because when it is not answerable,
+ * the answer people reach for is "the software is broken". `CHANGELOG.md` says what
+ * each version contains and the repository is public, so the number gives away nothing
+ * that is not already published.
+ *
+ * The exact image tag does not get the same treatment. It names the commit, and a
+ * commit tells a reader precisely which published fixes this box has not taken yet.
+ * That is reconnaissance rather than transparency, so it sits behind the secret with
+ * the driver-level detail.
  *
  * The detailed body names internal hostnames, driver classes and the exact shape of a
  * failure — `SQLSTATE[08006] … could not connect to server: db-internal:5432`. Published
@@ -43,9 +54,26 @@ final class HealthController extends Controller
     {
         $result = $health->run();
 
-        $body = ['status' => $result['healthy'] ? 'ok' : 'unhealthy'];
+        $body = [
+            'status' => $result['healthy'] ? 'ok' : 'unhealthy',
+            // Public, and the one field here that is not about failure.
+            //
+            // A finished change on a branch and a deployed change look identical from
+            // outside the box. That is not a hypothetical: this project spent a day
+            // with a live 404 whose fix was already written, merged nowhere, while
+            // every check was green. Nothing an uptime probe could ask would have
+            // said so.
+            //
+            // The semantic version is enough to answer it and costs nothing to
+            // publish — CHANGELOG.md says what each one contains, and the repository
+            // is public. The exact commit is a different matter: it tells a reader
+            // precisely which known fixes a box has not taken yet, so it stays behind
+            // the secret with the rest of the detail.
+            'version' => config('app.version'),
+        ];
 
         if ($this->maySeeDetails($request)) {
+            $body['release'] = config('app.release');
             $body['checks'] = $result['checks'];
         }
 

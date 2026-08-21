@@ -45,6 +45,28 @@ stylistic:
   friends mirror wrongly for RTL users and are invisible to an LTR author
   ([ADR 0005](docs/adr/0005-rtl-direction-class-gate.md)).
 
+## Releasing
+
+```bash
+bin/release --dry-run     # print every step, change nothing
+bin/release --deploy      # tag → publish → sync → build on the box → cut over → prove
+```
+
+One command, and what it refuses to do is the point: it will not tag a commit whose CI is
+not green, will not release a version with no `CHANGELOG.md` entry, will not run while a
+**green pull request is still sitting unmerged**, and does not call a deploy successful
+until `bin/smoke` has confirmed from outside the box — over the real certificate — that the
+site is serving that exact version.
+
+`VERSION` and the changelog entry are written in the same pull request as the change they
+describe, so a release publishes what `main` already holds rather than adding a commit to
+it. Full procedure: [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) · version policy:
+[docs/VERSIONING.md](docs/VERSIONING.md) · what each release contained and why:
+[CHANGELOG.md](CHANGELOG.md).
+
+Is a given fix live? `curl -s https://<apex>/health` answers with the running version, and
+needs nothing installed.
+
 ## Where things are
 
 ```
@@ -67,6 +89,7 @@ docs/adr/                  decisions that are expensive to reverse
 | Testing policy | [docs/testing.md](docs/testing.md) |
 | Design system | [docs/design-system.md](docs/design-system.md) |
 | Deploy & ops | [docs/deploy.md](docs/deploy.md) |
+| **Releasing** | [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) · [docs/VERSIONING.md](docs/VERSIONING.md) · [CHANGELOG.md](CHANGELOG.md) |
 
 Project rules live in [CLAUDE.md](CLAUDE.md) and take precedence over everything else,
 including the generated Laravel guidance at the bottom of that file.
@@ -79,6 +102,8 @@ including the generated Laravel guidance at the bottom of that file.
 4. A phone is a row in `product_units` with a state machine and a full history.
 5. Timestamps stored UTC, rendered Jalali.
 6. Every tenant-scoped endpoint ships with a cross-tenant isolation test.
+7. A change that is not on the box is not done. Merges are not deploys, and only
+   `bin/smoke` knows the difference.
 
 ## Licence
 
