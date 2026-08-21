@@ -46,16 +46,17 @@
         <button type="submit" class="btn btn--primary auth__submit">ورود به حساب کاربری</button>
 
         {{--
-            Absolute, to the apex.
+            `route()`, not a hand-built URL.
 
-            This page is served on the SHOP's hostname, where `/register` does not exist —
-            registration lives on the central domain only. `route('register')` would build
-            it against the current host and 404. The apex comes from config, never a
-            literal (golden rule 1b).
+            Before ADR 0017 this page was served on the SHOP's hostname and registration
+            lived on the central domain, so the link had to be absolute to the apex. Both
+            sit on `app.<apex>` now, and that hand-built URL kept aiming at the landing
+            host, where `/register` does not exist — it rendered fine and 404'd on click.
+            The route table still resolves the apex from config, never a literal (rule 1b).
         --}}
         <p class="auth__alt">
             حساب ندارید؟
-            <a href="{{ Illuminate\Support\Facades\URL::formatScheme().config('app.domain').'/register' }}">ثبت نام</a>
+            <a href="{{ route('register') }}">ثبت نام</a>
         </p>
     </form>
 @endsection
