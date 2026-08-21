@@ -30,7 +30,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -377,7 +377,7 @@ it('shows another shop nothing of this one', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->get(tenantUrl($other).'/sales/close?date='.$this->today)
+        ->get(appUrl().'/sales/close?date='.$this->today)
         ->assertSuccessful()
         ->assertInertia(fn ($page) => $page
             ->where('report.net.value', 0)

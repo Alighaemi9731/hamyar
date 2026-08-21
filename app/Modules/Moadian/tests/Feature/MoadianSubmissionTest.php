@@ -46,7 +46,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     $subscription = subscribe($this->tenant, 'pro');
 
@@ -599,12 +599,12 @@ it('never shows another shop’s submissions or lets one be resent', function ()
     });
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/moadian')
+        ->get(appUrl().'/moadian')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('submissions.total', 0)->etc());
 
     // 404, not 403: a 403 confirms the row exists.
     $this->actingAs($neighbour)
-        ->post(tenantUrl($other).'/moadian/'.$mineId.'/resend')
+        ->post(appUrl().'/moadian/'.$mineId.'/resend')
         ->assertNotFound();
 })->group('isolation');

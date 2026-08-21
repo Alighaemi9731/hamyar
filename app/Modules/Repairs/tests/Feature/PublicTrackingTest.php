@@ -31,7 +31,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
 
@@ -230,15 +230,61 @@ it('shows no staff-only shared props to a stranger', function (): void {
 
 /* ------------------------------------------------------------ isolation -- */
 
-it('will not open another shop ticket on this hostname', function (): void {
-    $ticket = trackedTicket();
+/*
+| This test was rewritten rather than moved, because ADR 0017 changed what there is to
+| prove.
+|
+| It used to send shop A's token to shop B's hostname and demand a 404: the host chose
+| the shop, RLS confined the lookup to it, and A's row was simply invisible from B's
+| address. There are no per-shop addresses now. `app.<apex>/t/{token}` is the only
+| tracking URL there is, so "a live token 404s on this host" no longer describes an
+| attack — it describes the page being broken, and the assertion would have gone on
+| passing while describing it.
+|
+| The guarantee that replaced it: the token is globally unique, it names exactly one
+| ticket in exactly one shop, and it is what pins the context. So the property worth
+| asserting is that two shops' links — identical in shape, served by the same host —
+| each open their own ticket and never the other's.
+*/
+
+it('opens the shop the token belongs to, and never the other shop on the same address', function (): void {
+    $mine = trackedTicket();
 
     $other = Tenant::factory()->withDomain()->create();
 
-    // Tenant A's token, on tenant B's hostname. RLS confines the lookup to the shop the
-    // hostname resolved to, so there is no row to find.
-    $this->get(tenantUrl($other).'/t/'.$ticket->tracking_token)->assertNotFound();
-});
+    /** @var RepairTicket $theirs */
+    $theirs = inTenantContext($other, fn (): RepairTicket => RepairTicket::factory()->create([
+        'device_brand' => 'سامسونگ',
+        'device_model' => 'گلکسی S23',
+    ]));
+
+    $this->get(appUrl().'/t/'.$mine->tracking_token)
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('ticket.code', $mine->code)
+            ->where('ticket.device', 'اپل آیفون ۱۳')
+            // The shop the visitor is told they are dealing with is the token's shop.
+            ->where('tenant.name', $this->tenant->name)
+        );
+
+    $this->get(appUrl().'/t/'.$theirs->tracking_token)
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('ticket.device', 'سامسونگ گلکسی S23')
+            ->where('tenant.name', $other->name)
+        );
+
+    // And a session gets no vote here. Somebody signed in at the other shop, opening a
+    // link a friend forwarded them, still sees the ticket the token names: these pages
+    // are pinned by ResolvePublicTenant, never by whoever happens to be logged in — the
+    // one place in the application where the session is deliberately not the authority.
+    actingForTenant($other)->get(appUrl().'/t/'.$mine->tracking_token)
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('ticket.code', $mine->code)
+            ->where('tenant.name', $this->tenant->name)
+        );
+})->group('isolation');
 
 it('gives every ticket a different token', function (): void {
     $first = trackedTicket();

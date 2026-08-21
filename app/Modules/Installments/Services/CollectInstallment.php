@@ -57,15 +57,73 @@ final class CollectInstallment
      *
      * A SUM, never a stored column — golden rule 3. The customer arguing about how much is
      * left on their instalment is the last person a shop wants to be wrong in front of.
+     *
+     * One row, one query. That is right where it is used — inside `collect()`, under the
+     * row lock, for the single row being paid — and wrong for a list, which is why
+     * {@see outstandingForRows()} exists and why this delegates to it rather than keeping
+     * a second copy of the arithmetic.
      */
     public function outstandingOn(InstallmentRow $row): int
     {
-        $collected = InstallmentCollection::query()
-            ->where('installment_row_id', $row->getKey())
-            ->selectRaw('coalesce(sum(fee_part + profit_part + principal_part), 0) as settled')
-            ->value('settled');
+        return $this->outstandingForRows([$row])[$row->id] ?? max(0, $row->amount);
+    }
 
-        return max(0, $row->amount - (is_numeric($collected) ? (int) $collected : 0));
+    /**
+     * The same figure for a whole page of rows, in one query rather than one per row.
+     *
+     * ## Why this is not an optimisation you can skip
+     *
+     * `outstandingOn()` inside a `foreach` is the natural thing to write and it reads
+     * perfectly well, which is exactly what makes it dangerous: the dashboard's overdue
+     * card scans up to two hundred rows, so the loop cost the front page two hundred
+     * round trips on every render — measured as 203 queries and the largest single slice
+     * of its single-user latency. The statement itself is cheap (`installment_collections`
+     * is indexed on `(tenant_id, installment_row_id)` and each call touched two buffers);
+     * the cost is entirely in the two hundred PHP↔Postgres crossings, which is the kind
+     * of cost `pg_stat_statements` cannot show you.
+     *
+     * Still a SUM over the collections ledger, still never a stored column — golden rule 3
+     * is about where the number comes from, not about how many rows one query covers.
+     *
+     * @param  iterable<int, InstallmentRow>  $rows
+     * @return array<int, int> outstanding rial, keyed by installment row id
+     */
+    public function outstandingForRows(iterable $rows): array
+    {
+        $promised = [];
+
+        foreach ($rows as $row) {
+            $promised[$row->id] = $row->amount;
+        }
+
+        if ($promised === []) {
+            return [];
+        }
+
+        $settled = [];
+
+        $collections = InstallmentCollection::query()
+            ->selectRaw('installment_row_id, coalesce(sum(fee_part + profit_part + principal_part), 0) as settled')
+            ->whereIn('installment_row_id', array_keys($promised))
+            ->groupBy('installment_row_id')
+            ->get();
+
+        foreach ($collections as $collection) {
+            /** @var int|numeric-string $rowId */
+            $rowId = $collection->getAttribute('installment_row_id');
+            /** @var int|numeric-string $amount */
+            $amount = $collection->getAttribute('settled');
+
+            $settled[(int) $rowId] = (int) $amount;
+        }
+
+        $outstanding = [];
+
+        foreach ($promised as $rowId => $amount) {
+            $outstanding[$rowId] = max(0, $amount - ($settled[$rowId] ?? 0));
+        }
+
+        return $outstanding;
     }
 
     /**

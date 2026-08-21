@@ -6,7 +6,10 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Services\PasswordResetService;
+use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Services\AccountLookup;
 use App\Support\Digits;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +18,29 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Per-tenant password reset.
+ * Per-tenant password reset, reached with no tenant in the session.
+ *
+ * ## Why the shop is resolved here rather than by middleware
+ *
+ * [ADR 0017](../../../../../docs/adr/0017-single-host-app.md) made the tenant a
+ * property of the session, established at login. Somebody who has forgotten their
+ * password has no session — that is the whole situation — so these four routes cannot
+ * sit behind `tenant`, which would redirect them to the login page they are trying to
+ * get back to.
+ *
+ * The mobile number resolves the shop instead (`AccountLookup::tenantForMobile()`,
+ * which lives in Platform because golden rule 1 permits `withoutTenancy()` only there),
+ * and the token work runs inside `TenantContext::runFor()`. `PasswordResetService` is
+ * unchanged and still requires a pinned tenant — `issue()` and `reset()` both call
+ * `idOrFail()`, so a missed context is a loud failure rather than a silent cross-shop
+ * reset.
+ *
+ * ## The identical answer survives the change
+ *
+ * An unresolved number takes the same path as a resolved one that turns out to have no
+ * active account: no token, and the same flash. Anything else would turn this form into
+ * an oracle for "does this number have an account?" — worse now than before, because
+ * the answer would be about the whole platform rather than about one shop.
  *
  * Delivery is a stub until the Messaging module lands in Phase 8: the link is logged
  * rather than sent. That is deliberate and visible — a silently-swallowed reset link
@@ -23,7 +48,11 @@ use Inertia\Response;
  */
 final class PasswordResetController extends Controller
 {
-    public function __construct(private readonly PasswordResetService $service) {}
+    public function __construct(
+        private readonly PasswordResetService $service,
+        private readonly AccountLookup $accounts,
+        private readonly TenantContext $context,
+    ) {}
 
     public function create(): Response
     {
@@ -38,7 +67,11 @@ final class PasswordResetController extends Controller
 
         $identifier = Digits::toLatin(trim($validated['identifier']));
 
-        $token = $this->service->issue($identifier);
+        $tenant = $this->accounts->tenantForMobile($identifier);
+
+        $token = $tenant instanceof Tenant
+            ? $this->context->runFor($tenant, fn (): ?string => $this->service->issue($identifier))
+            : null;
 
         if ($token !== null) {
             // Phase 8 replaces this with a pattern SMS.
@@ -72,10 +105,19 @@ final class PasswordResetController extends Controller
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
-        $ok = $this->service->reset(
-            Digits::toLatin(trim($validated['identifier'])),
-            $validated['token'],
-            $validated['password'],
+        $identifier = Digits::toLatin(trim($validated['identifier']));
+
+        $tenant = $this->accounts->tenantForMobile($identifier);
+
+        // No shop for this number means no token was ever issued for it either, so the
+        // answer is the same one an expired or forged token gets.
+        $ok = $tenant instanceof Tenant && $this->context->runFor(
+            $tenant,
+            fn (): bool => $this->service->reset(
+                $identifier,
+                $validated['token'],
+                $validated['password'],
+            ),
         );
 
         if (! $ok) {

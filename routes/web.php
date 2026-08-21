@@ -91,15 +91,56 @@ Route::domain('app.'.config()->string('app.domain'))->group(function (): void {
 
     // Signed in, this is the dashboard; signed out, ResolveTenant sends it to /login.
     Route::redirect('/', '/dashboard')->name('app.home');
+
+    /*
+    |----------------------------------------------------------------------
+    | Arrivals with no session
+    |----------------------------------------------------------------------
+    |
+    | Both routes below are reached by somebody who is NOT signed in, and both used to
+    | sit inside the `tenant` group. That group now reads the tenant from the session
+    | (ADR 0017) and redirects to /login when there is none — so it turned a signature
+    | check into a 302 and a settled payment into a lost one, both *before* the
+    | request reached its controller. Each therefore establishes its own tenant, from a
+    | server-side record rather than from the request, and each says how below.
+    */
+
+    /*
+    | The gateway's return URL. Outside `auth` on purpose: a customer may come back in a
+    | different browser context, and refusing the callback over an expired session would
+    | strand a paid invoice. Verification authorises itself — an authority we never
+    | issued is rejected, and one we did can only settle once. The shop is named by the
+    | `payment_attempts` row that authority already identifies.
+    */
+    Route::get('/billing/callback', [BillingController::class, 'callback'])
+        ->middleware('throttle:30,1')
+        ->name('billing.callback');
+
+    /*
+    | Impersonation hand-off. The signature IS the authorisation — nobody is logged in
+    | when this runs, which is exactly why it cannot be behind `tenant`: ResolveTenant
+    | would 302 to /login before `signed` ever ran, and an unsigned link would look like
+    | a redirect rather than the 403 it is. Minted on this host by ImpersonationService,
+    | valid two minutes, and already audited into the shop's own activity log before the
+    | link was issued.
+    */
+    Route::get('/impersonate/{user}', [ImpersonationController::class, 'start'])
+        ->middleware(['signed', 'throttle:10,1'])
+        ->whereNumber('user')
+        ->name('impersonate.start');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Tenant routes — <shop>.mobishop.ir
+| Tenant routes — the signed-in application
 |--------------------------------------------------------------------------
 |
-| `tenant` resolves the hostname and pins the context; an unknown host 404s here
-| rather than falling back to anything.
+| `tenant` reads the tenant from the SESSION and pins the context (ADR 0017); a request
+| carrying none is sent to /login rather than falling back to anything.
+|
+| Everything here therefore assumes a session. Anything reached WITHOUT one — the
+| gateway callback, the impersonation hand-off, password reset, an invitation — belongs
+| in the app-host group above, where it establishes its own tenant.
 |
 | Module routes (Sales, Repairs, …) are registered by each module's service provider
 | and carry their own middleware — see App\Support\Modules\ModuleServiceProvider.
@@ -138,26 +179,6 @@ Route::middleware('tenant')->group(function (): void {
             ->whereNumber('invoice')
             ->name('billing.receipt');
     });
-
-    /*
-    | The gateway's return URL. Outside `auth` on purpose: a customer may come back in a
-    | different browser context, and refusing the callback over an expired session would
-    | strand a paid invoice. Verification authorises itself — an authority we never
-    | issued is rejected, and one we did can only settle once.
-    */
-    Route::get('/billing/callback', [BillingController::class, 'callback'])
-        ->middleware('throttle:30,1')
-        ->name('billing.callback');
-
-    /*
-    | Impersonation hand-off. The signature IS the authorisation — nobody is logged in
-    | when this runs. Minted on this hostname by ImpersonationService, valid two minutes,
-    | and already audited into the shop's own activity log before the link was issued.
-    */
-    Route::get('/impersonate/{user}', [ImpersonationController::class, 'start'])
-        ->middleware(['signed', 'throttle:10,1'])
-        ->whereNumber('user')
-        ->name('impersonate.start');
 });
 
 /*

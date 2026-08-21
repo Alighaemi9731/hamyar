@@ -59,7 +59,7 @@ it('does not answer at all on a shop’s own hostname', function (): void {
     // Defence in depth behind the gate: a dashboard that does not exist on
     // `<shop>.<apex>` is one fewer surface, and one fewer phishing target.
     $this->actingAs($this->staff, 'platform')
-        ->get(tenantUrl($this->tenant).'/horizon')
+        ->get(appUrl().'/horizon')
         ->assertNotFound();
 })->group('isolation');
 

@@ -40,7 +40,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -420,7 +420,7 @@ it('will not let another shop deliver this device', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other).'/repairs/tickets/'.$ticket->id.'/deliver', [
+        ->post(appUrl().'/repairs/tickets/'.$ticket->id.'/deliver', [
             'unit' => 'rial',
             'warranty_days' => 0,
             'labour' => [['description' => 'دستمزد', 'amount' => 100_000]],

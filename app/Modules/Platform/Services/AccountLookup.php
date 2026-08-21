@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Services;
 
 use App\Modules\Identity\Models\User;
+use App\Modules\Platform\Models\Tenant;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
@@ -94,5 +95,53 @@ final class AccountLookup
         }
 
         return Hash::check($password, (string) $user->password) ? $user : null;
+    }
+
+    /**
+     * The shop a mobile number belongs to, or null.
+     *
+     * ## Why password reset needs this
+     *
+     * Reset is the other flow that runs before any tenant is known. It used to be
+     * reached on the shop's own hostname, so `PasswordResetService` could simply query
+     * `users` and trust the pinned context; with one address there is nothing pinned,
+     * RLS denies every row, and the form would answer "if this number is registered we
+     * have sent you a link" to everybody, forever, having done nothing.
+     *
+     * So the number resolves the shop and the controller enters it with
+     * `TenantContext::runFor()`. The token is still minted, stored and redeemed inside
+     * exactly one shop's context — what changed is only where that context comes from.
+     *
+     * ## No password is checked here, deliberately
+     *
+     * `forCredentials()` above verifies one before it returns anything, because it hands
+     * back an account to sign in as. This hands back a *shop*, to no one: the caller must
+     * answer identically whether or not a number resolves (PasswordResetController does),
+     * so learning the shop reveals nothing to the visitor.
+     *
+     * ## Mobile only, not email
+     *
+     * `users.mobile` is globally unique (ADR 0017) and `users.email` is not — the same
+     * address may legitimately exist at two shops, so it cannot name one. Password reset
+     * by email was already unreachable in practice, since the login form takes a mobile
+     * number and nothing else.
+     */
+    public function tenantForMobile(string $mobile): ?Tenant
+    {
+        if ($mobile === '') {
+            return null;
+        }
+
+        /*
+        | `runAsPlatform()`, not just `withoutTenancy()` — the same two-layer trap as in
+        | forCredentials(). Layer 2 (the Eloquent scope) comes off with withoutTenancy();
+        | layer 1 (the Postgres policy) still denies every row with no `app.tenant_id`
+        | set, and the failure is silent: every number looks unregistered.
+        */
+        $found = $this->context->runAsPlatform(
+            static fn (): ?Model => User::withoutTenancy()->where('mobile', $mobile)->first(),
+        );
+
+        return $found instanceof User ? $found->tenant : null;
     }
 }

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Modules\Platform\Models\Tenant;
-
 /**
  * The headers that decide what a browser will let a page do.
  *
@@ -16,8 +14,11 @@ use App\Modules\Platform\Models\Tenant;
  * a middleware dropped from a group during an unrelated refactor.
  */
 beforeEach(function (): void {
-    $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    // One host for every shop since ADR 0017, and these headers are a property of the
+    // response rather than of the shop — so there is no tenant to create here. `/login`
+    // is the page they are asserted on because it is the one screen everybody reaches
+    // before having a session at all.
+    $this->url = appUrl();
 });
 
 it('sends the security headers on a page', function (string $header, string $expected): void {

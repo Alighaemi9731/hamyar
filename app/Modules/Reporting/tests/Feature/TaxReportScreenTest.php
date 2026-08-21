@@ -47,7 +47,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -298,7 +298,7 @@ it('reports a shop its own VAT and not the shop next door', function (): void {
         ->assertInertia(fn ($page) => $page->where('totals.vat.value', 1_776_380)->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/tax')
+        ->get(appUrl().'/reporting/tax')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('rows', [])

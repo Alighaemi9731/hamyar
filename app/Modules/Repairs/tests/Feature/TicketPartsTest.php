@@ -31,7 +31,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -481,11 +481,11 @@ it('will not let another shop touch our parts', function (): void {
     });
 
     $this->actingAs($intruder)
-        ->getJson(tenantUrl($other)."/repairs/tickets/{$ticket->id}/parts/search?q=گلس")
+        ->getJson(appUrl()."/repairs/tickets/{$ticket->id}/parts/search?q=گلس")
         ->assertNotFound();
 
     $this->actingAs($intruder)
-        ->post(tenantUrl($other)."/repairs/tickets/{$ticket->id}/parts", [
+        ->post(appUrl()."/repairs/tickets/{$ticket->id}/parts", [
             'variant_id' => $this->variant->id,
             'quantity' => 1,
         ])

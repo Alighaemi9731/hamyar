@@ -24,7 +24,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -242,12 +242,12 @@ it('keeps one shop’s presets out of another’s', function (): void {
         ->assertInertia(fn ($page) => $page->count('presets', 1)->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/financial')
+        ->get(appUrl().'/reporting/financial')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('presets', [])->etc());
 
     // And it cannot be reached by id, which RLS decides rather than the controller.
     $this->actingAs($neighbour)
-        ->delete(tenantUrl($other).'/reporting/presets/'.idOf($preset))
+        ->delete(appUrl().'/reporting/presets/'.idOf($preset))
         ->assertNotFound();
 })->group('isolation');

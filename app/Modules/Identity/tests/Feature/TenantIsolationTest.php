@@ -115,42 +115,73 @@ it('restores the previous tenant even when the callback throws', function (): vo
     expect($this->context->id())->toBe($this->alpha->getKey());
 });
 
-it('serves each tenant its own login page and 404s an unknown host', function (): void {
-    // Blade now, not Inertia (ADR 0016 — the public surfaces share one design language).
-    // The ASSERTION is unchanged in substance and deliberately so: the page must name
-    // the shop it is serving, and checking only the 404 below would have let this page
-    // stop identifying its tenant without a single test going red.
-    $this->get(tenantUrl($this->alpha, '/login'))
+it('serves one login page that names no shop, and never guesses a tenant', function (): void {
+    /*
+    | This assertion was INVERTED by ADR 0017, not dropped.
+    |
+    | It used to read "each tenant gets its own login page, and an unknown host 404s".
+    | Both halves were properties of the hostname: the page knew which shop it served
+    | because it was served at that shop's address, and a typo'd address was nothing at
+    | all. There is no per-shop address any more, so neither half can be asserted — and
+    | a test that merely stopped asserting them is the failure mode golden rule 8 and
+    | ADR 0017 both name.
+    |
+    | The replacement is the mirror image and worth the same. `LoginController::create()`
+    | states the new rule — the tenant is a RESULT of authenticating, not context this
+    | page already has — and that rule has two testable edges:
+    |
+    |   1. The page names NO shop. A login form that greeted a visitor with a shop name
+    |      would be answering "does this shop exist?" to anyone who asked for the form,
+    |      which is the enumeration ADR 0017 already accepts a narrower version of on
+    |      `mobile` and must not widen.
+    |   2. Asking for the form pins NOTHING. `ResolveTenant` reads `session('tenant_id')`
+    |      on every request and nothing outside the login POST may write it; the GET is
+    |      the most likely place for that rule to be broken by accident.
+    |
+    | Blade rather than Inertia, incidentally (ADR 0016 — the public surfaces share one
+    | design language), which is why these are string assertions on the body.
+    */
+    $this->get(appUrl('/login'))
         ->assertOk()
-        ->assertSee('Alpha', false)
-        ->assertDontSee('Beta', false);
+        ->assertDontSee('Alpha', false)
+        ->assertDontSee('Beta', false)
+        ->assertSessionMissing('tenant_id');
 
-    $this->get(tenantUrl($this->beta, '/login'))
-        ->assertOk()
-        ->assertSee('Beta', false)
-        ->assertDontSee('Alpha', false);
-
-    // Never a fallback to a default tenant — a typo must not serve someone else's shop.
-    $this->get(unknownTenantUrl('/login'))->assertNotFound();
+    // And the surviving half of the old 404: never a fallback to a default tenant.
+    // With nothing pinned the application is unreachable — it does not pick a shop.
+    $this->get(appUrl('/dashboard'))->assertRedirect(appUrl('/login'));
 });
 
 it('logs out a session presented to the wrong tenant', function (): void {
     /** @var User $alphaUser */
     $alphaUser = $this->context->runFor($this->alpha, fn () => User::factory()->create());
 
-    // `actingAs` injects the user straight into the guard, bypassing the session
-    // provider — which is exactly the shape of the attack this guards against: a
-    // cookie from shop A replayed at shop B. Laravel would resolve the stored id
-    // through B's scoped provider, and because ids are sequential and every shop
-    // starts at 1, B very likely HAS a user with that id — silently authenticating
-    // the visitor as that person.
-    //
-    // Host-only session cookies stop the cookie ever arriving. This asserts the
-    // second line: even if it does, the request is rejected.
-    $this->actingAs($alphaUser)
-        ->get(tenantUrl($this->beta, '/dashboard'))
-        ->assertRedirect(route('login'));
+    /*
+    | The attack: a session established at shop A, presented as shop B. Laravel resolves
+    | the stored user id through B's tenant-scoped provider, and because ids are
+    | sequential and every shop starts at 1, B very likely HAS a user with that id —
+    | silently authenticating the visitor as that person.
+    |
+    | ADR 0017 makes this test MORE important, not less. It used to have a layer in
+    | front of it: host-only session cookies meant a cookie issued at `a.<apex>` was
+    | never even sent to `b.<apex>`, so `tenant.user` was the second line of a pair. One
+    | address for every shop removes the first line entirely, and the session's own
+    | `tenant_id` now carries the whole weight. This is the test of that weight.
+    |
+    | Forging the state takes two steps, and their ORDER is the whole test.
+    | `Tests\TestCase::actingAs()` writes the user's own `tenant_id` into the session,
+    | so signing in as alpha's user pins alpha. `actingForTenant()` then overwrites that
+    | key with beta — the only place in the suite allowed to write it. Reversed, the
+    | sign-in would restore alpha and the request would simply succeed, proving nothing.
+    */
+    $this->actingAs($alphaUser);
 
+    actingForTenant($this->beta)
+        ->get(appUrl('/dashboard'))
+        ->assertRedirect(appUrl('/login'));
+
+    // Rejected is not enough: `EnsureUserBelongsToTenant` tears the session down, so
+    // the next request cannot retry with the same cookie.
     expect(auth()->check())->toBeFalse();
 });
 
@@ -159,7 +190,7 @@ it('lets a user reach their own tenant dashboard', function (): void {
     $alphaUser = $this->context->runFor($this->alpha, fn () => User::factory()->create());
 
     $this->actingAs($alphaUser)
-        ->get(tenantUrl($this->alpha, '/dashboard'))
+        ->get(appUrl('/dashboard'))
         ->assertOk();
 });
 

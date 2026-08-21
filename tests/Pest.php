@@ -84,14 +84,31 @@ expect()->extend('toBeUtc', function () {
 | including in a test fixture, because a literal here is exactly what makes the
 | "it's configurable" claim untrue the day it changes.
 |
+| Since ADR 0017 there are exactly two hosts, and no helper takes a tenant any more.
+| A URL can no longer say which shop it belongs to — the session says it — so the
+| replacement for "arrive on that shop's hostname" is `actingForTenant()` below, not a
+| third URL builder.
+|
 */
 
 /**
- * Absolute URL on the central (no-tenant) host.
+ * Absolute URL on the central (apex) host.
+ *
+ * ## Why this kept its meaning instead of being repointed at the application
+ *
+ * ADR 0017 moved `/login`, `/register` and the app root off the apex, so it was
+ * tempting to redefine this helper as "wherever the app lives now" and leave ~30 call
+ * sites untouched. That would have been wrong: the apex is still a real host serving
+ * real routes — the public landing and its two legal pages, the Filament panel
+ * (`AdminPanelProvider::domain()`) and Horizon (`config('horizon.domain')`) — and
+ * several of those call sites exist to prove `/admin` is reachable *there and nowhere
+ * else*. Silently repointing the name would have kept them green while they asserted
+ * the opposite of what they were written to assert.
+ *
+ * So the name still means the apex, and everything that moved moved to `appUrl()`.
  *
  * The path defaults to EMPTY, not "/": callers routinely append their own path
- * (`tenantUrl($t).'/login'`), and a default slash silently produces `//login`,
- * which 404s.
+ * (`centralUrl().'/terms'`), and a default slash silently produces `//terms`, which 404s.
  */
 function centralUrl(string $path = ''): string
 {
@@ -99,19 +116,71 @@ function centralUrl(string $path = ''): string
 }
 
 /**
- * Absolute URL on a tenant's own host.
+ * Absolute URL on the application host — `app.<apex>`, one address for every shop
+ * ([ADR 0017](../docs/adr/0017-single-host-app.md)).
+ *
+ * Everything a shop touches is here: `/login`, `/register`, `/dashboard`, every module
+ * screen, and every customer-facing token page (`/t/…`, `/a/…`, `/p/…`, `/shop/…`).
+ *
+ * It takes no tenant, on purpose. The obvious migration from the deleted `tenantUrl()`
+ * was to keep the `$tenant` argument and ignore it — one sed and 59 files compile — but
+ * a helper that accepts a shop and ignores it is precisely how the isolation suite goes
+ * green while asserting nothing, which ADR 0017 names as the failure mode this change
+ * must not produce. There is no argument, so a test that means "as shop B" has to say
+ * so with `actingForTenant()`.
+ *
+ * `app.` is a subdomain LABEL, not a hostname: the apex it hangs off still comes from
+ * config, so golden rule 1b holds and `bin/check-apex-domain` has nothing to find.
+ *
+ * Same empty default as `centralUrl()`, for the same reason — `appUrl().'/login'` must
+ * not become `//login`.
  */
-function tenantUrl(App\Modules\Platform\Models\Tenant $tenant, string $path = ''): string
+function appUrl(string $path = ''): string
 {
-    return 'http://'.App\Modules\Platform\Models\Domain::hostnameFor($tenant->slug).$path;
+    return 'http://app.'.config()->string('app.domain').$path;
 }
 
 /**
- * A hostname that resolves to no tenant at all.
+ * Pin the current test's session to `$tenant`, the way an isolation test now says
+ * "this request is for that shop".
+ *
+ * ## What it replaces
+ *
+ * Cross-tenant tests used to express the attack through the URL: request shop B's
+ * hostname while holding shop A's credentials. ADR 0017 removed per-shop hostnames and
+ * moved the tenant into the session, so the URL cannot express it any more. This
+ * helper can, and it is the only thing in the suite that may.
+ *
+ * ## Why it writes a key production code reserves to one place
+ *
+ * `LoginController::store()` states the rule that keeps the new boundary sound —
+ * *nothing outside the login flow may ever write `tenant_id` into the session*. That
+ * rule is about application code. A test needs the opposite power: `ResolveTenant` and
+ * `EnsureTenantUser` exist to defend against a session pointing at one shop while its
+ * user belongs to another, and nothing can prove they do unless something can build
+ * exactly that state. This is that something, and its whole body is the one key they
+ * read.
+ *
+ * ## Order matters, and getting it backwards passes
+ *
+ * `Tests\TestCase::actingAs()` writes the user's OWN `tenant_id` (correctly — that is
+ * what an ordinary authenticated test wants). `withSession()` merges, last write wins,
+ * so `actingForTenant($b)->actingAs($userOfA)` quietly restores shop A and the test
+ * proves nothing. Sign in first, forge second:
+ *
+ *     $this->actingAs($userOfA);
+ *
+ *     actingForTenant($tenantB)->get(appUrl('/sales/invoices'))->assertForbidden();
+ *
+ * Reach for it only when the session's tenant must differ from the user's, or when
+ * there is no user at all. An ordinary authenticated test needs `actingAs()` alone.
  */
-function unknownTenantUrl(string $path = ''): string
+function actingForTenant(App\Modules\Platform\Models\Tenant $tenant): TestCase
 {
-    return 'http://not-a-real-shop.'.config()->string('app.domain').$path;
+    /** @var TestCase $pinned */
+    $pinned = test()->withSession(['tenant_id' => $tenant->getKey()]);
+
+    return $pinned;
 }
 
 /*

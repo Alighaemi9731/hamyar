@@ -49,7 +49,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -440,7 +440,7 @@ it('reports a shop its own sales and not the shop next door', function (): void 
     // 290,000,000 rial of trading happened next door. This shop sold nothing, and the
     // report says nothing rather than reporting somebody else's takings.
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/sales')
+        ->get(appUrl().'/reporting/sales')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('summary.revenue.value', 0)

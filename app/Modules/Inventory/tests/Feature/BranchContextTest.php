@@ -44,7 +44,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -403,7 +403,7 @@ it('never lists another shop’s branches in the switcher', function (): void {
         ->assertInertia(fn ($page) => $page->count('branch.options', 2)->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/branches')
+        ->get(appUrl().'/branches')
         ->assertOk()
         ->assertInertia(function ($page): void {
             $names = array_column(rowsOf($page, 'branches'), 'name');

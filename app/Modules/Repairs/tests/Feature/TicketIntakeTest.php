@@ -26,7 +26,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -293,6 +293,6 @@ it('will not let another shop take a device in against this branch', function ()
     // Tenant A's branch id, posted on tenant B's hostname. `exists:branches,id` is
     // itself tenant-scoped by RLS, so this fails validation rather than leaking.
     $this->actingAs($intruder)
-        ->post(tenantUrl($other).'/repairs/intake', intakePayload($this->warehouse->branch_id))
+        ->post(appUrl().'/repairs/intake', intakePayload($this->warehouse->branch_id))
         ->assertSessionHasErrors('branch_id');
 });

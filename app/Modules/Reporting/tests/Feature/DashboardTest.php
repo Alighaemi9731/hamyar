@@ -46,7 +46,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -140,7 +140,7 @@ it('withholds a module the plan does not include, even from the owner', function
     // Every permission in the catalogue, and still no cheques card: Basic has no
     // Cheques module to have a card about.
     $this->actingAs($owner)
-        ->get(tenantUrl($basic).'/dashboard')
+        ->get(appUrl().'/dashboard')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('cheques', null)
@@ -305,7 +305,7 @@ it('shows a shop its own figures and none of the shop next door', function (): v
 
     // Same screen, same role, a different shop: four tickets next door are none here.
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/dashboard')
+        ->get(appUrl().'/dashboard')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('repairs.total', 0)->etc());
 })->group('isolation');
@@ -315,9 +315,19 @@ it("refuses the neighbour's dashboard outright", function (): void {
     subscribe($other, 'pro');
     app(SubscriptionResolver::class)->forget();
 
-    // A user of shop A on shop B's hostname is not "logged out", they are somebody
-    // else's staff — `tenant.user` is what says so.
-    $this->actingAs($this->owner)
-        ->get(tenantUrl($other).'/dashboard')
-        ->assertRedirect(tenantUrl($other).'/login');
+    /*
+    | The sibling above proves this shop's numbers stop at its own door. This proves
+    | the door itself: a user of shop A asking for shop B's dashboard is not shown an
+    | empty screen, they are turned away — `tenant.user` is what says so.
+    |
+    | Since ADR 0017 there is no shop B *address* to ask at, so the session says which
+    | shop the request claims to be for. Sign in first (which pins the owner's own
+    | tenant), forge second — reversed, `actingAs()` would overwrite `tenant_id` with
+    | this shop's and the request would legitimately succeed.
+    */
+    $this->actingAs($this->owner);
+
+    actingForTenant($other)
+        ->get(appUrl().'/dashboard')
+        ->assertRedirect(appUrl().'/login');
 })->group('isolation');

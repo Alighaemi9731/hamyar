@@ -21,10 +21,29 @@ use App\Support\Tenancy\TenantContext;
  *
  * Anything asserting middleware ORDER belongs here rather than in a test that
  * short-circuits authentication.
+ *
+ * ## Since ADR 0017 there are two shortcuts to avoid here, not one
+ *
+ * Shops no longer have their own hostname: everybody signs in at `app.<apex>` — hence
+ * `appUrl()`, which takes no tenant — and the tenant is written into the session at
+ * login from the authenticated user's own record. `Tests\TestCase::actingAs()` now
+ * seeds that session key itself, because otherwise a thousand authenticated tests
+ * would arrive with a user and no tenant and be bounced to `/login`.
+ *
+ * That is the right call there and it widens the gap this file exists to cover: an
+ * `actingAs` test now skips the login flow *and* is handed the state that flow would
+ * have established. Both halves of what a browser does are stubbed. Here neither is —
+ * the form is posted, the redirect is followed, and the session has to carry the
+ * tenant on its own.
+ *
+ * The ordering lesson above survives the move unchanged. `ResolveTenant` reads a
+ * different source than it used to, but it must still run before `Authenticate` for
+ * precisely the reason described: the user provider queries a tenant-scoped model, so
+ * a request that authenticates first has no context to authenticate in.
  */
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 

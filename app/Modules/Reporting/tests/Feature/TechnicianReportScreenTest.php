@@ -36,7 +36,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -213,7 +213,7 @@ it('reports a shop its own bench and not the shop next door', function (): void 
     });
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/technicians?'.benchRange())
+        ->get(appUrl().'/reporting/technicians?'.benchRange())
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('rows', [])->etc());
 })->group('isolation');

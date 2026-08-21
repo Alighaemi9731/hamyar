@@ -9,6 +9,7 @@ use App\Modules\Platform\Models\PaymentAttempt;
 use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\SubscriptionInvoice;
+use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\BillingService;
 use App\Modules\Platform\Services\Payments\PaymentGatewayException;
 use App\Modules\Platform\Services\ProrationCalculator;
@@ -26,9 +27,10 @@ use Throwable;
 /**
  * The shop's own billing screens.
  *
- * Lives on the tenant subdomain rather than the central domain so the gateway returns
- * the customer to the shop they were already logged into — a callback landing on the
- * central domain would arrive with no session and no way to tell which shop paid.
+ * The screens sit behind `tenant` and read the shop from the session like every other
+ * signed-in page. {@see callback()} is the exception and the interesting one: it is the
+ * address the payment gateway returns a customer to, so it must work with no session at
+ * all — see its own docblock for where the shop comes from instead.
  */
 final class BillingController extends Controller
 {
@@ -120,10 +122,17 @@ final class BillingController extends Controller
     /**
      * Where the gateway sends the customer back.
      *
-     * Deliberately NOT behind `auth`. The customer may return in a different browser
+     * Deliberately NOT behind `auth`, and — since [ADR 0017](../../../../docs/adr/0017-single-host-app.md)
+     * — not behind `tenant` either. The customer may return in a different browser
      * context, and refusing the callback because a session expired would leave a paid
-     * invoice unsettled. Verification authorises itself: an authority we did not issue
-     * is rejected, and one we did can only be settled once.
+     * invoice unsettled. That used to cost nothing, because the shop's hostname named the
+     * tenant; with one address for everybody the `tenant` middleware answers a 302 to
+     * /login instead, and the payment is stranded with no error anywhere.
+     *
+     * So the shop is resolved here, from the attempt row the authority already identifies,
+     * and entered before anything is settled — see {@see tenantForAuthority()}.
+     * Verification still authorises itself: an authority we did not issue is rejected, and
+     * one we did can only be settled once.
      */
     public function callback(Request $request): RedirectResponse
     {
@@ -134,8 +143,30 @@ final class BillingController extends Controller
             return redirect()->route('billing.index')->with('error', 'پاسخ درگاه پرداخت نامعتبر بود.');
         }
 
+        $tenant = $this->tenantForAuthority($authority);
+
+        if (! $tenant instanceof Tenant) {
+            // An authority we never issued, or one whose shop is gone. Reported, because
+            // it means either a forged return or a broken restore, and answered with the
+            // same message as a failed verification — the customer can act on neither
+            // difference, and spelling it out would confirm which authorities exist.
+            report(new RuntimeException("Unknown payment authority [{$authority}]."));
+
+            return redirect()->route('billing.index')
+                ->with('error', 'تأیید پرداخت ممکن نشد. اگر مبلغ از حساب شما کسر شده، تا ۷۲ ساعت بازمی‌گردد.');
+        }
+
         try {
-            $attempt = $this->billing->verifyCallback($authority, $request->query());
+            /*
+            | `runFor`, not `set`. The context is restored in a `finally`, so a throw on
+            | the way through cannot leave this process pinned to a shop it was only
+            | passing through — there is no ResolveTenant on this route to clear it at the
+            | end of the request any more.
+            */
+            $attempt = $this->context->runFor(
+                $tenant,
+                fn (): PaymentAttempt => $this->billing->verifyCallback($authority, $request->query())
+            );
         } catch (RuntimeException $exception) {
             report($exception);
 
@@ -196,6 +227,36 @@ final class BillingController extends Controller
                 'reference' => $verified?->reference,
             ],
         ]);
+    }
+
+    /**
+     * Which shop a gateway callback belongs to.
+     *
+     * The customer comes back to one address with no session (ADR 0017), so the tenant
+     * cannot come from the request — and it must not, or the return URL would become a
+     * way to nominate a shop. It comes from the `payment_attempts` row the authority
+     * already identifies: `payment_attempts_authority_unique` is globally unique BY
+     * DESIGN and listed as such in `TenancyCheckCommand`, which is the category for
+     * exactly this — a value whose whole job is to resolve before any tenant is known.
+     *
+     * `runAsPlatform()` because the read happens with nothing pinned, and RLS then denies
+     * every row. `payment_attempts` opted into the flag in its own migration
+     * (`enableRls(..., allowPlatform: true)`), so this is the narrow escape of the ADR
+     * 0002 amendment rather than a bypass. Without it the row is invisible, the callback
+     * looks like a forged authority, and a real payment is silently stranded.
+     */
+    private function tenantForAuthority(string $authority): ?Tenant
+    {
+        $attempt = $this->context->runAsPlatform(
+            static fn (): ?PaymentAttempt => PaymentAttempt::query()->where('authority', $authority)->first()
+        );
+
+        if (! $attempt instanceof PaymentAttempt) {
+            return null;
+        }
+
+        // `tenants` is central, not tenant-scoped, so this one needs no escape.
+        return Tenant::query()->find($attempt->tenant_id);
     }
 
     /**

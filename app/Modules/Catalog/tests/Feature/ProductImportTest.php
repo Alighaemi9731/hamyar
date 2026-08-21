@@ -31,7 +31,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -431,7 +431,7 @@ it('refuses another shop a token from this one', function (): void {
     // token simply does not exist there — and a traversal attempt is stripped by
     // `basename` before the lookup ever happens.
     $this->actingAs($stranger)
-        ->postJson(tenantUrl($other).'/catalog/import/dry-run', [
+        ->postJson(appUrl().'/catalog/import/dry-run', [
             'token' => $payload['token'],
             'unit' => Money::UNIT_TOMAN,
             'type' => 'standard',
@@ -440,7 +440,7 @@ it('refuses another shop a token from this one', function (): void {
         ->assertNotFound();
 
     $this->actingAs($stranger)
-        ->postJson(tenantUrl($other).'/catalog/import/dry-run', [
+        ->postJson(appUrl().'/catalog/import/dry-run', [
             'token' => '../'.$this->tenant->id.'/'.$payload['token'],
             'unit' => Money::UNIT_TOMAN,
             'type' => 'standard',

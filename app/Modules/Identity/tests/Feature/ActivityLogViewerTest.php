@@ -42,7 +42,7 @@ const SECRET_TOKEN = 'trk-a1b2c3d4e5';
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 
@@ -555,7 +555,7 @@ it('shows tenant B nothing of tenant A history', function (): void {
     // Asking for tenant A's product by id, from tenant B's hostname, as tenant B's
     // Owner. RLS answers, not the controller.
     $this->actingAs($intruder)
-        ->get(tenantUrl($other)."/settings/activity?subject=product&record={$product->id}")
+        ->get(appUrl()."/settings/activity?subject=product&record={$product->id}")
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('activities.total', 0)

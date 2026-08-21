@@ -30,11 +30,31 @@ use Symfony\Component\HttpFoundation\Response;
  * `tenant_id` carries the whole weight.
  *
  * That is sound, and it is worth being exact about why: the value is **server-side
- * session state written from the authenticated user's record**, never from a request
- * parameter, a header or a cookie the client can author. There is no request shape that
- * makes this middleware adopt a tenant the visitor did not authenticate into. The one
- * rule that keeps it true: nothing outside the login flow may ever write
- * `session('tenant_id')`.
+ * session state written from a record we looked up**, never from a request parameter, a
+ * header or a cookie the client can author. There is no request shape that makes this
+ * middleware adopt a tenant the visitor nominated.
+ *
+ * ## Who writes it — three flows, not one
+ *
+ * An earlier version of this note said "nothing outside the login flow may ever write
+ * `session('tenant_id')`". That held for exactly as long as login was the only arrival
+ * without a session, and stopped holding the moment the other two below had to establish
+ * one as well.
+ *
+ * · `LoginController::store()` — from the authenticated user's own `tenant_id`.
+ * · `InvitationController` — from the invitation row a token hash resolved to.
+ * · `ImpersonationController::start()` — from the impersonated user's own row, reached
+ *   only through a two-minute signed link that was audited before it was minted.
+ *
+ * The rule is therefore about the *shape*, not the count: a writer must derive the value
+ * from a server-side record it looked up, never from anything on the request. A fourth
+ * that took it from a query string or a form field would be the breach, and it would look
+ * exactly like these three from here.
+ *
+ * Other session-less arrivals deliberately do NOT write it and are not in the list: the
+ * gateway callback, password reset and the public token pages all enter a tenant for the
+ * length of one call with `TenantContext::runFor()`. A visitor who is not signing in has
+ * no business leaving a pinned shop behind in a cookie.
  *
  * `EnsureTenantUser` remains the second half of the pair — it checks the authenticated
  * user still belongs to the pinned tenant, which is what catches a session whose user
@@ -94,9 +114,9 @@ final class ResolveTenant
     {
         $id = $request->session()->get('tenant_id');
 
-        // Written only by the login flow, but read here on every request, so it is
-        // validated rather than trusted: a session carrying a string, an array or an id
-        // that no longer exists resolves to nothing and lands on the login page.
+        // Written by three flows (see the class docblock) and read here on every request,
+        // so it is validated rather than trusted: a session carrying a string, an array or
+        // an id that no longer exists resolves to nothing and lands on the login page.
         if (! is_int($id) && ! (is_string($id) && ctype_digit($id))) {
             return null;
         }

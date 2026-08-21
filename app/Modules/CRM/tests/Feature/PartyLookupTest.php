@@ -25,7 +25,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -160,7 +160,7 @@ it('refuses the lookup to a shop with no usable subscription', function (): void
     });
 
     $this->actingAs($owner)
-        ->getJson(tenantUrl($lapsed).'/crm/parties/search')
+        ->getJson(appUrl().'/crm/parties/search')
         ->assertForbidden();
 });
 

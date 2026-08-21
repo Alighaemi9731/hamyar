@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 
@@ -98,10 +98,11 @@ it('lets an invited user set a password and join', function (): void {
         'expires_at' => now()->addDays(7),
     ]));
 
-    $this->get($this->url.'/invitations/accept?token='.$token)->assertOk();
+    // The token is a PATH segment since ADR 0017: `tenant.public` reads it as a route
+    // parameter to pin the shop that issued it, and no session is involved at all.
+    $this->get($this->url.'/invitations/accept/'.$token)->assertOk();
 
-    $this->post($this->url.'/invitations/accept', [
-        'token' => $token,
+    $this->post($this->url.'/invitations/accept/'.$token, [
         'password' => 'joining-secret-1',
         'password_confirmation' => 'joining-secret-1',
     ])->assertRedirect(route('dashboard'));
@@ -112,6 +113,11 @@ it('lets an invited user set a password and join', function (): void {
         expect($user->hasRole('Technician'))->toBeTrue();
         expect(Invitation::query()->firstOrFail()->accepted_at)->not->toBeNull(); // @phpstan-ignore-line
     });
+
+    // Accepting is a login flow, so it establishes the session the rest of the
+    // application reads its tenant from. Without this the redirect above lands on
+    // /dashboard with nothing pinned and bounces to /login, account created.
+    expect(session('tenant_id'))->toBe($this->tenant->getKey());
 });
 
 it('refuses an invitation token twice', function (): void {
@@ -125,13 +131,14 @@ it('refuses an invitation token twice', function (): void {
         'expires_at' => now()->addDays(7),
     ]));
 
+    $url = $this->url.'/invitations/accept/'.$token;
+
     $payload = [
-        'token' => $token,
         'password' => 'joining-secret-1',
         'password_confirmation' => 'joining-secret-1',
     ];
 
-    $this->post($this->url.'/invitations/accept', $payload);
+    $this->post($url, $payload);
 
     // Accepting logs the new user in, so log out first — otherwise the second attempt
     // is bounced by `guest` and we would be asserting the wrong thing entirely.
@@ -139,7 +146,12 @@ it('refuses an invitation token twice', function (): void {
     session()->flush();
 
     // Second use must fail; otherwise a forwarded link is an open door.
-    $this->post($this->url.'/invitations/accept', $payload)->assertSessionHasErrors('token');
+    //
+    // Note this is the CONTROLLER refusing, not the middleware: a spent token still
+    // names a real row, so `tenant.public` resolves the shop and lets the request
+    // through — it is `isPending()` that stops it. Only a token matching no row at all
+    // 404s earlier.
+    $this->post($url, $payload)->assertSessionHasErrors('token');
 
     expect(
         app(TenantContext::class)->runFor(
@@ -149,10 +161,27 @@ it('refuses an invitation token twice', function (): void {
     )->toBe(1);
 });
 
-it('does not accept another shop invitation token', function (): void {
+it('joins the shop that issued the token, never the one in the session', function (): void {
     pest()->group('isolation');
 
+    /*
+    | Rewritten for ADR 0017, and the guarantee changed shape rather than going away.
+    |
+    | It used to read: presented on OUR host, another shop's token resolves nothing and
+    | bounces to /login. That was the hostname doing the work, and there is no longer a
+    | hostname — the token itself is what says which shop an invitation belongs to, so
+    | "another shop's token" arriving here is now the ORDINARY case, not an attack. A
+    | test still asserting the bounce would be asserting that invitations are broken.
+    |
+    | The question it becomes is the sharper one, because the session is the only thing
+    | carrying a tenant everywhere else in the application: can a session pinned to shop
+    | A capture an invitation issued by shop B — landing a stranger's new account inside
+    | A? It must not, and the reason it cannot is that these routes never consult the
+    | session at all: `tenant.public` pins the shop from the token before the controller
+    | runs, and the controller then RE-pins the session from the row it just created.
+    */
     $other = Tenant::factory()->withDomain()->create();
+    app(TenantProvisioner::class)->seedRoles($other);
 
     ['token' => $token, 'hash' => $hash] = Invitation::mintToken();
 
@@ -164,8 +193,36 @@ it('does not accept another shop invitation token', function (): void {
         'expires_at' => now()->addDays(7),
     ]));
 
-    // Presented on OUR host, the token belongs to a shop this context cannot see.
-    $this->get($this->url.'/invitations/accept?token='.$token)->assertRedirect(route('login'));
+    // Arriving with OUR shop pinned in the session, holding THEIR token.
+    actingForTenant($this->tenant)
+        ->post($this->url.'/invitations/accept/'.$token, [
+            'password' => 'joining-secret-1',
+            'password_confirmation' => 'joining-secret-1',
+        ])->assertRedirect(route('dashboard'));
+
+    expect(app(TenantContext::class)->runFor(
+        $other,
+        fn (): int => User::query()->where('mobile', '09124440000')->count()
+    ))->toBe(1);
+
+    // The shop that was in the session gained nothing.
+    expect(app(TenantContext::class)->runFor(
+        $this->tenant,
+        fn (): int => User::query()->where('mobile', '09124440000')->count()
+    ))->toBe(0);
+
+    // And the session followed the token, so the redirect does not drop the new user
+    // into somebody else's dashboard.
+    expect(session('tenant_id'))->toBe($other->getKey());
+});
+
+it('404s an invitation token that names no shop', function (): void {
+    pest()->group('isolation');
+
+    // A forged or expired-out-of-existence token resolves nothing, and the request
+    // stops in the middleware. Deliberately the same 404 as "no such invitation":
+    // telling a guesser they were close is the whole risk with a bearer credential.
+    $this->get($this->url.'/invitations/accept/'.str_repeat('a', 64))->assertNotFound();
 });
 
 /* -------------------------------------------------------------- last owner -- */

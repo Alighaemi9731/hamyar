@@ -32,12 +32,16 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    but read across tenants via `TenantContext::runAsPlatform()` — narrow by design,
    never a blanket bypass (ADR 0002 amendment).
    `php artisan tenancy:check` enforces all of this and runs in CI.
-1b. APEX DOMAIN: the production domain is **not chosen yet**. Never hardcode one.
-   It comes from `config('app.domain')` only, and must stay configurable everywhere
-   it surfaces — links, printed receipts, repair-tracking QR codes, reseller
-   price-list links, SMS templates and emails. A hostname literal in a template or
-   a test fixture is a bug. Tenants resolve by `domains.hostname` rows, so changing
-   the apex is a config change plus a data migration, never a code change.
+1b. APEX DOMAIN: the production domain is **`mobiyar.com`** (chosen 2026-08-20; the
+   box is Hetzner/Helsinki, wildcard TLS for `mobiyar.com` + `*.mobiyar.com`).
+   **Knowing it does not license writing it down.** It still comes from
+   `config('app.domain')` only, and must stay configurable everywhere it surfaces —
+   links, printed receipts, repair-tracking QR codes, reseller price-list links, SMS
+   templates and emails. A hostname literal in a template or a test fixture is a bug,
+   **and that now includes `mobiyar.com` itself** — this is the rule's harder half, not
+   its expired half. Tenants resolve by `domains.hostname` rows, so changing the apex
+   stays a config change plus a data migration, never a code change; and the local
+   stack still runs on `app.localhost`, which only works because nothing hardcodes.
 2. MONEY: integers in IRR (rial). No floats anywhere near money. Column type BIGINT.
 3. LEDGERS: stock quantity and party/account balances are NEVER updated in place —
    they are SUMs over `stock_movements` / `ledger_entries`. Write movements, not totals.
@@ -60,6 +64,41 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    RTL logical classes only (ml-/pl-/left-/text-left = bug), shadcn/ui base with
    rtl:true, domain components (Money/JDatePicker/StatusBadge/…) instead of ad-hoc
    markup, components land on the /design gallery before feature pages.
+
+## Environments — one box, and it is production (as of 2026-08-21)
+
+| | where | what it holds |
+|---|---|---|
+| local | colima/Docker on the dev laptop | throwaway demo tenant |
+| production | `mobiyar.com` — Hetzner, Helsinki | seeded fixtures. **No real customers yet** |
+
+**There is no staging box, and that is deliberate, not an omission.** Staging and
+production run identical software; the only thing that distinguishes them is what the data
+is worth. With zero customers the data on `mobiyar.com` is worth nothing, so a second box
+would cost money to teach us nothing. Phase 11.4 is the evidence in the other direction:
+deploying to real hardware found **eleven faults** — WAL archiving that had never once
+succeeded, a certbot container with no DNS plugin, an nginx that was never reloaded after
+renewal — and **not one of them was reachable from a local test**. Deploy-layer bugs only
+exist on the deploy layer.
+
+So while this holds:
+
+- **`main` deploys to `mobiyar.com`.** A green PR is a release. Ship small and often;
+  a broken deploy costs a redeploy and nothing else.
+- **The full suite runs in GitHub Actions**, on GitHub's machines — not the laptop and not
+  the server. Locally run only the tests for the change (`--filter`); CI is the gate that
+  counts. The laptop is for writing code and looking at screens, not for burning cores.
+- **Destructive operations are allowed on `mobiyar.com`** — `migrate:fresh`, the 50-shop
+  volume seed, the k6 load test. `docs/load-testing.md` still says "never against
+  production"; that sentence is **suspended** until the tripwire below, and must be
+  reinstated with it, not quietly deleted now.
+
+**The tripwire: the first real shop.** The day one paying customer's data lands on that
+box, every bullet above expires at once — `migrate:fresh` becomes unthinkable, the load
+test needs its own machine, and a second box must exist *before* the next risky deploy,
+not after the first incident. Whoever onboards that shop owns rewriting this section the
+same day. **A stale "no real customers yet" is the most expensive sentence this repo could
+contain**, because it goes on reading as permission long after the permission ended.
 
 ## Commands
 - `make up` / `make down` — dev stack (app, postgres, redis, minio, mailpit)
@@ -138,7 +177,13 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 
 ## Workflow every session
 1. Read `docs/ROADMAP.md`; pick the next unchecked `[ ]` task (top to bottom).
-2. Plan briefly → implement → run `composer test` → fix until green.
+2. Plan briefly → implement → run **only the tests for the change**
+   (`php artisan test --compact --filter=…` or a file path) → fix until green.
+   **Do not run the full `composer test` locally as a habit.** It pins the laptop's cores
+   for minutes through the colima VM to re-prove code nobody touched, and GitHub Actions
+   already runs all four gates (Pint, RTL, Larastan, Pest) on every push for free.
+   The full local run is for one case only: you are about to open or merge a PR and want
+   the answer before CI gives it. Otherwise push and read the checks.
 3. Check the box, append one line to `docs/PROGRESS.md` (date, what, notable decisions).
 4. Architectural decision made? Add `docs/adr/NNNN-*.md`.
 5. Stop at DECISION GATES defined in the roadmap and ask the human before proceeding.
@@ -172,7 +217,8 @@ do the thing; if the answer needs a terminal, the box stays open with a reason b
 - Design system, tokens & landing brief: docs/design-system.md
 - Testing policy & suites: docs/testing.md
 - Deploy runbook: docs/deploy.md
-- Load-test runbook (parked until a staging box exists): docs/load-testing.md
+- Load-test runbook (run 2026-08-20 against `mobiyar.com`; p95 fails on `/dashboard`):
+  docs/load-testing.md · docs/load-tests/2026-08-20.md
 - Persian source docs (business plan / design & tooling supplement):
   docs/01-master-plan-fa.md · docs/03-design-and-claude-setup-fa.md
 

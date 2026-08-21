@@ -41,7 +41,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -426,13 +426,13 @@ it('never shows another shop’s pending transfers or accepts a write to one', f
 
     // The neighbour sees none of it...
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/hamta')
+        ->get(appUrl().'/hamta')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->count('units', 0)->etc());
 
     // ...and cannot reach the device by id. 404, not 403: a 403 confirms it exists.
     $this->actingAs($neighbour)
-        ->post(tenantUrl($other).'/hamta/'.$mine->getKey().'/transfer', ['activation_id' => 'ACT-STEAL'])
+        ->post(appUrl().'/hamta/'.$mine->getKey().'/transfer', ['activation_id' => 'ACT-STEAL'])
         ->assertNotFound();
 
     inTenantContext($this->tenant, function () use ($mine): void {

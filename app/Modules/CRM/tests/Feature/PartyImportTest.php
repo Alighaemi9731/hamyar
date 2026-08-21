@@ -26,7 +26,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -386,7 +386,7 @@ it('cannot be pointed at another shop upload', function (): void {
     // shop's token simply does not exist here — and a traversal attempt is stripped
     // by `basename` before the lookup.
     $this->actingAs($stranger)
-        ->postJson(tenantUrl($other).'/crm/import/dry-run', [
+        ->postJson(appUrl().'/crm/import/dry-run', [
             'token' => $payload['token'],
             'kind' => 'customer',
             'unit' => Money::UNIT_TOMAN,
@@ -395,7 +395,7 @@ it('cannot be pointed at another shop upload', function (): void {
         ->assertNotFound();
 
     $this->actingAs($stranger)
-        ->postJson(tenantUrl($other).'/crm/import/dry-run', [
+        ->postJson(appUrl().'/crm/import/dry-run', [
             'token' => '../'.$this->tenant->id.'/'.$payload['token'],
             'kind' => 'customer',
             'unit' => Money::UNIT_TOMAN,

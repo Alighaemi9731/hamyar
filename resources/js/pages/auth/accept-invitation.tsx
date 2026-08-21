@@ -16,6 +16,24 @@ interface Props {
 export default function AcceptInvitation({ token, name, mobile }: Props) {
   const form = useForm({ token, password: '', password_confirmation: '' });
 
+  /*
+   * The token travels in the PATH now, not the body — `tenant.public` reads it as a
+   * route parameter to pin the shop that issued the invitation (ADR 0017), and the
+   * controller takes it from there and from nowhere else.
+   *
+   * It stays in the form's SHAPE because the server's "this invitation is invalid or
+   * expired" message comes back under the `token` key, and `errors` is typed from the
+   * form's own keys — drop it and the message below has nowhere to render.
+   *
+   * It is stripped from the PAYLOAD because a failed password validation flashes the
+   * request body into `sessions.payload` in clear (see App\Support\SensitiveInput), and
+   * this token is a live bearer credential — a working invitation link.
+   */
+  form.transform((data) => ({
+    password: data.password,
+    password_confirmation: data.password_confirmation,
+  }));
+
   return (
     <AuthLayout title={`${name} عزیز، خوش آمدید`} description="برای ورود، یک رمز عبور انتخاب کنید.">
       <Head title="پذیرش دعوت" />
@@ -28,7 +46,7 @@ export default function AcceptInvitation({ token, name, mobile }: Props) {
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          form.post('/invitations/accept');
+          form.post(`/invitations/accept/${token}`);
         }}
       >
         {form.errors.token && (

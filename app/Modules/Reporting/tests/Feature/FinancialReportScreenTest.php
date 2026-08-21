@@ -59,7 +59,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     subscribe($this->tenant, 'pro');
     app(SubscriptionResolver::class)->forget();
@@ -488,7 +488,7 @@ it('shows a shop its own debtors and not the shop next door', function (): void 
         ->assertInertia(fn ($page) => $page->where('totals.total.value', 5_910_000)->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/financial?cut=aging')
+        ->get(appUrl().'/reporting/financial?cut=aging')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('rows', [])
@@ -497,12 +497,12 @@ it('shows a shop its own debtors and not the shop next door', function (): void 
         );
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/financial?cut=cheques')
+        ->get(appUrl().'/reporting/financial?cut=cheques')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('rows', [])->etc());
 
     $this->actingAs($neighbour)
-        ->get(tenantUrl($other).'/reporting/financial?cut=installments')
+        ->get(appUrl().'/reporting/financial?cut=installments')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('rows', [])->etc());
 })->group('isolation');

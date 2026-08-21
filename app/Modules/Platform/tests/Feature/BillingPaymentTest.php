@@ -29,7 +29,7 @@ beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
     $this->tenant = Tenant::factory()->withDomain()->create();
-    $this->url = tenantUrl($this->tenant);
+    $this->url = appUrl();
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);
 
@@ -306,9 +306,17 @@ it('reaches the callback without a session', function (): void {
     $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
     $redirect = $this->billing->initiatePayment($invoice, 'https://example.test/cb');
 
-    // Nobody is logged in: the customer came back from the gateway in a fresh context.
-    $this->get($this->url.'/billing/callback?Authority='.$redirect->authority.'&Status=OK')
-        ->assertRedirect($this->url.'/billing/invoices/'.$invoice->getKey());
+    /*
+    | Nobody is logged in: the customer came back from the gateway in a fresh context.
+    |
+    | With one address for every shop (ADR 0017) there is no hostname to name the tenant
+    | either, so this asserts the whole of the new arrangement: the route sits outside
+    | `tenant` — inside it, ResolveTenant answers a 302 to /login and the payment below is
+    | never settled — and the controller finds the shop from the `payment_attempts` row
+    | the authority identifies.
+    */
+    $this->get(appUrl('/billing/callback?Authority='.$redirect->authority.'&Status=OK'))
+        ->assertRedirect(appUrl('/billing/invoices/'.$invoice->getKey()));
 
     app(TenantContext::class)->runAsPlatform(
         fn () => expect($invoice->refresh()->isPaid())->toBeTrue()
@@ -331,6 +339,6 @@ it('does not show one shop invoice to another', function (): void {
     $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
 
     $this->actingAs($intruder)
-        ->get(tenantUrl($other).'/billing/invoices/'.$invoice->getKey())
+        ->get(appUrl().'/billing/invoices/'.$invoice->getKey())
         ->assertNotFound();
 });

@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Modules\Identity\Models\User;
+use App\Modules\CRM\Models\Party;
 use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
-use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -18,10 +17,14 @@ use Illuminate\Support\Facades\DB;
  * shop. That exemption is only safe if two things hold, so both are asserted here:
  *
  *   1. RLS still isolates them — a shop cannot read or write another shop's billing.
- *   2. The `app.platform` flag is NARROW. It opens billing and nothing else; a shop's
- *      invoices, customers and stock stay invisible even to the platform.
+ *   2. The `app.platform` flag is NARROW. It opens a short NAMED LIST — billing, plus
+ *      the tables that must resolve before any tenant is known (ADR 0017) — and nothing
+ *      else; a shop's invoices, customers and stock stay invisible even to the platform.
  *
- * If (2) ever regresses, the escape hatch has quietly become a superuser.
+ * If (2) ever regresses, the escape hatch has quietly become a superuser. The list has
+ * grown once, and that is the point of testing it against a table that is not on it:
+ * "billing and nothing else" was true when this file was written and is not any more,
+ * whereas "a shop's customer list, never" is the invariant underneath it.
  */
 uses()->group('isolation');
 
@@ -80,18 +83,46 @@ it('lets the platform read every shop billing at once', function (): void {
 });
 
 it('does NOT let the platform flag open ordinary tenant tables', function (): void {
-    app(TenantProvisioner::class)->seedRoles($this->alpha);
-    app(TenantProvisioner::class)->seedRoles($this->beta);
+    inTenantContext($this->alpha, fn () => Party::factory()->create());
+    inTenantContext($this->beta, fn () => Party::factory()->create());
 
-    app(TenantContext::class)->runFor($this->alpha, fn () => User::factory()->create());
-    app(TenantContext::class)->runFor($this->beta, fn () => User::factory()->create());
-
-    // This is the assertion that keeps the exemption honest. `app.platform` is consulted
-    // ONLY by the billing policies; `users` has an ordinary policy, so with no tenant
-    // set it still resolves to nothing. Were this to return rows, the flag would have
-    // become a blanket bypass and golden rule 1 would be worth nothing.
+    /*
+    | This is the assertion that keeps the exemption honest, and its exemplar had to
+    | change without its meaning changing.
+    |
+    | It used to count `users`. ADR 0017 put every shop on one address, so authenticating
+    | now happens before any tenant is known — the tenant is what authenticating produces
+    | — and `AccountLookup` cannot find the account without reading across shops. The
+    | migration that granted it (`…_allow_platform_reads_on_users`) is deliberate and
+    | documented, so counting `users` here stopped testing the flag and started testing
+    | that one exemption, which is a different (and already-covered) thing.
+    |
+    | So the exemplar moved to `parties` — a shop's customer list. It carries the
+    | ORDINARY policy, and it is precisely the kind of row the flag must never reach:
+    | commercially sensitive, of no use to the platform, and belonging to the shop.
+    |
+    | What `app.platform` opens today is a LIST, and proving it is still a list rather
+    | than a blanket is this test's whole job:
+    |
+    |   · billing — `subscriptions`, `subscription_invoices`, `subscription_addons`,
+    |     `payment_attempts` (ADR 0002's amendment: the Platform module reports MRR and
+    |     churn across every shop).
+    |   · `users` — one login form for every shop (ADR 0017), so the account lookup must
+    |     precede the tenant.
+    |   · the public token surfaces — `price_list_links`, `repair_tickets`,
+    |     `storefront_settings`, `invitations`. ADR 0017 moved the customer-facing pages
+    |     to the same address as everything else, so the token in the URL is all that is
+    |     left to say which shop a receipt's QR code belongs to. Each is indexed on a
+    |     credential whose whole job is to resolve before any tenant is known — the
+    |     category `TenancyCheckCommand::GLOBALLY_UNIQUE_BY_DESIGN` already keeps a list
+    |     of, which is what stops this becoming a way to smuggle one in.
+    |
+    | Every entry is one migration passing `allowPlatform: true` and one reason written
+    | down. The day this test goes red, the escape hatch has quietly become a superuser
+    | and golden rule 1 is worth nothing.
+    */
     $seen = app(TenantContext::class)->runAsPlatform(
-        fn (): int => DB::table('users')->count()
+        fn (): int => DB::table('parties')->count()
     );
 
     expect($seen)->toBe(0);

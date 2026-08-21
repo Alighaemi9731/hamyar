@@ -27,7 +27,7 @@ function onboardingPayload(array $overrides = []): array
 }
 
 it('provisions a working shop from the wizard', function (): void {
-    $response = $this->post(centralUrl('/register'), onboardingPayload());
+    $response = $this->post(appUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -35,19 +35,24 @@ it('provisions a working shop from the wizard', function (): void {
     expect($tenant->status)->toBe(Tenant::STATUS_TRIALING);
     expect($tenant->trial_ends_at)->not->toBeNull(); // @phpstan-ignore-line
 
-    // The hostname is what the middleware actually resolves on, so assert on it
-    // rather than on the slug.
+    // The `domains` row is still written, and still asserted on. ADR 0017 retires it as
+    // the RESOLUTION mechanism — nothing reads a hostname to find a tenant any more —
+    // but keeps it as the record of the shop's slug (ADR 0017, Consequences). A
+    // provisioning run that skipped it would leave that record missing and nothing else
+    // in this suite would notice.
     expect(Domain::query()->where('hostname', Domain::hostnameFor('iranian-mobile'))->exists())->toBeTrue();
 
-    // The redirect stays on this origin and the shop's address is handed over on the
-    // next page — a cross-origin redirect out of a form POST is blocked by
-    // `form-action 'self'`, which is the bug this flow has shipped twice. We still never
-    // authenticate across the hostname boundary; the person signs in themselves.
-    $response->assertRedirect(centralUrl('/register/done'));
+    // Straight to the shared login page, on the same origin, with a message waiting
+    // there. The interstitial that used to hand over a per-shop address went with the
+    // per-shop addresses. We still never authenticate the new owner automatically; they
+    // sign in themselves, which proves the credentials they just chose work.
+    $response->assertRedirect(appUrl('/login'))->assertSessionHas('status');
+
+    expect(session('status'))->not->toBeNull();
 });
 
 it('gives the owner the Owner role with every permission', function (): void {
-    $this->post(centralUrl('/register'), onboardingPayload());
+    $this->post(appUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -62,7 +67,7 @@ it('gives the owner the Owner role with every permission', function (): void {
 });
 
 it('seeds all seven roles for the new tenant', function (): void {
-    $this->post(centralUrl('/register'), onboardingPayload());
+    $this->post(appUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -78,7 +83,7 @@ it('seeds all seven roles for the new tenant', function (): void {
 it('does not let a Salesperson see costs or profit', function (): void {
     // The boundary the role split exists for: staff turnover is high and margins are
     // the most commercially sensitive thing in the shop.
-    $this->post(centralUrl('/register'), onboardingPayload());
+    $this->post(appUrl('/register'), onboardingPayload());
 
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
@@ -94,16 +99,16 @@ it('does not let a Salesperson see costs or profit', function (): void {
 });
 
 it('rejects a reserved subdomain', function (string $subdomain): void {
-    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
+    $this->post(appUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
         ->assertSessionHasErrors('subdomain');
 
     expect(Tenant::query()->count())->toBe(0);
 })->with(['www', 'admin', 'api', 'support', 'billing', 'mobishop']);
 
 it('rejects a subdomain that is already taken', function (): void {
-    $this->post(centralUrl('/register'), onboardingPayload());
+    $this->post(appUrl('/register'), onboardingPayload());
 
-    $this->post(centralUrl('/register'), onboardingPayload([
+    $this->post(appUrl('/register'), onboardingPayload([
         'owner_mobile' => '09129999999',
         'owner_email' => 'other@example.test',
     ]))->assertSessionHasErrors('subdomain');
@@ -112,7 +117,7 @@ it('rejects a subdomain that is already taken', function (): void {
 });
 
 it('rejects malformed subdomains', function (string $subdomain): void {
-    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
+    $this->post(appUrl('/register'), onboardingPayload(['subdomain' => $subdomain]))
         ->assertSessionHasErrors('subdomain');
 })->with([
     'ab',            // too short
@@ -124,7 +129,7 @@ it('rejects malformed subdomains', function (string $subdomain): void {
 it('normalises Persian digits in the mobile number', function (): void {
     // Iranian keyboards emit Persian digits constantly; the same number typed either
     // way must behave identically.
-    $this->post(centralUrl('/register'), onboardingPayload([
+    $this->post(appUrl('/register'), onboardingPayload([
         'owner_mobile' => '۰۹۱۲۱۲۳۴۵۶۷',
     ]));
 
@@ -138,15 +143,8 @@ it('normalises Persian digits in the mobile number', function (): void {
     expect($mobile)->toBe('09121234567');
 });
 
-it('reports subdomain availability', function (): void {
-    $this->postJson(centralUrl('/register/check-subdomain'), ['subdomain' => 'brand-new'])
-        ->assertOk()
-        ->assertJson(['ok' => true]);
-
-    $this->postJson(centralUrl('/register/check-subdomain'), ['subdomain' => 'admin'])
-        ->assertOk()
-        ->assertJson(['ok' => false]);
-});
+// The availability endpoint went with the field: ADR 0017 removed the address chooser
+// from the form, so `/register/check-subdomain` is no longer routed anywhere.
 
 it('rolls the whole thing back if any step fails', function (): void {
     // Provisioning is one transaction. A tenant row whose domain insert failed would
@@ -196,38 +194,59 @@ it('rolls the whole thing back if any step fails', function (): void {
 |
 | Asserting "the response is a 302 to somewhere" would pass for the cross-origin version
 | that broke twice. The assertion has to be about the HOST.
+|
+| Round three (ADR 0017) removed the boundary rather than the symptom: the form and its
+| destination are both on `app.<apex>` now, so the host this pins is the app host. The
+| test stays, because "there is nowhere to cross to" is a property of today's routing
+| table, not a law — the moment somebody points this redirect at the apex or at a shop
+| address again, the bug is back and this is what says so.
 */
 it('keeps the post-registration redirect on this origin, so no CSP directive can block it', function (): void {
-    $response = $this->post(centralUrl('/register'), onboardingPayload());
+    $response = $this->post(appUrl('/register'), onboardingPayload());
 
-    $response->assertRedirect(centralUrl('/register/done'));
+    $response->assertRedirect(appUrl('/login'));
 
     $target = $response->headers->get('Location');
 
     expect(parse_url((string) $target, PHP_URL_HOST))
-        ->toBe(config()->string('app.domain'))
+        ->toBe('app.'.config()->string('app.domain'))
         ->and(Tenant::query()->where('slug', 'iranian-mobile')->exists())->toBeTrue();
 });
 
-it('hands the new shop\'s address over on the next page', function (): void {
-    $this->post(centralUrl('/register'), onboardingPayload())
-        ->assertRedirect(centralUrl('/register/done'));
-
-    $this->get(centralUrl('/register/done'))
-        ->assertOk()
-        ->assertSee('موبایل ایرانیان', false)
-        ->assertSee(Domain::hostnameFor('iranian-mobile').'/login', false);
-});
-
 /*
-| The hand-over page reads the destination from the session and from nowhere else.
+| What replaced the hand-over page.
 |
-| A `?shop=` parameter would let anybody render "your shop is ready, click here to sign
-| in" pointing at a hostname they chose — phishing, on our own domain, in our own
-| wrapper. Reached directly with no flash, it must go back to the form.
+| Two tests used to live here: one asserting `/register/done` named the new shop and
+| printed its `<slug>.<apex>/login` address, and one asserting that page refused to
+| render without a registration behind it — because a `?shop=` parameter would have let
+| anybody produce "your shop is ready, sign in here" pointing at a hostname of their
+| choosing. Both guarantees were about an address hand-over, and ADR 0017 deleted the
+| addresses, the hand-over and the page.
+|
+| The new true thing is narrower and is what this pins: registration lands on the ONE
+| login page every shop uses, it names no shop and hands over no address, and the only
+| thing carried across is a flash message — which the page reads from the session and
+| from nowhere else, so no URL can make it say anything.
 */
-it('refuses to render the hand-over page without a registration behind it', function (): void {
-    $this->get(centralUrl('/register/done'))->assertRedirect(centralUrl('/register'));
+it('lands the new owner on the shared login page with the message waiting there', function (): void {
+    $this->post(appUrl('/register'), onboardingPayload())
+        ->assertRedirect(appUrl('/login'));
+
+    $flashed = session('status');
+    $status = is_string($flashed) ? $flashed : '';
+
+    expect($status)->not->toBe('');
+
+    $this->get(appUrl('/login'))
+        ->assertOk()
+        ->assertSee($status, false)
+        ->assertDontSee('موبایل ایرانیان', false)
+        ->assertDontSee(Domain::hostnameFor('iranian-mobile'), false);
+
+    // Flash and nothing else: the second visit is a plain login page again.
+    $this->get(appUrl('/login'))
+        ->assertOk()
+        ->assertDontSee($status, false);
 });
 
 /*
@@ -243,7 +262,7 @@ it('provisions a shop when the form sends no subdomain at all', function (): voi
     $payload = onboardingPayload();
     unset($payload['subdomain']);
 
-    $this->post(centralUrl('/register'), $payload)->assertRedirect();
+    $this->post(appUrl('/register'), $payload)->assertRedirect();
 
     $tenant = Tenant::query()->latest('id')->firstOrFail();
 
@@ -256,8 +275,8 @@ it('gives two shops registered without a subdomain different addresses', functio
     $second = onboardingPayload(['owner_mobile' => '09120000002']);
     unset($first['subdomain'], $second['subdomain']);
 
-    $this->post(centralUrl('/register'), $first)->assertRedirect();
-    $this->post(centralUrl('/register'), $second)->assertRedirect();
+    $this->post(appUrl('/register'), $first)->assertRedirect();
+    $this->post(appUrl('/register'), $second)->assertRedirect();
 
     $slugs = Tenant::query()
         ->where('slug', 'like', 'shop-%')
@@ -268,7 +287,7 @@ it('gives two shops registered without a subdomain different addresses', functio
 });
 
 it('still honours a subdomain when one is supplied', function (): void {
-    $this->post(centralUrl('/register'), onboardingPayload(['subdomain' => 'chosen-name']))
+    $this->post(appUrl('/register'), onboardingPayload(['subdomain' => 'chosen-name']))
         ->assertRedirect();
 
     expect(Tenant::query()->latest('id')->firstOrFail()->slug)
