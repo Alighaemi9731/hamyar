@@ -224,11 +224,20 @@ RUN mkdir -p bootstrap/cache storage/framework/{cache/data,sessions,views} stora
 
 USER www-data
 
-# Consumed by config/sentry.php so an error report can name the code it came from.
-# Passed at build time by bin/deploy; an unset value is not fatal, it just makes an
-# incident harder to read.
+# Which commit is inside this image. The image is the only thing that knows, so it is
+# baked in at build time rather than configured — `bin/release` passes it as the same
+# `mobishop-app:<9-char-sha>` tag it deploys.
+#
+# Two consumers, deliberately separate variables. SENTRY_RELEASE names the code an error
+# report came from (config/sentry.php). APP_RELEASE answers "what is running right now"
+# through /health (config/app.php), which is the question that has to be answerable
+# without an incident to read it against.
+#
+# Neither may appear in `.env.production`: `env_file` overrides the image's own ENV, so
+# an empty key there replaces the baked value with nothing and both go quiet at once.
 ARG APP_RELEASE=unknown
 ENV SENTRY_RELEASE=${APP_RELEASE}
+ENV APP_RELEASE=${APP_RELEASE}
 
 EXPOSE 9000
 

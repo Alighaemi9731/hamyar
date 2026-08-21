@@ -24,16 +24,57 @@ it('answers on a hostname belonging to no shop', function (): void {
         ->assertJson(['status' => 'ok']);
 });
 
-it('tells an anonymous caller whether it is up and nothing else', function (): void {
+it('tells an anonymous caller whether it is up, which version, and nothing else', function (): void {
     /*
     | The detailed body names internal hostnames, driver classes and the exact shape of
     | a failure — `SQLSTATE[08006] … could not connect to server: db-internal:5432`.
     | That is free reconnaissance, and it reads best precisely when things are broken
     | and somebody is already looking.
+    |
+    | Asserted as an exact set rather than as "has status": the whole property is that
+    | nothing ELSE is here, and `assertJson` on a subset would pass on a body that had
+    | quietly grown a `checks` key.
     */
     $response = $this->getJson('/health')->assertOk();
 
-    expect($response->json())->toBe(['status' => 'ok']);
+    expect($response->json())->toBe([
+        'status' => 'ok',
+        'version' => trim((string) file_get_contents(base_path('VERSION'))),
+    ]);
+});
+
+it('publishes the version to anyone, because that is the question people ask', function (): void {
+    /*
+    | Not decoration. A finished change on a branch and a deployed change look identical
+    | from outside the box, and this project spent a day serving a live 404 whose fix was
+    | already written — with every check green. `version` is how somebody who is not on
+    | the box, and does not want to be, finds that out from a browser.
+    |
+    | Read from the VERSION file through config, so this also pins that the single source
+    | of truth is wired up: a `dev` here on a built image means `config('app.version')`
+    | found no file, and the endpoint would go on looking perfectly healthy while
+    | answering the one question it exists to answer with a shrug.
+    */
+    $response = $this->getJson('/health')->assertOk();
+
+    expect($response->json('version'))
+        ->toBe(trim((string) file_get_contents(base_path('VERSION'))))
+        ->toMatch('/^\d+\.\d+\.\d+$/');
+});
+
+it('keeps the exact build behind the secret', function (): void {
+    /*
+    | The version says WHAT is running; the image tag says which commit. The second one
+    | tells a reader precisely which published fixes this box has not taken yet, which is
+    | reconnaissance rather than transparency — so it is graded with the driver detail,
+    | not with the version.
+    */
+    config(['app.health_secret' => 'the-real-one', 'app.release' => 'mobishop-app:abc123def']);
+
+    expect($this->getJson('/health')->json())->not->toHaveKey('release');
+
+    expect($this->getJson('/health', ['X-Health-Secret' => 'the-real-one'])->json('release'))
+        ->toBe('mobishop-app:abc123def');
 });
 
 it('withholds the detail even from a caller with a header, when no secret is set', function (): void {

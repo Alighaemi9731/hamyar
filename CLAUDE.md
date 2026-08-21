@@ -107,6 +107,12 @@ contain**, because it goes on reading as permission long after the permission en
 - `composer test:isolation` — tenancy isolation suite only
 - `npm run dev` / `npm run build`
 - New module scaffold: `php artisan make:module <Name>` (custom generator, Phase 0)
+- **`bin/release --deploy`** — tag, publish, ship and prove one release. The whole
+  procedure and every refusal: `docs/RELEASE_PROCESS.md`. Version policy:
+  `docs/VERSIONING.md`. What each release contained: `CHANGELOG.md`.
+- **`bin/smoke <apex>`** — is the live site actually serving this? Runs from outside the
+  box, over the real certificate. Also `curl -s https://<apex>/health` for the version
+  alone, which needs nothing installed and no access to anything.
 
 ## Conventions
 - FormRequest for validation; thin controllers; domain logic in module Services/Actions.
@@ -216,7 +222,26 @@ contain**, because it goes on reading as permission long after the permission en
    "in progress", it is one hardware failure from gone. Set upstream on first push
    (`git push -u origin <branch>`); pushing a work-in-progress branch is normal and
    costs nothing, since only `main` is protected.
+8. **Green means merge, and merge means deploy.** A pull request whose checks have all
+   passed is not a decision waiting to be made; it is finished work nobody is shipping.
+   Merge it, then release it with `bin/release --deploy` (`docs/RELEASE_PROCESS.md`).
+   `bin/release` refuses to run while a green non-draft PR is still open, because that is
+   the exact state this rule exists to prevent.
+9. **A change that is not on the box is not done.** Not the checkbox, not the PROGRESS
+   line, not the report. The only evidence that counts is `bin/smoke` passing against the
+   live site — it reads the version the box itself reports, and it *follows* the links a
+   shopkeeper clicks instead of matching them.
+
+   This is rule 9 rather than a footnote because of what it cost. On 2026-08-21 the
+   landing rebuild and the fix for a live `/register` 404 sat finished on a branch while
+   production served the release from five commits earlier. **Every check was green.**
+   Nothing in the repository measured the distance between "the code is correct" and "the
+   correct code is running", so the only way to discover it was for the owner to open the
+   site and find it still broken — which is the most expensive possible place to find out,
+   and the one that reads as "the software does not work".
 Never mark a task done with failing tests. Never skip the isolation test.
+Never report a change as shipped on the strength of a merge — merges are not deploys, and
+`bin/smoke` is the only thing that knows the difference.
 **Never tick a box for user-facing behaviour that no route and no screen reach** — a
 service whose tests pass but which only Tinker can call is not a shipped feature, and the
 checkbox would be claiming something the tests never said. Ask whether a shopkeeper can
@@ -234,6 +259,10 @@ do the thing; if the answer needs a terminal, the box stays open with a reason b
 - Design system, tokens & landing brief: docs/design-system.md
 - Testing policy & suites: docs/testing.md
 - Deploy runbook: docs/deploy.md
+- **Release process (start here to ship anything): docs/RELEASE_PROCESS.md**
+- Version policy: docs/VERSIONING.md · Release history and reasons: CHANGELOG.md
+- Production coordinates: `.claude/OPS.local.md` and `.deploy.local` — **gitignored, and
+  the repository is public**. Never copy a host, an IP or a secret out of them.
 - Load-test runbook (run 2026-08-20 against `mobiyar.com`; p95 fails on `/dashboard`):
   docs/load-testing.md · docs/load-tests/2026-08-20.md
 - Persian source docs (business plan / design & tooling supplement):

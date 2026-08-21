@@ -252,10 +252,27 @@ certbot directories are created once, here.
 
 ## 3. Releasing
 
+**Use `bin/release`. Everything in this section is what it does.**
+
+```bash
+bin/release --dry-run     # print every step, change nothing
+bin/release --deploy      # tag, publish, sync, build on the box, cut over, prove it
+```
+
+The full procedure, its refusals and the rollback rules are in
+[`docs/RELEASE_PROCESS.md`](RELEASE_PROCESS.md). The two commands below are the layer
+underneath it — `bin/deploy` runs **on the box** and is what `bin/release` calls once the
+image exists:
+
 ```bash
 bin/deploy mobishop-app:<sha>
 bin/deploy mobishop-app:<previous-sha> --rollback
 ```
+
+Reach for them directly only when `bin/release` cannot run — no network to GitHub, a
+half-finished cutover, an incident. In every other case the wrapper is the point: it is
+what checks that CI is green on the commit being shipped, that nothing green is sitting
+unmerged, and — afterwards — that the box is actually serving what was just sent to it.
 
 ### Where the image comes from — read this before following anything below
 
@@ -478,17 +495,31 @@ point: grading a backlog critical would pull a healthy web tier out of rotation 
 third-party SMS gateway is slow, turning a delayed text message into a shop that cannot
 take payment.
 
-The body is not public. An anonymous caller gets `{"status":"ok"}` and the status code —
-everything an uptime probe needs. Details need `X-Health-Secret`, and with no
-`HEALTH_SECRET` configured **nobody** gets them: the detailed body names internal
-hostnames and driver-level failures, and it reads best exactly when something is already
-broken and somebody is already looking.
+The body is not public, with one deliberate exception. An anonymous caller gets
+`{"status":"ok","version":"0.12.0"}` and the status code — everything an uptime probe
+needs, plus the answer to the question people actually ask.
+
+**The version is public on purpose.** "Is the fix I shipped actually running?" has to be
+answerable from a browser, without SSH and without asking anybody, because when it is not
+answerable the conclusion people reach is that the software is broken. `CHANGELOG.md` says
+what each version contains and the repository is public, so the number publishes nothing
+new. It comes from the `VERSION` file through `config('app.version')` — a `dev` there on a
+built image means the file was not found, and the endpoint would go on looking healthy
+while answering its one job with a shrug.
+
+Everything else needs `X-Health-Secret`, and with no `HEALTH_SECRET` configured **nobody**
+gets it: the detailed body names internal hostnames and driver-level failures, and it reads
+best exactly when something is already broken and somebody is already looking. The exact
+image tag (`release`) is graded with that detail rather than with the version — it names
+the commit, which tells a reader precisely which published fixes this box has not taken
+yet.
 
 ```bash
 make health                                    # locally
 docker compose exec app_blue php artisan health:check
-curl -s https://<apex>/health                  # {"status":"ok"}
-curl -s -H "X-Health-Secret: $HEALTH_SECRET" https://<apex>/health | jq
+curl -s https://<apex>/health                  # {"status":"ok","version":"0.12.0"}
+curl -s -H "X-Health-Secret: $HEALTH_SECRET" https://<apex>/health | jq   # + release, + checks
+bin/smoke <apex>                               # the whole front door, from outside
 ```
 
 ### What Sentry is and is not allowed to send
