@@ -67,15 +67,14 @@ it('permits the things the product actually does', function (string $needle): vo
     'computed style attributes — chart heights, label millimetres' => "style-src 'self' 'unsafe-inline'",
 ]);
 
-it('gives the inline theme script a nonce, and does not blanket-allow inline script', function (): void {
+it('names a nonce in the policy, and does not blanket-allow inline script', function (): void {
     $response = $this->get($this->url.'/login');
 
     $policy = $response->headers->get('Content-Security-Policy') ?? '';
 
     // The nonce is what lets the anti-FOUC script run. Without it the page renders
     // light and repaints dark, and the fix somebody reaches for is 'unsafe-inline'.
-    expect($policy)->toMatch("/script-src [^;]*'nonce-[A-Za-z0-9+\/=]+'/")
-        ->and($response->getContent())->toContain('nonce=');
+    expect($policy)->toMatch("/script-src [^;]*'nonce-[A-Za-z0-9+\/=]+'/");
 
     /** @var string $scriptSrc */
     $scriptSrc = collect(explode(';', $policy))
@@ -86,6 +85,36 @@ it('gives the inline theme script a nonce, and does not blanket-allow inline scr
     // a policy where the nonce is decoration — browsers ignore it once 'unsafe-inline'
     // is present, which is exactly how a CSP ends up permitting everything.
     expect($scriptSrc)->not->toContain("'unsafe-inline'");
+});
+
+it('stamps the nonce from the policy onto the inline script that needs it', function (): void {
+    /*
+    | Asserted on an Inertia page rather than on `/login`, and that is the whole point of
+    | it being a separate test.
+    |
+    | Since ADR 0016 the auth pages are Blade and carry NO inline script at all, so a
+    | nonce in their markup is a thing that cannot exist. Asserted there — as it was until
+    | this split — the test could only fail, and the repair it invites is adding a script
+    | the page does not need. The anti-FOUC script lives in `app.blade.php`, and `/design`
+    | is the one route that renders that shell with no session (ApplicationShellTest
+    | asserts the same route).
+    |
+    | Equality with the header, not merely the presence of `nonce=`: a nonce that does not
+    | match the policy is worse than none. The browser drops the script, the page repaints
+    | exactly as if the nonce were missing, and both halves read as correct on their own.
+    */
+    $response = $this->get(centralUrl('/design'));
+
+    $response->assertOk();
+
+    $policy = $response->headers->get('Content-Security-Policy') ?? '';
+
+    preg_match("/'nonce-([A-Za-z0-9+\/=]+)'/", $policy, $matches);
+
+    $nonce = $matches[1] ?? null;
+
+    expect($nonce)->not->toBeNull()
+        ->and((string) $response->getContent())->toContain('nonce="'.$nonce.'"');
 });
 
 it('does not pin a developer machine to https', function (): void {

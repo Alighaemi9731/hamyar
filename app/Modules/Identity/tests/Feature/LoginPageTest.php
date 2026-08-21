@@ -34,7 +34,13 @@ beforeEach(function (): void {
 });
 
 it('offers a way to register', function (): void {
-    expect($this->registerHref)->not->toBeNull();
+    // Narrowed to a local before `expect()` sees it. A property set on the test case in
+    // `beforeEach` is `mixed` to static analysis, and `expect(mixed)` gives Larastan no
+    // TValue to resolve — level 8 fails the build on it while the test itself passes.
+    /** @var string|null $registerHref */
+    $registerHref = $this->registerHref;
+
+    expect($registerHref)->not->toBeNull();
 });
 
 it('links «ثبت نام» to a page that actually resolves', function (): void {
