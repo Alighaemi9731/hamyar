@@ -71,12 +71,9 @@
 
         <button type="submit" class="btn btn--primary auth__submit">ثبت نام</button>
 
-        {{--
-            «ورود به حساب کاربری» belongs here and is deliberately absent.
-
-            `login` is registered inside the tenant middleware group, so from the apex it
-            resolves to a URL that 404s — there is no shared login yet (ADR 0017). The
-            link returns with `app.<apex>`; a link that goes nowhere is worse than none.
-        --}}
+        <p class="auth__alt">
+            حساب دارید؟
+            <a href="{{ route('login') }}">ورود به حساب کاربری</a>
+        </p>
     </form>
 @endsection

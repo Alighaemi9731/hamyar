@@ -56,17 +56,9 @@
             <a href="#faq">سوالات</a>
         </nav>
 
-        {{--
-            «ورود» is deliberately absent for the moment.
-
-            There is no single login URL yet: `/login` exists on `<shop>.<apex>` and
-            nowhere else, so anything this button pointed at would 404 or send the
-            visitor to a shop-address form that has just been removed. It returns as a
-            real link the moment the shared `app.<apex>` login lands.
-
-            A nav button that goes nowhere is worse than a nav without one.
-        --}}
+        {{-- Both go to the app host, which is now one address for every shop (ADR 0017). --}}
         <div class="nav__cta">
+            <a href="{{ route('login') }}" class="btn btn--quiet">ورود</a>
             <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
         </div>
     </div>

@@ -4,12 +4,11 @@
 @section('heading', 'ورود')
 
 @section('subheading')
-    {{-- Which shop this is. TenantIsolationTest asserts it, because a login page that
-         looks the same for every shop gives nobody a way to notice they are about to
-         type their password into the wrong one. --}}
-    @isset($shopName)
-        <p style="color:var(--color-navy-mute);margin-block:-1.25rem 1.75rem;font-size:0.9375rem">{{ $shopName }}</p>
-    @endisset
+    {{-- One login page for every shop now (ADR 0017), so there is no shop to name here —
+         the tenant is what authenticating produces, not context this page already has. --}}
+    @if (session('status'))
+        <p style="color:var(--color-navy-soft);background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-radius:0.75rem;padding:0.875rem 1rem;margin-block:-0.75rem 1.5rem;font-size:0.9375rem">{{ session('status') }}</p>
+    @endif
 @endsection
 
 @section('form')

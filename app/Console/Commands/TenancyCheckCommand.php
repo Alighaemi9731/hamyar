@@ -90,6 +90,11 @@ final class TenancyCheckCommand extends Command
      */
     private const GLOBALLY_UNIQUE_BY_DESIGN = [
         'price_list_links_lookup_unique' => 'Bearer credential: resolved before any tenant is known, by design.',
+        // ADR 0017: with one address for every shop, these two are what tells a customer's
+        // request which shop it belongs to. They were per-tenant while the hostname did
+        // that job.
+        'repair_tickets_tracking_token_unique' => 'Bearer credential: the QR on a repair receipt, scanned by a customer with no session (ADR 0017).',
+        'repair_tickets_approval_token_unique' => 'Bearer credential: a quote-approval link, opened by a customer with no session (ADR 0017).',
         'invitations_token_hash_unique' => 'Bearer credential: an invite is opened by somebody with no session yet.',
         'payment_attempts_authority_unique' => 'Issued by Zarinpal, not by us — global uniqueness is the gateway\'s.',
         'storefront_settings_slug_unique' => 'Public path segment: two shops claiming /shop/mobile-iran must collide.',

@@ -62,22 +62,35 @@ Route::domain(config()->string('app.domain'))->group(function (): void {
     Route::view('/terms', 'legal.terms')->name('legal.terms');
     Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
 
+});
+
+/*
+|--------------------------------------------------------------------------
+| The application — app.<apex>, one address for every shop
+|--------------------------------------------------------------------------
+|
+| ADR 0017. Shops used to get a hostname each and the tenant was read from it; now
+| everybody signs in here and the tenant comes from the session, established at login
+| from the authenticated user's own record.
+|
+| Sign-up lives here too rather than beside the landing, so the whole auth flow is one
+| origin. That is not tidiness: a cross-origin redirect out of a form POST is blocked by
+| `form-action 'self'`, which broke sign-up twice (see OnboardingController::store()).
+| Same-origin removes the shape of that bug rather than working around it again.
+*/
+Route::domain('app.'.config()->string('app.domain'))->group(function (): void {
     Route::middleware('guest')->group(function (): void {
         Route::get('/register', [OnboardingController::class, 'create'])->name('register');
         Route::post('/register', [OnboardingController::class, 'store'])
             ->middleware('throttle:6,1')
             ->name('register.store');
 
-        // The hand-over page. Same origin, because a cross-origin redirect out of a form
-        // POST is blocked by `form-action 'self'` — see OnboardingController::store().
-        Route::get('/register/done', [OnboardingController::class, 'done'])->name('register.done');
-
-        // Live availability check for the wizard's subdomain step. Throttled: it is an
-        // unauthenticated endpoint that reveals which shop names are taken.
-        Route::post('/register/check-subdomain', [OnboardingController::class, 'checkSubdomain'])
-            ->middleware('throttle:30,1')
-            ->name('register.check-subdomain');
+        Route::get('/login', [LoginController::class, 'create'])->name('login');
+        Route::post('/login', [LoginController::class, 'store'])->name('login.store');
     });
+
+    // Signed in, this is the dashboard; signed out, ResolveTenant sends it to /login.
+    Route::redirect('/', '/dashboard')->name('app.home');
 });
 
 /*
@@ -95,30 +108,13 @@ Route::domain(config()->string('app.domain'))->group(function (): void {
 
 Route::middleware('tenant')->group(function (): void {
     /*
-    | The shop's own address, and the reason it needs a route at all.
+    | No `/` route here any more.
     |
-    | Registration redirects to `/login` on the new subdomain, so the FIRST visit always
-    | worked. Every visit after that starts where a shopkeeper naturally starts — typing
-    | the shop's address, opening a bookmark, or handing it to a new employee — and `/`
-    | had no route on a tenant host. That is not a tidy 404: with no `resources/views/
-    | errors/`, it is the framework's bare `<html lang="en">Not Found`, in English and
-    | LTR, on a Persian product, to somebody who has just signed up and is trying to get
-    | in. Reported from production by the first person to register a shop.
-    |
-    | Deliberately outside both `guest` and `auth`. Signed in, this lands on the
-    | dashboard; signed out, `/dashboard`'s own guard forwards to `/login`. One rule
-    | covers both, and neither needs to know about the other.
-    |
-    | The apex `/` is registered above inside `Route::domain(...)`, so it still wins for
-    | the central site; an unknown hostname still reaches `tenant` middleware here and
-    | still 404s, which is the behaviour the isolation tests pin.
+    | It existed because a shop had its own address and somebody typing it landed on a
+    | bare framework 404 — reported from production by the first person to register.
+    | With one address (ADR 0017) that root belongs to the app host and is registered
+    | above; this group is now only the authenticated application.
     */
-    Route::redirect('/', '/dashboard')->name('tenant.home');
-
-    Route::middleware('guest')->group(function (): void {
-        Route::get('/login', [LoginController::class, 'create'])->name('login');
-        Route::post('/login', [LoginController::class, 'store'])->name('login.store');
-    });
 
     Route::middleware(['auth', 'tenant.user'])->group(function (): void {
         Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');

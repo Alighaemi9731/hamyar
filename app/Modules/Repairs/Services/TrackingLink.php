@@ -6,7 +6,6 @@ namespace App\Modules\Repairs\Services;
 
 use App\Modules\Platform\Models\Domain;
 use App\Modules\Repairs\Models\RepairTicket;
-use App\Support\Tenancy\TenantContext;
 
 /**
  * The address on the customer's receipt.
@@ -42,8 +41,6 @@ use App\Support\Tenancy\TenantContext;
  */
 final class TrackingLink
 {
-    public function __construct(private readonly TenantContext $context) {}
-
     /**
      * The absolute tracking URL, or null when there is nowhere to point.
      *
@@ -93,19 +90,22 @@ final class TrackingLink
         return "{$scheme}://{$hostname}/a/{$ticket->approval_token}";
     }
 
+    /**
+     * The application's host — one address for every shop.
+     *
+     * This used to read `domains.hostname`, because the QR pointed at the shop's own
+     * subdomain and that hostname was what told the tracking page which shop the ticket
+     * belonged to. ADR 0017 removed per-shop addresses, and the token now identifies the
+     * ticket by itself (it is globally unique for exactly this reason), so every link
+     * points here.
+     *
+     * Built from `config('app.domain')`, never a literal — golden rule 1b, which is what
+     * keeps changing the apex a configuration change rather than a grep.
+     */
     private function hostname(): ?string
     {
-        $tenantId = $this->context->id();
+        $domain = config()->string('app.domain');
 
-        if ($tenantId === null) {
-            return null;
-        }
-
-        $hostname = Domain::query()
-            ->where('tenant_id', $tenantId)
-            ->orderByDesc('is_primary')
-            ->value('hostname');
-
-        return is_string($hostname) && $hostname !== '' ? $hostname : null;
+        return $domain !== '' ? 'app.'.$domain : null;
     }
 }
