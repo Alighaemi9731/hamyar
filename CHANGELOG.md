@@ -73,3 +73,21 @@ Three of its rules are load-bearing and were chosen against the obvious alternat
 `/health` now reports `version` (public) and, behind `X-Health-Secret`, the exact image
 tag serving the request. That answer — *which build is live* — is what turns "the site is
 still broken" from a guess into a fact.
+
+### And one thing this release learned by breaking
+
+The first deploy cut through this path lost its SSH connection partway through
+`bin/deploy`. Because the command was a child of the session, it died with it: traffic had
+already been cut over to the new container, and steps 8 and 9 never ran — **horizon and the
+scheduler were left down, on the old image**, with nothing red anywhere to say so. Compose's
+mid-recreate rename had also left a container holding the name `mobishop-horizon-1`, so the
+obvious retry failed with a name conflict on top of it. The site served perfectly; it just
+stopped sending SMS.
+
+`bin/deploy`'s ordering guarantee — every irreversible step after every reversible one — is
+about the order of the steps. It buys nothing against the script simply stopping between
+two of them, and a dropped carrier is the one thing that can do that from outside. So
+`bin/release` now runs both remote steps **detached**, with `nohup`, writing an exit code to
+a sentinel file it polls for. A dropped link costs a reconnect instead of a half-deployed
+box. `bin/deploy`'s header says so too, because that is where somebody will be reading when
+it matters.

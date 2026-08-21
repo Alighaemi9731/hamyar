@@ -264,13 +264,62 @@ run rsync -az --delete \
     ./ "$MOBISHOP_SSH:$MOBISHOP_PATH/"
 ok "tree synced"
 
+# Both remote steps run DETACHED, with their output on the box, and this script polls.
+#
+# Not defensive programming — a repair. The first deploy cut this way lost its SSH
+# connection partway through `bin/deploy`, and because the command was a child of the
+# session it died with it: traffic had been cut over, but the queue workers had not been
+# recreated and one of them was left as a half-renamed container holding its own name, so
+# the obvious retry failed with a name conflict. Horizon was down and nothing said so.
+#
+# `bin/deploy` is careful about ORDER — every irreversible step after every reversible one
+# — and that guarantee assumes the script gets to run to the end. A dropped carrier is the
+# one thing that can take it out between two steps, and it is also the failure this setup
+# invites: a laptop over a long-haul link to Helsinki, mid-evening.
+#
+# So the box owns the process. A drop now costs a reconnect, not a half-deployed site.
+remote_detached() {
+    local name="$1" command="$2" log_file="/tmp/mobishop-release-$1.log"
+
+    ssh "$MOBISHOP_SSH" \
+        "cd '$MOBISHOP_PATH' && rm -f '$log_file' '$log_file.done' && \
+         nohup sh -c '{ $command; } > $log_file 2>&1; echo \$? > $log_file.done' >/dev/null 2>&1 & echo detached"
+
+    # Poll for the sentinel rather than for the process: a finished run leaves an exit
+    # code behind, so this reports the same answer whether or not the link survived it.
+    local waited=0
+    until ssh -o BatchMode=yes "$MOBISHOP_SSH" "test -f '$log_file.done'" 2>/dev/null; do
+        sleep 10
+        waited=$(( waited + 10 ))
+        (( waited % 60 == 0 )) && log "  …$name still running (${waited}s)"
+        (( waited < 1800 )) || die "$name has run for 30 minutes — look at $log_file on the box"
+    done
+
+    local code
+    code="$(ssh "$MOBISHOP_SSH" "cat '$log_file.done'" 2>/dev/null || echo 1)"
+
+    if [[ "$code" != "0" ]]; then
+        ssh "$MOBISHOP_SSH" "tail -40 '$log_file'" >&2 || true
+        die "$name failed on the box (exit $code) — full output in $log_file"
+    fi
+}
+
 log "building $IMAGE_TAG on the box"
-run ssh "$MOBISHOP_SSH" \
-    "cd '$MOBISHOP_PATH' && docker build -f docker/app/Dockerfile.prod --build-arg APP_RELEASE='$IMAGE_TAG' -t '$IMAGE_TAG' ."
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: docker build … -t %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
+else
+    remote_detached build \
+        "docker build -f docker/app/Dockerfile.prod --build-arg APP_RELEASE=$IMAGE_TAG -t $IMAGE_TAG ."
+fi
 ok "image built"
 
 log "cutting over"
-run ssh "$MOBISHOP_SSH" "cd '$MOBISHOP_PATH' && bin/deploy '$IMAGE_TAG'"
+if (( DRY_RUN )); then
+    printf '\033[90m   would run: bin/deploy %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
+else
+    remote_detached deploy "bin/deploy $IMAGE_TAG"
+    ssh "$MOBISHOP_SSH" "tail -20 '/tmp/mobishop-release-deploy.log'" || true
+fi
 ok "cut over"
 
 # ---------------------------------------------------------------- 4. prove it ----
