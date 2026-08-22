@@ -89,6 +89,33 @@ requires a pull request and all five checks at the platform level. `CLAUDE.md` s
 plain words that nothing here was mechanically enforced — that paragraph was accurate and
 is now rewritten, with the condition under which it must be written back.
 
+### The release scripts were reviewed before they were trusted
+
+`bin/release` and `bin/deploy` went through an adversarial review before `bin/release` was
+allowed near production: 23 candidate defects, each handed to an independent reviewer told
+to refute it, **12 confirmed**. Three were critical.
+
+The worst was not a failure mode — it was the happy path. `git tag` creates the ref
+locally, so the tag-exists guard made the script single-shot: the two-step usage it prints
+at the end of a non-deploy run (`bin/release`, then `bin/release --deploy`) could never
+work, on a perfect network. And any failure after the tag left a published GitHub release
+announcing a version the box was not serving, with the only command that deploys refusing
+to run. It now resumes when the tag points at `HEAD` and still refuses when it points
+anywhere else — which was the guard's actual purpose.
+
+Second: a `bin/deploy` failure after the cutover was reported as *"nothing was cut over"*.
+Steps 8 and 9 run after traffic moves, and the trap said the same thing either way — so the
+exact fault described below would have been reported as its own opposite.
+
+Third: three gates failed **open**. `|| true` and `|| echo 0` on queries whose empty result
+already means "nothing wrong", so a GitHub API hiccup between the CI check's three requests
+printed `✓ all N checks passed` for a commit still running its tests. Every gate now tests
+the exit status, never the emptiness of the output.
+
+And the tree that ships is now the tag: `rsync` sent the working copy — untracked and
+gitignored files included — while the tarball and its SHA-256 described something else and
+asserted it with a checksum.
+
 ### And one thing this release learned by breaking
 
 The first deploy cut through this path lost its SSH connection partway through

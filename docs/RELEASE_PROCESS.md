@@ -81,6 +81,11 @@ In order, and every one of these is a refusal that has a reason:
 | Cut over | `bin/deploy` — blue/green, health-checked before the cutover (`docs/deploy.md` §3) |
 | Prove | `bin/smoke` against the live site fails ⇒ the release is reported as **not verified** |
 
+`bin/release --deploy` is re-runnable. If it stops anywhere after the tag, run it again —
+see §5. And read what it says about the cutover: a `bin/deploy` failure at step 8 or 9
+happens *after* traffic has moved, so the box's own "nothing was cut over" is false there.
+`bin/release` prints the two commands that establish which actually happened.
+
 The image is built on the box on purpose. The laptop speaks Docker only through a Linux
 VM, so a build there is minutes of pinned cores for an artefact the box produces natively —
 and the owner's standing instruction is that nothing heavy runs on the laptop.
@@ -104,7 +109,26 @@ No hostname appears in the script. `bin/release` reads `APP_DOMAIN` and `HEALTH_
 from the box's own `.env.production` and passes them in — golden rule 1b, and `HEALTH_SECRET`
 is never printed, logged or written.
 
-## 5. Rollback
+## 5. Published but not deployed — resume, do not re-cut
+
+Everything after the tag can fail with the tag on origin and the GitHub release public:
+the rsync, a cold `docker build` running past the poll budget, the cutover, a dropped
+link. When that happens the box is still serving the previous release and the tag is
+still correct.
+
+**Re-run the same command.** `bin/release --deploy` resumes when the tag already points at
+`HEAD`: it re-pushes the tag if needed, refreshes the release assets instead of failing on
+an existing release, and carries on to the sync. Preflight runs again in full, on purpose —
+it is cheap, it is still true about the commit being shipped, and skipping it would make
+resuming a way around the gates.
+
+**Do not delete the tag and do not burn a version number.** A tag that points somewhere
+other than `HEAD` is the one case that still refuses, because that means somebody forgot
+to bump `VERSION` — which is what the guard was for.
+
+This is different from a rollback: nothing was cut over, so there is nothing to cut back.
+
+## 6. Rollback
 
 The previous container is **stopped, not removed**, so it still holds the previous image
 and a rollback is a cutover rather than a rebuild:
@@ -122,7 +146,7 @@ If the release you are leaving added a migration, rolling the code back leaves t
 ahead of it. Confirm the older code tolerates the newer schema before doing it; if it does
 not, roll **forward** with a fix instead.
 
-## 6. Afterwards
+## 7. Afterwards
 
 Append one line to `docs/PROGRESS.md` — date, what shipped, the version — and tick the
 roadmap box. A box ticked before `bin/smoke` passed is claiming something no test said.

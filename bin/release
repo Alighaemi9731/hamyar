@@ -39,7 +39,11 @@
 
 set -Eeuo pipefail
 
-readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Assigned then marked readonly, not both at once: `readonly X="$(cmd)"` takes the exit
+# status of `readonly`, never of the command, so a failing substitution silently yields an
+# empty value that the next line uses (SC2155).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly REPO_ROOT
 cd "$REPO_ROOT"
 
 DEPLOY=0
@@ -70,7 +74,8 @@ command -v rsync >/dev/null || die "rsync is not installed"
 gh auth status >/dev/null 2>&1 || die "gh is not authenticated — run 'gh auth login'"
 
 [[ -f VERSION ]] || die "VERSION is missing"
-readonly VERSION="$(tr -d '[:space:]' < VERSION)"
+VERSION="$(tr -d '[:space:]' < VERSION)"
+readonly VERSION
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
     || die "VERSION is not a semantic version: '$VERSION' (see docs/VERSIONING.md)"
 readonly TAG="v$VERSION"
@@ -85,15 +90,58 @@ default_branch="${default_branch:-main}"
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] \
     || die "the worktree has uncommitted changes — a release must be exactly what is on $default_branch"
 
+# Untracked files do not block a release — what goes to the box is an export of the tag
+# (see "the tree that ships is the tag" below), so they cannot reach it. Say so anyway:
+# before that change they were rsynced into the production image while being absent from
+# the tag and the published tarball, and silence here is what made that invisible.
+if [[ -n "$(git status --porcelain --untracked-files=normal | grep '^??' || true)" ]]; then
+    warn "untracked files present; they are NOT part of $TAG and will not be deployed:"
+    git status --porcelain --untracked-files=normal | grep '^??' | sed 's/^?? /    /'
+fi
+
 git fetch --quiet origin "$default_branch" --tags
-readonly HEAD_SHA="$(git rev-parse HEAD)"
+HEAD_SHA="$(git rev-parse HEAD)"
+readonly HEAD_SHA
 
 [[ "$HEAD_SHA" == "$(git rev-parse "origin/$default_branch")" ]] \
     || die "$default_branch and origin/$default_branch differ — pull, or push, before releasing"
 
+# ------------------------------------------------------------ resume, not refuse ----
+#
+# An existing tag means one of two completely different things, and the first draft of
+# this script treated both as the same mistake.
+#
+# If it points somewhere OTHER than HEAD, somebody forgot to bump VERSION — refuse, which
+# is what the guard was for. If it points at HEAD, this exact release was already tagged
+# and the run that tagged it did not finish. Everything after the tag can fail: the rsync,
+# a cold `docker build` running past the poll budget, the cutover, a dropped link. Refusing
+# there left the tag and the published GitHub release announcing a version the box was not
+# serving, with the ONE command that deploys refusing to run — recoverable only by deleting
+# a published release by hand, or by burning a version number on a release containing no
+# changes.
+#
+# It also made the two-step usage this script prints at the end of a non-deploy run
+# (`bin/release`, then `bin/release --deploy`) impossible: the first run creates the tag
+# locally, so the second died here every time, on a perfect network.
+#
+# So: resume. Phase 2 below is idempotent throughout — tag, push, archive and release each
+# check for their own prior result. The preflight above is deliberately NOT skipped on a
+# resume; it is cheap, it is still true about the commit being shipped, and skipping it
+# would make resuming a way around the gates.
+RESUMING=0
 if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
-    die "$TAG already exists. Bump VERSION and add a CHANGELOG entry (docs/VERSIONING.md)."
+    tagged_sha="$(git rev-list -n1 "refs/tags/$TAG")"
+    [[ "$tagged_sha" == "$HEAD_SHA" ]] \
+        || die "$TAG already exists and points at ${tagged_sha:0:9}, not HEAD (${HEAD_SHA:0:9}). Bump VERSION and add a CHANGELOG entry (docs/VERSIONING.md)."
+
+    remote_sha="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | cut -f1)"
+    [[ -z "$remote_sha" || "$remote_sha" == "$HEAD_SHA" ]] \
+        || die "origin's $TAG points at ${remote_sha:0:9}, not HEAD — resolve that by hand before releasing."
+
+    RESUMING=1
+    warn "$TAG already exists at HEAD — resuming a release that was published but not finished"
 fi
+readonly RESUMING
 
 ok "on $default_branch at ${HEAD_SHA:0:9}, clean, in sync with origin"
 
@@ -112,13 +160,32 @@ ok "CHANGELOG.md describes $VERSION"
 # passed is a finished piece of work that nobody is looking at, and the law this project
 # now runs on is: green means merge, and merge means deploy. Drafts are exempt — a draft
 # is a statement that it is not finished.
-green_open="$(
+# Fails CLOSED. The first draft swallowed gh's exit status with `2>/dev/null || true`, and
+# because "no green PR" and "could not ask" are both the empty string, an API hiccup read
+# as a pass — the gate reporting green precisely when it could not see. Every gate below
+# is written the same way: test the EXIT STATUS, never the emptiness of the output, because
+# empty is a legitimate success value for all three of them.
+if ! green_open="$(
     gh pr list --state open --draft=false --json number,title,statusCheckRollup \
         --jq '[ .[]
                 | select((.statusCheckRollup | length) > 0)
-                | select([ .statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED") ] | length == 0)
-                | "#\(.number) \(.title)" ] | .[]' 2>/dev/null || true
-)"
+                | select([ .statusCheckRollup[]
+                           | select((.conclusion // .state // "PENDING") | ascii_upcase
+                                    | . != "SUCCESS" and . != "NEUTRAL" and . != "SKIPPED") ] | length == 0)
+                | "#\(.number) \(.title)" ] | .[]'
+)"; then
+    [[ "${ALLOW_UNMERGED_GREEN:-}" == "1" ]] \
+        || die "could not query open pull requests — refusing to release blind (override: ALLOW_UNMERGED_GREEN=1)"
+    warn "could not query open pull requests; proceeding because ALLOW_UNMERGED_GREEN=1"
+    green_open=''
+fi
+
+# Echo the operator's own flags back. `${DEPLOY:+…}` expanded whichever way DEPLOY was set,
+# because "0" is not empty — so a plain `bin/release` was handed a copy-paste line that
+# also cuts over production, at the one moment the operator is being told to slow down.
+hint_flags=''
+if (( DEPLOY )); then hint_flags+=' --deploy'; fi
+if (( DRY_RUN )); then hint_flags+=' --dry-run'; fi
 
 if [[ -n "$green_open" ]]; then
     if [[ "${ALLOW_UNMERGED_GREEN:-}" == "1" ]]; then
@@ -134,7 +201,7 @@ if [[ -n "$green_open" ]]; then
   the site was just wrong.
 
   Merge it:            gh pr merge <number> --squash --delete-branch
-  Or say so out loud:  ALLOW_UNMERGED_GREEN=1 bin/release${DEPLOY:+ --deploy}
+  Or say so out loud:  ALLOW_UNMERGED_GREEN=1 bin/release${hint_flags}
 
 EOF
         exit 1
@@ -151,19 +218,30 @@ log "checking CI on ${HEAD_SHA:0:9}"
 
 # `gh api --jq` rather than a pipe into jq(1): gh carries its own, so this needs one
 # fewer thing installed on whichever machine cuts a release.
-api_checks() { gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" --jq "$1" 2>/dev/null; }
+#
+# stderr is NOT discarded, and every call is checked. The first draft made three separate
+# HTTP requests and guarded only the first: `pending` fell back to `echo 0` and `failed` to
+# the empty string, which are exactly the values that mean "nothing pending" and "nothing
+# red". A 502 or a secondary rate limit between request one and request two therefore
+# printed `✓ all N checks passed` for a commit whose tests were still running — the gate
+# CLAUDE.md calls "the gate that counts", reporting success at the moment it went blind.
+api_checks() { gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" --jq "$1"; }
+blind() { die "could not read check runs for ${HEAD_SHA:0:9} — refusing to release blind"; }
 
-total="$(api_checks '.check_runs | length' || true)"
-[[ -n "$total" ]] || die "could not read check runs for ${HEAD_SHA:0:9}"
+total="$(api_checks '.check_runs | length')" || blind
 [[ "$total" != "0" ]] || die "no CI run exists for ${HEAD_SHA:0:9} — push it and wait, do not release blind"
 
-pending="$(api_checks '[.check_runs[] | select(.status != "completed")] | length' || echo 0)"
+pending="$(api_checks '[.check_runs[] | select(.status != "completed")] | length')" || blind
 [[ "$pending" == "0" ]] || die "CI is still running on ${HEAD_SHA:0:9} ($pending job(s)) — wait for it"
 
+# `!= success` rather than a list of known-bad conclusions: cancelled, timed_out,
+# action_required and stale are all "not a pass", and enumerating failures means the next
+# conclusion GitHub invents is silently a pass.
+#
 # Read line by line, never word by word: every job name in this workflow has a space in
 # it ("Pest (PostgreSQL 16)"), so splitting on whitespace reports four broken checks
 # where there is one.
-failed="$(api_checks '.check_runs[] | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped") | .name' || true)"
+failed="$(api_checks '.check_runs[] | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped") | .name')" || blind
 
 if [[ -n "$failed" ]]; then
     printf '\033[31m✗ CI is red on %s:\033[0m\n' "${HEAD_SHA:0:9}" >&2
@@ -177,8 +255,28 @@ ok "all $total checks passed on ${HEAD_SHA:0:9}"
 # =========================================================== 2. tag & publish ====
 log "tagging $TAG"
 
-changelog_title="$(grep -E "^## +${VERSION//./\\.} " CHANGELOG.md | head -n 1 | sed -E "s/^## +[0-9.]+ +-? *//")"
-run git tag -a "$TAG" -m "$TAG — ${changelog_title:-release}"
+# The entry's headline, not its date. `## 0.12.0 - 2026-08-22` carries no title on that
+# line — the title is the bolded sentence that opens the body — so stripping the heading
+# left "2026-08-22" and every tag and release was named after the day it was cut.
+changelog_title="$(
+    awk -v v="$VERSION" '
+        $0 ~ "^## +"v"( |$)" { grabbing = 1; next }
+        grabbing && /^## / { exit }
+        grabbing && /\*\*/ {
+            line = $0
+            sub(/^[^*]*\*\*/, "", line)
+            sub(/\*\*.*$/, "", line)
+            print line
+            exit
+        }
+    ' CHANGELOG.md | head -c 100
+)"
+
+# Idempotent from here down. Everything below can fail with the tag already on origin and
+# the release already published, and the operator's only way forward is to run this again.
+(( RESUMING )) || run git tag -a "$TAG" -m "$TAG — ${changelog_title:-release}"
+# Always pushed, never conditional: a tag created locally by a run that died before the
+# push must still reach origin on the resume.
 run git push origin "refs/tags/$TAG"
 ok "tag pushed"
 
@@ -209,13 +307,31 @@ else
         grabbing { print }
     ' CHANGELOG.md > "$notes_file"
 
-    gh release create "$TAG" \
-        --title "$TAG — ${changelog_title:-release}" \
-        --notes-file "$notes_file" \
-        "$DIST/$ASSET" "$DIST/$ASSET.sha256"
+    # `gh release create` refuses an existing release, so on a resume this would be the
+    # next thing to kill the run after the tag guard stopped doing it.
+    if gh release view "$TAG" >/dev/null 2>&1; then
+        gh release upload "$TAG" "$DIST/$ASSET" "$DIST/$ASSET.sha256" --clobber
+        ok "release $TAG was already published — assets refreshed"
+    else
+        gh release create "$TAG" \
+            --title "$TAG — ${changelog_title:-release}" \
+            --notes-file "$notes_file" \
+            "$DIST/$ASSET" "$DIST/$ASSET.sha256"
+        ok "released $TAG"
+    fi
     rm -f "$notes_file"
-    ok "released $TAG"
 fi
+
+# From this line on, the tag and the release are public and the box is not yet serving
+# them. Every fault below must say that, because `die` is called from a dozen places and
+# `set -e` aborts at rsync, ssh and poll failures that reach no branch at all.
+on_publish_failure() {
+    printf '\n\033[31m✗ %s is tagged and published, but the box was NOT cut over.\033[0m\n' "$TAG" >&2
+    printf '  The tag is correct. Do NOT delete it and do NOT burn a version number.\n' >&2
+    printf '  Re-run to resume:  bin/release --deploy\n' >&2
+    printf '  If GitHub or the box is unreachable, the manual path is docs/deploy.md §3.\n\n' >&2
+}
+(( DRY_RUN )) || trap on_publish_failure ERR
 
 if (( ! DEPLOY )); then
     printf '\n'
@@ -246,22 +362,43 @@ readonly IMAGE_TAG="mobishop-app:${HEAD_SHA:0:9}"
 
 log "syncing the tree to $MOBISHOP_SSH:$MOBISHOP_PATH"
 #
+# ## The tree that ships is the TAG, not the working directory
+#
+# `git archive "$TAG"` into a temporary directory, and rsync THAT. The first draft synced
+# `./`, which meant the image built on the box was the working copy — every untracked and
+# gitignored file included. The published tarball, its SHA-256 and the tag all described a
+# different tree, and asserted it with a checksum. On the first release cut by hand this
+# put `docs/design-brief-v2-fa.md` and `ref-novin-hero.png` into the production build
+# context; the next one could just as easily carry a scratch file in `app/` that CI never
+# ran and nobody reviewed.
+#
+# Now the artefact and the tag are the same thing by construction rather than by
+# discipline. `--delete` stays safe: production uploads live in the `app-storage` named
+# volume (compose.prod.yaml), not in the synced `storage/` tree.
+#
 # --exclude 'docker/nginx/upstream/app.conf' is NOT optional. It is the one file that is
-# both tracked and runtime state: it names the live slot, and syncing it resets that to
-# app_blue while app_green may be the one serving. bin/deploy cross-checks against the
-# running container, but this is the fix rather than the net.
+# both tracked and runtime state — the archive carries the committed blue-slot version, so
+# syncing it would reset the live slot to app_blue while app_green may be the one serving.
+# bin/deploy cross-checks against the running container, but this is the fix rather than
+# the net.
+if (( DRY_RUN )); then
+    sync_src="./"
+else
+    export_dir="$(mktemp -d)"
+    trap 'rm -rf "$export_dir"' EXIT
+    git archive --format=tar "$TAG" | tar -x -C "$export_dir"
+    sync_src="$export_dir/"
+    ok "exported $TAG to a clean tree ($(find "$export_dir" -type f | wc -l | tr -d ' ') files)"
+fi
+
 run rsync -az --delete \
-    --exclude '.git' \
-    --exclude 'node_modules' \
-    --exclude 'vendor' \
-    --exclude 'dist-release' \
     --exclude '.env' \
     --exclude '.env.production' \
     --exclude '.deploy.local' \
     --exclude 'certbot' \
     --exclude 'docker/nginx/upstream/app.conf' \
     --exclude 'release/public' \
-    ./ "$MOBISHOP_SSH:$MOBISHOP_PATH/"
+    "$sync_src" "$MOBISHOP_SSH:$MOBISHOP_PATH/"
 ok "tree synced"
 
 # Both remote steps run DETACHED, with their output on the box, and this script polls.
@@ -287,20 +424,47 @@ remote_detached() {
 
     # Poll for the sentinel rather than for the process: a finished run leaves an exit
     # code behind, so this reports the same answer whether or not the link survived it.
-    local waited=0
-    until ssh -o BatchMode=yes "$MOBISHOP_SSH" "test -f '$log_file.done'" 2>/dev/null; do
+    #
+    # Every poll is bounded in WALL CLOCK, not just in connect(). A blackholed route costs
+    # ~75s per connect on macOS, and a box that completes the handshake and then stops
+    # talking hangs the ssh forever — ConnectTimeout covers only the first of those, so
+    # ServerAlive* is doing the real work here. (timeout(1) is not on macOS by default.)
+    #
+    # The budget is measured against SECONDS for the same reason: counting sleeps counts
+    # only the time this loop chose to wait, so 30 minutes of sleep could be six hours of
+    # wall clock once each ssh starts taking minutes to fail.
+    local -a poll_ssh=(ssh -o BatchMode=yes -o ConnectTimeout=10
+                       -o ServerAliveInterval=5 -o ServerAliveCountMax=3)
+    local started=$SECONDS elapsed=0 unreachable=0 rc=0
+
+    while :; do
+        rc=0
+        "${poll_ssh[@]}" "$MOBISHOP_SSH" "test -f '$log_file.done'" 2>/dev/null || rc=$?
+        (( rc == 0 )) && break
+
+        # 255 is ssh itself failing; anything else is the remote `test` saying "not yet".
+        # Collapsing the two is how a box that stopped answering reads as a long build.
+        if (( rc == 255 )); then
+            unreachable=$(( unreachable + 1 ))
+            (( unreachable == 3 )) && warn "$MOBISHOP_SSH has not answered for ~30s — $name may still be running on the box"
+            (( unreachable < 60 )) || die "$MOBISHOP_SSH unreachable for ~10 minutes during $name; the box may still be mid-$name — check $log_file there before re-running"
+        else
+            unreachable=0
+        fi
+
         sleep 10
-        waited=$(( waited + 10 ))
-        (( waited % 60 == 0 )) && log "  …$name still running (${waited}s)"
-        (( waited < 1800 )) || die "$name has run for 30 minutes — look at $log_file on the box"
+        elapsed=$(( SECONDS - started ))
+        (( elapsed % 60 < 10 )) && log "  …$name still running (${elapsed}s)"
+        (( elapsed < 1800 )) || die "$name has run for 30 minutes — look at $log_file on the box"
     done
 
     local code
-    code="$(ssh "$MOBISHOP_SSH" "cat '$log_file.done'" 2>/dev/null || echo 1)"
+    code="$(ssh "$MOBISHOP_SSH" "cat '$log_file.done'" 2>/dev/null || echo unreadable)"
 
     if [[ "$code" != "0" ]]; then
         ssh "$MOBISHOP_SSH" "tail -40 '$log_file'" >&2 || true
-        die "$name failed on the box (exit $code) — full output in $log_file"
+        printf '\033[31m✗ %s failed on the box (exit %s) — full output in %s\033[0m\n' "$name" "$code" "$log_file" >&2
+        return 1
     fi
 }
 
@@ -308,8 +472,11 @@ log "building $IMAGE_TAG on the box"
 if (( DRY_RUN )); then
     printf '\033[90m   would run: docker build … -t %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
 else
+    # A build failure is clean: nothing on the box has moved, the previous release is
+    # still serving, and the ordinary published-but-not-deployed advice is the right one.
     remote_detached build \
-        "docker build -f docker/app/Dockerfile.prod --build-arg APP_RELEASE=$IMAGE_TAG -t $IMAGE_TAG ."
+        "docker build -f docker/app/Dockerfile.prod --build-arg APP_RELEASE=$IMAGE_TAG -t $IMAGE_TAG ." \
+        || die "the image did not build — nothing on the box has changed"
 fi
 ok "image built"
 
@@ -317,7 +484,35 @@ log "cutting over"
 if (( DRY_RUN )); then
     printf '\033[90m   would run: bin/deploy %s (detached, on the box)\033[0m\n' "$IMAGE_TAG"
 else
-    remote_detached deploy "bin/deploy $IMAGE_TAG"
+    # A deploy failure is NOT clean, and this is the one place that must not repeat the
+    # box's own words. `bin/deploy`'s ERR trap says "nothing was cut over; the previous
+    # release is still serving" — true for steps 1-6, a lie for steps 8 and 9, which run
+    # AFTER traffic has moved. That is exactly the 2026-08-21 shape: the cutover succeeded,
+    # the queue workers did not come up, the site looked perfect and stopped sending SMS.
+    # Reading "nothing was cut over" there sends the operator away from the damage.
+    if ! remote_detached deploy "bin/deploy $IMAGE_TAG"; then
+        printf '\n\033[31m✗ bin/deploy failed on the box. Production state is UNKNOWN.\033[0m\n' >&2
+        cat >&2 <<EOF
+
+  The box's own message may say "nothing was cut over". Believe it only for a failure
+  before step 7 — steps 8 (queue workers) and 9 (drain) run AFTER traffic has moved, and
+  the same sentence is printed either way.
+
+  Establish which happened before doing anything else:
+
+    ssh $MOBISHOP_SSH "cd '$MOBISHOP_PATH' && \\
+      cat docker/nginx/upstream/app.conf && \\
+      docker compose -f compose.prod.yaml --env-file .env.production ps"
+
+  The upstream file names the slot serving traffic; the image tags on horizon and
+  scheduler say whether the queue followed it. A cut-over web tier with workers left on
+  the old image is the failure that looks like success.
+
+  Full output:  ssh $MOBISHOP_SSH "cat /tmp/mobishop-release-deploy.log"
+
+EOF
+        exit 1
+    fi
     ssh "$MOBISHOP_SSH" "tail -20 '/tmp/mobishop-release-deploy.log'" || true
 fi
 ok "cut over"
@@ -335,11 +530,24 @@ if (( DRY_RUN )); then
     exit 0
 fi
 
-# Strips surrounding quotes, whitespace and a stray CR. Written as a function because
-# doing it inline needs a `tr` argument that quotes both quote characters, which is how
-# the first draft of this line silently produced an empty apex.
+# Prints the value, or nothing, and NEVER returns non-zero.
+#
+# That last part is the whole point. This runs AFTER the cutover, and the first draft ended
+# in a bare pipeline: under `set -Eeuo pipefail`, `grep -m1` finding nothing — or ssh
+# exiting 255 on the dropped link this whole design exists to survive — made the assignment
+# fail and killed the script silently, with the new image already live and no smoke check
+# and no message at all. The operator saw "✓ cut over" and then a shell that ended with
+# status 1. It also made the two guards below unreachable.
+#
+# Strips surrounding quotes, whitespace and a stray CR. Written as a function because doing
+# it inline needs a `tr` argument that quotes both quote characters, which is how an even
+# earlier draft silently produced an empty apex.
 env_from_box() {
-    ssh "$MOBISHOP_SSH" "grep -m1 '^$1=' '$MOBISHOP_PATH/.env.production'" 2>/dev/null \
+    local raw
+    raw="$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" \
+              "grep -m1 -- '^$1=' '$MOBISHOP_PATH/.env.production'" 2>/dev/null)" || raw=''
+    [[ -n "$raw" ]] || return 0
+    printf '%s\n' "$raw" \
         | cut -d= -f2- \
         | sed -e 's/\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
 }
@@ -347,17 +555,31 @@ env_from_box() {
 apex="$(env_from_box APP_DOMAIN)"
 secret="$(env_from_box HEALTH_SECRET)"
 
-[[ -n "$apex" ]] || die "APP_DOMAIN is not set in the box's .env.production — cannot smoke-check"
+# From here the cutover has already happened, so nothing below may `die` as though it had
+# not. Every branch says what is live before it says what is wrong.
+if [[ -z "$apex" ]]; then
+    printf '\n\033[33m! %s IS CUT OVER AND LIVE on the box, but it is UNVERIFIED.\033[0m\n' "$TAG" >&2
+    printf '  APP_DOMAIN could not be read from %s/.env.production — the key is missing, or the ssh call failed.\n' "$MOBISHOP_PATH" >&2
+    printf '  Verify by hand:  HEALTH_SECRET=<secret> EXPECT_VERSION=%s EXPECT_RELEASE=%s bin/smoke <apex>\n\n' "$VERSION" "$IMAGE_TAG" >&2
+    exit 1
+fi
+
+[[ -n "$secret" ]] \
+    || warn "HEALTH_SECRET was not readable from the box — smoke cannot prove WHICH build answered"
 
 if HEALTH_SECRET="$secret" EXPECT_VERSION="$VERSION" EXPECT_RELEASE="$IMAGE_TAG" bin/smoke "$apex"; then
+    trap - ERR
     printf '\n'
     ok "released and verified: $TAG is live on $apex as $IMAGE_TAG"
     printf '  https://%s/\n' "$apex"
     printf '  Append the line to docs/PROGRESS.md and the roadmap box is honestly ticked.\n\n'
 else
+    trap - ERR
     printf '\n'
-    printf '\033[31m✗ %s is deployed but did NOT pass smoke.\033[0m\n' "$TAG" >&2
+    printf '\033[31m✗ %s is deployed and serving, but did NOT pass smoke.\033[0m\n' "$TAG" >&2
+    printf '  The cutover happened. This is a live release that is failing its own checks.\n' >&2
     printf '  Roll back (a cutover, not a rebuild — the previous container is stopped, not removed):\n' >&2
-    printf "    ssh %s \"cd '%s' && bin/deploy <previous-image> --rollback\"\n\n" "$MOBISHOP_SSH" "$MOBISHOP_PATH" >&2
+    printf "    ssh %s \"cd '%s' && bin/deploy <previous-image> --rollback\"\n" "$MOBISHOP_SSH" "$MOBISHOP_PATH" >&2
+    printf '  Or roll forward: fix, merge, bump VERSION, and release again.\n\n' >&2
     exit 1
 fi

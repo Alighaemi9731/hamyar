@@ -60,7 +60,28 @@ log()  { printf '\033[36m▸\033[0m %s\n' "$*"; }
 ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
 die()  { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
-trap 'die "failed at line $LINENO — nothing was cut over; the previous release is still serving"' ERR
+# Which side of the cutover a failure happened on changes the advice completely, and the
+# first version of this trap gave the pre-cutover answer for both.
+#
+# Steps 8 (queue workers) and 9 (drain) run AFTER traffic has moved. A failure there —
+# a compose name conflict, an OOM, a pull hiccup — printed "nothing was cut over; the
+# previous release is still serving", which is the exact opposite of the truth, and it
+# points whoever reads it away from the damage. That is the 2026-08-21 shape: the site
+# looked perfect and had no queue workers.
+#
+# Initialised before the trap and never `readonly`: this runs under `set -u`, and a trap
+# body that reads an unset variable dies INSIDE the handler, which swallows the message
+# entirely and leaves a bare unbound-variable error in its place.
+#
+# The post-cutover branch deliberately does not print $LINENO. Failing commands go through
+# the dc() wrapper, so with `set -E` the trap reports the line inside dc() rather than the
+# step that failed. Name the damage instead of a misleading line number.
+CUT_OVER=0
+trap 'if (( CUT_OVER )); then
+        die "failed AFTER the cutover — traffic IS on $IDLE ($IMAGE) and $LIVE is NOT serving. Horizon and the scheduler may be down or still on the old image: check \`docker compose -f '"'"'$COMPOSE_FILE'"'"' --env-file '"'"'$ENV_FILE'"'"' ps\` BEFORE anything else."
+      else
+        die "failed at line $LINENO — nothing was cut over; the previous release is still serving"
+      fi' ERR
 
 readonly IMAGE="${1:-}"
 readonly MODE="${2:-}"
@@ -93,7 +114,19 @@ dc() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 #
 # A running container is the stronger signal: after a successful deploy exactly one app
 # container is up, because step 9 stops the other one.
-running_slots="$(dc ps --services --status running 2>/dev/null | grep -E '^app_(blue|green)$' | sort | tr '\n' ' ' | sed 's/ $//')"
+# Split from the filter on purpose. As one pipeline under `set -Eeuo pipefail`, grep
+# finding nothing exited 1 and the ERR trap aborted the whole script — so the first-boot
+# and both-slots-down branches below, which this code goes on to handle explicitly, were
+# unreachable. A recovery deploy after `docker compose down`, a failed recreate or an
+# OOM-killed pair refused to start, and said "nothing was cut over" while nothing was
+# serving at all.
+#
+# Compose failing to ANSWER is still fatal, and must stay fatal: trusting the upstream
+# file after a failed `ps` is exactly how LIVE and IDLE come out swapped.
+if ! running_all="$(dc ps --services --status running 2>&1)"; then
+    die "could not list running services — docker compose said: $running_all"
+fi
+running_slots="$(printf '%s\n' "$running_all" | grep -E '^app_(blue|green)$' | sort | tr '\n' ' ' | sed 's/ $//' || true)"
 
 if grep -q 'app_blue' "$UPSTREAM_FILE"; then
     file_slot=app_blue
@@ -240,6 +273,7 @@ upstream mobishop_app {
 UPSTREAM
 dc exec -T nginx nginx -t
 dc exec -T nginx nginx -s reload
+CUT_OVER=1
 ok "traffic is on $IDLE"
 
 # ------------------------------------------------------------------ 8. queue ----
