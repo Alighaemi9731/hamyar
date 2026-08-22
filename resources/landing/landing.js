@@ -21,6 +21,10 @@
 
 const nav = document.querySelector('[data-nav]');
 
+
+import './sections/signature.js';
+import './sections/imei.js';
+
 if (nav) {
   const sentinel = document.createElement('div');
   sentinel.setAttribute('aria-hidden', 'true');

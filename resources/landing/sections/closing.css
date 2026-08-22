@@ -1,0 +1,261 @@
+/*
+ | Section 8 — دعوت پایانی و فوتر کامل.
+ |
+ | Self-contained: defines only `.signoff__*` (and `.signoff` itself), redefines no shared
+ | class and no token. It consumes `.shell`, `.btn`, `.btn--light`, `.btn--ghost`,
+ | `.btn--lg` and `.rise` from landing.css.
+ |
+ | ## One tail, not two endings
+ |
+ | The rejected page ended with a dark band holding two centred buttons and then a light
+ | grey footer strip. That is two weak endings, and the band shape is on the owner's list
+ | of tells. Here the closing call and the entire footer share one navy ground: the call
+ | at the top, asymmetric, then a hairline, then the columns. The page ends with weight —
+ | which is the answer ADR 0016 gives to «بی‌روح», as opposed to more motion, which is
+ | the answer it explicitly rules out.
+ |
+ | ## Contrast on navy-900 #0A1628 — every pair already measured in landing.css
+ |
+ |   on-dark      #FFFFFF → 18.1:1   headings, brand, column headings
+ |   on-dark-soft #B4C6DC → 10.4:1   body copy, footer links
+ |   on-dark-mute #8EA3BD →  7.0:1   the note and the base line
+ |   accent-lit   #6BB4FF →  8.3:1   the accented clause, link hover, the mark
+ |
+ | `--color-accent` #0066CC is 2.6:1 here and is therefore never text on this ground; it
+ | appears only inside the two background glows, where it is not carrying meaning.
+ |
+ | The primary action is `.btn--light` — white fill, navy-900 label, 18.1:1 — because
+ | `.btn--primary` is itself navy and would disappear into the ground.
+ */
+
+/* --------------------------------------------------------------- ground --- */
+
+.signoff {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--color-navy-900);
+  color: var(--color-on-dark-soft);
+}
+
+/* Two soft lights rather than a gradient across the whole tail: the ground stays flat
+   navy and the glow only says where the top of it is. Centred at 50%, so no direction. */
+.signoff::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--color-accent) 32%, transparent) 0%, transparent 64%),
+    radial-gradient(700px 500px at 50% 118%, var(--color-navy-700) 0%, transparent 70%);
+}
+
+/* The page's mesh, restated locally. `.mesh` in landing.css paints white lines only
+   inside `.band` and `.final__card`, and this element is neither; scoping `.mesh` under
+   this block would mean editing a shared class from a section file. Ten lines of
+   duplication is the cheaper of the two. 52px rather than 46px because this region is
+   shorter than a full band and the finer cell reads as graph paper at this height. */
+.signoff__mesh {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 52px 52px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 0%, transparent 74%);
+}
+
+/* ------------------------------------------------------------------ CTA --- */
+/*
+ | Asymmetric: the claim on the inline-start, the actions on the inline-end. Two centred
+ | buttons under a centred heading is the shape being replaced.
+ */
+
+.signoff__cta {
+  display: grid;
+  gap: 2rem;
+  padding-block: clamp(3.5rem, 8vw, 6rem);
+}
+
+@media (min-width: 980px) {
+  .signoff__cta {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: clamp(3rem, 6vw, 5rem);
+  }
+}
+
+.signoff__title {
+  color: var(--color-on-dark);
+  font-size: var(--text-section-lg);
+  letter-spacing: -0.03em;
+}
+
+/* One coloured clause in the largest type down here, the same device the hero uses on
+   white. 8.3:1 on this ground, so it costs nothing in contrast. */
+.signoff__title em {
+  font-style: normal;
+  color: var(--color-accent-lit);
+}
+
+.signoff__lede {
+  color: var(--color-on-dark-soft);
+  font-size: clamp(1rem, 1.4vw, 1.125rem);
+  max-inline-size: 36rem;
+  margin-block-start: 1.125rem;
+}
+
+.signoff__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.signoff__note {
+  color: var(--color-on-dark-mute);
+  font-size: 0.875rem;
+  margin-block-start: 1.25rem;
+  max-inline-size: 26rem;
+}
+
+/* ---------------------------------------------------------------- foot ---- */
+
+.signoff__foot {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3rem);
+  padding-block: clamp(2.5rem, 5vw, 3.5rem);
+  border-block-start: 1px solid var(--color-navy-700);
+}
+
+@media (min-width: 980px) {
+  .signoff__foot {
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    column-gap: clamp(3rem, 6vw, 5rem);
+  }
+}
+
+.signoff__brand__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+  color: var(--color-on-dark);
+}
+
+.signoff__mark {
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  flex: none;
+}
+
+.signoff__mark__lit {
+  stroke: var(--color-accent-lit);
+}
+
+.signoff__brand p {
+  font-size: 0.9375rem;
+  color: var(--color-on-dark-soft);
+  margin-block-start: 0.875rem;
+  max-inline-size: 26rem;
+}
+
+.signoff__mail {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem; /* 44px touch target */
+  margin-block-start: 0.5rem;
+  font-weight: 700;
+  color: var(--color-accent-lit);
+  /* An address is one long unbreakable token; at 390px it must be allowed to break
+     rather than push the grid wider than the shell. */
+  overflow-wrap: anywhere;
+  transition: color 160ms ease;
+}
+
+.signoff__mail:hover {
+  color: var(--color-on-dark);
+}
+
+/* `auto-fit` rather than a fixed count: two columns at 390px inside a 358px shell, four
+   at 1440. Nothing to declare per breakpoint and nothing that can overflow. */
+.signoff__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 2rem;
+}
+
+.signoff__col h3 {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-on-dark);
+  margin-block-end: 0.375rem;
+}
+
+.signoff__col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.signoff__col li {
+  display: flex;
+}
+
+.signoff__col a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem; /* 44px — every interactive target in the footer */
+  font-size: 0.9375rem;
+  color: var(--color-on-dark-soft);
+  transition: color 160ms ease;
+}
+
+.signoff__col a:hover {
+  color: var(--color-accent-lit);
+}
+
+/* The module labels are not links, so they do not claim a touch target they cannot
+   honour — they are set closer together on purpose. */
+.signoff__col span {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.125rem;
+  font-size: 0.9375rem;
+  color: var(--color-on-dark-soft);
+}
+
+/* ---------------------------------------------------------------- base ---- */
+
+.signoff__base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1.5rem 2.25rem;
+  border-block-start: 1px solid var(--color-navy-700);
+  font-size: 0.875rem;
+  color: var(--color-on-dark-mute);
+}
+
+/* -------------------------------------------------------------- motion ---- */
+/*
+ | Everything that moves here is a colour transition on hover, plus the `.btn` lift that
+ | landing.css already disables under reduced motion. Nothing to degrade beyond removing
+ | the transitions — the end state is the state.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .signoff__col a,
+  .signoff__mail {
+    transition: none !important;
+  }
+}
