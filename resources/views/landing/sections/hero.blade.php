@@ -69,12 +69,20 @@
 
             {{-- The accent lives in the largest type on the page and nowhere else in this
                  section. #0066cc on white is 5.6:1, so the loudest colour costs nothing. --}}
-            <h1 class="pitch__title">دفترِ مغازه‌تان،<br><em>این‌بار هیچ‌چیز گم نمی‌شود.</em></h1>
+            {{--
+                «این‌بار» is gone from this line on purpose. It means *this time*, which
+                presumes the reader already bought software and it failed him — and most of
+                this audience has never bought any. It also left two clauses with no verb
+                between them, at 68px. The claim the panel beside it is making is that the
+                day's paper becomes rows; say that, and let «گم نمی‌شود» have a verb in the
+                lede where it can carry one.
+            --}}
+            <h1 class="pitch__title">هرچه پشت پیشخوان اتفاق می‌افتد،<br><em>یک سطر می‌شود.</em></h1>
 
             <p class="pitch__lede">
                 گوشی را با IMEI می‌فروشید، قبض پذیرش را چاپ می‌کنید، قسط و چک را با سررسید
-                ثبت می‌کنید و مشتری خودش پیامک تحویل می‌گیرد. آخر ماه هم سودِ واقعیِ هر
-                فروش را می‌بینید، نه جمعِ فروش را.
+                ثبت می‌کنید و مشتری خودش پیامک تحویل می‌گیرد. هیچ‌کدام توی کشو گم نمی‌شود، و
+                آخر ماه سودِ واقعیِ هر فروش را می‌بینید — نه جمعِ فروش را.
             </p>
 
             <div class="pitch__actions">

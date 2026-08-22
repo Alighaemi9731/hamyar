@@ -95,13 +95,20 @@
             that has to be checkable on the other, and one hairline under both. It is an
             editorial device rather than a landing-page device, which is the point.
         --}}
-        <header class="tour-head rise">
-            <div>
-                <h2 class="tour-title" id="tour-title">همان صفحه‌هایی که<br>هر روز باز می‌کنید</h2>
-                <p class="tour-lede">شش صفحه از یک فروشگاه نمونه، همان‌طور که هست.</p>
-            </div>
-            <p class="tour-claim">همهٔ تصویرها از خود نرم‌افزار گرفته شده‌اند — نه ماکت، نه طرح.</p>
-        </header>
+        {{--
+            A running head, not a masthead.
+
+            Six of the eight rebuilt sections arrived opening the same way — a heading on
+            one side, a supporting line on the other, baseline-aligned. Four authors each
+            killed the centred eyebrow and then independently reached for the same
+            replacement, which is a new template rather than none. This section is one of
+            the four that gives it up: the title sits on one line with the claim beside it,
+            and the largest screenshot carries the section instead of a heading block.
+        --}}
+        <div class="tour-run rise">
+            <h2 class="tour-title" id="tour-title">همان صفحه‌هایی که هر روز باز می‌کنید</h2>
+            <p class="tour-claim">تصویرها از خود نرم‌افزار گرفته شده‌اند — نه ماکت، نه طرح.</p>
+        </div>
 
         <div class="tour-grid">
             @foreach ($screens as [$file, $name, $body, $span, $alt])
@@ -116,9 +123,13 @@
                     </div>
 
                     <figcaption class="tour-cap">
-                        {{-- The index is decoration with a job: six tiles at four different
-                             widths need something that says which order to read them in. --}}
-                        <span class="tour-num nums" aria-hidden="true">{{ Digits::toPersian(str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT)) }}</span>
+                        {{-- No index here. The rebuilt page arrived with THREE separate
+                             numbering devices — ۰۱–۰۶ in the margins of §3, ۰۱–۰۶ again on
+                             these tiles, and ۱–۶ on the FAQ — two of them the same numerals
+                             in the same order, 40% of the page apart. Generated pages love
+                             numbered decoration; three flavours of it is the tell wearing a
+                             hat. The mosaic's unequal tile sizes already carry the ranking,
+                             which is this file's own argument for the layout. --}}
                         <span class="tour-cap__text">
                             <b class="tour-name">{{ $name }}</b>
                             <span class="tour-body">{{ $body }}</span>

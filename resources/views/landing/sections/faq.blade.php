@@ -67,8 +67,8 @@
         ],
     ];
 
-    /** Persian ordinals for the list marks; prose digits are never Latin (golden rule). */
-    $marks = ['۱', '۲', '۳', '۴', '۵', '۶'];
+    {{-- No ordinals. A <details> list does not need to be counted, and the page already
+         carries a numbering device in §3 — see the note in tour.blade.php. --}}
 @endphp
 
 <section class="sec sec--alt" id="faq">
@@ -92,7 +92,6 @@
             @foreach ($questions as $i => [$question, $answer])
                 <details class="qa__item" @if ($i === 0) open @endif>
                     <summary class="qa__q">
-                        <span class="qa__n nums" aria-hidden="true">{{ $marks[$i] }}</span>
                         <span>{{ $question }}</span>
                         <span class="qa__mark" aria-hidden="true"></span>
                     </summary>

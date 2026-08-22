@@ -70,7 +70,7 @@
 }
 
 .imei-title {
-  font-size: clamp(2rem, 4.4vw, 3.5rem);
+  font-size: var(--text-section-lg);
   line-height: 1.14;
   letter-spacing: -0.03em;
   margin-block-end: 1.125rem;

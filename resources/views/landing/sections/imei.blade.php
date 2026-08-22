@@ -318,12 +318,16 @@
             </div>
         </div>
 
-        {{-- The honesty note. Said here rather than in the FAQ because a shopkeeper who
-             believes we register in HAMTA and finds out later has been mis-sold. --}}
+        {{--
+            The HAMTA caveat belongs beside the claim it qualifies — a shopkeeper who
+            believes we register in HAMTA and finds out later has been mis-sold. But the
+            FAQ answers the same question at length, and the two arrived as near-identical
+            paragraphs opening with the same word, 120 words apart, on the page's most
+            negative message. One line here, the full answer there.
+        --}}
         <p class="imei-honesty rise">
-            دربارهٔ همتا رُک باشیم: سامانهٔ همتا API عمومی ندارد، پس هیچ نرم‌افزاری —
-            از جمله ما — نمی‌تواند مستقیم در آن ثبت کند. موبایل‌یار وضعیت همتای هر دستگاه
-            را نگه می‌دارد و یادآوری می‌کند؛ ثبت نهایی را خودتان در سامانه انجام می‌دهید.
+            همتا API عمومی ندارد، پس ثبت نهایی را خودتان انجام می‌دهید — موبایل‌یار وضعیت هر
+            دستگاه را نگه می‌دارد و یادآوری می‌کند.
         </p>
     </div>
 </section>

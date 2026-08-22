@@ -65,7 +65,7 @@
     <section class="shell signoff__cta rise" aria-labelledby="signoff-title">
         <div>
             <h2 class="signoff__title" id="signoff-title">
-                اولین فاکتورتان را <em>همین امروز</em> بزنید
+                اولین فاکتورتان را همین امروز بزنید
             </h2>
             <p class="signoff__lede">
                 چیزی نصب نمی‌شود. فروشگاه را می‌سازید، فهرست کالا را از اکسل وارد می‌کنید و

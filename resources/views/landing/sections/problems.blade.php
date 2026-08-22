@@ -91,10 +91,12 @@
              complaints go, lede where the answers go. --}}
         <header class="probs__head rise">
             <div>
-                <p class="chip"><span class="chip__dot" aria-hidden="true"></span>پشت پیشخوان</p>
+                {{-- No eyebrow pill here. It was the only `.chip` on the whole rebuilt
+                     page: one instance of a component is not a system, it is a tell. The
+                     accent clause is gone for the same reason — the hero owns that device
+                     and three sections were each using it. --}}
                 <h2 class="sec__title probs__title" id="probs-title">
-                    شش گرفتاری که هر مغازه‌دار می‌شناسد.<br>
-                    <em>و کاری که موبایل‌یار با هرکدام می‌کند.</em>
+                    شش گرفتاری که هر مغازه‌دار می‌شناسد، و کاری که موبایل‌یار با هرکدام می‌کند.
                 </h2>
             </div>
 
@@ -102,9 +104,6 @@
                 <p class="sec__lede">
                     هیچ‌کدام از این‌ها از فهرست امکانات درنیامده؛ کارهایی است که یا وقت مغازه را
                     می‌گیرد یا پولش را. جلوی هرکدام نوشته‌ایم موبایل‌یار دقیقاً چه می‌کند.
-                </p>
-                <p class="probs__note">
-                    اگر هیچ‌کدام برایتان آشنا نبود، احتمالاً هنوز به این نرم‌افزار احتیاجی ندارید.
                 </p>
             </div>
         </header>

@@ -90,7 +90,7 @@
 
 .signoff__title {
   color: var(--color-on-dark);
-  font-size: clamp(2rem, 4.6vw, 3.25rem);
+  font-size: var(--text-section-lg);
   letter-spacing: -0.03em;
 }
 

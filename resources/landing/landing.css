@@ -116,6 +116,14 @@
 
   --text-hero: clamp(2.25rem, 5.4vw, 4.25rem);
   --text-section: clamp(1.75rem, 3.4vw, 2.75rem);
+  /*
+  | The ONLY larger section step, and it is reserved for the page's two navy anchors —
+  | the IMEI record and the closing. Four section authors working from separate files
+  | each guessed their own H2 size and the page arrived with five of them (44 / 48 / 52 /
+  | 56 / 44px), which reads from ten feet as a page with no system rather than as
+  | emphasis. Two sizes, and the large one means "this is an anchor".
+  */
+  --text-section-lg: clamp(2rem, 4.4vw, 3.5rem);
 }
 
 /* ---------------------------------------------------------------- base ---- */
