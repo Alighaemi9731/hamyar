@@ -35,7 +35,10 @@
              only exists at the width where the two sit on one line. --}}
         <span class="trust__rule" aria-hidden="true"></span>
 
-        <ul class="trust__proofs">
+        {{-- `role="list"` is not redundant: Safari + VoiceOver drop list semantics from a
+             <ul> whose `list-style` is `none`, and `.trust__proofs` is one. Every
+             styled-flat list on this page restates it. --}}
+        <ul class="trust__proofs" role="list">
             <li>فارسی، با تقویم شمسی</li>
             <li>روی مرورگر — چیزی نصب نمی‌شود</li>
             <li>خروجی اکسل، هر وقت خواستید</li>

@@ -13,6 +13,10 @@
  | which meant the page had to *say* which ones mattered. Scale says it instead, and
  | scale is the one thing this page was told it had none of.
  |
+ | That argument needs room to hold. Below 640px there is none, so the section becomes
+ | three cropped shots rather than six shrunken ones — the reasoning is at «phone crop»
+ | further down, and the choice of which three is in the Blade.
+ |
  | ## Measured contrast — ground is `--color-page-alt` #edf2f8
  |
  |   navy       #0e1b2c  15.9:1   tile names, section title
@@ -33,10 +37,16 @@
 
 /* ---------------------------------------------------------------- head ---- */
 /*
- | A masthead with a rule under it, not a centred eyebrow-and-title stack. The claim
+ | A single-line RUNNING HEAD, and that is this section's answer to the opener question:
+ | title and claim share one baseline with a hairline under the pair, and there is no
+ | second block. It is not the asymmetric masthead — that shape survives in exactly two
+ | sections (problems and pricing) and the full verdict is in landing.css. The claim
  | sits opposite the title because it is the thing a sceptical reader is checking, and
  | putting it at the far end of the same line makes it read as a caption on the section
  | rather than as marketing under a heading.
+ |
+ | Entry motion: `.rise` goes on `.tour-item` — the tile is this section's peer level —
+ | with `--i` per tile, and on nothing else. Not on `.tour-grid`, not on `.tour-run`.
  */
 
 .tour-run {
@@ -65,7 +75,7 @@
   margin: 0;
 }
 
-@media (min-width: 860px) {
+@media (min-width: 900px) {
   .tour-claim {
     text-align: end;
   }
@@ -87,7 +97,14 @@
 /* Twelve columns, and the spans are read off `data-span` in the markup so the rhythm
    lives with the content it describes rather than in a stack of nth-child rules that
    silently break the day a seventh screen is added. */
-@media (min-width: 960px) {
+/*
+ | 1200 — `--bp-l`, and this is the ONLY thing on the page that uses it. It qualifies
+ | because it is an upgrade rather than a first reflow: the tiles are already two
+ | columns at 640, so nothing here rescues a broken layout, it only lets six screens sit
+ | at four different widths once there is room to tell those widths apart. At 960 a
+ | four-of-twelve tile was 280px wide and the 7/5/4/8 rhythm was invisible anyway.
+ */
+@media (min-width: 1200px) {
   .tour-grid {
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: clamp(2rem, 3.5vw, 3.5rem) clamp(1.5rem, 2.5vw, 2.5rem);
@@ -119,6 +136,53 @@
   display: grid;
   align-content: start;
   gap: 1rem;
+}
+
+/* --------------------------------------------------------- phone crop ----- */
+/*
+ | Below `--bp-s` this section stopped being evidence and became decoration.
+ |
+ | The arithmetic: the shell is 358px at 390px of viewport, a 1440×900 shot scaled into
+ | it renders ~224px tall, and the interface text inside it lands at about two pixels.
+ | Six of those is six grey rectangles under a line that says «تصویرها از خود نرم‌افزار
+ | گرفته شده‌اند» — the section asks to be believed and then shows the visitor nothing
+ | they could check. Scaling a whole 1440px screen down to a phone cannot be fixed by
+ | ratio alone: `object-fit: cover` into a 4:3 box only trims 17% of the width, because
+ | how far a shot shrinks is set by the box, not by its shape.
+ |
+ | So the crop is a real one. The box goes to 4:3, `object-fit: cover` chooses the
+ | horizontal window, and `scale` enlarges the shot about the SAME point that
+ | `object-position` centred — the two properties take the same coordinate space, so
+ | feeding both from one `--tour-focus` keeps the region a tile is cropped to identical
+ | whichever of the two is doing the work. `.frame` is already `overflow: hidden`, so it
+ | is the viewport and nothing escapes it. At `--tour-zoom: 2.3` a 358px frame shows
+ | roughly 620 of the shot's 1440 pixels instead of all of them, which puts the product's
+ | own 11px UI text back around 8px: small, but readable, and readable is the entire
+ | claim this section makes.
+ |
+ | Three tiles are dropped rather than cropped. `display: none` takes them out of the
+ | layout and out of the accessibility tree together — a screen reader on a phone should
+ | hear the same three screens a sighted visitor sees, not six with three of them
+ | invisible. WHICH three is a content decision and it lives in the Blade, next to the
+ | copy it belongs to.
+ |
+ | 639, not a fourth breakpoint: it is `--bp-s` from the other side, exactly as
+ | landing.css states the shell's gutter.
+ */
+@media (max-width: 639px) {
+  .tour-item[data-phone='off'] {
+    display: none;
+  }
+
+  .tour-item[data-phone='on'] .frame img {
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: var(--tour-focus, 50% 25%);
+    scale: var(--tour-zoom, 1);
+    transform-origin: var(--tour-focus, 50% 25%);
+  }
 }
 
 /* -------------------------------------------------------------- caption --- */
@@ -167,7 +231,7 @@
 /* A tile that gets four of twelve columns holds a caption at roughly a third of the
    measure of one that gets eight, so the smaller tiles drop a step to keep the line
    length inside the range Persian stays readable at. */
-@media (min-width: 960px) {
+@media (min-width: 1200px) {
   .tour-item[data-span='4'] .tour-body,
   .tour-item[data-span='5'] .tour-body {
     font-size: 0.9063rem;

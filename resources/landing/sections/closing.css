@@ -26,6 +26,32 @@
  |
  | The primary action is `.btn--light` — white fill, navy-900 label, 18.1:1 — because
  | `.btn--primary` is itself navy and would disappear into the ground.
+ |
+ | ## Where this file sits in the shared system (radii · breakpoints · motion)
+ |
+ | Checked against the contract in `landing.css`, and the answer in all three cases is
+ | that this section already obeys it by having nothing to declare. Written down because
+ | "no rule" and "rule not applied yet" look identical, and the next reader will
+ | otherwise add one:
+ |
+ | · RADII — none, deliberately. This tail is FULL-BLEED: it has no outer edge to round,
+ |   and every object inside it is a button (`--radius-md`, from `.btn`) or a focus ring
+ |   (`--radius-sm`, from `:focus-visible`). The contract reserves `--radius-xl` for
+ |   "the hero counter and the closing card", but the closing card is the shape this
+ |   rebuild REPLACED — `.final__card` in `landing.css` is the old section. A full-bleed
+ |   band does not become an anchor by acquiring a 28px corner; it is one by being dark
+ |   and being last. Do not add a radius here looking for the reserved step.
+ |
+ | · BREAKPOINTS — 900 (`--bp-m`) only, twice: the CTA lockup and the footer's two
+ |   columns, both appearing on the page's one reflow line. 640 is not needed because
+ |   `.signoff__cols` is `auto-fit`/`minmax(9.5rem, 1fr)`: it is already two columns in
+ |   a 358px shell and reaches four on its own, so it never has a first reflow to place.
+ |   1200 is upgrades-only and this file has no upgrade to make.
+ |
+ | · MOTION — one `.rise`, on `.signoff__cta`. That is not a violation of the one-level
+ |   rule: this section has no list of peers to be the level. The rule's prohibition is
+ |   on a head that rises above a list that also rises, and there is no list here — the
+ |   lockup IS the content, the footer columns below it are navigation and never move.
  */
 
 /* --------------------------------------------------------------- ground --- */
@@ -40,14 +66,36 @@
 
 /* Two soft lights rather than a gradient across the whole tail: the ground stays flat
    navy and the glow only says where the top of it is. Centred at 50%, so no direction. */
+/*
+| Each half lights from ONE end, and each declares its own gradient.
+|
+| The first version disabled the unwanted light by nulling its token on the element —
+| `style="--color-accent: transparent"`. Custom properties inherit, so that handed every
+| descendant of the footer a transparent accent, and `landing.css`'s global
+| `:focus-visible { outline: 2px solid var(--color-accent) }` resolved to an invisible
+| ring on all twelve footer links. `::selection` lost its highlight there too. A token is
+| the page's vocabulary; blanking one to switch off a background turns off everything else
+| that word was holding up.
+*/
 .signoff::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -2;
-  background:
-    radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--color-accent) 32%, transparent) 0%, transparent 64%),
-    radial-gradient(700px 500px at 50% 118%, var(--color-navy-700) 0%, transparent 70%);
+}
+
+/* The call: lit from above, in the accent. */
+.signoff--call::before {
+  background: radial-gradient(
+    900px 420px at 50% -10%,
+    color-mix(in srgb, var(--color-accent) 32%, transparent) 0%,
+    transparent 64%
+  );
+}
+
+/* The tail: lit from below, in navy — quieter, because it sits under the fold of the page. */
+.signoff--tail::before {
+  background: radial-gradient(700px 500px at 50% 118%, var(--color-navy-700) 0%, transparent 70%);
 }
 
 /* The page's mesh, restated locally. `.mesh` in landing.css paints white lines only
@@ -70,8 +118,14 @@
 
 /* ------------------------------------------------------------------ CTA --- */
 /*
- | Asymmetric: the claim on the inline-start, the actions on the inline-end. Two centred
- | buttons under a centred heading is the shape being replaced.
+ | NOT a masthead — a CTA LOCKUP, and that is this section's answer to the opener
+ | question. The heading and lede sit at the inline-start, the two buttons at the
+ | inline-end, and they align on their CENTRES rather than on a baseline. There is no
+ | eyebrow, no rule and no supporting caption opposite the title, which is what makes it
+ | a different shape from the two mastheads the page keeps (problems and pricing) rather
+ | than a seventh copy of them. The full verdict is in landing.css.
+ |
+ | Two centred buttons under a centred heading is the shape being replaced.
  */
 
 .signoff__cta {
@@ -80,7 +134,7 @@
   padding-block: clamp(3.5rem, 8vw, 6rem);
 }
 
-@media (min-width: 980px) {
+@media (min-width: 900px) {
   .signoff__cta {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -130,7 +184,7 @@
   border-block-start: 1px solid var(--color-navy-700);
 }
 
-@media (min-width: 980px) {
+@media (min-width: 900px) {
   .signoff__foot {
     grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
     column-gap: clamp(3rem, 6vw, 5rem);

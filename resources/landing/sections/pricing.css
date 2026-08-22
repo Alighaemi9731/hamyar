@@ -30,9 +30,17 @@
 
 /* ---------------------------------------------------------------- head ---- */
 /*
- | Asymmetric. A centred eyebrow above a centred H2 is the page's signature tell and this
- | section does not repeat it: the argument sits at the inline-start, the control that
- | changes the numbers sits at the inline-end, next to the numbers it changes.
+ | ## This is ONE OF THE TWO sections that keeps the asymmetric masthead
+ |
+ | Six sections opened this way, which made it a template. Section 3 (problems) and this
+ | one keep it; the other six each open differently, and the verdict with all six
+ | replacements is written out in `landing.css` under THE MASTHEAD RULE.
+ |
+ | This one survives because its far side is FUNCTIONAL, not decorative — it is the only
+ | head on the page whose second block is a control. The argument sits at the
+ | inline-start, the switch that changes the numbers sits at the inline-end, next to the
+ | numbers it changes. Every other section's far side held a supporting sentence, which
+ | is the part that was doing nothing six times over.
  */
 
 .tariff__head {
@@ -109,7 +117,7 @@
 
 .tariff__list {
   border: 1px solid var(--color-hair);
-  border-radius: 1.25rem;
+  border-radius: var(--radius-lg);
   background: var(--color-page);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -121,21 +129,40 @@
   padding: clamp(1.5rem, 3vw, 2.25rem);
   /* Transparent on every row so the recommended one's rail costs no layout shift. */
   border-inline-start: 4px solid transparent;
-  transition: background 200ms ease;
+  transition: border-color 200ms ease;
 }
 
 .tariff__plan + .tariff__plan {
   border-block-start: 1px solid var(--color-hair);
 }
 
-.tariff__plan:hover {
-  background: var(--color-page-alt);
-}
-
-.tariff__plan[data-recommended='true'],
-.tariff__plan[data-recommended='true']:hover {
+.tariff__plan[data-recommended='true'] {
   background: var(--color-page-tint);
   border-inline-start-color: var(--color-accent);
+}
+
+/*
+ | ## Hover lights the RAIL, not the ground — and that is a bug fix, not a preference
+ |
+ | This row used to take `background: var(--color-page-alt)` on hover. That is the exact
+ | value `landing.css` gives `.btn--quiet:hover`, and every non-recommended row's CTA is
+ | a `.btn--quiet` sitting inside it. So pointing at a row and reaching for its button
+ | painted both the same colour at the same moment: the button lost its fill against its
+ | own row and survived as a 1px outline, precisely when the user was aiming at it.
+ |
+ | Two colours that collide need one of them changed, and the ground is the one to give
+ | up. A price row is not a link — the button is the target — so tinting the whole row
+ | was promising a click the row never had. The accent moving into the inline-start rail
+ | says "this line" without claiming anything, and it is the same hover language the
+ | other ledger on this page (problems, §3) already speaks.
+ |
+ | Guarded on a real pointer for the same reason §3 guards it: on touch, `:hover` sticks
+ | to the last thing tapped and one row would sit permanently lit.
+ */
+@media (hover: hover) {
+  .tariff__plan:not([data-recommended='true']):hover {
+    border-inline-start-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
 }
 
 @media (min-width: 900px) {
@@ -249,7 +276,7 @@
   color: var(--color-navy);
   background: var(--color-page-alt);
   border: 1px solid var(--color-hair);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   padding: 0.25rem 0.625rem;
 }
 
@@ -305,7 +332,7 @@
   max-inline-size: 100%;
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--color-hair);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-md);
   background: var(--color-page);
   box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
   transition: border-color 180ms ease, box-shadow 180ms ease;
@@ -336,12 +363,91 @@
 /*
  | Everything that moves in this section is a hover transition, and reduced motion gets
  | the end state with no travel. `.rise` is handled globally in landing.css.
+ |
+ | Applied here, and this section was the one getting it wrong in the other direction:
+ | the peer level is the plan ROW, and `.rise` was on the container above it. One
+ | `.rise` on `.tariff__list` made three plans arrive as a single slab — the sheet
+ | fading in as one grey rectangle, which is the least interesting thing a price list
+ | can do. The head was rising too, and heads never rise.
+ |
+ | ## Why this is done in CSS and what deletes it
+ |
+ | The proper fix is three words of markup: drop `rise` from `.tariff__head` and
+ | `.tariff__list`, add it to `.tariff__plan`, and `landing.js` writes `--i` per row for
+ | free. `pricing.blade.php` was outside this pass's remit, so the same result is
+ | produced here instead — the container is held at its end state and its rows carry the
+ | arrival, with the stagger clamped to the page's `min(--i, 3) × 60ms` by hand.
+ |
+ | Every selector below is keyed on `.tariff__list.rise` / `.tariff__head.rise`, so the
+ | day the markup moves the class this whole block stops matching and can be deleted
+ | without reading it. It cannot fight the real rule, only stand in for it.
+ |
+ | The compound selectors also outrank `landing.css`'s `.rise` and
+ | `.rise[data-seen='true']`, which matters because section files are imported ABOVE
+ | that block — specificity is doing the work here, not order.
+ |
+ | The add-ons block is a footnote rather than a peer: it keeps its single `.rise` and
+ | its tags do not stagger.
  */
+
+[data-io='on'] .tariff__head.rise,
+[data-io='on'] .tariff__head.rise[data-seen='true'],
+[data-io='on'] .tariff__list.rise,
+[data-io='on'] .tariff__list.rise[data-seen='true'] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+[data-io='on'] .tariff__list.rise > .tariff__plan {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-io='on'] .tariff__list.rise[data-seen='true'] > .tariff__plan {
+  opacity: 1;
+  transform: none;
+  transition: opacity 260ms ease-out, transform 260ms ease-out, border-color 200ms ease;
+  /* The clamp, written out: rows four and beyond share the last step rather than
+     extending the sequence. A plan list is three or four rows today and the cap is what
+     stops a fifth from turning the sheet into a slideshow. */
+  transition-delay: 180ms;
+}
+
+[data-io='on'] .tariff__list.rise[data-seen='true'] > .tariff__plan:nth-child(1) {
+  transition-delay: 0ms;
+}
+
+[data-io='on'] .tariff__list.rise[data-seen='true'] > .tariff__plan:nth-child(2) {
+  transition-delay: 60ms;
+}
+
+[data-io='on'] .tariff__list.rise[data-seen='true'] > .tariff__plan:nth-child(3) {
+  transition-delay: 120ms;
+}
+
+/* The add-ons footnote arrives on its own, so it starts at zero. `landing.js` counts
+   `.rise` blocks per PARENT and this is the shell's third one, which would otherwise
+   hand a lone block 120ms of stagger it is not part of — a delay belonging to a
+   sequence that finished two screens up. */
+[data-io='on'] .tariff__addons.rise[data-seen='true'] {
+  transition-delay: 0ms;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .tariff__plan,
   .tariff__switch button,
   .tariff__tags li {
     transition: none !important;
+  }
+
+  /* `landing.js` never turns the observer on under reduced motion, so these normally
+     match nothing. They are stated for the one case that is not hypothetical: the
+     setting changed after the page loaded, when `data-io` is already on and a row that
+     was never observed would otherwise sit at opacity 0 forever. */
+  [data-io='on'] .tariff__list.rise > .tariff__plan {
+    opacity: 1 !important;
+    transform: none !important;
+    transition-delay: 0s !important;
   }
 }

@@ -7,6 +7,81 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/mobishop/releases>.
 
+## 0.13.0 - 2026-08-23
+
+**The landing page, rebuilt to the brief it was never actually following.** MINOR — the
+public page only; no migration, no application change, no new setting.
+
+Third rejection. ADR 0016 records the first two — dark cinematic (rejected on taste) and
+calm navy (came back **بی‌روح**). This one came back «معلومه کلاد کد زده»: the copy read as
+unprofessional and the layout as generated.
+
+It was. Down the page: a centred eyebrow over a centred H2 on every section, five
+alternating text/screenshot rows, three pricing cards with the middle one dark, a plain
+accordion, a dark CTA band, icons in circles. Every one of those appears on a thousand
+generated pages regardless of subject.
+
+### It was also not following the owner's own brief
+
+| the brief asks for | the page had |
+|---|---|
+| six shopkeeper problems | five feature rows |
+| six FAQ answers | three |
+| an **interactive** IMEI record | three static cards |
+| primary CTA «۱۴ روز رایگان شروع کنید» | «امکانات را ببینید» |
+
+The last line is not a design problem. A landing page whose main button does not point at
+the conversion its brief names is a broken page, and it had been broken that way since the
+section was written.
+
+### What shipped
+
+Eight sections, each owning one Blade partial and one CSS file: hero and its signature,
+trust bar, six problem→solution blocks in the shopkeeper's own words, the interactive IMEI
+record, the product tour, pricing read from the database, six FAQ answers, closing CTA and
+a full footer. `landing.blade.php` goes 428 → 67 lines and is now only a shell.
+
+Bundle: **22.9KB gz CSS, 1.7KB gz JS** against a 180KB budget. Still no animation library,
+no WebGL, no scroll-jacking.
+
+### Two faults that were not taste
+
+- **The FAQ promised something the software does not do.** «اگر اشتراکم تمام شود» said the
+  account goes read-only and you can still export to Excel. `Subscription::isUsable()` is
+  binary and `LoginController` refuses the login outright — a lapsed shop cannot sign in,
+  so it cannot export anything. A public promise about a customer's own data that the
+  product contradicts on day one of a lapse. Rewritten to what actually happens, with the
+  advice to export before the renewal date. The support answer likewise claimed phone
+  support on a page that carries no phone number.
+- **The signature element played backwards on every desktop load.** It is a module script,
+  so it runs after first paint — and first paint is the *finished* state, the stylesheet's
+  no-JS default. Setting `data-signature` flipped it to the pile with a 120ms transition
+  live, so every visitor watched the tidy ledger fall apart: the page's own argument, in
+  reverse, unprompted.
+
+### The interesting failure: four authors, one default
+
+The rebuild was produced by four engineers working in parallel from separate files, and the
+shared contract they were meant to build against never arrived. An adversarial review of
+the assembled page found they had each killed the centred eyebrow and then **independently
+reached for the same replacement** — six of eight sections opening with a heading on one
+side and a supporting line on the other. Plus three separate numbering devices (۰۱–۰۶ twice,
+40% of the page apart), the same accent-clause headline trick in three sections, and four
+guesses at the type scale that arrived as five different H2 sizes.
+
+One template swapped for another. That is worth recording because it is *why* generated
+pages look generated: independent minds converge on the same default. The repair was one
+pair of eyes on the assembled page — two H2 sizes and a token that says which, the masthead
+capped, two of the three numbering devices deleted, the accent clause returned to the hero
+alone.
+
+### And CI stopped the whole thing from shipping as a 500
+
+Removing the FAQ's ordinals array left a `{{-- --}}` in its place — inside `@php`, which
+parses it as PHP, so `ordinals` became a bare identifier and every route rendering the page
+threw a syntax error. The container would have been healthy, the deploy green, and the front
+page an error. Three tests caught it.
+
 ## 0.12.1 - 2026-08-22
 
 **Two faults in the release tooling itself, both of which made a check look like it was

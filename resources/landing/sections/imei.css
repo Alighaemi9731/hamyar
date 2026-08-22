@@ -28,12 +28,34 @@
  | ratio inside it is better than the column above. No new hue is introduced: there is
  | one accent on this page and `accent-lit` is that same accent lifted for dark.
  |
+ | ## Radii — the page's four steps, no local values
+ |
+ | Every corner here is a token, and which token is not a judgement call:
+ |
+ |   --radius-sm  8px  inline marks — the doc badge on an event's meta line
+ |   --radius-md 12px  things you touch, and icon tiles — the serial input, the three
+ |                     picker buttons, the timeline event mark
+ |   --radius-lg 20px  EVERY large panel — the record sheet, the no-match sheet
+ |   --radius-xl 28px  anchors only — the hero counter and the closing card. Not here,
+ |                     and that is the point of reserving it: this section holds the
+ |                     page's other anchor already, in `--text-section-lg` on the H2.
+ |
+ | The pill on `.imei-state` stays 999px. A pill is a shape, not a fifth step.
+ |
+ | ## Breakpoints — 640 / 900 / 1200, and this file uses exactly one of them
+ |
+ | 900 (`--bp-m`) is THE line: every second column on the page appears at once there.
+ | The console's two columns are one of them. Nothing else in this section reflows —
+ | no 640 (there is no repeating item grid here; the three picker buttons stay a
+ | column at every width, which is what makes the serial under each one scannable) and
+ | no 1200 (that stop is for upgrades, never a first reflow).
+ |
  | ## Motion
  |
  | One keyframe, 280ms, on the timeline rows of a record that has just been *chosen*.
  | Nothing scroll-linked, nothing on load: the record Blade rendered open is finished
  | the moment it paints. Reduced motion swaps the cascade for a 140ms opacity fade with
- | no stagger.
+ | no stagger — and that branch is now actually reachable; see the motion section.
  */
 
 /* --------------------------------------------------------------- focus ---- */
@@ -51,28 +73,55 @@
 
 /* ---------------------------------------------------------------- head ---- */
 /*
- | Asymmetric masthead. Title and lede in the wide column, the three questions in the
- | narrow one — instead of the centred eyebrow-over-centred-H2 stack that this page was
- | (correctly) called out for repeating above every section.
+ | NOT a masthead. This section used to open with title-and-lede in a wide column and
+ | the three questions in a narrow one, baseline-aligned — which was the same shape five
+ | other sections opened with, and repeating it six times is what made an asymmetric
+ | head read as a template instead of a composition. Two sections keep that shape
+ | (problems and pricing); the verdict is written out in landing.css.
+ |
+ | This one opens with a SERIAL-FIRST LOCKUP, single column: a real IMEI, Latin and
+ | dir="ltr", set in accent-lit above the H2. The section names its subject before it
+ | says a word about it, which no other section on the page can do, because no other
+ | section has an object with a number on it.
+ |
+ | ## The markup change that goes with this
+ |
+ | `<p class="imei-serial" dir="ltr">354879116234901</p>` becomes the first child of
+ | `.imei-head`, above `.imei-title`. `.imei-asks` MOVES OUT of the head entirely: the
+ | three questions become the timeline's row labels inside the record, where
+ | `.imei-ev__ask` already renders them — that is where they are actually answered, and
+ | asking them twice on one screen is the section arguing with itself. The `.imei-asks`
+ | rules are gone with them; nothing else referenced that block.
  */
 
 .imei-head {
-  display: grid;
-  gap: clamp(2rem, 4vw, 3.5rem);
   margin-block-end: clamp(2.5rem, 5vw, 4rem);
 }
 
-@media (min-width: 960px) {
-  .imei-head {
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    align-items: end;
-  }
+/* The serial as the opener. Tabular, wide-tracked, dir="ltr" in the markup — a number
+   read aloud to a supplier is a Latin number. accent-lit on navy-900 is 8.3:1.
+
+   It is deliberately NOT --text-section-lg: the H2 under it holds the section's anchor
+   size, and two things at the anchor size in one head is two anchors. */
+.imei-serial {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1rem, 2.6vw, 1.5rem);
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+  color: var(--color-accent-lit);
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 0.75rem;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--color-accent-lit) 40%, transparent);
 }
 
 .imei-title {
   font-size: var(--text-section-lg);
   line-height: 1.14;
   letter-spacing: -0.03em;
+  /* The anchor heading gets a measure of its own. Left to the shell it sets to 1120px,
+     and a 56px line 1120px wide is a banner, not a heading. */
+  max-inline-size: 26ch;
   margin-block-end: 1.125rem;
 }
 
@@ -80,36 +129,6 @@
   color: var(--color-on-dark-soft);
   max-inline-size: 34rem;
   margin: 0;
-}
-
-/* The three questions, as a stack of ruled lines rather than three cards. A card is a
-   claim; the record below is the evidence, and these are only its index. */
-.imei-asks {
-  display: grid;
-  gap: 0;
-}
-
-.imei-asks li {
-  padding-block: 0.9375rem;
-  border-block-start: 1px solid var(--color-navy-700);
-}
-
-.imei-asks li:last-child {
-  border-block-end: 1px solid var(--color-navy-700);
-}
-
-.imei-asks b {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.0625rem;
-  display: block;
-  margin-block-end: 0.125rem;
-}
-
-.imei-asks span {
-  font-size: 0.875rem;
-  line-height: 1.7;
-  color: var(--color-on-dark-mute);
 }
 
 /* ------------------------------------------------------------- console ---- */
@@ -124,9 +143,12 @@
   align-items: start;
 }
 
-@media (min-width: 960px) {
+/* 900 — `--bp-m`. This was 960 and the head above it was 960 too, but the tour, the
+   tariff sheet and the closing were at 960/900/980, so the page reflowed four times
+   inside 120px. One line, whole page. */
+@media (min-width: 900px) {
   .imei-console {
-    grid-template-columns: 20rem minmax(0, 1fr);
+    grid-template-columns: 19rem minmax(0, 1fr);
   }
 }
 
@@ -153,7 +175,7 @@
   inline-size: 100%;
   min-block-size: 3.25rem;
   padding-inline: 1rem 3rem; /* start, end — the scan mark lives at the end */
-  border-radius: 0.875rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-navy-700);
   background: color-mix(in srgb, var(--color-navy-800) 78%, #000);
   color: var(--color-on-dark);
@@ -206,7 +228,7 @@
   gap: 0.125rem;
   text-align: start;
   padding: 0.625rem 1rem;
-  border-radius: 0.875rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-navy-700);
   background: color-mix(in srgb, var(--color-navy-800) 60%, transparent);
   cursor: pointer;
@@ -247,7 +269,7 @@
 
 .imei-record {
   display: grid;
-  border-radius: 1.25rem;
+  border-radius: var(--radius-lg);
   padding: clamp(1.25rem, 3vw, 2rem);
   border: 1px solid var(--color-navy-700);
   background: linear-gradient(165deg, var(--color-navy-800) 0%, var(--color-navy-900) 78%);
@@ -330,7 +352,11 @@
   inset-block-start: -0.125rem;
   inline-size: 1.875rem;
   block-size: 1.875rem;
-  border-radius: 0.625rem;
+  /* An icon tile, so `md` — the same step as the buttons and the input, not the `sm`
+     it used to take. `sm` is for inline marks set in a line of text, like the doc badge
+     below; this is a filled tile with an icon centred in it and it should read as the
+     same family of object as the things you can press. */
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   color: var(--color-navy-900);
@@ -375,7 +401,7 @@
 
 .imei-ev__doc {
   border: 1px solid var(--color-navy-700);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   padding: 0.0625rem 0.4375rem;
   letter-spacing: 0.04em;
 }
@@ -445,7 +471,7 @@
 /* ----------------------------------------------------------- no match ----- */
 
 .imei-miss {
-  border-radius: 1.25rem;
+  border-radius: var(--radius-lg);
   border: 1px dashed var(--color-navy-700);
   background: color-mix(in srgb, var(--color-navy-800) 50%, transparent);
   padding: clamp(1.5rem, 4vw, 2.5rem);
@@ -495,9 +521,18 @@
 
 /* --------------------------------------------------------------- motion --- */
 /*
- | `data-fresh` is written by imei.js only when the visitor *chose* a record. The record
- | Blade rendered open never carries it, so the section is complete on arrival and there
- | is nothing to wait for — the one lesson ADR 0016 says was paid for twice.
+ | `data-fresh` is written by imei.js whenever the visitor *chose* a record — by clicking
+ | a sample or by typing a serial that matches. The record Blade rendered open never
+ | carries it, so the section is complete on arrival and there is nothing to wait for:
+ | the one lesson ADR 0016 says was paid for twice.
+ |
+ | The attribute means "just chosen", nothing more. WHAT that looks like is decided here
+ | and only here, in two branches: the timeline cascade below, and the fade in the
+ | reduced-motion block. imei.js used to hold the second half of that decision — it read
+ | the media query once at load and skipped the attribute entirely when reduced motion
+ | was on, so the fade this file promises was dead code and those visitors got an
+ | instant, silent swap instead. The attribute write is now unconditional; if a branch
+ | below is wrong, the fix is in this file.
  */
 
 @keyframes imei-ev-in {
@@ -516,9 +551,21 @@
   animation-delay: calc(var(--i, 0) * 55ms);
 }
 
+@keyframes imei-quiet-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  /* A fade under the 150ms ceiling, no stagger, no travel. The record still visibly
-     changes — which it must, or the picker looks broken — but nothing moves. */
+  /* The reachable branch, and reachable is the whole point — see the note above. The
+     per-row cascade is dropped and the record as a whole fades once: 140ms, under the
+     150ms ceiling, no stagger, no travel. Something must visibly change or a visitor
+     who pressed a picker button concludes it is broken; the change is a crossfade of
+     the sheet rather than nine rows sliding. */
   [data-fresh] .imei-ev {
     animation: none;
   }
@@ -530,14 +577,5 @@
   .imei-device,
   .imei-field__input {
     transition: none;
-  }
-}
-
-@keyframes imei-quiet-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }

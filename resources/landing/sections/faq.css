@@ -32,7 +32,15 @@
   gap: clamp(2rem, 4vw, 3rem);
 }
 
-@media (min-width: 960px) {
+/*
+ | 900 — `--bp-m`. This section's opener IS this grid: there is no head above the list
+ | at all. Title, lede and the contact line are the sticky aside beside the questions,
+ | so they travel with the reader down all six instead of scrolling away after the
+ | first. That is this section's answer to the masthead question, and it is the only
+ | place on the page where a heading is a companion rather than an announcement.
+ | The full verdict for all eight sections is in landing.css.
+ */
+@media (min-width: 900px) {
   .qa__grid {
     grid-template-columns: 19rem minmax(0, 1fr);
     column-gap: clamp(3rem, 6vw, 5rem);
@@ -91,7 +99,7 @@
 
 .qa__item[open] {
   background: var(--color-page);
-  border-radius: 0.875rem;
+  border-radius: var(--radius-lg);
   border-block-end-color: transparent;
   box-shadow: var(--shadow-card);
 }
@@ -100,7 +108,7 @@
 
 .qa__q {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) 1rem;
+  grid-template-columns: minmax(0, 1fr) 1rem;
   align-items: center;
   gap: 1rem;
   /* Comfortably over the 44px floor, and it is the whole row that is the target. */
@@ -124,17 +132,28 @@
   content: '';
 }
 
-.qa__n {
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-accent);
-  font-variant-numeric: tabular-nums;
-}
 
-/* The marker: two bars crossing, drawn in the text colour, with no disc behind them.
-   Open removes the vertical bar and turns the plus into a minus. Rotation is what makes
-   the change read as one movement rather than a glyph swap. */
+/*
+ | The marker: two bars crossing, drawn in the text colour, with no disc behind them —
+ | a circled chevron is on the owner's list of tells.
+ |
+ | ## The rotation now actually rotates something
+ |
+ | This was `rotate: 180deg` on [open] with a comment claiming the change read as "one
+ | movement". It did not. The mark is a plus: symmetric about both axes, so half a turn
+ | lands it exactly where it started. The bars also swapped to a single horizontal one
+ | in the same rule, which meant the only thing the eye ever saw was a glyph swap — the
+ | movement the transition existed to carry was, geometrically, nothing.
+ |
+ | So: keep both bars and turn the plus into a cross. 45deg, NOT 90 — a plus rotated a
+ | quarter turn is a plus again, the same invisible no-op one step smaller. 45 is the
+ | angle at which + becomes ×, and × is what a shut-this-again control should look like.
+ |
+ | The rotated bars reach 1.41rem corner to corner in a 1rem box — about 3px past each
+ | edge. Nothing clips: the question text is a 1rem grid gap away and the row's own
+ | inline padding (0.875rem at its narrowest) sits on the other side. Nothing reflows
+ | either — `rotate` is a transform, so the column stays 1rem wide open or shut.
+ */
 .qa__mark {
   justify-self: end;
   inline-size: 1rem;
@@ -147,16 +166,15 @@
 }
 
 .qa__item[open] .qa__mark {
-  rotate: 180deg;
-  background: linear-gradient(currentColor, currentColor) center / 1rem 2px no-repeat;
+  rotate: 45deg;
 }
 
 /* --------------------------------------------------------------- answer --- */
 
 .qa__a {
-  /* Aligned under the question text rather than under its number: the number is a mark,
-     not the start of the measure. */
-  padding-inline-start: 2.75rem;
+  /* Flush with the question. It used to clear an ordinal mark; the ordinals are gone —
+     the page carries one numbering device and it is in §3. */
+  padding-inline-start: 0;
   padding-block-end: 1.5rem;
   margin: 0;
   font-size: 0.9375rem;
@@ -164,7 +182,7 @@
   max-inline-size: 44rem;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 639px) {
   /* At 390px a 44px indent is a quarter of the measure. The number has done its job by
      the time the answer is open. */
   .qa__a {
@@ -173,10 +191,82 @@
 }
 
 /* -------------------------------------------------------------- motion ---- */
+/*
+ | The peer level here is the QUESTION, and `.rise` belonged on nothing else. The markup
+ | faded two blocks instead: `.qa__list`, so six questions arrived as one rectangle, and
+ | `.qa__aside` — a heading that fades in is the tell, and a heading fading in beside a
+ | list that is already solid is two arrivals on one screen.
+ |
+ | ## Why this is done in CSS and what deletes it
+ |
+ | The real fix is two words of markup: drop `rise` from `.qa__aside` and `.qa__list`,
+ | put it on `.qa__item`, and `landing.js` writes `--i` per question. `faq.blade.php`
+ | was outside this pass's remit, so the same result is produced here — the aside and
+ | the list are held at their end state and the questions carry the arrival, with the
+ | page's `min(--i, 3) × 60ms` clamp written out by hand.
+ |
+ | Every selector is keyed on `.qa__aside.rise` / `.qa__list.rise`, so the moment the
+ | markup moves the class the block stops matching and can be deleted unread. The
+ | compound selectors outrank `landing.css`'s `.rise` rules, which is what lets an
+ | earlier-imported file stand in for a later one.
+ |
+ | The aside is sticky. Holding it at its end state also removes a real second-order
+ | bug: a `transform` on an ancestor establishes a containing block, and a sticky
+ | element inside a transformed parent stops sticking for as long as the transform is
+ | applied — so the column that exists to travel with the reader was, for its first
+ | 260ms, not travelling.
+ */
+
+[data-io='on'] .qa__aside.rise,
+[data-io='on'] .qa__aside.rise[data-seen='true'],
+[data-io='on'] .qa__list.rise,
+[data-io='on'] .qa__list.rise[data-seen='true'] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+[data-io='on'] .qa__list.rise > .qa__item {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-io='on'] .qa__list.rise[data-seen='true'] > .qa__item {
+  opacity: 1;
+  transform: none;
+  transition: opacity 260ms ease-out, transform 260ms ease-out, background 200ms ease,
+    box-shadow 200ms ease;
+  /* The clamp: the fourth question and the sixth arrive together. Six questions on an
+     uncapped 60ms ladder is 360ms of list still assembling itself, which is a slideshow
+     rather than an arrival. */
+  transition-delay: 180ms;
+}
+
+[data-io='on'] .qa__list.rise[data-seen='true'] > .qa__item:nth-child(1) {
+  transition-delay: 0ms;
+}
+
+[data-io='on'] .qa__list.rise[data-seen='true'] > .qa__item:nth-child(2) {
+  transition-delay: 60ms;
+}
+
+[data-io='on'] .qa__list.rise[data-seen='true'] > .qa__item:nth-child(3) {
+  transition-delay: 120ms;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .qa__item,
   .qa__mark {
     transition: none !important;
+  }
+
+  /* `landing.js` never starts the observer under reduced motion, so these normally
+     match nothing. They cover the case that is not hypothetical: the setting changed
+     after load, when `data-io` is already on and an unobserved question would otherwise
+     stay at opacity 0 permanently. */
+  [data-io='on'] .qa__list.rise > .qa__item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition-delay: 0s !important;
   }
 }

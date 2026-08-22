@@ -31,6 +31,15 @@
  | a centred eyebrow over a centred H2 above every section is the page's single most
  | repeated tell, and this section does not have one.
  |
+ | ## This is ONE OF THE TWO sections that keeps the asymmetric masthead
+ |
+ | Six sections opened this way and that made it a template rather than a composition.
+ | Section 3 and section 6 keep it; the other six each open differently — the verdict
+ | and the six replacements are written out in full in `landing.css` under THE MASTHEAD
+ | RULE. This one survives because its asymmetry is structural: the head is literally
+ | the first row of the ledger, on the ledger's own grid. Take the second column away
+ | and the list loses its header. Do not "unify" it with the other sections.
+ |
  | ## Contrast
  |
  | No new colour pair is invented here. Every text/ground pair is a token pair already
@@ -38,7 +47,7 @@
  |
  |   navy      #0e1b2c on #ffffff — 17.3:1   headings, the complaint
  |   navy-soft #46586d on #ffffff —  7.3:1   the answer body
- |   navy-mute #5d6b7e on #ffffff —  5.4:1   the margin numerals, the head note
+ |   navy-mute #5d6b7e on #ffffff —  5.4:1   the margin numerals
  |   accent    #0066cc on #ffffff —  5.6:1   the arrow, and the numerals on hover
  |
  | The margin numerals are `aria-hidden` decoration duplicating the `<ol>`'s own
@@ -74,14 +83,12 @@
   color: var(--color-accent);
 }
 
-.probs__note {
-  font-size: 0.9375rem;
-  color: var(--color-navy-mute);
-  margin-block-start: 1rem;
-  padding-block-start: 1rem;
-  border-block-start: 1px solid var(--color-hair);
-  max-inline-size: 34rem;
-}
+/*
+ | There is no `.probs__note` rule any more. The element it styled — a third supporting
+ | line under the lede, with a hairline over it — was cut from the markup when the head
+ | became the ledger's first row, and the rule outlived it by a rebuild. A selector that
+ | matches nothing is not free: it is the next reader's evidence that an element exists.
+ */
 
 /* -------------------------------------------------------------- the list --- */
 /*
@@ -183,12 +190,17 @@
 
 /* ----------------------------------------------------------------- wide --- */
 /*
- | 980px is where a 32px complaint and a 16px answer can sit beside each other and both
- | keep a reading measure. Below it they stack, and the accent rule carries the
+ | 900px — `--bp-m`, the page's one reflow line. This was 980, which is inside the band
+ | where the hero was still stacked; five sections each picking their own number between
+ | 860 and 1024 is why dragging the window took the page apart five separate times.
+ |
+ | At 900 the shell is 852px, so the two tracks resolve to roughly 400/430 with a 2rem
+ | gutter: a 32px complaint and a 16px answer both keep a reading measure, which was the
+ | only thing 980 was buying. Below it they stack and the accent rule carries the
  | relationship on its own.
  */
 
-@media (min-width: 980px) {
+@media (min-width: 900px) {
   .probs__head,
   .probs__row {
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr);
@@ -228,13 +240,37 @@
 
 /* --------------------------------------------------------------- motion --- */
 /*
- | This section adds no animation. The staggered arrival is the page's shared `.rise`
- | on each row, already driven by the one IntersectionObserver in `landing.js` and
- | already switched off by the reduced-motion block in `landing.css`.
+ | This section adds no animation, and it does not choose its own arrival: the page has
+ | ONE entry rule and it is stated in `landing.css`.
+ |
+ | Applied here: `.rise` goes on `.probs__row` — the row is this section's peer level —
+ | and on nothing else. NOT on `.probs__list` (that is the container, and it would land
+ | as a slab), NOT on `.probs__head` (a heading that fades is the tell), NOT on
+ | `.probs__ask` or `.probs__fix` (leaves). Each row carries `--i` = its index, and
+ | landing.js clamps it, so rows four, five and six arrive together at 180ms instead of
+ | the list still assembling itself 600ms in.
  |
  | What is left to declare is the two 200ms colour transitions above. Reduced motion
  | gets the same colours, arriving instantly.
+ |
+ | ## The head does not rise, and this is where that is enforced
+ |
+ | The markup still carries `.rise` on `.probs__head`. Until that word is deleted from
+ | `problems.blade.php`, the head is held at its end state here — a heading that fades
+ | in is the tell, and the rule says the section head never rises. Both states are
+ | stated because `landing.css` styles `.rise` and `.rise[data-seen='true']` separately
+ | and this file is imported ABOVE that block: the compound selectors below outrank both
+ | on specificity, which is what makes the override work from an earlier file.
+ |
+ | Delete this block the moment the markup stops asking for it — it matches nothing then.
  */
+
+[data-io='on'] .probs__head.rise,
+[data-io='on'] .probs__head.rise[data-seen='true'] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .probs__n,

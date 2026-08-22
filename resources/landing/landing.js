@@ -114,6 +114,22 @@ for (const button of document.querySelectorAll('[data-reveal]')) {
  |
  | Reduced motion skips the observer entirely rather than animating instantly: there is
  | nothing to reveal because nothing was hidden.
+ |
+ | ## The stagger, and why it is written here
+ |
+ | THE ONE RULE (landing.css): `.rise` sits at exactly one level per section — the level
+ | at which the content is a list of peers — and each peer's arrival is delayed by
+ | `min(index, 3) × 60ms`. The clamp is applied by the CSS; this file only has to say
+ | what index a peer is.
+ |
+ | It is written from JS rather than hand-authored in the markup for one reason: a
+ | hand-written `--i` is a number a section author has to remember to renumber, and the
+ | day a seventh tour tile or a fourth plan is added, half a list staggers and half of it
+ | does not. Counting from the DOM cannot drift.
+ |
+ | The index resets per PARENT, not per page: `.rise` blocks in different sections are
+ | different lists, and continuing the count across them would make the last section on
+ | the page wait for a stagger it is not part of.
  */
 
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -121,6 +137,16 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
 
   if (targets.length && 'IntersectionObserver' in window) {
     document.documentElement.setAttribute('data-io', 'on');
+
+    // Index each risen block among its own siblings. Non-`.rise` children are skipped,
+    // so a list whose first child is a heading still starts its stagger at zero.
+    const counted = new Map();
+    for (const el of targets) {
+      const parent = el.parentElement;
+      const next = (counted.get(parent) ?? 0);
+      counted.set(parent, next + 1);
+      el.style.setProperty('--i', String(next));
+    }
 
     const io = new IntersectionObserver(
       (entries) => {
