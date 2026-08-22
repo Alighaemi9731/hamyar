@@ -7,6 +7,31 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/mobishop/releases>.
 
+## 0.12.2 - 2026-08-22
+
+**The landing's front-door check could pass having tested nothing.** PATCH — `bin/smoke`
+only; no application change.
+
+The check that follows the landing page's calls to action matched only absolute
+`https://…` hrefs, and then simply looped over whatever it found. Two ordinary changes
+turn that silent, and neither is a mistake anybody would think to announce:
+
+- the landing switches its buttons to relative paths (`/login`) — perfectly reasonable
+  markup, arguably better than absolute;
+- a redesign drops or renames the calls to action.
+
+Either way `grep` matches nothing, the loop body never runs, **no check is reported**, and
+smoke declares the front door healthy having tested no part of it. That is exactly the
+shape of fault this script exists to catch: a gate that passes because it cannot see.
+
+Relative hrefs are now resolved against the apex, and the number of links found is
+asserted rather than assumed — zero is a failure with its own sentence. The landing is the
+only page a prospective customer ever reads, and it having no working way in is not a
+state to learn about from a support message.
+
+Exercised on all three inputs before shipping: today's absolute links pass, relative links
+now pass where they were previously invisible, and a landing with no way in fails.
+
 ## 0.12.1 - 2026-08-22
 
 **The detached deploy was not detached.** PATCH — `bin/release` only; no application

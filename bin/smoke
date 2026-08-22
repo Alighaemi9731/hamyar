@@ -152,17 +152,46 @@ else
     fi
 fi
 
-# The landing's own two calls to action. Same failure mode, same reason to follow them.
+# The landing's own calls to action. Same failure mode, same reason to follow them.
+#
+# ## A loop over nothing is a pass, and that is the bug this file exists to catch
+#
+# The first version matched only absolute `https://…` hrefs and simply looped over what it
+# found. Two ways that goes quiet, both of them ordinary changes nobody would think to
+# mention: the landing switches its buttons to relative paths (`/login`), which is
+# perfectly reasonable markup and arguably better; or a redesign drops or renames the
+# calls to action. Either way `grep` matches nothing, the loop body never runs, no check
+# is reported, and smoke says the front door is fine having tested no part of it.
+#
+# That is precisely the shape of fault this whole script was written for — a gate that
+# passes because it cannot see. So the count is asserted: the landing is the only page a
+# prospective customer ever reads, and it having no working way in is not a state to
+# discover from a support message.
 landing_html="$("${CURL[@]}" "https://${APEX}/" 2>/dev/null || true)"
 
-while read -r url; do
-    [[ -n "$url" ]] || continue
-    expect_status "$url" 200 "landing link ${url#https://}"
-done < <(
-    grep -o 'href="https://[^"]*\(login\|register\)[^"]*"' <<<"$landing_html" \
+landing_links="$(
+    grep -oE 'href="(https://[^"]*|/)[^"]*(login|register)[^"]*"' <<<"$landing_html" \
         | sed 's/^href="//; s/"$//' \
         | sort -u
-)
+)"
+
+landing_link_count=0
+while read -r url; do
+    [[ -n "$url" ]] || continue
+    landing_link_count=$(( landing_link_count + 1 ))
+    case "$url" in
+        http*) target="$url" ;;
+        /*)    target="https://${APEX}${url}" ;;
+        *)     target="https://${APEX}/${url}" ;;
+    esac
+    expect_status "$target" 200 "landing link ${target#https://}"
+done <<<"$landing_links"
+
+if (( landing_link_count == 0 )); then
+    fail "the landing offers no way in — no link to sign in or sign up was found on it"
+else
+    pass "the landing offers ${landing_link_count} way(s) in, and each resolves"
+fi
 
 # ------------------------------------------------------------------------ TLS ----
 section "TLS"
