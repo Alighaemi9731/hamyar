@@ -9,8 +9,13 @@ it. Tags and published archives: <https://github.com/Alighaemi9731/mobishop/rele
 
 ## 0.12.1 - 2026-08-22
 
-**The detached deploy was not detached.** PATCH — `bin/release` only; no application
-change, no migration.
+**Two faults in the release tooling itself, both of which made a check look like it was
+working.** PATCH — `bin/release` and `bin/smoke` only; no application change, no migration.
+
+Neither of these was found by reading. One took the first real release; the other took
+asking the question "what does this loop do when it finds nothing?"
+
+### 1. The detached deploy was not detached
 
 Found by the first real release, which is the only place it could have been found. Twelve
 defects had already been fixed after an adversarial review of these scripts; this is the
@@ -51,12 +56,34 @@ Both paths were then exercised against the production box before this shipped: a
 25-second success detected by the poll loop, and a genuinely failing `docker build`
 reported with the box's own error text and a non-zero return.
 
-### This is what the repository already says about deploy-layer bugs
+#### This is what the repository already says about deploy-layer bugs
 
 `CLAUDE.md` argues there is no staging box because Phase 11.4 found eleven faults on real
 hardware and *not one of them was reachable from a local test*. This defect is the same
 shape: green CI, a passing review, a working release — and a safety mechanism that was
 decorative. It took running the real thing against the real box to see it.
+
+### 2. The landing's front-door check could pass having tested nothing
+
+The check that follows the landing page's calls to action matched only absolute
+`https://…` hrefs, and then simply looped over whatever it found. Two ordinary changes
+turn that silent, and neither is a mistake anybody would think to announce:
+
+- the landing switches its buttons to relative paths (`/login`) — perfectly reasonable
+  markup, arguably better than absolute;
+- a redesign drops or renames the calls to action.
+
+Either way `grep` matches nothing, the loop body never runs, **no check is reported**, and
+smoke declares the front door healthy having tested no part of it. That is exactly the
+shape of fault this script exists to catch: a gate that passes because it cannot see.
+
+Relative hrefs are now resolved against the apex, and the number of links found is
+asserted rather than assumed — zero is a failure with its own sentence. The landing is the
+only page a prospective customer ever reads, and it having no working way in is not a
+state to learn about from a support message.
+
+Exercised on all three inputs before shipping: today's absolute links pass, relative links
+now pass where they were previously invisible, and a landing with no way in fails.
 
 ## 0.12.0 - 2026-08-22
 
