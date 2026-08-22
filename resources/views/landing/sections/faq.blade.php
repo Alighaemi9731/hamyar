@@ -67,8 +67,10 @@
         ],
     ];
 
-    {{-- No ordinals. A <details> list does not need to be counted, and the page already
-         carries a numbering device in §3 — see the note in tour.blade.php. --}}
+    /*
+     | No ordinals. A <details> list does not need to be counted, and the page already
+     | carries a numbering device in §3 — see the note in tour.blade.php.
+     */
 @endphp
 
 <section class="sec sec--alt" id="faq">
