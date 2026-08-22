@@ -29,9 +29,17 @@
     complaint half is quoted because it is meant to be heard in their voice; the answer
     half never uses a verb the shopkeeper would not use.
 
-    Motion: none of its own. Each row carries the page's shared `.rise`, so the six
-    arrive in sequence on the existing IntersectionObserver and reduced motion is
-    already handled by `landing.css`.
+    ## Motion: one level, and the rows are it
+
+    `.rise` sits on the six `<li>` and on nothing else in this section — not on the
+    header above them, not on a leaf inside them. That is the page-wide rule: the class
+    is applied at exactly ONE level per section, the level at which the content is a
+    list of peers. The head used to carry it too, which meant the section's own title
+    faded in before its list did — two arrivals for one section, and the second one
+    stuttering behind the first. Stagger is `min(--i, 3) × 60ms`, capped at 180ms, with
+    `--i` written per-parent by `landing.js` and the clamp living in `landing.css`; so
+    rows 04–06 arrive together rather than the list unrolling for a third of a second.
+    Reduced motion is handled once, in `landing.css`, including the delay.
 --}}
 @php
     /**
@@ -88,8 +96,13 @@
     <div class="shell">
 
         {{-- The head. Two columns, on the same grid as a row: title where the
-             complaints go, lede where the answers go. --}}
-        <header class="probs__head rise">
+             complaints go, lede where the answers go. This is one of exactly two
+             mastheads left on the page (the other is §6) and it is kept for a reason
+             that is structural rather than decorative: the head IS the ledger's first
+             row. Take the second column away and the list loses its header.
+
+             No `.rise` here — see the note at the top of this file. --}}
+        <header class="probs__head">
             <div>
                 {{-- No eyebrow pill here. It was the only `.chip` on the whole rebuilt
                      page: one instance of a component is not a system, it is a tell. The

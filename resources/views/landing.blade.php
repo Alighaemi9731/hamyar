@@ -59,9 +59,21 @@
 @include('landing.sections.pricing')
 @include('landing.sections.faq')
 
+{{-- The closing renders in two parts and the `</main>` boundary runs between them.
+
+     The CTA is the page's primary conversion target, so it is content and belongs inside
+     the main landmark — and the skip link at the top of this file targets `#main`, so a
+     CTA outside it is a CTA a keyboard user is invited to skip. The site `<footer>` has
+     the opposite requirement: inside `<main>` it stops being `contentinfo` at all.
+
+     One `<div>` cannot straddle `</main>`, so the partial takes a `part` and both halves
+     carry `.signoff` — one navy ground, no seam. Nothing may be inserted between these
+     two includes. See landing/sections/closing.blade.php. --}}
+@include('landing.sections.closing', ['part' => 'call'])
+
 </main>
 
-@include('landing.sections.closing')
+@include('landing.sections.closing', ['part' => 'tail'])
 
 </body>
 </html>

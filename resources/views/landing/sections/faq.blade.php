@@ -9,12 +9,21 @@
     plainly is worth more than a sixth feature claim, and it is what «حرفه‌ای» means to a
     merchant who has been sold software before.
 
-    ## Why it does not look like the accordion it replaces
+    ## This section has no head above its list — the aside IS the head
 
-    The rejected page had a centred eyebrow, a centred H2 and a stack of rounded cards
-    with a chevron in a circle. Here the heading sits beside the questions in its own
-    column and stays with them while they scroll, the questions are a numbered hairline
-    list rather than a stack of cards, and the marker is a bare plus with no disc around
+    Five of the eight sections were opening the same way: a title on one side, a
+    supporting sentence on the other, baseline-aligned above the content. Two keep that
+    shape because it is load-bearing there (§3, where the head is the ledger's first row;
+    §6, where the far side is the billing control). This is not one of them.
+
+    So nothing sits above the questions at all. The H2, the lede and the contact line are
+    the aside COLUMN, set beside the six questions and travelling with them while they
+    scroll — a reader four questions deep can still see what he is reading and where to
+    write if his question is not there. That is a use no banner has: a centred head is
+    gone from the screen by question two.
+
+    The rejected page also had a stack of rounded cards with a chevron in a circle. Here
+    the questions are a hairline list, and the marker is a bare plus with no disc around
     it — circled icons are on the owner's list of tells.
 
     `<details>`/`<summary>` is kept because it is keyboard-operable and screen-reader
@@ -73,13 +82,15 @@
      */
 @endphp
 
-<section class="sec sec--alt" id="faq">
+<section class="sec sec--alt" id="faq" aria-labelledby="qa-title">
     <div class="shell qa__grid">
 
-        {{-- The heading is a column, not a centred banner, and it stays with the questions
-             on a desktop so the reader always knows what he is reading. --}}
-        <div class="qa__aside rise">
-            <h2 class="qa__title">قبل از اینکه بپرسید</h2>
+        {{-- Not a masthead: this column IS the section's opening, standing beside the
+             list rather than above it. It carries no `.rise` — a heading that fades in
+             is a heading that is missing when the reader looks for it, and the section's
+             entry motion belongs to the questions, which are the peers here. --}}
+        <div class="qa__aside">
+            <h2 class="qa__title" id="qa-title">قبل از اینکه بپرسید</h2>
             <p class="qa__lede">
                 شش سؤالی که هر مغازه‌داری پیش از خرید می‌پرسد — با جواب رُک، حتی آنجا که
                 جوابش «نه» است.
@@ -90,9 +101,13 @@
             </p>
         </div>
 
-        <div class="qa__list rise" data-faq>
+        {{-- `.rise` goes on the questions, one level, and on nothing above or below
+             them: not this container, not the aside, not the summary inside. Stagger is
+             `min(--i, 3) × 60ms` with `--i` written per-parent by `landing.js`, so the
+             sixth question does not arrive a full half-second after the first. --}}
+        <div class="qa__list" data-faq>
             @foreach ($questions as $i => [$question, $answer])
-                <details class="qa__item" @if ($i === 0) open @endif>
+                <details class="qa__item rise" @if ($i === 0) open @endif>
                     <summary class="qa__q">
                         <span>{{ $question }}</span>
                         <span class="qa__mark" aria-hidden="true"></span>

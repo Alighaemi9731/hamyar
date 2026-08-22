@@ -173,15 +173,11 @@
     ];
 
     /**
-     * The section's thesis, in the masthead. Each line is a question a shopkeeper asks
-     * out loud, with the place the answer comes from underneath it — the timeline below
-     * then answers the same three in the same order.
+     * The serial in the masthead is the FIRST record's, not a fourth invented number:
+     * the head names the subject, the input below is placeheld with it, and the record
+     * open on arrival is the one it belongs to. Three places, one handset.
      */
-    $asks = [
-        ['از که خریدم؟', 'تأمین‌کننده، تاریخ خرید و بهای تمام‌شدهٔ همین دستگاه.'],
-        ['به که فروختم؟', 'فاکتور، مشتری، و اینکه نقدی رفت یا قسطی.'],
-        ['کِی تعمیر شد؟', 'قبض پذیرش، قطعه‌ای که مصرف شد و اجرتی که گرفته شد.'],
-    ];
+    $lead = $devices[0]['imei'];
 @endphp
 
 <section class="sec band imei" id="imei" aria-labelledby="imei-title">
@@ -189,31 +185,40 @@
 
     <div class="shell">
         {{--
-            The masthead is asymmetric on purpose: title and lede on one side, the three
-            questions stacked on the other. A centred eyebrow over a centred H2 is the
-            shape every generated landing page has, and this page has been told so.
-        --}}
-        <header class="imei-head rise">
-            <div class="imei-head__main">
-                <h2 class="imei-title" id="imei-title">این شناسه را بزنید،<br>بقیه‌اش پیداست.</h2>
-                <p class="imei-lede">
-                    گوشی در موبایل‌یار «تعداد» نیست؛ هر دستگاه یک سطر با شناسهٔ خودش است.
-                    هر خرید، تعمیر، حواله و فروشی که رویش ثبت شود زیر همان شناسه می‌ماند —
-                    حتی اگر دو سال بعد سراغش را بگیرید.
-                </p>
-            </div>
+            NOT a masthead — a serial-first lockup, and section 4 is the only place on the
+            page that opens this way. The section names its subject before it says a word:
+            a real IMEI, Latin and `dir="ltr"` because a serial that reorders under bidi is
+            a serial nobody can read back, set in accent-lit above a single-column H2.
+            Nothing sits opposite it.
 
-            <ul class="imei-asks">
-                @foreach ($asks as [$question, $source])
-                    <li>
-                        <b>{{ $question }}</b>
-                        <span>{{ $source }}</span>
-                    </li>
-                @endforeach
-            </ul>
+            The asymmetric title/lede-plus-second-column head this replaces was the same
+            shape six of the eight sections had arrived with, which is the template the
+            owner was pointing at. The three questions that used to stack in that second
+            column have moved down into the record, where they are the timeline's row
+            labels («از که خریدم؟» / «به که فروختم؟» / «کِی تعمیر شد؟») — beside the
+            answer instead of above it, and stated once instead of twice.
+
+            No `.rise` here: the section head never rises (landing.css, THE RULE).
+        --}}
+        <header class="imei-head">
+            <p class="imei-serial nums" dir="ltr">{{ $lead }}</p>
+
+            <h2 class="imei-title" id="imei-title">این شناسه را بزنید،<br>بقیه‌اش پیداست.</h2>
+
+            <p class="imei-lede">
+                گوشی در موبایل‌یار «تعداد» نیست؛ هر دستگاه یک سطر با شناسهٔ خودش است.
+                هر خرید، تعمیر، حواله و فروشی که رویش ثبت شود زیر همان شناسه می‌ماند —
+                حتی اگر دو سال بعد سراغش را بگیرید.
+            </p>
         </header>
 
-        <div class="imei-console rise">
+        {{-- No `.rise` on this container either. THE RULE puts the section's one entry
+             animation at the level where the content is a list of peers, and in this
+             section that is the three sample files in `.imei-devices` — NOT the timeline
+             rows, which spend most of their life inside a `hidden` panel where an
+             IntersectionObserver can never reach them and would leave them permanently
+             invisible the moment a visitor picked the second handset. --}}
+        <div class="imei-console">
             {{-- The query side. --}}
             <div class="imei-pick">
                 <label class="imei-pick__label" for="imei-input">شناسهٔ دستگاه را وارد کنید</label>
@@ -221,7 +226,7 @@
                 <div class="imei-field">
                     <input class="imei-field__input nums" id="imei-input" type="text"
                            inputmode="numeric" autocomplete="off" spellcheck="false"
-                           maxlength="24" dir="ltr" placeholder="354879116234901"
+                           maxlength="24" dir="ltr" placeholder="{{ $lead }}"
                            aria-describedby="imei-hint" data-imei-input>
                     <span class="imei-field__mark" aria-hidden="true">
                         @include('landing.icon', ['name' => 'scan', 'size' => 20])
@@ -233,9 +238,15 @@
                     رقم‌به‌رقم تایپ کنید.
                 </p>
 
-                <ul class="imei-devices" data-imei-devices>
+                {{-- `role="list"`: Safari + VoiceOver drop list semantics from a list
+                     styled `list-style: none`, and this is one. --}}
+                <ul class="imei-devices" role="list" data-imei-devices>
                     @foreach ($devices as $device)
-                        <li>
+                        {{-- The section's one `.rise` level: a list of peers, always in
+                             the document and never hidden, so the observer can always
+                             finish what it starts. `--i` is written per-parent by
+                             landing.js. --}}
+                        <li class="rise">
                             <button type="button" class="imei-device"
                                     data-imei-pick="{{ $device['imei'] }}"
                                     aria-pressed="{{ $loop->first ? 'true' : 'false' }}">
@@ -266,7 +277,10 @@
                             <span class="imei-state">{{ $device['state'] }}</span>
                         </header>
 
-                        <ol class="imei-track">
+                        {{-- `role="list"` for the same reason, and the `--i` below is
+                             the stylesheet's own row delay on a panel swap, not the
+                             entry stagger — these rows carry no `.rise`. --}}
+                        <ol class="imei-track" role="list">
                             @foreach ($device['events'] as $event)
                                 <li class="imei-ev" style="--i:{{ $loop->index }}"
                                     @if ($event['pending'] ?? false) data-pending @endif>
@@ -325,7 +339,7 @@
             paragraphs opening with the same word, 120 words apart, on the page's most
             negative message. One line here, the full answer there.
         --}}
-        <p class="imei-honesty rise">
+        <p class="imei-honesty">
             همتا API عمومی ندارد، پس ثبت نهایی را خودتان انجام می‌دهید — موبایل‌یار وضعیت هر
             دستگاه را نگه می‌دارد و یادآوری می‌کند.
         </p>

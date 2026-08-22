@@ -124,6 +124,54 @@
   | emphasis. Two sizes, and the large one means "this is an anchor".
   */
   --text-section-lg: clamp(2rem, 4.4vw, 3.5rem);
+
+  /* ================================================== THE SHARED CONTRACT ===
+   | Four engineers built the eight sections in parallel without one of these, and
+   | each invented its own radius scale, its own breakpoints and its own entry
+   | motion. The page arrived with six radii, nine breakpoints and four motion
+   | ideas. This block is the arbitration. Nothing below may add a step to any of
+   | these scales; a section that needs a value not listed here is wrong about
+   | what it needs.
+   */
+
+  /* --- radii ---------------------------------------------------------------
+     Four steps, and the largest is RESERVED exactly the way --text-section-lg is:
+     it means "anchor", and only the page's two navy hero-class objects may take
+     it. The visible offender was the hero panel at 24px against every other large
+     panel at 20px — an accident that read as a system nobody could find. Now the
+     hero panel is 28px *because* it is an anchor, and everything else is 20px.
+
+     Pills (999px) are not a step on this scale. A pill is a shape, not a corner. */
+  --radius-sm: 0.5rem; /* 8px  — inline marks: module tags, doc badges, small chips */
+  --radius-md: 0.75rem; /* 12px — objects you touch: buttons, inputs, slips, frames, tiles */
+  --radius-lg: 1.25rem; /* 20px — every large panel, without exception */
+  --radius-xl: 1.75rem; /* 28px — ANCHORS ONLY: the hero counter, the closing card */
+
+  /* --- breakpoints ---------------------------------------------------------
+     Three, and they are named here so a section file cannot quietly invent a
+     tenth. Between 900 and 1200 NOTHING reflows — that window was where the hero
+     was still one column while every section under it had two, and five separate
+     reflows between 860 and 1024 is why the page fell apart when it was dragged.
+
+       640px  --bp-s  repeating item grids go 1 → 2 columns. Nothing else.
+       900px  --bp-m  THE line. Every second column on this page appears here, at
+                      once: the hero, both mastheads, the imei console, the tariff
+                      rows, the faq aside, the closing lockup. One width, one
+                      reflow, whole page.
+       1200px --bp-l  UPGRADES only, never a first reflow: the tour's twelve-column
+                      spans and the wide gutters. Anything that only appears here
+                      must have been legible at 900.
+
+     Custom properties cannot be used in a media query, so these are documentation
+     rather than machinery — grep for them before writing `@media`. */
+  --bp-s: 640px;
+  --bp-m: 900px;
+  --bp-l: 1200px;
+
+  /* --- entry motion --------------------------------------------------------
+     ONE rule, stated below in the motion section and repeated nowhere else:
+     `.rise` is applied at exactly one level per section — the level at which the
+     section's content is a list of peers. See the block at the foot of this file. */
 }
 
 /* ---------------------------------------------------------------- base ---- */
@@ -154,7 +202,7 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 h1,
@@ -183,7 +231,8 @@ h3 {
   margin-inline: auto;
 }
 
-@media (max-width: 520px) {
+/* 639, not 519: the shell's gutter change is the small breakpoint, not a tenth one. */
+@media (max-width: 639px) {
   .shell {
     width: min(1120px, 100% - 2rem);
   }
@@ -223,9 +272,47 @@ h3 {
   margin-block-end: clamp(2.25rem, 4vw, 3.25rem);
 }
 
-/* Centred heads. A section title aligned to the inline-start edge of a 1120px column
-   leaves two thirds of the line empty, and five of those down a page is most of the
-   "too much white" complaint. The hero stays asymmetric; everything below is centred. */
+/* ======================================================= THE MASTHEAD RULE ===
+ | Six of the eight sections opened the same way: a heading on one side, a supporting
+ | line on the other, baseline-aligned. Repeated six times, an asymmetric masthead is
+ | not composition — it is a template, and it is the shape the owner was pointing at.
+ |
+ | EXACTLY TWO sections keep it, and they keep it because in both cases the asymmetry
+ | is structural rather than decorative:
+ |
+ |   · problems (3) — the head IS the ledger's first row. Title in the complaint
+ |     column, lede in the answer column, on the same grid as the six rows beneath
+ |     it. Remove the second column and the list loses its header.
+ |   · pricing (6)  — title at the inline-start, the billing switch at the inline-end.
+ |     The control sits beside the numbers it changes. That is function, and it is
+ |     the only place on the page where the far side of a head is interactive.
+ |
+ | They are three sections apart, which is the other half of the decision: two
+ | mastheads back to back would read as the same template twice.
+ |
+ | The other six open differently, and differently from EACH OTHER:
+ |
+ |   1 hero    — no head. A kicker: short accent rule running into a caption, then
+ |               the title. The only place on the page that device appears.
+ |   2 trust   — no head. One sentence with a leader rule running out of it into the
+ |               proofs. There is nothing to introduce.
+ |   4 imei    — a serial-first lockup. The section names its subject before it says
+ |               a word: a real IMEI, Latin and dir="ltr", set in accent-lit above a
+ |               single-column H2 at --text-section-lg. Nothing sits opposite it. The
+ |               three questions move down into the record and become the timeline's
+ |               row labels, which is where they are actually answered.
+ |   5 tour    — a single-line running head, already built: title and claim on one
+ |               baseline with a hairline under the pair. No second block.
+ |   7 faq     — no head above the list at all. Title, lede and the contact line ARE
+ |               the sticky aside column beside the questions, and they travel with
+ |               the reader down all six.
+ |   8 closing — not a head but a CTA lockup: heading and lede at the inline-start,
+ |               the two buttons at the inline-end, centre-aligned rather than
+ |               baseline-aligned, with no supporting caption and no rule.
+ |
+ | `.sec__head--center` below is retained for nothing on this page. Do not reach for
+ | it: a centred eyebrow over a centred H2 is the tell that started all of this.
+ */
 .sec__head--center {
   text-align: center;
 }
@@ -452,7 +539,7 @@ h3 {
   gap: 0.5rem;
   min-block-size: 2.75rem; /* 44px touch target */
   padding-inline: 1.25rem;
-  border-radius: 0.625rem;
+  border-radius: var(--radius-md);
   font-weight: 700;
   font-size: 0.9375rem;
   cursor: pointer;
@@ -758,7 +845,7 @@ h3 {
   gap: 0.75rem;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 640px) {
   .strip__row {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
@@ -772,7 +859,7 @@ h3 {
   font-weight: 500;
   color: var(--color-navy);
   padding: 0.625rem 0.75rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-md);
   background: var(--color-page);
   border: 1px solid var(--color-hair);
   box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
@@ -817,7 +904,7 @@ h3 {
 .feature__icon {
   inline-size: 2.875rem;
   block-size: 2.875rem;
-  border-radius: 0.875rem;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   color: var(--color-accent);
@@ -842,7 +929,7 @@ h3 {
    reads as a screen. */
 .shot {
   position: relative;
-  border-radius: 1.25rem;
+  border-radius: var(--radius-lg);
   padding: clamp(0.75rem, 1.8vw, 1.5rem);
   background: linear-gradient(155deg, var(--color-page-tint) 0%, var(--color-page-alt) 58%, var(--color-page) 100%);
   border: 1px solid var(--color-hair);
@@ -942,7 +1029,7 @@ h3 {
 /* Light browser chrome — a hairline and three dots, not a photorealistic device. */
 .frame {
   border: 1px solid var(--color-hair);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-page);
   box-shadow: var(--shadow-lift);
@@ -987,7 +1074,7 @@ h3 {
   padding: 0.875rem clamp(1.25rem, 4vw, 2.5rem);
   max-inline-size: 100%;
   border: 1px solid color-mix(in srgb, var(--color-accent-lit) 30%, transparent);
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   box-shadow: inset 0 0 40px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
@@ -1012,7 +1099,7 @@ h3 {
   text-align: start;
 }
 
-@media (min-width: 760px) {
+@media (min-width: 900px) {
   .imei__trail {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1021,7 +1108,7 @@ h3 {
 .imei__step {
   background: color-mix(in srgb, var(--color-navy-800) 82%, transparent);
   border: 1px solid color-mix(in srgb, #fff 10%, transparent);
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   padding: 1.75rem 1.5rem 1.5rem;
   position: relative;
 }
@@ -1104,7 +1191,7 @@ h3 {
   align-items: stretch;
 }
 
-@media (min-width: 880px) {
+@media (min-width: 900px) {
   .plans {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1112,7 +1199,7 @@ h3 {
 
 .plan {
   border: 1px solid var(--color-hair);
-  border-radius: 1.125rem;
+  border-radius: var(--radius-lg);
   padding: 2rem 1.75rem;
   background: var(--color-page);
   display: flex;
@@ -1137,7 +1224,7 @@ h3 {
   box-shadow: var(--shadow-band);
 }
 
-@media (min-width: 880px) {
+@media (min-width: 900px) {
   .plan[data-featured='true'] {
     /* Half a step taller than its neighbours — enough to read as chosen, not enough to
        break the row. */
@@ -1234,7 +1321,7 @@ h3 {
 
 .addons {
   margin-block-start: 3rem;
-  border-radius: 1.125rem;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-hair);
   background: var(--color-page-alt);
   padding: clamp(1.5rem, 3vw, 2.25rem);
@@ -1252,7 +1339,8 @@ h3 {
   }
 }
 
-@media (min-width: 960px) {
+/* 1200: an upgrade, never a first reflow — this grid is already two columns at 640. */
+@media (min-width: 1200px) {
   .addons__grid {
     grid-template-columns: repeat(4, 1fr);
   }
@@ -1286,7 +1374,7 @@ h3 {
 .faq details {
   background: var(--color-page);
   border: 1px solid var(--color-hair);
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   padding-inline: 1.375rem;
   box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
   transition: border-color 180ms ease, box-shadow 180ms ease;
@@ -1358,7 +1446,8 @@ h3 {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 1.75rem;
+  /* An ANCHOR. One of exactly two objects on the page entitled to this step. */
+  border-radius: var(--radius-xl);
   padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 4rem);
   text-align: center;
   background:
@@ -1436,7 +1525,7 @@ h3 {
 .field {
   min-block-size: 2.75rem;
   padding-inline: 0.875rem;
-  border-radius: 0.625rem;
+  border-radius: var(--radius-md);
   background: var(--color-page);
   border: 1px solid var(--color-hair);
   color: var(--color-navy);
@@ -1450,12 +1539,37 @@ h3 {
 
 /* --------------------------------------------------------------- motion --- */
 /*
- | The whole of it.
+ | The whole of it, and THE ONE RULE.
  |
  | A 260ms fade-and-rise as a section enters, once, driven by IntersectionObserver. No
  | animation library, no scroll listener, no scrub, no pin. The rejected direction
  | needed ~50KB of GSAP and Lenis to do its work; this needs none, and the
  | reduced-motion branch is satisfied by having almost nothing to switch off.
+ |
+ | ## THE RULE — every section follows it, no section states its own
+ |
+ |   `.rise` is applied at exactly ONE level per section: the level at which the
+ |   section's content is a list of PEERS — a ledger row, a tour tile, a plan row,
+ |   a question. Never on the container above that level, never on a leaf below it,
+ |   and never on both. The section head never rises.
+ |
+ |   The stagger is `min(index, 3) × 60ms`, capped at 180ms, written by landing.js
+ |   as `--i` on each risen block.
+ |
+ | That single sentence fixes all four of the answers the parallel build produced:
+ | problems and tour were putting `.rise` on every item with an uncapped stagger, so a
+ | six-row list took 600ms to finish arriving and read as a slideshow; pricing put ONE
+ | `.rise` on the whole list, so three plans arrived as a slab; faq faded two blocks,
+ | one of which was its heading; hero and trust had none, so the top of the page and
+ | the section under it behaved differently from everything below.
+ |
+ | The cap is the important half. It is LESS motion than the page had, not more —
+ | ADR 0016's diagnosis was that the answer to «بی‌روح» is weight, not movement, and a
+ | stagger that keeps going past the fourth item is movement pretending to be weight.
+ |
+ | Above the fold there is nothing to observe, so hero and trust take no `.rise` at
+ | all: an element that is already on screen when the observer first fires must not
+ | animate, or the visitor watches the page assemble itself.
  |
  | `.rise` is made invisible ONLY when the observer is actually running (`data-io` is
  | set by landing.js). With no JavaScript the page is simply a page.
@@ -1470,17 +1584,10 @@ h3 {
   opacity: 1;
   transform: none;
   transition: opacity 260ms ease-out, transform 260ms ease-out;
-}
-
-/* A short stagger inside a feature row: the text settles, then its screenshot. 60ms is
-   under the threshold where a delay reads as lag, and it is what makes five identical
-   rows feel authored rather than generated. */
-[data-io='on'] .feature[data-seen='true'] .feature__text {
-  transition-delay: 40ms;
-}
-
-[data-io='on'] .feature[data-seen='true'] .shot {
-  transition-delay: 100ms;
+  /* The whole stagger, for every section. `--i` is the peer's index within its list,
+     already clamped to 3 by landing.js — so the fourth row and the ninth arrive
+     together and no list is ever still assembling itself half a second in. */
+  transition-delay: calc(min(var(--i, 0), 3) * 60ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1492,6 +1599,10 @@ h3 {
     opacity: 1 !important;
     transform: none !important;
     transition: none !important;
+    /* The stagger is a delay, and a delay on nothing is still a delay: without this
+       the first paint of a risen block waits up to 180ms for a transition that has
+       been switched off. */
+    transition-delay: 0s !important;
   }
 
   /* The rail is filled and the nodes are lit, statically. Reduced motion gets the
@@ -1549,7 +1660,7 @@ h3 {
 .auth__card {
   background: var(--color-page);
   border: 1px solid var(--color-hair);
-  border-radius: 1.5rem;
+  border-radius: var(--radius-xl);
   min-block-size: calc(100dvh - 2.5rem);
   padding: clamp(1.5rem, 3vw, 2.5rem);
   display: grid;
@@ -1617,7 +1728,7 @@ h3 {
   margin-block-end: 1rem;
 }
 
-@media (min-width: 620px) {
+@media (min-width: 640px) {
   .auth__grid--two {
     grid-template-columns: 1fr 1fr;
   }
@@ -1636,7 +1747,7 @@ h3 {
   min-block-size: 3.5rem;
   padding-inline: 1.125rem;
   border: 1px solid var(--color-hair);
-  border-radius: 0.875rem;
+  border-radius: var(--radius-md);
   background: var(--color-page);
   color: var(--color-navy);
   font-family: var(--font-sans);
@@ -1676,7 +1787,7 @@ h3 {
   place-items: center;
   color: var(--color-navy-mute);
   cursor: pointer;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
 }
 
 .auth__reveal:hover {
@@ -1696,7 +1807,7 @@ h3 {
   border: 1px solid #f0c8c5;
   background: #fdf3f2;
   color: #8c1d18;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-md);
   padding: 0.875rem 1rem;
   font-size: 0.875rem;
   margin-block-end: 1.25rem;

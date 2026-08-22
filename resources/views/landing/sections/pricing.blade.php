@@ -55,15 +55,22 @@
     $chipLimit = 8;
 @endphp
 
-<section class="sec" id="pricing">
+<section class="sec" id="pricing" aria-labelledby="tariff-title">
     <div class="shell">
 
-        {{-- The head is asymmetric on purpose: title and argument on the inline-start,
-             the billing control on the inline-end. A centred eyebrow over a centred H2
-             is the page's other signature tell, and it is not repeated here. --}}
-        <header class="tariff__head rise">
+        {{-- The head is asymmetric on purpose, and it is one of only two mastheads left
+             on the page — §3's, and this one. The test the other five failed: is the far
+             column doing work no other arrangement could do? Here it is. This is the one
+             head on the page whose far side is a CONTROL rather than a second sentence,
+             and the control sits beside the numbers it changes, where a shopkeeper's eye
+             already is when he wonders what a year costs. The two survivors are three
+             sections apart so they never read as a repeated template.
+
+             No `.rise` on the head — the section's entry motion lives on the plan rows
+             and nowhere else. --}}
+        <header class="tariff__head">
             <div>
-                <h2 class="tariff__title">قیمت همینی است که می‌بینید</h2>
+                <h2 class="tariff__title" id="tariff-title">قیمت همینی است که می‌بینید</h2>
                 <p class="tariff__lede">
                     ۱۴ روز اول رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را
                     بالا و پایین ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
@@ -81,7 +88,13 @@
             </div>
         </header>
 
-        <div class="tariff__list rise">
+        {{-- `.rise` is on the plan ROWS, not on this sheet. The whole sheet carrying it
+             made the section arrive as one slab — a single 40px lift of a 600px-tall
+             object, which is the heaviest piece of motion on the page and says nothing,
+             because a slab has no internal order to reveal. The rows are the peers, so
+             the rows are the level: three of them, 60ms apart, and the reader's eye
+             travels down the ladder in the direction he is about to read it. --}}
+        <div class="tariff__list">
             @foreach ($plans as $plan)
                 @php
                     $recommended = $plan->code === 'pro';
@@ -89,7 +102,7 @@
                     $overflow = $modules->count() - $chipLimit;
                 @endphp
 
-                <article class="tariff__plan" data-recommended="{{ $recommended ? 'true' : 'false' }}">
+                <article class="tariff__plan rise" data-recommended="{{ $recommended ? 'true' : 'false' }}">
                     <div class="tariff__id">
                         {{-- The owner's own words for this mark, from the brief. Navy fill,
                              white label: 18.1:1, and it does not need the accent. --}}
@@ -148,7 +161,10 @@
         {{-- Add-ons as shelf price tags rather than a four-column grid of name/price
              pairs. A shopkeeper reads a price tag without being taught how, and it keeps
              the section's one repeated shape from being "another grid of cards". --}}
-        <div class="tariff__addons rise">
+        {{-- No `.rise`: one level per section, and this section spent it on the plan
+             rows. The add-on shelf is a footnote to the ladder above it and arrives with
+             the page, which is also the honest reading of it — it is not a fourth plan. --}}
+        <div class="tariff__addons">
             <h3 class="tariff__addons__title">ماژول‌ها را جدا هم می‌فروشیم</h3>
             <p class="tariff__addons__lede">
                 اگر فقط یک چیز از پلن‌تان کم بود، لازم نیست پلن بالاتر بخرید؛ همان یکی را

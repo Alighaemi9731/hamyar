@@ -28,7 +28,10 @@
  | ## Two gates
  |
  | · `prefers-reduced-motion` — nothing runs, and hero.css pins `--fold` as well.
- | · Below 1024px the hero is a single column and the panel is full width; the pile was
+ | · Below 900px — the page's single reflow line, `--bp-m` in landing.css, and the width
+ |   at which .pitch__grid becomes two columns. Keep the two numbers equal: the pile is
+ |   composed for the spread, so if they ever drift apart one of them is wrong. Below it
+ |   the hero is a single column and the panel is full width; the pile was
  |   composed for the two-column layout, so a phone gets the still. The gate is live: a
  |   window dragged across the breakpoint picks up or drops the effect, and dropping it
  |   restores the finished state rather than freezing a half-squared pile.
@@ -37,7 +40,7 @@
 const panel = document.querySelector('[data-counter]');
 
 if (panel && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  const wide = window.matchMedia('(min-width: 1024px)');
+  const wide = window.matchMedia('(min-width: 900px)');
 
   let queued = false;
 

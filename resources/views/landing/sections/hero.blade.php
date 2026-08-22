@@ -36,6 +36,10 @@
     Four properties this had to satisfy, three of them learned the expensive way in
     ADR 0016:
 
+    · **It is never empty on arrival — and never illegible on arrival either.** The pile
+      is not a heap: the slip on top of it lies flat and square and is the invoice, so a
+      visitor who never scrolls still reads one whole document off the panel. Complete
+      and unreadable is its own version of the blank sheet. See the geometry note below.
     · **It is never empty on arrival.** The panel, its heading, all four slips and every
       word on them are painted at first paint. Scroll changes where the slips *sit*, not
       whether they exist. The rejected direction drove a whole receipt from scroll
@@ -114,8 +118,27 @@
                 <span class="counter__day">امروز</span>
             </div>
 
-            <ol class="counter__list">
-                <li class="counter__slip" style="--k:1.5;--dx:-0.9rem;--r:-3.6deg;--z:1">
+            {{--
+                ## The pile, and the one document that is always readable
+
+                `--k` is the slip's travel (fixed by its row: 1.5, 0.5, -0.5, -1.5) and is
+                not a taste decision. `--dx`, `--r` and `--z` are, and they are set here
+                against a rule the first build did not have:
+
+                **the slip on top of the pile is square and unrotated, and it is the
+                invoice.** At `--fold: 0` — the first ~45% of a viewport, which is the
+                first thing anybody sees of this product — four opaque slips converge on
+                the middle of the panel. Whichever one lands on top is the only one being
+                read, so it must be worth reading and it must be flat: `--r:0deg`,
+                `--dx:0`, `--z:4`. The other three keep their tilt and fan out from under
+                it, which is what makes it a pile instead of a card.
+
+                Given three rejections this is the highest-risk taste call on the page:
+                the visitor must be able to read one real document — a real handset, a
+                real amount, a real time of day — without scrolling a pixel.
+            --}}
+            <ol class="counter__list" role="list">
+                <li class="counter__slip" style="--k:1.5;--dx:-1.1rem;--r:-4.4deg;--z:1">
                     <span class="counter__kind">قبض پذیرش</span>
                     <span class="counter__what">آیفون ۱۳ — تعویض گلس</span>
                     <span class="counter__meta">
@@ -127,7 +150,8 @@
                     </span>
                 </li>
 
-                <li class="counter__slip" style="--k:0.5;--dx:0.7rem;--r:2.4deg;--z:2">
+                {{-- The top of the pile: flat, square, fully legible at `--fold: 0`. --}}
+                <li class="counter__slip" style="--k:0.5;--dx:0rem;--r:0deg;--z:4">
                     <span class="counter__kind">فاکتور فروش</span>
                     <span class="counter__what">سامسونگ گلکسی <span dir="ltr">A54</span> — یک دستگاه</span>
                     <span class="counter__meta">
@@ -139,7 +163,7 @@
                     </span>
                 </li>
 
-                <li class="counter__slip" style="--k:-0.5;--dx:-0.6rem;--r:-1.8deg;--z:3">
+                <li class="counter__slip" style="--k:-0.5;--dx:0.85rem;--r:3.1deg;--z:2">
                     <span class="counter__kind">چک</span>
                     <span class="counter__what">بانک ملت — سررسید <span class="nums">۱۴۰۵/۰۷/۱۲</span></span>
                     <span class="counter__meta">
@@ -151,7 +175,7 @@
                     </span>
                 </li>
 
-                <li class="counter__slip" style="--k:-1.5;--dx:0.9rem;--r:3.2deg;--z:4">
+                <li class="counter__slip" style="--k:-1.5;--dx:-0.5rem;--r:2deg;--z:3">
                     <span class="counter__kind">قسط</span>
                     <span class="counter__what">قسط <span class="nums">۳</span> از <span class="nums">۱۲</span> — سررسید امروز</span>
                     <span class="counter__meta">

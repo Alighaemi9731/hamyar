@@ -32,7 +32,21 @@ if (stage) {
   const input = document.querySelector('[data-imei-input]');
   const buttons = [...document.querySelectorAll('[data-imei-pick]')];
 
-  const quiet = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /*
+   | There is deliberately no `matchMedia('(prefers-reduced-motion: reduce)')` read in
+   | this file. There used to be one, and it gated the `data-fresh` write — which meant
+   | the stylesheet's reduced-motion branch, the 140ms fade written to replace the
+   | timeline cascade, could never run: the attribute it hangs off was never written for
+   | exactly the users it was written for. They got an instant, unannounced swap, i.e.
+   | the one outcome the branch existed to prevent.
+   |
+   | The attribute is a statement of FACT — "this record was just chosen" — not a
+   | request for an animation. Facts belong in the markup and policy belongs in the
+   | stylesheet, where `@media (prefers-reduced-motion: reduce)` already lives and
+   | cannot fall out of step with a boolean read once at load. Note the old read was
+   | also stale by construction: a visitor who turns the preference on after the page
+   | loads kept the cascade, because nothing was listening for the change.
+   */
 
   /*
    | Persian (U+06F0) and Arabic-Indic (U+0660) digits both land on a numeric keypad in
@@ -48,11 +62,12 @@ if (stage) {
   /**
    * Show one record.
    *
-   * `fresh` marks the panel so the stylesheet replays the timeline cascade. Removing
-   * and re-adding the attribute in the same frame does nothing on its own — the browser
-   * coalesces both writes and the animation never restarts — so the layout read between
-   * them is load-bearing, not a leftover. Under reduced motion the attribute is never
-   * written and the CSS branch is never needed.
+   * `fresh` marks the panel as just-chosen; what that looks like is the stylesheet's
+   * decision — the timeline cascade normally, a 140ms fade of the whole record under
+   * reduced motion. Removing and re-adding the attribute in the same frame does nothing
+   * on its own — the browser coalesces both writes and the animation never restarts —
+   * so the layout read between them is load-bearing, not a leftover, and it is needed
+   * for either branch.
    */
   const show = (panel, fresh) => {
     for (const other of panels) {
@@ -66,7 +81,7 @@ if (stage) {
       button.setAttribute('aria-pressed', String(button.dataset.imeiPick === panel.dataset.imei));
     }
 
-    if (fresh && !quiet) {
+    if (fresh) {
       void panel.offsetWidth; // force a layout so the animation is re-entered
       panel.setAttribute('data-fresh', '');
     }
