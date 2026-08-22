@@ -418,9 +418,37 @@ ok "tree synced"
 remote_detached() {
     local name="$1" command="$2" log_file="/tmp/mobishop-release-$1.log"
 
-    ssh "$MOBISHOP_SSH" \
+    # ## `&` binds the LIST, not the last command — and that made this synchronous
+    #
+    # The first version of this line read
+    #
+    #     ssh … "cd '$PATH' && rm -f LOG LOG.done && nohup sh -c '…' >/dev/null 2>&1 & echo detached"
+    #
+    # In `A && B && C & D`, the `&` backgrounds the whole `A && B && C` list, not just C.
+    # So the remote shell forked a subshell that ran cd, rm, and then WAITED on the nohup —
+    # with its own stdout and stderr still attached to the ssh channel, because the
+    # `>/dev/null 2>&1` applied to `nohup` alone. ssh does not close a channel while a
+    # process still holds it, so the launch blocked for the entire remote run.
+    #
+    # It looked correct: "detached" came back at once, the deploy worked, the sentinel was
+    # written. But the poll loop below never executed a single iteration, and the drop
+    # protection this whole helper exists for was not there at all — a link failure would
+    # have killed the remote command exactly as before. Measured rather than reasoned:
+    # a 30-second remote command returned in 32.4s; the form below returns in 2.4s and the
+    # remote work goes on to completion after the channel is gone.
+    #
+    # Three things make it real, and all three are load-bearing:
+    #   `{ … & }` backgrounds only the nohup, so cd and rm stay in the foreground and their
+    #             failures are still reported;
+    #   `< /dev/null > /dev/null 2>&1` gives the background process none of the channel's
+    #             descriptors to hold open;
+    #   `setsid`  puts it in its own session, so tearing down the ssh session cannot signal
+    #             it. `nohup` alone covers SIGHUP; it does not cover the session.
+    ssh -n -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" \
         "cd '$MOBISHOP_PATH' && rm -f '$log_file' '$log_file.done' && \
-         nohup sh -c '{ $command; } > $log_file 2>&1; echo \$? > $log_file.done' >/dev/null 2>&1 & echo detached"
+         { setsid nohup sh -c '( $command ) > $log_file 2>&1; echo \$? > $log_file.done' \
+           < /dev/null > /dev/null 2>&1 & } && echo detached" \
+        || die "could not start $name on the box"
 
     # Poll for the sentinel rather than for the process: a finished run leaves an exit
     # code behind, so this reports the same answer whether or not the link survived it.
