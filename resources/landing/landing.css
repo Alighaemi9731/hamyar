@@ -48,6 +48,15 @@
 @import '@fontsource/estedad/arabic-700.css';
 @import '@fontsource/estedad/arabic-800.css';
 
+/* The eight rebuilt sections. Each file owns only its own block. */
+@import './sections/hero.css';
+@import './sections/problems.css';
+@import './sections/imei.css';
+@import './sections/tour.css';
+@import './sections/pricing.css';
+@import './sections/faq.css';
+@import './sections/closing.css';
+
 @theme {
   /* --- ground --------------------------------------------------------------
      Three light grounds, and they must be *distinguishable*. The previous alt

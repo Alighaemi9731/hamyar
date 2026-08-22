@@ -1,0 +1,185 @@
+/*
+ | MobiYar landing — section 5, «گشت‌وگذار در محصول».
+ |
+ | Self-contained, and it defines nothing landing.css owns: the browser chrome around
+ | each shot is the shared `.frame`, the entry fade is the shared `.rise`, the ground is
+ | the shared `.sec--alt`, and every colour here is a token. What this file adds is the
+ | grid, the caption, and the masthead rule.
+ |
+ | ## The composition is the argument
+ |
+ | Six screenshots at four different widths across twelve columns — 7/5, 5/7, 4/8. The
+ | alternating text-then-screenshot row this replaces gave every screen the same size,
+ | which meant the page had to *say* which ones mattered. Scale says it instead, and
+ | scale is the one thing this page was told it had none of.
+ |
+ | ## Measured contrast — ground is `--color-page-alt` #edf2f8
+ |
+ |   navy       #0e1b2c  15.9:1   tile names, section title
+ |   navy-soft  #46586d   6.7:1   caption body
+ |   navy-mute  #5d6b7e   4.8:1   the claim line under the rule
+ |   accent     #0066cc   5.1:1   the tile index
+ |
+ | No new pair is introduced. The screenshots sit inside `.frame`, which is white, and
+ | its own values are already measured in landing.css.
+ |
+ | ## Motion
+ |
+ | None of its own. The tiles are not interactive — no hover lift, no cursor change —
+ | because nothing happens when you click them, and an affordance that leads nowhere is
+ | a small lie in a section whose entire job is to be believed. The only movement is the
+ | shared `.rise` fade, which already has its reduced-motion branch in landing.css.
+ */
+
+/* ---------------------------------------------------------------- head ---- */
+/*
+ | A masthead with a rule under it, not a centred eyebrow-and-title stack. The claim
+ | sits opposite the title because it is the thing a sceptical reader is checking, and
+ | putting it at the far end of the same line makes it read as a caption on the section
+ | rather than as marketing under a heading.
+ */
+
+.tour-head {
+  display: grid;
+  gap: 1rem;
+  padding-block-end: clamp(1.5rem, 3vw, 2rem);
+  border-block-end: 1px solid var(--color-hair);
+  margin-block-end: clamp(2rem, 4vw, 3rem);
+}
+
+@media (min-width: 860px) {
+  .tour-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 2.5rem;
+  }
+}
+
+.tour-title {
+  font-size: clamp(1.875rem, 4vw, 3rem);
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+  margin-block-end: 0.75rem;
+}
+
+.tour-lede {
+  color: var(--color-navy-soft);
+  margin: 0;
+}
+
+.tour-claim {
+  font-size: 0.875rem;
+  line-height: 1.8;
+  color: var(--color-navy-mute);
+  max-inline-size: 22rem;
+  margin: 0;
+}
+
+@media (min-width: 860px) {
+  .tour-claim {
+    text-align: end;
+  }
+}
+
+/* ---------------------------------------------------------------- grid ---- */
+
+.tour-grid {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3rem);
+}
+
+@media (min-width: 640px) {
+  .tour-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Twelve columns, and the spans are read off `data-span` in the markup so the rhythm
+   lives with the content it describes rather than in a stack of nth-child rules that
+   silently break the day a seventh screen is added. */
+@media (min-width: 960px) {
+  .tour-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: clamp(2rem, 3.5vw, 3.5rem) clamp(1.5rem, 2.5vw, 2.5rem);
+  }
+
+  .tour-item[data-span='4'] {
+    grid-column: span 4;
+  }
+
+  .tour-item[data-span='5'] {
+    grid-column: span 5;
+  }
+
+  .tour-item[data-span='7'] {
+    grid-column: span 7;
+  }
+
+  .tour-item[data-span='8'] {
+    grid-column: span 8;
+  }
+}
+
+.tour-item {
+  /* Grid children default to `min-width:auto`; a 1440px-wide image inside one will push
+     its own track wider than the row and take the page's horizontal scrollbar with it.
+     This single line is the whole of the overflow story for this section. */
+  min-inline-size: 0;
+  margin: 0;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+/* -------------------------------------------------------------- caption --- */
+
+.tour-cap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.875rem;
+  align-items: baseline;
+}
+
+/* The index. Small, tabular, in the accent — six tiles at four widths need something
+   that says which order they are read in, and this is cheaper than a numbered badge. */
+.tour-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.875rem;
+  color: var(--color-accent);
+  letter-spacing: 0.02em;
+  padding-block-start: 0.125rem;
+}
+
+.tour-cap__text {
+  display: block;
+  min-inline-size: 0;
+}
+
+.tour-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--color-navy);
+  display: block;
+  margin-block-end: 0.25rem;
+  letter-spacing: -0.016em;
+}
+
+.tour-body {
+  display: block;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: var(--color-navy-soft);
+  max-inline-size: 34rem;
+}
+
+/* A tile that gets four of twelve columns holds a caption at roughly a third of the
+   measure of one that gets eight, so the smaller tiles drop a step to keep the line
+   length inside the range Persian stays readable at. */
+@media (min-width: 960px) {
+  .tour-item[data-span='4'] .tour-body,
+  .tour-item[data-span='5'] .tour-body {
+    font-size: 0.9063rem;
+  }
+}

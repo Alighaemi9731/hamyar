@@ -1,0 +1,182 @@
+/*
+ | Section 7 — سؤالات پرتکرار.
+ |
+ | Self-contained: defines only `.qa__*`, redefines no shared class and no token. It
+ | consumes `.shell`, `.sec`, `.sec--alt`, `.nums` and `.rise` from landing.css.
+ |
+ | ## What is deliberately not here
+ |
+ | No centred eyebrow, no centred H2, no stack of rounded cards, and no chevron inside a
+ | filled circle — four of the seven shapes the owner named when he said the page looked
+ | generated. The heading is a column beside the questions; the questions are a numbered
+ | hairline list; the marker is a bare plus.
+ |
+ | ## Grounds and contrast
+ |
+ | The section sits on `page-alt` #EDF2F8 and an OPEN question turns white. That is the
+ | whole visual mechanism for "this is the one you are reading", and it is why the class
+ | list on the section element is `sec sec--alt` rather than left to the page: on a white
+ | section the open state would be invisible.
+ |
+ |   navy      #0E1B2C on #EDF2F8 → 15.9:1   (landing.css) · on #FFFFFF → 17.3:1
+ |   navy-soft #46586D on #EDF2F8 →  6.7:1   (landing.css) · on #FFFFFF →  7.3:1
+ |   accent    #0066CC on #EDF2F8 →  5.1:1   (landing.css) · on #FFFFFF →  5.6:1
+ |
+ | Every pair used below is already measured in landing.css; this section introduces none.
+ */
+
+/* ---------------------------------------------------------------- grid ---- */
+
+.qa__grid {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3rem);
+}
+
+@media (min-width: 960px) {
+  .qa__grid {
+    grid-template-columns: 19rem minmax(0, 1fr);
+    column-gap: clamp(3rem, 6vw, 5rem);
+    align-items: start;
+  }
+
+  /* Sticky, so the heading is still there at the sixth question. Offset clears the
+     sticky nav (4.5rem) with room to breathe. */
+  .qa__aside {
+    position: sticky;
+    inset-block-start: 6.5rem;
+  }
+}
+
+.qa__title {
+  font-size: var(--text-section);
+}
+
+.qa__lede {
+  color: var(--color-navy-soft);
+  margin-block-start: 0.875rem;
+}
+
+.qa__help {
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  margin-block-start: 1.5rem;
+}
+
+.qa__help a {
+  color: var(--color-accent);
+  font-weight: 700;
+  /* An address is one long unbreakable token; at 390px it has to be allowed to break
+     rather than push the column wider than the shell. */
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- list ---- */
+/*
+ | A printed sheet of questions: one hairline above the list, one under each row. The
+ | inline padding is on EVERY row, open or shut, so opening one does not shift its own
+ | text sideways — the alternative (negative inline margins on the open row) would push
+ | past the shell at 390px, and `overflow-x: clip` on the body would hide the difference
+ | rather than fix it.
+ */
+
+.qa__list {
+  border-block-start: 1px solid var(--color-hair);
+}
+
+.qa__item {
+  border-block-end: 1px solid var(--color-hair);
+  padding-inline: clamp(0.875rem, 2vw, 1.25rem);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.qa__item[open] {
+  background: var(--color-page);
+  border-radius: 0.875rem;
+  border-block-end-color: transparent;
+  box-shadow: var(--shadow-card);
+}
+
+/* ------------------------------------------------------------- question --- */
+
+.qa__q {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) 1rem;
+  align-items: center;
+  gap: 1rem;
+  /* Comfortably over the 44px floor, and it is the whole row that is the target. */
+  min-block-size: 3.75rem;
+  padding-block: 1.125rem;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1rem, 1.6vw, 1.125rem);
+  line-height: 1.5;
+  color: var(--color-navy);
+}
+
+/* Safari still paints its own triangle unless both of these are said. */
+.qa__q::-webkit-details-marker {
+  display: none;
+}
+
+.qa__q::marker {
+  content: '';
+}
+
+.qa__n {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The marker: two bars crossing, drawn in the text colour, with no disc behind them.
+   Open removes the vertical bar and turns the plus into a minus. Rotation is what makes
+   the change read as one movement rather than a glyph swap. */
+.qa__mark {
+  justify-self: end;
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--color-accent);
+  background:
+    linear-gradient(currentColor, currentColor) center / 1rem 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 2px 1rem no-repeat;
+  transition: rotate 200ms ease;
+}
+
+.qa__item[open] .qa__mark {
+  rotate: 180deg;
+  background: linear-gradient(currentColor, currentColor) center / 1rem 2px no-repeat;
+}
+
+/* --------------------------------------------------------------- answer --- */
+
+.qa__a {
+  /* Aligned under the question text rather than under its number: the number is a mark,
+     not the start of the measure. */
+  padding-inline-start: 2.75rem;
+  padding-block-end: 1.5rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  max-inline-size: 44rem;
+}
+
+@media (max-width: 520px) {
+  /* At 390px a 44px indent is a quarter of the measure. The number has done its job by
+     the time the answer is open. */
+  .qa__a {
+    padding-inline-start: 0;
+  }
+}
+
+/* -------------------------------------------------------------- motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .qa__item,
+  .qa__mark {
+    transition: none !important;
+  }
+}

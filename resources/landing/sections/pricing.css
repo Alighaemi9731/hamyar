@@ -1,0 +1,347 @@
+/*
+ | Section 6 — تعرفه‌ها.
+ |
+ | Self-contained: this file defines only `.tariff__*` and redefines no shared class and
+ | no token. It consumes `.shell`, `.sec`, `.btn*`, `.nums` and `.rise` from landing.css
+ | and expects the tokens declared there under `@theme`.
+ |
+ | ## The shape, and why it is not three cards
+ |
+ | Three cards with a dark one in the middle is a generated shape, and the owner named it
+ | as one of the tells. It is also wrong for the job: a shopkeeper is running a finger
+ | down a price list, not comparing three products on a shelf. So the plans are rows in
+ | one sheet, the prices share a column so they line up, and the recommended row is marked
+ | with a tinted ground plus a 4px accent rail on its inline-start edge.
+ |
+ | ## Contrast, measured
+ |
+ | The recommended row's ground is `--color-page-tint` #E3ECF7, which is a THIRD ground —
+ | landing.css measures its tokens against white and `page-alt` only. Measured here:
+ |
+ |   navy      #0E1B2C on #E3ECF7 → 14.3:1
+ |   navy-soft #46586D on #E3ECF7 →  6.1:1
+ |   navy-mute #5D6B7E on #E3ECF7 →  4.5:1  ← at the floor, so it is NOT used in here
+ |   accent    #0066CC on #E3ECF7 →  4.9:1  (already stated in landing.css)
+ |
+ | Because a row can be white or tinted depending on one data attribute, every secondary
+ | text colour in this section is `navy-soft` rather than `navy-mute`: one token that
+ | clears AA on both grounds beats two that each clear it on one.
+ */
+
+/* ---------------------------------------------------------------- head ---- */
+/*
+ | Asymmetric. A centred eyebrow above a centred H2 is the page's signature tell and this
+ | section does not repeat it: the argument sits at the inline-start, the control that
+ | changes the numbers sits at the inline-end, next to the numbers it changes.
+ */
+
+.tariff__head {
+  display: grid;
+  gap: 1.75rem;
+  margin-block-end: clamp(2rem, 4vw, 3rem);
+}
+
+@media (min-width: 900px) {
+  .tariff__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: 3rem;
+  }
+
+  .tariff__billing {
+    text-align: end;
+  }
+}
+
+.tariff__title {
+  font-size: var(--text-section);
+  margin-block-end: 0.875rem;
+}
+
+.tariff__lede {
+  color: var(--color-navy-soft);
+  max-inline-size: 34rem;
+}
+
+/* --------------------------------------------------------------- switch --- */
+
+.tariff__switch {
+  display: inline-flex;
+  padding: 0.25rem;
+  background: var(--color-page-alt);
+  border: 1px solid var(--color-hair);
+  border-radius: 999px;
+}
+
+.tariff__switch button {
+  /* 44px. Measured at 390px, this is the one control a shopkeeper taps while he is
+     deciding what to pay, and it is the easiest place on the page to fall under the
+     minimum without noticing. */
+  min-block-size: 2.75rem;
+  padding-inline: 1.375rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-navy-soft);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.tariff__switch button[aria-pressed='true'] {
+  background: var(--color-page);
+  color: var(--color-navy);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.12);
+}
+
+.tariff__saving {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-block-start: 0.75rem;
+}
+
+/* ---------------------------------------------------------------- list ---- */
+/*
+ | One sheet, hairline-separated. `overflow: hidden` on the sheet is what lets each row's
+ | inline-start rail and tinted ground meet the rounded corner cleanly.
+ */
+
+.tariff__list {
+  border: 1px solid var(--color-hair);
+  border-radius: 1.25rem;
+  background: var(--color-page);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.tariff__plan {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  /* Transparent on every row so the recommended one's rail costs no layout shift. */
+  border-inline-start: 4px solid transparent;
+  transition: background 200ms ease;
+}
+
+.tariff__plan + .tariff__plan {
+  border-block-start: 1px solid var(--color-hair);
+}
+
+.tariff__plan:hover {
+  background: var(--color-page-alt);
+}
+
+.tariff__plan[data-recommended='true'],
+.tariff__plan[data-recommended='true']:hover {
+  background: var(--color-page-tint);
+  border-inline-start-color: var(--color-accent);
+}
+
+@media (min-width: 900px) {
+  .tariff__plan {
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, auto) auto;
+    align-items: center;
+    column-gap: clamp(1.5rem, 3vw, 3rem);
+    row-gap: 1.5rem;
+  }
+
+  /* The module chips run the full width under the row they belong to, so a long plan
+     makes a tall row — the ladder shape is the argument. */
+  .tariff__included {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ------------------------------------------------------------ identity ---- */
+
+.tariff__pick {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-on-dark); /* 18.1:1 on navy-900 */
+  background: var(--color-navy-900);
+  border-radius: 999px;
+  padding: 0.1875rem 0.75rem;
+  margin-block-end: 0.625rem;
+}
+
+.tariff__name {
+  font-size: clamp(1.25rem, 2.4vw, 1.625rem);
+}
+
+.tariff__tag {
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  margin-block-start: 0.375rem;
+  max-inline-size: 26rem;
+}
+
+/* --------------------------------------------------------------- money ---- */
+/*
+ | `minmax(11rem, auto)` on the grid column is what makes three prices of different digit
+ | counts share a common edge. Tabular figures do the rest: «۱٬۱۹۰٬۰۰۰» and «۲۹۰٬۰۰۰»
+ | must line up under each other or the ladder cannot be read at a glance.
+ */
+
+.tariff__price {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.875rem, 5.2vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.tariff__unit {
+  font-size: 0.875rem;
+  color: var(--color-navy-soft);
+  margin-block-start: 0.25rem;
+}
+
+.tariff__year {
+  font-size: 0.8125rem;
+  color: var(--color-navy-soft);
+  font-variant-numeric: tabular-nums;
+  margin-block-start: 0.5rem;
+}
+
+/* On a phone the button is the width of the row; on a desktop row it is a button. */
+.tariff__go .btn {
+  inline-size: 100%;
+}
+
+@media (min-width: 900px) {
+  .tariff__go .btn {
+    inline-size: auto;
+  }
+}
+
+/* ------------------------------------------------------------- modules ---- */
+
+.tariff__included {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.tariff__included__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-navy-soft);
+}
+
+.tariff__mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tariff__mods li {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.7;
+  color: var(--color-navy);
+  background: var(--color-page-alt);
+  border: 1px solid var(--color-hair);
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.625rem;
+}
+
+/* On the tinted row the chips take the page ground instead, or they disappear into it. */
+.tariff__plan[data-recommended='true'] .tariff__mods li {
+  background: var(--color-page);
+}
+
+.tariff__mods li[data-more='true'] {
+  background: transparent;
+  border-style: dashed;
+  color: var(--color-navy-soft);
+}
+
+/* -------------------------------------------------------------- addons ---- */
+/*
+ | Shelf price tags, not a grid of name/price pairs. A hairline above rather than a
+ | second panel: the add-ons are a footnote to the sheet above, and giving them their own
+ | card would make them read as a fourth plan.
+ */
+
+.tariff__addons {
+  margin-block-start: clamp(2.5rem, 5vw, 3.5rem);
+  padding-block-start: clamp(2rem, 4vw, 3rem);
+  border-block-start: 1px solid var(--color-hair);
+}
+
+.tariff__addons__title {
+  font-size: 1.25rem;
+}
+
+.tariff__addons__lede {
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  margin-block-start: 0.5rem;
+  max-inline-size: 38rem;
+}
+
+.tariff__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-block-start: 1.5rem;
+}
+
+.tariff__tags li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  max-inline-size: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--color-hair);
+  border-radius: 0.75rem;
+  background: var(--color-page);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.03);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.tariff__tags li:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.tariff__tags__name {
+  font-size: 0.9375rem;
+  color: var(--color-navy);
+}
+
+.tariff__tags b {
+  font-weight: 700;
+  color: var(--color-accent); /* 5.6:1 on white */
+  font-variant-numeric: tabular-nums;
+}
+
+.tariff__tags__unit {
+  font-size: 0.75rem;
+  color: var(--color-navy-soft);
+}
+
+/* -------------------------------------------------------------- motion ---- */
+/*
+ | Everything that moves in this section is a hover transition, and reduced motion gets
+ | the end state with no travel. `.rise` is handled globally in landing.css.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .tariff__plan,
+  .tariff__switch button,
+  .tariff__tags li {
+    transition: none !important;
+  }
+}
