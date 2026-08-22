@@ -1957,3 +1957,79 @@ points at the apex while `/register`, `/login` and the shop routes moved to `app
 `OnboardingTest` ×18, `PriceListSecurityTest` ×14, `StorefrontRenderTest` ×8,
 `AuthenticatedNavigationTest` ×8, `LoginTest` ×6, and so on. The landing change touched
 three view/CSS files and moved that count by zero.
+
+---
+
+## 2026-08-22 — releases became a thing that happens, and the first two happened
+
+**`v0.12.0` and `v0.12.1` are tagged, published and live on `mobiyar.com`, verified from
+outside the box.** The session began with the opposite of that.
+
+**What it found.** Twenty-one finished commits sat on `feat/landing-immersive`. Production
+served `2e2951c6e`, five commits behind that branch's tip. `app.<apex>/login` offered a
+«ثبت نام» link pointing at the landing host, where `/register` is a 404 — a live fault whose
+fix was already written. PR #41 was red on exactly two checks; PR #40 had been green and
+unmerged for two days. Zero tags, zero releases, no `VERSION`, no `CHANGELOG`. **Nothing was
+red that anybody was looking at.** The gap was between "the code is correct", which four CI
+gates measured, and "the correct code is running", which nothing measured.
+
+**The two red checks.** Both the same fault as everything else on that branch: a page moved
+and its test did not follow. `SecurityHeadersTest` asked `/login` for a `nonce=` in markup —
+`/login` is Blade since ADR 0016 and carries no inline script, so the assertion could only
+fail there. Split: the policy's shape stays on `/login`, the stamping moved to `/design`,
+the one route rendering `app.blade.php` without a session — and it now compares the markup's
+nonce to the header's, because a mismatched nonce fails exactly like a missing one while
+each half reads as correct alone. Larastan's single error was `expect($this->registerHref)`:
+a property set in `beforeEach` is `mixed` to static analysis.
+
+**Shipped in 0.12.0.** #41 and #40 merged; the landing rebuild, the register-link fix, the
+ADR 0017 route migration across 63 test files, and the dashboard query work — where the
+traced cause was a missing tenant predicate letting Postgres scan both tables across every
+shop, not the date expression everybody suspected.
+
+**The release system**, modelled on the sibling invoice-system project (241 releases):
+`VERSION`, `CHANGELOG.md`, `docs/VERSIONING.md`, `docs/RELEASE_PROCESS.md`, `bin/release`,
+`bin/smoke`, and `/release` + `/where` as commands. `/health` now reports the version
+publicly and the exact image tag behind `X-Health-Secret`, so "is my fix live?" is a `curl`
+rather than a guess. Three decisions worth keeping: a release is **not** a commit (the
+version bump rides in the feature PR, so no `ALLOW_MAIN_PUSH` is ever needed);
+`bin/release` **refuses** while a green PR sits unmerged; and a deploy is not a release
+until `bin/smoke` says so — it *follows* the links a shopkeeper clicks rather than matching
+them, which is the only assertion that fails on the page this session's 404 was hiding on.
+
+**The repository is public** (owner decision), taken after a secret audit came back clean:
+no `.env`, no key, no host in any of 178 commits. Its most valuable consequence was
+unplanned — **branch protection is Pro-gated for private repositories and free for public
+ones**, so `main` now requires a PR and all five checks at the platform level. `CLAUDE.md`
+said in plain words that nothing here was mechanically enforced; that paragraph is rewritten,
+with the condition under which it must be written back.
+
+**Fourteen defects in the release tooling, and where each came from.**
+
+- **Twelve** from an adversarial review of `bin/release`/`bin/deploy` before either touched
+  production — 23 candidates, each handed to an independent reviewer told to refute it.
+  Three critical. The worst was not a failure mode but the happy path: `git tag` creates the
+  ref locally, so the tag-exists guard made the script single-shot and the two-step usage it
+  *prints* could never run. Also: a `bin/deploy` failure after the cutover reported "nothing
+  was cut over" — the exact 2026-08-21 shape, reported as its own opposite; three gates that
+  failed **open** on a GitHub hiccup; and `rsync ./` shipping the working copy while the
+  tarball and its SHA-256 asserted a different tree.
+- **One** from the first real release: `remote_detached` was not detached. In
+  `A && B && C & D` the `&` backgrounds the whole list, so the remote shell forked a subshell
+  that waited on the `nohup` with its stdout still on the ssh channel. Everything looked
+  right — and the poll loop never ran one iteration, so the drop protection was decorative.
+  Measured: 32.4s versus 2.4s for a 30-second remote command.
+- **One** from asking what a loop does when it matches nothing: `bin/smoke`'s landing check
+  matched only absolute hrefs and looped over what it found. A switch to relative paths, or a
+  redesign dropping the CTAs, and it would report **no checks at all** while declaring the
+  front door healthy.
+
+That last pair is the same lesson twice, and it is the one worth keeping: **a gate that
+passes because it cannot see is worse than no gate**, because it also stops anybody looking.
+
+**Open, and deliberately not claimed as fixed.** The dashboard's p95 was measured under k6
+load on 2026-08-20 at 2.03s against a 1000ms threshold. The query fix is live and the
+pathology is gone from the top of `pg_stat_statements` — no statement on the box now exceeds
+11.5ms mean over 2,000,001 invoices — but those stats span both sides of the deploy and
+idle-state timings are not a load test. **Re-run the k6 suite before calling that finding
+closed.**
