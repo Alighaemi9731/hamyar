@@ -7,6 +7,57 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/mobishop/releases>.
 
+## 0.12.1 - 2026-08-22
+
+**The detached deploy was not detached.** PATCH — `bin/release` only; no application
+change, no migration.
+
+Found by the first real release, which is the only place it could have been found. Twelve
+defects had already been fixed after an adversarial review of these scripts; this is the
+thirteenth, and no amount of reading was going to catch it.
+
+`remote_detached` launched the remote work like this:
+
+```sh
+ssh … "cd '$PATH' && rm -f LOG LOG.done && nohup sh -c '…' >/dev/null 2>&1 & echo detached"
+```
+
+In `A && B && C & D`, **the `&` backgrounds the whole `A && B && C` list, not just `C`.**
+So the remote shell forked a subshell that ran `cd`, `rm`, and then *waited* on the
+`nohup` — with its own stdout and stderr still attached to the ssh channel, because the
+`>/dev/null 2>&1` bound to `nohup` alone. ssh will not close a channel a process still
+holds, so the launch blocked for the entire remote run.
+
+Everything about it looked right. `detached` came back instantly, the build ran, the
+deploy ran, the sentinel was written, the release worked. **And the poll loop below it
+never executed a single iteration** — the drop protection this helper exists for was not
+there at all. A link failure would have killed the remote command exactly as it did on
+2026-08-21, the fault the helper was written to prevent.
+
+Measured rather than reasoned: a 30-second remote command returned in **32.4s** under the
+old form and **2.4s** under the new one, with the remote work going on to completion after
+the channel closed. Three things make it work, and all three are load-bearing —
+`{ … & }` so only the `nohup` is backgrounded and `cd`/`rm` failures are still reported;
+`< /dev/null > /dev/null 2>&1` so the background process holds none of the channel's
+descriptors; and `setsid` so tearing down the ssh session cannot signal it (`nohup` covers
+SIGHUP, not the session).
+
+The wrapped command also moved from `{ … }` to `( … )`. A command that calls `exit` in the
+grouping form exits the whole wrapper, so `echo $? > LOG.done` never runs and the poller
+waits out its full thirty minutes on a command that finished in seconds. `bin/deploy` is a
+separate process and was never exposed to it; the subshell removes the edge anyway.
+
+Both paths were then exercised against the production box before this shipped: a
+25-second success detected by the poll loop, and a genuinely failing `docker build`
+reported with the box's own error text and a non-zero return.
+
+### This is what the repository already says about deploy-layer bugs
+
+`CLAUDE.md` argues there is no staging box because Phase 11.4 found eleven faults on real
+hardware and *not one of them was reachable from a local test*. This defect is the same
+shape: green CI, a passing review, a working release — and a safety mechanism that was
+decorative. It took running the real thing against the real box to see it.
+
 ## 0.12.0 - 2026-08-22
 
 **A change that is finished is now a change that is live.** MINOR — the first versioned
