@@ -16,7 +16,7 @@
  *
  * ## Run
  *
- *   docker run --rm --network mobishop_default -i \
+ *   docker run --rm --network hamyar_default -i \
  *     -v "$PWD/tests/Load:/scripts" grafana/k6 run /scripts/endpoints.js
  */
 import http from 'k6/http';

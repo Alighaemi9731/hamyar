@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# MobiShop — zero-downtime release.
+# Hamyar — zero-downtime release.
 #
-#   bin/deploy ghcr.io/you/mobishop-app:9f2c1ab
+#   bin/deploy ghcr.io/you/hamyar-app:9f2c1ab
 #   bin/deploy <image> --rollback     # cut straight back, no migrations
 #
 # Run ON the server, from the directory holding compose.prod.yaml and .env.production.

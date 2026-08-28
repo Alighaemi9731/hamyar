@@ -1,4 +1,4 @@
-# MobiShop
+# Hamyar — «سامانه همیار»
 
 Multi-tenant SaaS for mobile-phone shops in Iran. POS with serialized IMEI inventory,
 a repairs workflow, CRM, cheques, installments, treasury, SMS and reporting — sold as

@@ -47,7 +47,7 @@ return [
             'provider' => 'users',
         ],
 
-        // MobiShop staff, on the central domain. A separate guard and a separate
+        // Hamyar staff, on the central domain. A separate guard and a separate
         // table so a compromised shop account can never reach the platform panel.
         'platform' => [
             'driver' => 'session',

@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * MobiShop — apex-domain gate (golden rule 1b).
+ * Hamyar — apex-domain gate (golden rule 1b).
  *
  * ## The rule
  *
@@ -27,7 +27,7 @@ declare(strict_types=1);
  *
  * ## What it does not flag, on purpose
  *
- * Comments and docblocks. `routes/web.php` says "Central routes — app.mobishop.ir" as
+ * Comments and docblocks. `routes/web.php` says "Central routes — app.hamyar.ir" as
  * an illustration and that is genuinely useful; flagging it would make the gate a
  * nuisance, and a gate that cries wolf is one somebody comments out. Only code is
  * checked — the same reasoning as `bin/check-direction-classes`.

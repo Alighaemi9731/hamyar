@@ -7,7 +7,7 @@
 
 ## Context
 
-MobiShop spans eighteen functional areas — from POS to repairs to tax reporting —
+Hamyar spans eighteen functional areas — from POS to repairs to tax reporting —
 built by a very small team. We need internal boundaries strong enough that a change
 in Repairs cannot quietly break Sales, without paying the operational cost of
 distributed services.

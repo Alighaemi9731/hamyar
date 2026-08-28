@@ -1,4 +1,4 @@
-# --- MobiShop ---
+# --- Hamyar ---
 # .claude/skills/ and .claude/commands/ ARE tracked on purpose: the design-system skill
 # and the release commands ship with the repo.
 .claude/settings.local.json

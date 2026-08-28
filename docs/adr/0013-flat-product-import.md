@@ -4,7 +4,7 @@
 
 ## Context
 
-~40–50 of the owner's own customers evaluate MobiShop concurrently at launch, and each
+~40–50 of the owner's own customers evaluate Hamyar concurrently at launch, and each
 arrives with an existing catalog in Excel, exported from Iranian shop software (هلو,
 سپیدار, محک, پارمیس) or maintained by hand. A catalog that cannot be loaded is an
 evaluator lost on day one, which is why the products import is onboarding-blocking

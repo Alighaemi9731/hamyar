@@ -5,7 +5,7 @@ import ReactDOMServer from 'react-dom/server';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { resolvePage } from '@/lib/pages';
 
-const appName = 'MobiShop';
+const appName = 'سامانه همیار';
 
 /**
  * SSR entry.

@@ -1,4 +1,4 @@
-# MobiShop — local development stack.
+# Hamyar — local development stack.
 #
 #   make up      start everything
 #   make fresh   migrate:fresh --seed (demo tenant)
@@ -7,7 +7,7 @@
 # Host entry required for tenant subdomains — see docs/deploy.md#local-hostnames:
 #   127.0.0.1  app.localhost demo.app.localhost acme.app.localhost
 
-name: mobishop
+name: hamyar
 
 services:
   app:
@@ -17,14 +17,14 @@ services:
       args:
         UID: ${HOST_UID:-1000}
         GID: ${HOST_GID:-1000}
-    image: mobishop-app:dev
+    image: hamyar-app:dev
     restart: unless-stopped
     volumes:
       - .:/var/www/html
-      - composer-cache:/home/mobishop/.composer
+      - composer-cache:/home/hamyar/.composer
     environment:
-      COMPOSER_HOME: /home/mobishop/.composer
-      PHP_IDE_CONFIG: serverName=mobishop
+      COMPOSER_HOME: /home/hamyar/.composer
+      PHP_IDE_CONFIG: serverName=hamyar
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,22 +49,22 @@ services:
     ports:
       - "${DB_PORT_HOST:-5432}:5432"
     environment:
-      POSTGRES_DB: ${DB_DATABASE:-mobishop}
+      POSTGRES_DB: ${DB_DATABASE:-hamyar}
       # The image's POSTGRES_USER is always a SUPERUSER, and superusers bypass RLS
       # unconditionally. So this is deliberately the *root* credential pair, used only
       # by `make psql`, backups and the init scripts — never by the application.
-      POSTGRES_USER: ${DB_ROOT_USERNAME:-mobishop}
+      POSTGRES_USER: ${DB_ROOT_USERNAME:-hamyar}
       POSTGRES_PASSWORD: ${DB_ROOT_PASSWORD:-secret}
       # docker/postgres/init/ then creates the NOSUPERUSER role the app connects as,
       # which is what makes RLS a real boundary rather than decoration (ADR 0002).
-      APP_DB_USER: ${DB_USERNAME:-mobishop_app}
+      APP_DB_USER: ${DB_USERNAME:-hamyar_app}
       APP_DB_PASSWORD: ${DB_PASSWORD:-app-secret}
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_ROOT_USERNAME:-mobishop} -d ${DB_DATABASE:-mobishop}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ROOT_USERNAME:-hamyar} -d ${DB_DATABASE:-hamyar}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -91,8 +91,8 @@ services:
       - "${MINIO_PORT_HOST:-9000}:9000"
       - "${MINIO_CONSOLE_PORT_HOST:-9001}:9001"
     environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-mobishop}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-mobishop-secret}
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-hamyar}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-hamyar-secret}
     volumes:
       - minio-data:/data
     healthcheck:
@@ -109,9 +109,9 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-mobishop} ${AWS_SECRET_ACCESS_KEY:-mobishop-secret} &&
-      mc mb --ignore-existing local/${AWS_BUCKET:-mobishop} &&
-      mc anonymous set none local/${AWS_BUCKET:-mobishop}
+      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-hamyar} ${AWS_SECRET_ACCESS_KEY:-hamyar-secret} &&
+      mc mb --ignore-existing local/${AWS_BUCKET:-hamyar} &&
+      mc anonymous set none local/${AWS_BUCKET:-hamyar}
       "
     restart: "no"
 

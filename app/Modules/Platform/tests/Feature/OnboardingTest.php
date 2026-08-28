@@ -103,7 +103,7 @@ it('rejects a reserved subdomain', function (string $subdomain): void {
         ->assertSessionHasErrors('subdomain');
 
     expect(Tenant::query()->count())->toBe(0);
-})->with(['www', 'admin', 'api', 'support', 'billing', 'mobishop']);
+})->with(['www', 'admin', 'api', 'support', 'billing', 'hamyar']);
 
 it('rejects a subdomain that is already taken', function (): void {
     $this->post(appUrl('/register'), onboardingPayload());

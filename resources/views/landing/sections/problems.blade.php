@@ -109,14 +109,14 @@
                      accent clause is gone for the same reason — the hero owns that device
                      and three sections were each using it. --}}
                 <h2 class="sec__title probs__title" id="probs-title">
-                    شش گرفتاری که هر مغازه‌دار می‌شناسد، و کاری که موبایل‌یار با هرکدام می‌کند.
+                    شش گرفتاری که هر مغازه‌دار می‌شناسد، و کاری که همیار با هرکدام می‌کند.
                 </h2>
             </div>
 
             <div class="probs__intro">
                 <p class="sec__lede">
                     هیچ‌کدام از این‌ها از فهرست امکانات درنیامده؛ کارهایی است که یا وقت مغازه را
-                    می‌گیرد یا پولش را. جلوی هرکدام نوشته‌ایم موبایل‌یار دقیقاً چه می‌کند.
+                    می‌گیرد یا پولش را. جلوی هرکدام نوشته‌ایم همیار دقیقاً چه می‌کند.
                 </p>
             </div>
         </header>

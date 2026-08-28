@@ -1,4 +1,4 @@
-# MobiShop — production stack, single VPS.
+# Hamyar — production stack, single VPS.
 #
 #   docker compose -f compose.prod.yaml --env-file .env.production up -d
 #
@@ -21,10 +21,14 @@
 # are declared here so `docker compose` knows about them; the idle one simply has no
 # traffic.
 
+# Renamed to Hamyar, but this project name is NOT renamed: it is the prefix of every
+# running container and every named volume on the box. Changing it would make the next
+# deploy create empty `hamyar_pgdata`/`hamyar_minio` volumes instead of finding the live
+# ones. Renaming it is a coordinated migration, not an edit.
 name: mobishop
 
 x-app: &app
-  image: ${APP_IMAGE:?set APP_IMAGE, e.g. ghcr.io/you/mobishop-app:9f2c1ab}
+  image: ${APP_IMAGE:?set APP_IMAGE, e.g. ghcr.io/you/hamyar-app:9f2c1ab}
   restart: unless-stopped
   env_file: [.env.production]
   # Named rather than bind-mounted: the image already contains the code, and a

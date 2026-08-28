@@ -168,7 +168,7 @@ final class ImpersonationService
                     'reason' => $reason,
                     'ip' => request()->ip(),
                 ])
-                ->log('ورود پشتیبانی موبی‌شاپ به حساب مالک');
+                ->log('ورود پشتیبانی همیار به حساب مالک');
         });
     }
 }

@@ -69,7 +69,7 @@
    و در ادغام گایدلاین‌ها با CLAUDE.md موجود، «قوانین طلایی» ما را بالای فایل نگه دارید (diff را ریویو کنید).
 2. **Playwright MCP** (وریفای بصری/تعاملی): به Claude Code اجازه می‌دهد صفحه را باز کند، اسکرین‌شات بگیرد و جریان‌ها را کلیک کند — برای نقد طراحی و تست دستی خودکارِ فازها طلاست.
    `claude mcp add playwright -- npx -y @playwright/mcp@latest`
-3. **اسکیل پروژه‌ای `mobishop-ui`** — فایل آماده در `claude-setup/.claude/skills/mobishop-ui/SKILL.md` این بسته است؛ کل پوشه `.claude/` را در ریشه ریپو کپی و کامیت کنید تا با تیم به اشتراک برود (اسکوپ پروژه = `.claude/skills/`، اسکوپ شخصی = `~/.claude/skills/`).
+3. **اسکیل پروژه‌ای `hamyar-ui`** — فایل آماده در `claude-setup/.claude/skills/hamyar-ui/SKILL.md` این بسته است؛ کل پوشه `.claude/` را در ریشه ریپو کپی و کامیت کنید تا با تیم به اشتراک برود (اسکوپ پروژه = `.claude/skills/`، اسکوپ شخصی = `~/.claude/skills/`).
 4. (اختیاری) **skill-creator** از مارکت رسمی انتروپیک برای ساخت اسکیل‌های بعدی خودتان:
    `/plugin marketplace add anthropics/claude-plugins-official` سپس `/plugin install skill-creator@claude-plugins-official`
 5. (اختیاری) **Context7 MCP** برای مستندات به‌روز پکیج‌های غیرلاراولی (React/Inertia/shadcn)؛ ترکیب Boost + Context7 بیشترِ «حفره‌های دانشی» را می‌بندد.

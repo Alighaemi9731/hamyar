@@ -7,7 +7,7 @@
 
 ## Context
 
-MobiShop expects **thousands of small tenants** — an average tenant is a shop with
+Hamyar expects **thousands of small tenants** — an average tenant is a shop with
 2–5 users, a few thousand invoices a year and a few hundred megabytes of media. A
 tenant leaking another tenant's data would be an existential failure: this data
 includes customer national-ID scans, device unlock passcodes and full financial
@@ -44,10 +44,10 @@ So we do both things that close those holes:
 
 | Role | Superuser | Used by |
 |---|---|---|
-| `mobishop_app` | **No** (`NOSUPERUSER NOBYPASSRLS`) | Everything: requests, queue workers, migrations, seeders, tests |
-| `mobishop` | Yes | Infrastructure only — `make psql`, backups, manual surgery |
+| `hamyar_app` | **No** (`NOSUPERUSER NOBYPASSRLS`) | Everything: requests, queue workers, migrations, seeders, tests |
+| `hamyar` | Yes | Infrastructure only — `make psql`, backups, manual surgery |
 
-`mobishop_app` owns the tables it migrates, which would normally exempt it — but
+`hamyar_app` owns the tables it migrates, which would normally exempt it — but
 `enableRls()` always emits `FORCE ROW LEVEL SECURITY`, so the policy applies to the
 owner too. The result is one connection for every context (no privilege juggling
 between migrating and serving) while the test suite exercises exactly the same

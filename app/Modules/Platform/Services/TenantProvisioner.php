@@ -31,7 +31,7 @@ final class TenantProvisioner
      * Subdomains that must never belong to a shop.
      *
      * `www`, `app` and friends are ours. The rest are reserved because a shop at
-     * `admin.mobishop.ir` or `support.mobishop.ir` could impersonate us convincingly
+     * `admin.hamyar.ir` or `support.hamyar.ir` could impersonate us convincingly
      * enough to phish another shop's owner.
      *
      * @var list<string>
@@ -43,7 +43,7 @@ final class TenantProvisioner
         'support', 'help', 'docs', 'status', 'blog', 'shop', 'store',
         'panel', 'dashboard', 'console', 'my', 'secure', 'login', 'signup',
         'register', 'auth', 'sso', 'test', 'demo1', 'staging', 'dev', 'local',
-        'mobishop', 'platform', 'system', 'root', 'null', 'undefined',
+        'hamyar', 'platform', 'system', 'root', 'null', 'undefined',
     ];
 
     public function __construct(private readonly TenantContext $context) {}

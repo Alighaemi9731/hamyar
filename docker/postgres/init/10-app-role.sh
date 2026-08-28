@@ -1,5 +1,5 @@
 #!/bin/bash
-# MobiShop — Postgres bootstrap.
+# Hamyar — Postgres bootstrap.
 #
 # Golden rule 1: Row-Level Security is the second line of tenancy defence. Postgres
 # exempts two kinds of role from RLS policies:
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-APP_DB_USER="${APP_DB_USER:-mobishop_app}"
+APP_DB_USER="${APP_DB_USER:-hamyar_app}"
 APP_DB_PASSWORD="${APP_DB_PASSWORD:-app-secret}"
 TEST_DB="${POSTGRES_DB}_test"
 

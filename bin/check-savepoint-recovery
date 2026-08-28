@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * MobiShop — savepoint-recovery placement gate.
+ * Hamyar — savepoint-recovery placement gate.
  *
  * ## The rule
  *

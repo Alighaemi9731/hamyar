@@ -1,4 +1,4 @@
-# MobiShop — Multi-tenant SaaS for mobile-phone shops (Iran market)
+# Hamyar («سامانه همیار») — Multi-tenant SaaS for mobile-phone shops (Iran market)
 
 Cloud platform where mobile-phone stores subscribe to plans and get modular tools:
 POS/sales, serialized IMEI inventory, repairs workflow, CRM, cheques, installments,
@@ -42,6 +42,31 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    its expired half. Tenants resolve by `domains.hostname` rows, so changing the apex
    stays a config change plus a data migration, never a code change; and the local
    stack still runs on `app.localhost`, which only works because nothing hardcodes.
+1c. THE NAME IS **«سامانه همیار»** (latin slug `hamyar`), renamed from MobiShop on
+   2026-08-29. It is the Persian name that shows: `APP_NAME`, the page `<title>`, the
+   Filament brand, the landing wordmark. In prose it is «همیار»; introducing it — a
+   title, a social card, the first line of the Terms — it is «سامانه همیار».
+   **The apex domain is still `mobiyar.com` and did not change with the name** (rule 1b
+   still governs it, and it is still config-only).
+   **Some production identifiers deliberately still read `mobishop`, and that is not a
+   leftover to tidy up.** Each one names a resource that already exists on the box, where
+   a rename in the repo is a silent break rather than an error:
+   - the compose project name in `compose.prod.yaml` — it is the prefix of every running
+     container and every **named volume**, so renaming it makes the next deploy create an
+     empty `hamyar_pgdata` instead of finding the live one;
+   - the database `mobishop`, its root role, and the app role `mobishop_app` that the RLS
+     guarantee depends on;
+   - `/srv/mobishop`, `/var/backups/mobishop` and the `mobishop-*.dump` prefix — renaming
+     the prefix alone would also strand the retention sweep in `bin/backup-nightly`;
+   - **the nginx upstream `mobishop_app`.** This one is the trap: it looks regenerated on
+     every deploy and is not. `bin/release` deliberately excludes
+     `docker/nginx/upstream/app.conf` from the rsync (it holds which slot is live), and
+     `docker/nginx/templates/` is only rendered by the entrypoint at container *start*.
+     Rename it and the running nginx keeps `fastcgi_pass mobishop_app` while the upstream
+     file says `hamyar_app` — `nginx -t` fails mid-cutover, with both app containers up.
+   Renaming any of these is a coordinated migration on the box, not an edit here. Until
+   somebody does that migration, `mobishop` in those places is load-bearing.
+
 2. MONEY: integers in IRR (rial). No floats anywhere near money. Column type BIGINT.
 3. LEDGERS: stock quantity and party/account balances are NEVER updated in place —
    they are SUMs over `stock_movements` / `ledger_entries`. Write movements, not totals.
@@ -60,7 +85,7 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 8. EVERY new behavior ships with Pest feature tests, and every tenant-scoped
    endpoint gets a cross-tenant isolation test (tenant B must get 404/403 on
    tenant A's resources).
-9. UI: follow the `mobishop-ui` skill (.claude/skills/) — design tokens only,
+9. UI: follow the `hamyar-ui` skill (.claude/skills/) — design tokens only,
    RTL logical classes only (ml-/pl-/left-/text-left = bug), shadcn/ui base with
    rtl:true, domain components (Money/JDatePicker/StatusBadge/…) instead of ad-hoc
    markup, components land on the /design gallery before feature pages.

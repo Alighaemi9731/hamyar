@@ -22,7 +22,7 @@ final class PlatformUserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'email' => Str::lower(Str::random(10)).'@mobishop.test',
+            'email' => Str::lower(Str::random(10)).'@hamyar.test',
             'password' => bcrypt('password'),
             'is_active' => true,
             'remember_token' => Str::random(10),

@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>موبایل‌یار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
-    <meta name="description" content="موبایل‌یار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. ۱۴ روز رایگان، بدون کارت بانکی.">
+    <title>سامانه همیار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
+    <meta name="description" content="سامانه همیار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. ۱۴ روز رایگان، بدون کارت بانکی.">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="canonical" href="{{ url('/') }}">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="موبایل‌یار — نرم‌افزار فروشگاه موبایل">
+    <meta property="og:title" content="سامانه همیار — نرم‌افزار فروشگاه موبایل">
     <meta property="og:description" content="از پذیرش تعمیر تا تسویه، روی یک قبض.">
     <meta property="og:locale" content="fa_IR">
     <meta property="og:url" content="{{ url('/') }}">
@@ -31,7 +31,7 @@
                 <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="#0E1B2C" stroke-width="2"/>
                 <path d="M12 24.5h8" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            موبایل‌یار
+            همیار
         </a>
 
         <nav class="nav__links" aria-label="پیمایش اصلی">

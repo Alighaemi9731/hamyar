@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Central table: MobiShop staff, not shop staff.
+ * Central table: Hamyar staff, not shop staff.
  *
  * A separate table and a separate guard from tenant `users`, rather than a flag on
  * one shared table. Three reasons, in order of importance:

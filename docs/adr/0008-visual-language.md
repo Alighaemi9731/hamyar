@@ -134,4 +134,4 @@ gallery, which is what the gallery is for.
 
 - **Binding.** These are tokens. Pages must not reintroduce raw hex values, a second
   accent, or per-page shadow and radius values; `docs/design-system.md` and the
-  `mobishop-ui` skill are updated in step with this ADR.
+  `hamyar-ui` skill are updated in step with this ADR.

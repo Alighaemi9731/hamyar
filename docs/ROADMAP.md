@@ -1,4 +1,4 @@
-# MobiShop — Roadmap
+# Hamyar — Roadmap
 
 **This file is the session entrypoint.** Every session: read `CLAUDE.md`, read this
 file, take the next unchecked `[ ]` task top-to-bottom, implement it, run
@@ -47,7 +47,7 @@ design-system skeleton — so every later phase is only about domain work.
 - [x] `docs/architecture.md`
 - [x] `docs/testing.md`
 - [x] `docs/deploy.md`
-- [x] `docs/design-system.md` (ported to English from `mobishop-ui` SKILL + sections 1–2 of `docs/03-design-and-claude-setup-fa.md`, including `#landing`)
+- [x] `docs/design-system.md` (ported to English from `hamyar-ui` SKILL + sections 1–2 of `docs/03-design-and-claude-setup-fa.md`, including `#landing`)
 - [x] `docs/adr/0001-stack.md`
 - [x] `docs/adr/0002-single-db-tenancy-rls.md`
 - [x] `docs/adr/0003-modular-monolith.md`
@@ -108,11 +108,11 @@ design-system skeleton — so every later phase is only about domain work.
 - [x] `laravel/boost` installed; generated guidelines merged **below** the golden rules in `CLAUDE.md` (diff reviewed)
 - [x] Laravel Boost MCP registered (`docker compose exec -T app php artisan boost:mcp`)
 - [x] Playwright MCP registered
-- [x] Confirm `.claude/skills/mobishop-ui/SKILL.md` loads
+- [x] Confirm `.claude/skills/hamyar-ui/SKILL.md` loads
 
 ### Phase 0 — Definition of Done
 - [x] `make up` then `make fresh` boots an RTL app
-- [x] CI green on a PR — [#1](https://github.com/Alighaemi9731/mobishop/pull/1), all four jobs green, merged
+- [x] CI green on a PR — [#1](https://github.com/Alighaemi9731/hamyar/pull/1), all four jobs green, merged
       · **CI trigger investigation (resolved, 2026-08-07).** `push`/`pull_request` initially produced no runs, so only `workflow_dispatch` worked. Checked and ruled out: the workflow exists on the default branch (`main`), its `on:` block lists `push: branches: [main]` and an unfiltered `pull_request`, the branch names match, and repo Actions policy is `enabled: true` / `allowed_actions: all`. The real cause was **event-delivery latency on a brand-new private repo**: the `pull_request` runs did eventually appear, roughly 25 minutes behind each push, and the delay has since fallen to about 2 minutes. Nothing to click and nothing to change — it resolved on its own. If it ever recurs: Settings → Actions → General → "Allow all actions", and confirm Actions is not disabled at the account level.
 - [x] Arch test asserts module boundaries
 - [x] `/design` renders the initial kit
@@ -176,7 +176,7 @@ design-system skeleton — so every later phase is only about domain work.
 > ### ✅ DECISION GATE 1 — CLEARED 2026-08-07
 > - **Subdomain scheme approved as designed**: charset rules, no `--`, hostname stored
 >   as `domains` rows, 48 reserved names, 30-char ceiling.
-> - **`mobishop.ir` is NOT confirmed** — a working name only. The apex domain stays
+> - **`hamyar.ir` is NOT confirmed** — a working name only. The apex domain stays
 >   strictly configurable (golden rule 1b); choosing/registering it is a Phase 11 task.
 > - **Role list approved**: all seven names, plus both boundaries — Salesperson blind to
 >   cost/profit (per-tenant owner override allowed), and `repairs.reveal_passcode` as a
@@ -1458,7 +1458,7 @@ would, and the worst place to discover one is in front of a customer.*
       templates, emails — are the five nobody greps, and a literal there works perfectly
       until the domain is registered and the receipts are already in customers' pockets.
       It found one on the day it was written: `MAIL_FROM_ADDRESS` in `.env.example` was
-      `no-reply@mobishop.ir`, a working name nobody owns; it is now interpolated from
+      `no-reply@hamyar.ir`, a working name nobody owns; it is now interpolated from
       `${APP_DOMAIN}`.
       Its first draft reported **ninety** findings, every one false — `invoices.store` is
       a route name, `report.net` is JSX, `index.php` is a filename, and all of them
@@ -1702,7 +1702,7 @@ trail worth reading**.*
 ### 11d — Remaining launch hardening
 
 ### 11.4 Launch kit
-- [ ] **Choose, register and configure the production apex domain.** `mobishop.ir` is a
+- [ ] **Choose, register and configure the production apex domain.** `hamyar.ir` is a
       working name only — nothing may hardcode it. Set `APP_DOMAIN`, provision the
       wildcard TLS certificate for `*.<domain>`, migrate existing `domains.hostname`
       rows, and re-check every place a hostname surfaces: printed receipts,
@@ -1748,7 +1748,7 @@ trail worth reading**.*
       and **nobody has ever seen either of them**, because there is no view to render
       them into and `APP_DEBUG=false` withholds the default. 419 matters most of the
       four: a session that expired while a shop was mid-invoice currently produces an
-      English page with no explanation and no way back. Needs the `mobishop-ui` skill and
+      English page with no explanation and no way back. Needs the `hamyar-ui` skill and
       a pass through `/design`, so it is UI work rather than a one-line fix
 - [ ] Demo tenant with rich Persian data
 - [ ] 5-minute owner onboarding tour

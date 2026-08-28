@@ -1,11 +1,11 @@
 # MASTER PROMPT — paste this into Claude Code, launched inside this pre-seeded project folder
 
-This folder already contains: CLAUDE.md, .claude/skills/mobishop-ui/, .gitignore,
+This folder already contains: CLAUDE.md, .claude/skills/hamyar-ui/, .gitignore,
 PROMPT.md (this file), START-HERE-FA.md, and docs/ with two Persian reference docs
 (01-master-plan-fa.md = business/feature/architecture plan, 03-design-and-claude-setup-fa.md
 = design brief & tooling). Treat these as project assets: never delete or overwrite them.
 
-You are the lead engineer building **MobiShop**: a production-grade, multi-tenant SaaS
+You are the lead engineer building **Hamyar**: a production-grade, multi-tenant SaaS
 for mobile-phone shops in Iran (Persian UI, RTL, Jalali calendar). Thousands of shops
 will subscribe to plans and use modular features. You will build it phase by phase,
 test everything, and keep the project self-documenting. CLAUDE.md in this repo is your
@@ -39,7 +39,7 @@ Definition of Done, then present a short demo summary + how I can verify manuall
    keeping phase order and DECISION GATES), `PROGRESS.md`, `architecture.md`,
    `testing.md`, `deploy.md`, `adr/0001-stack.md`, `adr/0002-single-db-tenancy-rls.md`,
    `adr/0003-modular-monolith.md`, `design-system.md` (port it in English from the
-   tokens/rules in .claude/skills/mobishop-ui/SKILL.md plus sections 1–2 of
+   tokens/rules in .claude/skills/hamyar-ui/SKILL.md plus sections 1–2 of
    docs/03-design-and-claude-setup-fa.md), and `specs/` — one spec file per module, populated
    from the "Module functional specs" section of this prompt (translate/expand freely;
    specs are the source of truth for acceptance tests).
@@ -64,7 +64,7 @@ Tasks:
 - `php artisan make:module <Name>` generator creating the module folder layout
   (Providers, Http, Models, Services, Events, Policies, database/migrations, tests)
   and auto-registration. Create empty module shells listed in CLAUDE.md rule 6.
-- Design system bootstrap: define tokens from the mobishop-ui skill in
+- Design system bootstrap: define tokens from the hamyar-ui skill in
   `resources/css/app.css` via Tailwind v4 `@theme`; init shadcn/ui with
   `"rtl": true` in components.json (CLI then emits logical classes; run
   `npx shadcn migrate rtl` on any pasted/legacy components); install the base kit
@@ -80,7 +80,7 @@ Tasks:
   `claude mcp add -s local -t stdio laravel-boost docker compose exec -T app php artisan boost:mcp`.
   Register Playwright MCP for visual verification:
   `claude mcp add playwright -- npx -y @playwright/mcp@latest`.
-  Confirm `.claude/skills/mobishop-ui/SKILL.md` is present and loading.
+  Confirm `.claude/skills/hamyar-ui/SKILL.md` is present and loading.
 - Base layout pages: login placeholder, app shell (sidebar fa-IR, topbar, toasts)
   built strictly from the gallery components.
 DoD: `make up` then `make fresh` gives a booting RTL app; CI green on a PR; arch test

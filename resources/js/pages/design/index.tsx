@@ -66,7 +66,7 @@ import { AppShell } from '@/layouts/app-shell';
 /**
  * /design — the component gallery (dev-only route).
  *
- * The workflow rule from the mobishop-ui skill: a component appears HERE, with its
+ * The workflow rule from the hamyar-ui skill: a component appears HERE, with its
  * full state matrix, before it is used in a feature page. That makes visual review a
  * single page instead of a hunt through the app, and it is where you check RTL, dark
  * mode and the 390px/1280px breakpoints in one pass.

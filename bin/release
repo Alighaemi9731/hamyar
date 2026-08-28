@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# MobiShop — cut a release, and optionally put it on the box.
+# Hamyar — cut a release, and optionally put it on the box.
 #
 #   bin/release                 # verify and tag whatever VERSION says, publish the release
 #   bin/release --deploy        # …then sync, build on the box, cut over, and smoke it
@@ -284,10 +284,10 @@ ok "tag pushed"
 # it — that path is rsync-and-build (docs/deploy.md §3) — so its job is provenance: the
 # artefact that says what $TAG contained, independently of whichever machine last synced.
 readonly DIST="dist-release"
-readonly ASSET="mobishop-$TAG.tar.gz"
+readonly ASSET="hamyar-$TAG.tar.gz"
 run mkdir -p "$DIST"
 if (( ! DRY_RUN )); then
-    git archive --format=tar.gz --prefix="mobishop-$TAG/" "$TAG" > "$DIST/$ASSET"
+    git archive --format=tar.gz --prefix="hamyar-$TAG/" "$TAG" > "$DIST/$ASSET"
     ( cd "$DIST" && (shasum -a 256 "$ASSET" > "$ASSET.sha256" 2>/dev/null || sha256sum "$ASSET" > "$ASSET.sha256") )
     ok "built $DIST/$ASSET ($(du -h "$DIST/$ASSET" | cut -f1))"
 else
@@ -352,15 +352,15 @@ log "deploying $TAG"
 [[ -f .deploy.local ]] || die ".deploy.local is missing — copy .deploy.local.example and fill it in"
 # shellcheck disable=SC1091
 set -a; . ./.deploy.local; set +a
-: "${MOBISHOP_SSH:?MOBISHOP_SSH is not set in .deploy.local}"
-: "${MOBISHOP_PATH:=/srv/mobishop}"
+: "${HAMYAR_SSH:?HAMYAR_SSH is not set in .deploy.local}"
+: "${HAMYAR_PATH:=/srv/mobishop}"
 
-ssh -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" true \
-    || die "cannot reach $MOBISHOP_SSH without a password prompt"
+ssh -o BatchMode=yes -o ConnectTimeout=15 "$HAMYAR_SSH" true \
+    || die "cannot reach $HAMYAR_SSH without a password prompt"
 
-readonly IMAGE_TAG="mobishop-app:${HEAD_SHA:0:9}"
+readonly IMAGE_TAG="hamyar-app:${HEAD_SHA:0:9}"
 
-log "syncing the tree to $MOBISHOP_SSH:$MOBISHOP_PATH"
+log "syncing the tree to $HAMYAR_SSH:$HAMYAR_PATH"
 #
 # ## The tree that ships is the TAG, not the working directory
 #
@@ -398,7 +398,7 @@ run rsync -az --delete \
     --exclude 'certbot' \
     --exclude 'docker/nginx/upstream/app.conf' \
     --exclude 'release/public' \
-    "$sync_src" "$MOBISHOP_SSH:$MOBISHOP_PATH/"
+    "$sync_src" "$HAMYAR_SSH:$HAMYAR_PATH/"
 ok "tree synced"
 
 # Both remote steps run DETACHED, with their output on the box, and this script polls.
@@ -416,7 +416,7 @@ ok "tree synced"
 #
 # So the box owns the process. A drop now costs a reconnect, not a half-deployed site.
 remote_detached() {
-    local name="$1" command="$2" log_file="/tmp/mobishop-release-$1.log"
+    local name="$1" command="$2" log_file="/tmp/hamyar-release-$1.log"
 
     # ## `&` binds the LIST, not the last command — and that made this synchronous
     #
@@ -444,8 +444,8 @@ remote_detached() {
     #             descriptors to hold open;
     #   `setsid`  puts it in its own session, so tearing down the ssh session cannot signal
     #             it. `nohup` alone covers SIGHUP; it does not cover the session.
-    ssh -n -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" \
-        "cd '$MOBISHOP_PATH' && rm -f '$log_file' '$log_file.done' && \
+    ssh -n -o BatchMode=yes -o ConnectTimeout=15 "$HAMYAR_SSH" \
+        "cd '$HAMYAR_PATH' && rm -f '$log_file' '$log_file.done' && \
          { setsid nohup sh -c '( $command ) > $log_file 2>&1; echo \$? > $log_file.done' \
            < /dev/null > /dev/null 2>&1 & } && echo detached" \
         || die "could not start $name on the box"
@@ -467,15 +467,15 @@ remote_detached() {
 
     while :; do
         rc=0
-        "${poll_ssh[@]}" "$MOBISHOP_SSH" "test -f '$log_file.done'" 2>/dev/null || rc=$?
+        "${poll_ssh[@]}" "$HAMYAR_SSH" "test -f '$log_file.done'" 2>/dev/null || rc=$?
         (( rc == 0 )) && break
 
         # 255 is ssh itself failing; anything else is the remote `test` saying "not yet".
         # Collapsing the two is how a box that stopped answering reads as a long build.
         if (( rc == 255 )); then
             unreachable=$(( unreachable + 1 ))
-            (( unreachable == 3 )) && warn "$MOBISHOP_SSH has not answered for ~30s — $name may still be running on the box"
-            (( unreachable < 60 )) || die "$MOBISHOP_SSH unreachable for ~10 minutes during $name; the box may still be mid-$name — check $log_file there before re-running"
+            (( unreachable == 3 )) && warn "$HAMYAR_SSH has not answered for ~30s — $name may still be running on the box"
+            (( unreachable < 60 )) || die "$HAMYAR_SSH unreachable for ~10 minutes during $name; the box may still be mid-$name — check $log_file there before re-running"
         else
             unreachable=0
         fi
@@ -487,10 +487,10 @@ remote_detached() {
     done
 
     local code
-    code="$(ssh "$MOBISHOP_SSH" "cat '$log_file.done'" 2>/dev/null || echo unreadable)"
+    code="$(ssh "$HAMYAR_SSH" "cat '$log_file.done'" 2>/dev/null || echo unreadable)"
 
     if [[ "$code" != "0" ]]; then
-        ssh "$MOBISHOP_SSH" "tail -40 '$log_file'" >&2 || true
+        ssh "$HAMYAR_SSH" "tail -40 '$log_file'" >&2 || true
         printf '\033[31m✗ %s failed on the box (exit %s) — full output in %s\033[0m\n' "$name" "$code" "$log_file" >&2
         return 1
     fi
@@ -528,7 +528,7 @@ else
 
   Establish which happened before doing anything else:
 
-    ssh $MOBISHOP_SSH "cd '$MOBISHOP_PATH' && \\
+    ssh $HAMYAR_SSH "cd '$HAMYAR_PATH' && \\
       cat docker/nginx/upstream/app.conf && \\
       docker compose -f compose.prod.yaml --env-file .env.production ps"
 
@@ -536,12 +536,12 @@ else
   scheduler say whether the queue followed it. A cut-over web tier with workers left on
   the old image is the failure that looks like success.
 
-  Full output:  ssh $MOBISHOP_SSH "cat /tmp/mobishop-release-deploy.log"
+  Full output:  ssh $HAMYAR_SSH "cat /tmp/hamyar-release-deploy.log"
 
 EOF
         exit 1
     fi
-    ssh "$MOBISHOP_SSH" "tail -20 '/tmp/mobishop-release-deploy.log'" || true
+    ssh "$HAMYAR_SSH" "tail -20 '/tmp/hamyar-release-deploy.log'" || true
 fi
 ok "cut over"
 
@@ -572,8 +572,8 @@ fi
 # earlier draft silently produced an empty apex.
 env_from_box() {
     local raw
-    raw="$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$MOBISHOP_SSH" \
-              "grep -m1 -- '^$1=' '$MOBISHOP_PATH/.env.production'" 2>/dev/null)" || raw=''
+    raw="$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$HAMYAR_SSH" \
+              "grep -m1 -- '^$1=' '$HAMYAR_PATH/.env.production'" 2>/dev/null)" || raw=''
     [[ -n "$raw" ]] || return 0
     printf '%s\n' "$raw" \
         | cut -d= -f2- \
@@ -587,7 +587,7 @@ secret="$(env_from_box HEALTH_SECRET)"
 # not. Every branch says what is live before it says what is wrong.
 if [[ -z "$apex" ]]; then
     printf '\n\033[33m! %s IS CUT OVER AND LIVE on the box, but it is UNVERIFIED.\033[0m\n' "$TAG" >&2
-    printf '  APP_DOMAIN could not be read from %s/.env.production — the key is missing, or the ssh call failed.\n' "$MOBISHOP_PATH" >&2
+    printf '  APP_DOMAIN could not be read from %s/.env.production — the key is missing, or the ssh call failed.\n' "$HAMYAR_PATH" >&2
     printf '  Verify by hand:  HEALTH_SECRET=<secret> EXPECT_VERSION=%s EXPECT_RELEASE=%s bin/smoke <apex>\n\n' "$VERSION" "$IMAGE_TAG" >&2
     exit 1
 fi
@@ -607,7 +607,7 @@ else
     printf '\033[31m✗ %s is deployed and serving, but did NOT pass smoke.\033[0m\n' "$TAG" >&2
     printf '  The cutover happened. This is a live release that is failing its own checks.\n' >&2
     printf '  Roll back (a cutover, not a rebuild — the previous container is stopped, not removed):\n' >&2
-    printf "    ssh %s \"cd '%s' && bin/deploy <previous-image> --rollback\"\n" "$MOBISHOP_SSH" "$MOBISHOP_PATH" >&2
+    printf "    ssh %s \"cd '%s' && bin/deploy <previous-image> --rollback\"\n" "$HAMYAR_SSH" "$HAMYAR_PATH" >&2
     printf '  Or roll forward: fix, merge, bump VERSION, and release again.\n\n' >&2
     exit 1
 fi

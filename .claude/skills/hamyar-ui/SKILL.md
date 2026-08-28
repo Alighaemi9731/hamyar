@@ -1,9 +1,9 @@
 ---
-name: mobishop-ui
-description: Use when building or changing ANY user-facing UI in this repo — Inertia/React pages, Blade public pages, emails, or print layouts. Enforces the MobiShop design system: RTL logical classes, design tokens, Persian typography/digits, shadcn/ui usage, domain components, and the /design gallery workflow. Also use when reviewing UI diffs.
+name: hamyar-ui
+description: Use when building or changing ANY user-facing UI in this repo — Inertia/React pages, Blade public pages, emails, or print layouts. Enforces the Hamyar design system: RTL logical classes, design tokens, Persian typography/digits, shadcn/ui usage, domain components, and the /design gallery workflow. Also use when reviewing UI diffs.
 ---
 
-# MobiShop UI — design system rules
+# Hamyar UI — design system rules
 
 Source of truth: `docs/design-system.md` (read it when unsure). Direction is set by
 `docs/adr/0008-visual-language.md`. This skill is the per-session enforcement summary.

@@ -29,7 +29,7 @@ checkout.
 
 ### Public catalogue
 
-At `<shop>.mobishop.ir/shop` (or a custom domain later). Shows active products with
+At `<shop>.hamyar.ir/shop` (or a custom domain later). Shows active products with
 consumer prices, availability as a coarse indicator (in stock / call us) rather than
 an exact count, and contact CTAs including WhatsApp.
 

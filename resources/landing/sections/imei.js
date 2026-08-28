@@ -1,5 +1,5 @@
 /*
- | MobiYar landing — section 4, «شناسنامهٔ IMEI».
+ | Hamyar landing — section 4, «شناسنامهٔ IMEI».
  |
  | The whole of the section's behaviour, and deliberately none of the page's.
  |

@@ -1,6 +1,6 @@
-# MobiShop — Design system
+# Hamyar — Design system
 
-English source of truth for the UI. The `.claude/skills/mobishop-ui/SKILL.md` file is
+English source of truth for the UI. The `.claude/skills/hamyar-ui/SKILL.md` file is
 the per-session enforcement summary of this document; when the two disagree, this one
 wins and the skill gets updated.
 

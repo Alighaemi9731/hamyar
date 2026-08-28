@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# MobiShop — restore drill.
+# Hamyar — restore drill.
 #
 #   bin/restore-drill /var/backups/mobishop/mobishop-20260901T021700Z.dump
 #
@@ -39,7 +39,7 @@ set -Eeuo pipefail
 
 readonly COMPOSE_FILE="compose.prod.yaml"
 readonly ENV_FILE=".env.production"
-readonly SCRATCH_DB="mobishop_restore_drill"
+readonly SCRATCH_DB="hamyar_restore_drill"
 readonly LOG_DIR="docs/restore-drills"
 
 log()  { printf '[%s] %s\n' "$(date -u +%H:%M:%SZ)" "$*" | tee -a "$LOG_FILE"; }

@@ -46,7 +46,7 @@ final class HorizonServiceProvider extends HorizonApplicationServiceProvider
 
         /*
         | Horizon's notifications go to the platform's own channel, never to a tenant.
-        | A queue backlog is MobiShop's operational problem; a shop cannot act on it and
+        | A queue backlog is Hamyar's operational problem; a shop cannot act on it and
         | telling them turns an internal metric into a support call.
         */
         Horizon::routeMailNotificationsTo(config()->string('mail.from.address'));

@@ -69,12 +69,12 @@ it('keeps the exact build behind the secret', function (): void {
     | reconnaissance rather than transparency — so it is graded with the driver detail,
     | not with the version.
     */
-    config(['app.health_secret' => 'the-real-one', 'app.release' => 'mobishop-app:abc123def']);
+    config(['app.health_secret' => 'the-real-one', 'app.release' => 'hamyar-app:abc123def']);
 
     expect($this->getJson('/health')->json())->not->toHaveKey('release');
 
     expect($this->getJson('/health', ['X-Health-Secret' => 'the-real-one'])->json('release'))
-        ->toBe('mobishop-app:abc123def');
+        ->toBe('hamyar-app:abc123def');
 });
 
 it('withholds the detail even from a caller with a header, when no secret is set', function (): void {

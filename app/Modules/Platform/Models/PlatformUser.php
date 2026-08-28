@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 /**
- * MobiShop staff — the people who run the platform, not a shop.
+ * Hamyar staff — the people who run the platform, not a shop.
  *
  * Central model on its own guard. Keeping these accounts off the tenant `users` table
  * means a compromised shop login can never reach the platform panel, and it avoids

@@ -1,4 +1,4 @@
-# MobiShop — Architecture
+# Hamyar — Architecture
 
 Companion to the ADRs. Where an ADR explains *why*, this file explains *how it is
 wired* and *what you must do when adding code*.
@@ -20,7 +20,7 @@ wired* and *what you must do when adding code*.
                     │ Laravel 12 (PHP-FPM 8.4)                      │
                     │                                               │
                     │  central routes        tenant routes          │
-                    │  app.mobishop.ir       <shop>.mobishop.ir     │
+                    │  app.hamyar.ir       <shop>.hamyar.ir         │
                     │  ├─ Filament v4 panel  ├─ Inertia + React     │
                     │  └─ onboarding/billing └─ 16 tenant modules   │
                     └───┬──────────┬───────────┬────────────┬───────┘
@@ -39,8 +39,8 @@ One deployable. The only asynchrony is the queue.
 
 1. **nginx** passes everything to `public/index.php`. It does not know about tenants.
 2. **`ResolveTenant` middleware** (Phase 1) reads the host:
-   - `app.mobishop.ir` (no shop subdomain) → central route group. No tenant context.
-   - `demo.mobishop.ir` → looks up `domains.subdomain`, loads the tenant, and binds it
+   - `app.hamyar.ir` (no shop subdomain) → central route group. No tenant context.
+   - `demo.hamyar.ir` → looks up `domains.subdomain`, loads the tenant, and binds it
      into the container as the request-scoped `TenantContext`.
    - Unknown subdomain → 404. Never a silent fallback to another tenant.
 3. **`SET LOCAL app.tenant_id`** is issued on the database connection inside the

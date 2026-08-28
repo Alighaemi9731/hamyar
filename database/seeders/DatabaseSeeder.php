@@ -35,7 +35,7 @@ class DatabaseSeeder extends Seeder
 
         PlatformUser::query()->create([
             'name' => 'مدیر پلتفرم',
-            'email' => 'admin@mobishop.test',
+            'email' => 'admin@hamyar.test',
             'password' => 'password',
             'is_active' => true,
         ]);
@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
         $domain = config()->string('app.domain');
 
         $this->command?->newLine();
-        $this->command?->info("  Platform admin  http://{$domain}  admin@mobishop.test / password");
+        $this->command?->info("  Platform admin  http://{$domain}  admin@hamyar.test / password");
         $this->command?->info("  Tenant {$demo->slug}     http://{$demo->slug}.{$domain}/login  09121234567 / password");
         $this->command?->info("  Tenant {$acme->slug}     http://{$acme->slug}.{$domain}/login  09129876543 / password");
     }

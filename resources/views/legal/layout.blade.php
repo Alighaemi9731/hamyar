@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title') — موبایل‌یار</title>
+    <title>@yield('title') — سامانه همیار</title>
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#FFFFFF">
     @vite(['resources/landing/landing.css'])
@@ -33,7 +33,7 @@
                 <rect x="6" y="2" width="20" height="28" rx="4" stroke="#0E1B2C" stroke-width="2"/>
                 <path d="M11 24h10" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            موبایل‌یار
+            همیار
         </a>
         <div class="nav__cta">
             <a href="/" class="btn btn--quiet">بازگشت به صفحهٔ اصلی</a>
@@ -49,7 +49,7 @@
 
 <footer class="foot">
     <div class="shell foot__row">
-        <span>© ۱۴۰۵ موبایل‌یار</span>
+        <span>© ۱۴۰۵ همیار</span>
         <nav style="display:flex;gap:1.25rem" aria-label="پیوندهای حقوقی">
             <a href="{{ route('legal.terms') }}">قوانین و شرایط</a>
             <a href="{{ route('legal.privacy') }}">حریم خصوصی</a>

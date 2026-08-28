@@ -14,7 +14,7 @@ use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
-| Central routes — app.mobishop.ir
+| Central routes — app.hamyar.ir
 |--------------------------------------------------------------------------
 |
 | No tenant context. RLS denies every tenant table here by default, which is the

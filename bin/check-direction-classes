@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * MobiShop — RTL direction-class gate.
+ * Hamyar — RTL direction-class gate.
  *
  * Golden rule 9 / design-system rule 1: the UI is right-to-left, so only *logical*
  * utilities are allowed (ms-/me-/ps-/pe-/start-/end-/text-start/text-end/border-s/

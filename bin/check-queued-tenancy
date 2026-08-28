@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * MobiShop — queued-job tenancy gate.
+ * Hamyar — queued-job tenancy gate.
  *
  * ## The rule
  *

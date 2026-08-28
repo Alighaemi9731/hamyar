@@ -1,4 +1,4 @@
-### MobiShop — development application image (PHP 8.4 FPM)
+### Hamyar — development application image (PHP 8.4 FPM)
 #
 # The application source is bind-mounted at /var/www/html in dev (see compose.yaml),
 # so this image intentionally contains NO application code. A production image is
@@ -64,25 +64,25 @@ RUN npx --yes playwright@1.56.0 install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # --- php ini ---------------------------------------------------------------
-COPY docker/app/php.ini /usr/local/etc/php/conf.d/99-mobishop.ini
+COPY docker/app/php.ini /usr/local/etc/php/conf.d/99-hamyar.ini
 
 # --- unprivileged user matching the host, so bind-mounted files stay writable
 RUN if getent group "${GID}" >/dev/null; then \
         existing_group="$(getent group "${GID}" | cut -d: -f1)"; \
     else \
-        groupadd -g "${GID}" mobishop; \
-        existing_group=mobishop; \
+        groupadd -g "${GID}" hamyar; \
+        existing_group=hamyar; \
     fi; \
     if getent passwd "${UID}" >/dev/null; then \
-        usermod -l mobishop -d /home/mobishop -m -g "${existing_group}" "$(getent passwd "${UID}" | cut -d: -f1)"; \
+        usermod -l hamyar -d /home/hamyar -m -g "${existing_group}" "$(getent passwd "${UID}" | cut -d: -f1)"; \
     else \
-        useradd -u "${UID}" -g "${existing_group}" -m -s /bin/bash mobishop; \
+        useradd -u "${UID}" -g "${existing_group}" -m -s /bin/bash hamyar; \
     fi; \
-    mkdir -p /home/mobishop/.composer && chown -R "${UID}:${GID}" /home/mobishop
+    mkdir -p /home/hamyar/.composer && chown -R "${UID}:${GID}" /home/hamyar
 
 WORKDIR /var/www/html
 
-USER mobishop
+USER hamyar
 
 # The bind-mounted repo is owned by the host user, which git inside the container
 # treats as "dubious ownership" and refuses to read — Pint uses git to scope changed

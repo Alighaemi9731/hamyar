@@ -7,7 +7,7 @@
 
 ## Context
 
-MobiShop is a multi-tenant SaaS for Iranian mobile-phone shops: POS, serialized IMEI
+Hamyar is a multi-tenant SaaS for Iranian mobile-phone shops: POS, serialized IMEI
 inventory, repairs, CRM, cheques, installments, treasury, SMS and reporting. The
 target is thousands of small tenants, built and operated by a very small team, sold
 into the Iranian market (Persian UI, RTL, Jalali calendar, IRR money, local payment
