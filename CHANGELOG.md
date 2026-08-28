@@ -7,6 +7,68 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.0 - 2026-08-29
+
+**BREAKING — the product is now «سامانه همیار».** The owner renamed it. Nothing in the
+application breaks, but this release does not finish delivering its own purpose until
+somebody edits one line on the box, which is what the prefix is for:
+
+```
+APP_NAME="سامانه همیار"      # in /srv/mobishop/.env.production
+```
+
+`.env.production` lives only on the box and is excluded from the release rsync by design.
+Without that edit the public landing page and the Terms show the new name — those strings
+are in the Blade views — while the signed-in application's `<title>` and the from-name on
+every outgoing mail still say `MobiShop`, because both read `config('app.name')`. A
+rename that is right on the front door and wrong once you log in is worse than one that is
+uniformly stale, so the edit is not optional.
+
+### The name
+
+«همیار» in prose, «سامانه همیار» where the name is being introduced — a page title, a
+social card, the first line of the Terms. `hamyar` is the latin slug for identifiers.
+The GitHub repository moved from `mobishop` to `hamyar`, and the working folder with it.
+
+**The apex domain is unchanged and stays `mobiyar.com`.** It was not part of the rename,
+it is DNS plus a wildcard certificate, and golden rule 1b keeps it in `config('app.domain')`
+either way.
+
+### The half of this that was nearly a silent outage
+
+A rename is a `sed`, which is exactly what makes it dangerous: it is *fast* and it is
+*uniform*, and neither of those is a property you want applied to a production box's
+resource names.
+
+Three classes of thing had to keep the old name, and one of them was caught only by
+auditing the first commit rather than by writing it:
+
+- **The nginx upstream `mobishop_app`.** It looks regenerated on every deploy and it is
+  not. `bin/release` deliberately excludes `docker/nginx/upstream/app.conf` from the
+  rsync because that file records which slot is live, and `docker/nginx/templates/` is
+  rendered by the container entrypoint only at *start*. Renaming it would have left the
+  running nginx holding `fastcgi_pass mobishop_app` against an upstream file defining
+  `hamyar_app` — `nginx -t` fails at `bin/deploy` step 7, mid-cutover, with both app
+  containers up, which is the precise state `bin/deploy` documents as its worst failure.
+- **The compose project name, the database `mobishop` and the role `mobishop_app`.** The
+  project name is the prefix of every container and every *named volume*; renaming it
+  makes the next deploy create an empty `hamyar_pgdata` rather than find the live one.
+- **`/srv/mobishop`, `/var/backups/mobishop`, `mobishop-*.dump`.** Real directories and
+  real files. The runbooks had been swept to the new names while the scripts kept the old
+  ones — including the rollback command, the one line reached for during an incident.
+
+All of it is now written down as golden rule 1c, because the next person to grep for
+`mobishop` will read those leftovers as an unfinished job rather than as load-bearing.
+
+### The brand string nobody grepped for
+
+The first commit swept «موبی‌شاپ» and found it in four places. The string this product
+actually *shows a shopkeeper* is «موبایل‌یار», and it survived in twenty-nine lines across
+nine Blade views: the landing `<title>`, meta description and og:title, both wordmarks,
+all six screenshot alt texts, the FAQ and IMEI copy, the login and registration chrome,
+and the whole of the Terms of Service. The public front door and the legal agreement were
+still naming the old product. A grep is only as good as the string you guess.
+
 ## 0.13.0 - 2026-08-23
 
 **The landing page, rebuilt to the brief it was never actually following.** MINOR — the
