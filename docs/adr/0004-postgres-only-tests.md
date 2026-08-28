@@ -15,7 +15,7 @@ Laravel project ships with.
 
 It is also unusable here.
 
-MobiShop's central promise is that one shop cannot see another shop's data, and the
+Hamyar's central promise is that one shop cannot see another shop's data, and the
 mechanism we sell that on is PostgreSQL Row-Level Security: every tenant table carries
 `ENABLE ROW LEVEL SECURITY` plus `FORCE ROW LEVEL SECURITY` and a policy
 `USING (tenant_id = current_setting('app.tenant_id')::bigint)`, with the application
@@ -44,8 +44,8 @@ role the application uses in production.** There is no SQLite fallback and no
 
 Concretely:
 
-- `phpunit.xml` sets `DB_CONNECTION=pgsql` and `DB_DATABASE=mobishop_test`.
-- The `mobishop_test` database and the `mobishop_app` role are provisioned by
+- `phpunit.xml` sets `DB_CONNECTION=pgsql` and `DB_DATABASE=hamyar_test`.
+- The `hamyar_test` database and the `hamyar_app` role are provisioned by
   `docker/postgres/init/10-app-role.sh` for local development, and by an equivalent
   step in `.github/workflows/ci.yml` for CI.
 - The test role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`. It owns the

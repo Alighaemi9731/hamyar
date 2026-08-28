@@ -61,7 +61,7 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Golden rule 5: MobiShop STORES every timestamp in UTC. This value must stay
+    | Golden rule 5: Hamyar STORES every timestamp in UTC. This value must stay
     | "UTC" — changing it silently rewrites the meaning of every stored date.
     |
     | The shop's wall-clock timezone lives in `display_timezone` below and is applied

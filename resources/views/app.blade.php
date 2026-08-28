@@ -13,7 +13,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title inertia>{{ config('app.name', 'MobiShop') }}</title>
+    <title inertia>{{ config('app.name', 'سامانه همیار') }}</title>
 
     {{-- Matches the light/dark ground so a theme switch does not flash white. --}}
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F9FB">
@@ -26,7 +26,7 @@
     <script nonce="{{ Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {
             try {
-                var stored = localStorage.getItem('mobishop.theme');
+                var stored = localStorage.getItem('hamyar.theme');
                 var dark = stored === 'dark' || (stored === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 document.documentElement.classList.toggle('dark', dark);
             } catch (e) { /* private mode: fall back to the light default */ }

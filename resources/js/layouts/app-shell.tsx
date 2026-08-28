@@ -48,7 +48,7 @@ export function AppShell({ title, actions, children }: AppShellProps) {
       {/* Chrome, not content: `no-print` keeps the sidebar, topbar and toasts off
           paper, so a print layout inside the shell prints only its sheet. */}
       <aside className="glass no-print sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
-        <ShopBadge name={tenant?.name ?? 'MobiShop'} subdomain={tenant?.subdomain ?? null} />
+        <ShopBadge name={tenant?.name ?? 'سامانه همیار'} subdomain={tenant?.subdomain ?? null} />
         <SidebarNav currentPath={location} features={features} />
       </aside>
 
@@ -64,7 +64,7 @@ export function AppShell({ title, actions, children }: AppShellProps) {
                 from the same side the desktop sidebar occupies. */}
             <SheetContent side="right" dir="rtl" className="w-72 p-0">
               <SheetTitle className="sr-only">منوی اصلی</SheetTitle>
-              <ShopBadge name={tenant?.name ?? 'MobiShop'} subdomain={tenant?.subdomain ?? null} />
+              <ShopBadge name={tenant?.name ?? 'سامانه همیار'} subdomain={tenant?.subdomain ?? null} />
               <SidebarNav currentPath={location} features={features} />
             </SheetContent>
           </Sheet>

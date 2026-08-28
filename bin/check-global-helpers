@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * MobiShop — global-helper collision gate.
+ * Hamyar — global-helper collision gate.
  *
  * ## The rule
  *

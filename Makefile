@@ -1,4 +1,4 @@
-# MobiShop — developer entrypoints.
+# Hamyar — developer entrypoints.
 # Everything PHP runs inside the `app` container; Node/Vite runs on the host.
 
 SHELL := /bin/bash
@@ -59,11 +59,11 @@ sh: ## Shell inside the app container
 
 .PHONY: psql
 psql: ## psql into the dev database as the superuser (NOTE: bypasses RLS — you see all tenants)
-	$(DC) exec postgres psql -U $${DB_ROOT_USERNAME:-mobishop} -d $${DB_DATABASE:-mobishop}
+	$(DC) exec postgres psql -U $${DB_ROOT_USERNAME:-hamyar} -d $${DB_DATABASE:-hamyar}
 
 .PHONY: psql-app
 psql-app: ## psql as the application role (RLS enforced — set app.tenant_id to see rows)
-	$(DC) exec postgres psql -U $${DB_USERNAME:-mobishop_app} -d $${DB_DATABASE:-mobishop}
+	$(DC) exec postgres psql -U $${DB_USERNAME:-hamyar_app} -d $${DB_DATABASE:-hamyar}
 
 ## ------------------------------------------------------------ app tasks ----
 

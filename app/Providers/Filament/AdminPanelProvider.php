@@ -23,7 +23,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The super-admin panel — MobiShop staff, not shop staff.
+ * The super-admin panel — Hamyar staff, not shop staff.
  *
  * Three deliberate constraints:
  *
@@ -51,7 +51,7 @@ final class AdminPanelProvider extends PanelProvider
             ->domain(config()->string('app.domain'))
             ->authGuard('platform')
             ->login()
-            ->brandName('مدیریت موبی‌شاپ')
+            ->brandName('مدیریت همیار')
             ->colors([
                 // Matches the product's own brand token rather than a Filament default,
                 // so staff screenshots in a support thread look like the same product.

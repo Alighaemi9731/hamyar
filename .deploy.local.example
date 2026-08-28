@@ -5,7 +5,7 @@
 # The repository is public. This file is why that is safe.
 
 # Where `bin/release --deploy` sends the tree. Anything ssh(1) accepts.
-MOBISHOP_SSH=root@203.0.113.10
+HAMYAR_SSH=root@203.0.113.10
 
 # The deploy directory on that box. An rsync'd copy of the tree, NOT a git checkout.
-MOBISHOP_PATH=/srv/mobishop
+HAMYAR_PATH=/srv/mobishop

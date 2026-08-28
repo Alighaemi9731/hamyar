@@ -1,4 +1,4 @@
-# MobiShop — production vhost.
+# Hamyar — production vhost.
 #
 # ## The domain is never written down here
 #
@@ -146,7 +146,7 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass mobishop_app;
+        fastcgi_pass hamyar_app;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT $realpath_root;

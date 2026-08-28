@@ -1,4 +1,4 @@
-# MobiShop — Deployment & operations
+# Hamyar — Deployment & operations
 
 Local development first, then the production runbook.
 
@@ -97,10 +97,10 @@ Two roles, and the difference matters
 
 | Role | Superuser | Used by |
 |---|---|---|
-| `mobishop_app` | **No** | Everything: requests, workers, migrations, seeders, tests |
-| `mobishop` | Yes | `make psql`, backups, manual surgery only |
+| `hamyar_app` | **No** | Everything: requests, workers, migrations, seeders, tests |
+| `hamyar` | Yes | `make psql`, backups, manual surgery only |
 
-Querying as `mobishop` shows **every tenant's data** — RLS does not apply to
+Querying as `hamyar` shows **every tenant's data** — RLS does not apply to
 superusers. That is deliberate (backups and incident response need it) and is exactly
 why the application never connects as it.
 
@@ -112,7 +112,7 @@ why the application never connects as it.
             ┌──────────── nginx (TLS, HTTP/2) ────────────┐
  Internet ─▶│  <apex>   *.<apex>          :80 → :443      │
             └───────┬─────────────────────────────────────┘
-                    │  upstream mobishop_app  ← one file, rewritten at cutover
+                    │  upstream hamyar_app  ← one file, rewritten at cutover
         ┌───────────┴───────────┐
         ▼                       ▼
    app_blue (php-fpm)     app_green (php-fpm)      ← only one is live
@@ -265,8 +265,8 @@ underneath it — `bin/deploy` runs **on the box** and is what `bin/release` cal
 image exists:
 
 ```bash
-bin/deploy mobishop-app:<sha>
-bin/deploy mobishop-app:<previous-sha> --rollback
+bin/deploy hamyar-app:<sha>
+bin/deploy hamyar-app:<previous-sha> --rollback
 ```
 
 Reach for them directly only when `bin/release` cannot run — no network to GitHub, a
@@ -276,7 +276,7 @@ unmerged, and — afterwards — that the box is actually serving what was just 
 
 ### Where the image comes from — read this before following anything below
 
-This section described a registry pull (`ghcr.io/<owner>/mobishop-app:<sha>`) for its
+This section described a registry pull (`ghcr.io/<owner>/hamyar-app:<sha>`) for its
 first several revisions, and **that is not how any release has actually been cut**.
 Checked against the running box on 2026-08-21:
 
@@ -284,8 +284,8 @@ Checked against the running box on 2026-08-21:
   does not exist).
 - **Nothing in `.github/workflows/` builds or pushes an image.** CI runs style, Larastan,
   Pest and a browser smoke, and stops there.
-- Every image on the box is local and unqualified — `mobishop-app:2e2951c6e`,
-  `mobishop-app:a168066d1`, … — tagged with the nine-character commit sha.
+- Every image on the box is local and unqualified — `hamyar-app:2e2951c6e`,
+  `hamyar-app:a168066d1`, … — tagged with the nine-character commit sha.
 
 So the real sequence is **sync, build on the box, deploy**:
 
@@ -295,12 +295,12 @@ rsync -az --delete \
       --exclude '.git' --exclude 'node_modules' --exclude 'vendor' \
       --exclude '.env' --exclude '.env.production' --exclude 'certbot' \
       --exclude 'docker/nginx/upstream/app.conf' \
-      ./ root@<box>:/srv/mobishop/
+      ./ root@<box>:/srv/hamyar/
 
 # 2. on the box
-cd /srv/mobishop
-docker build -f docker/app/Dockerfile.prod -t mobishop-app:$(git -C . rev-parse --short=9 HEAD 2>/dev/null || echo manual) .
-bin/deploy mobishop-app:<tag>
+cd /srv/hamyar
+docker build -f docker/app/Dockerfile.prod -t hamyar-app:$(git -C . rev-parse --short=9 HEAD 2>/dev/null || echo manual) .
+bin/deploy hamyar-app:<tag>
 ```
 
 `--exclude 'docker/nginx/upstream/app.conf'` is not optional — see *Do not sync the
@@ -384,7 +384,7 @@ hard part**: a per-tenant restore means extracting rows by `tenant_id`, not rest
 file.
 
 ```
-17 2 * * *  cd /srv/mobishop && ./bin/backup-nightly >> /var/log/mobishop-backup.log 2>&1
+17 2 * * *  cd /srv/hamyar && ./bin/backup-nightly >> /var/log/hamyar-backup.log 2>&1
 ```
 
 **Host prerequisite: `postgresql-client`, matching the server's major version.** The dump
@@ -426,7 +426,7 @@ must not mean "recoverable to Friday lunchtime".
 
 ### The failure this is built to catch
 
-The application connects as `mobishop_app`, a **NOSUPERUSER** role, so that RLS is a real
+The application connects as `hamyar_app`, a **NOSUPERUSER** role, so that RLS is a real
 boundary (ADR 0002). A dump taken as that role is filtered by those same policies: with
 no tenant pinned RLS fails closed, and the backup contains **zero rows from every tenant
 table** — while exiting 0 and reporting a plausible size.
@@ -438,7 +438,7 @@ that restores an empty platform is the worst outcome available in this document.
 ### Restore drill
 
 ```bash
-bin/restore-drill /var/backups/mobishop/mobishop-<stamp>.dump
+bin/restore-drill /var/backups/hamyar/hamyar-<stamp>.dump
 ```
 
 Restores into a scratch database (never the live one — it refuses), then asserts four

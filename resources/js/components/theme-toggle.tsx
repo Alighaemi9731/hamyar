@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 
-const STORAGE_KEY = 'mobishop.theme';
+const STORAGE_KEY = 'hamyar.theme';
 
 /**
  * Light/dark switch.

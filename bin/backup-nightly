@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# MobiShop — nightly database backup, offsite.
+# Hamyar — nightly database backup, offsite.
 #
 #   bin/backup-nightly                 # dump, verify, upload, prune
 #   bin/backup-nightly --local-only    # skip the upload (a pre-migration snapshot)

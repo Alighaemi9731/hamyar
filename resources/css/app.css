@@ -26,13 +26,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ==========================================================================
-   MobiShop design tokens — the single source of truth.
+   Hamyar design tokens — the single source of truth.
 
    Visual language: calm, near-monochrome, generous whitespace, one restrained
    blue accent, full-pill primary actions, hairline borders and very soft
    shadows (ADR 0008 — docs/design-system.md is the long form).
 
-   Rules (mobishop-ui skill):
+   Rules (hamyar-ui skill):
    · Pages never hardcode a hex value or a raw size. Use these tokens.
    · Dark mode is a variable swap below — never a per-component colour override.
    · Colour carries MEANING, not decoration. The blue means "you can act on

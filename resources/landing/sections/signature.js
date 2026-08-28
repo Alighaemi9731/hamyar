@@ -1,5 +1,5 @@
 /*
- | MobiYar landing — the signature element's whole script.
+ | Hamyar landing — the signature element's whole script.
  |
  | It writes ONE number. `--fold` goes 0 → 1 across the first 45% of a viewport of
  | scrolling, and `sections/hero.css` spends it on `rotate`, `translate` and one

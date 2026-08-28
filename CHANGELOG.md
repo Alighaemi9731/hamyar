@@ -5,7 +5,7 @@ diff is already in Git and it is the one thing that cannot explain itself.
 
 Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is not a
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
-it. Tags and published archives: <https://github.com/Alighaemi9731/mobishop/releases>.
+it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
 ## 0.13.0 - 2026-08-23
 

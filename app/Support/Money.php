@@ -7,7 +7,7 @@ namespace App\Support;
 use InvalidArgumentException;
 
 /**
- * Money handling for MobiShop.
+ * Money handling for Hamyar.
  *
  * Golden rule 2: money is an integer number of **rial** (IRR). There is no float
  * anywhere in this class and no `/` that can produce one. Iranian shops quote prices

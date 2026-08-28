@@ -1,5 +1,5 @@
 /*
- | MobiYar landing — the whole of its JavaScript.
+ | Hamyar landing — the whole of its JavaScript.
  |
  | There is no second chunk. The rejected dark direction (ADR 0016) dynamically imported
  | ~50KB of GSAP, ScrollTrigger and Lenis to drive a pinned, scrubbed hero; this

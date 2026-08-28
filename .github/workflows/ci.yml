@@ -83,7 +83,7 @@ jobs:
       # pockets by then.
       #
       # It found one the day it was added: MAIL_FROM_ADDRESS in .env.example was
-      # `no-reply@mobishop.ir`, a working name nobody owns.
+      # `no-reply@hamyar.ir`, a working name nobody owns.
       - name: Apex-domain gate
         run: php bin/check-apex-domain
 
@@ -115,12 +115,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: mobishop
-          POSTGRES_USER: mobishop
+          POSTGRES_DB: hamyar
+          POSTGRES_USER: hamyar
           POSTGRES_PASSWORD: secret
         ports: ['5432:5432']
         options: >-
-          --health-cmd="pg_isready -U mobishop"
+          --health-cmd="pg_isready -U hamyar"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -151,14 +151,14 @@ jobs:
         env:
           PGPASSWORD: secret
         run: |
-          psql -h 127.0.0.1 -U mobishop -d mobishop -v ON_ERROR_STOP=1 <<'SQL'
-            CREATE ROLE mobishop_app LOGIN PASSWORD 'app-secret'
+          psql -h 127.0.0.1 -U hamyar -d hamyar -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE ROLE hamyar_app LOGIN PASSWORD 'app-secret'
               NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-            CREATE DATABASE mobishop_test OWNER mobishop;
+            CREATE DATABASE hamyar_test OWNER hamyar;
           SQL
-          psql -h 127.0.0.1 -U mobishop -d mobishop_test -v ON_ERROR_STOP=1 <<'SQL'
-            GRANT CONNECT ON DATABASE mobishop_test TO mobishop_app;
-            GRANT USAGE, CREATE ON SCHEMA public TO mobishop_app;
+          psql -h 127.0.0.1 -U hamyar -d hamyar_test -v ON_ERROR_STOP=1 <<'SQL'
+            GRANT CONNECT ON DATABASE hamyar_test TO hamyar_app;
+            GRANT USAGE, CREATE ON SCHEMA public TO hamyar_app;
           SQL
 
       - name: Prepare environment
@@ -172,8 +172,8 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-          DB_DATABASE: mobishop_test
-          DB_USERNAME: mobishop_app
+          DB_DATABASE: hamyar_test
+          DB_USERNAME: hamyar_app
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: |
@@ -184,8 +184,8 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-          DB_DATABASE: mobishop_test
-          DB_USERNAME: mobishop_app
+          DB_DATABASE: hamyar_test
+          DB_USERNAME: hamyar_app
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: ./vendor/bin/pest --ci
@@ -202,8 +202,8 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-          DB_DATABASE: mobishop_test
-          DB_USERNAME: mobishop_app
+          DB_DATABASE: hamyar_test
+          DB_USERNAME: hamyar_app
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: |
@@ -233,12 +233,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: mobishop
-          POSTGRES_USER: mobishop
+          POSTGRES_DB: hamyar
+          POSTGRES_USER: hamyar
           POSTGRES_PASSWORD: secret
         ports: ['5432:5432']
         options: >-
-          --health-cmd="pg_isready -U mobishop"
+          --health-cmd="pg_isready -U hamyar"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -318,14 +318,14 @@ jobs:
         env:
           PGPASSWORD: secret
         run: |
-          psql -h 127.0.0.1 -U mobishop -d mobishop -v ON_ERROR_STOP=1 <<'SQL'
-            CREATE ROLE mobishop_app LOGIN PASSWORD 'app-secret'
+          psql -h 127.0.0.1 -U hamyar -d hamyar -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE ROLE hamyar_app LOGIN PASSWORD 'app-secret'
               NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-            CREATE DATABASE mobishop_test OWNER mobishop;
+            CREATE DATABASE hamyar_test OWNER hamyar;
           SQL
-          psql -h 127.0.0.1 -U mobishop -d mobishop_test -v ON_ERROR_STOP=1 <<'SQL'
-            GRANT CONNECT ON DATABASE mobishop_test TO mobishop_app;
-            GRANT USAGE, CREATE ON SCHEMA public TO mobishop_app;
+          psql -h 127.0.0.1 -U hamyar -d hamyar_test -v ON_ERROR_STOP=1 <<'SQL'
+            GRANT CONNECT ON DATABASE hamyar_test TO hamyar_app;
+            GRANT USAGE, CREATE ON SCHEMA public TO hamyar_app;
           SQL
 
       - name: Prepare environment
@@ -341,8 +341,8 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
-          DB_DATABASE: mobishop_test
-          DB_USERNAME: mobishop_app
+          DB_DATABASE: hamyar_test
+          DB_USERNAME: hamyar_app
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
         run: ./vendor/bin/pest tests/Browser --ci

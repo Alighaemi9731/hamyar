@@ -1,4 +1,4 @@
-# MobiShop — Testing policy
+# Hamyar — Testing policy
 
 The rule that overrides every other consideration: **a roadmap task is not done until
 `composer test` is green**, and **no tenant-scoped endpoint ships without a
@@ -137,11 +137,11 @@ Only six journeys, because browser tests are slow and brittle:
 
 ## 3. Non-negotiables
 
-**Real PostgreSQL, never SQLite.** `phpunit.xml` points at `mobishop_test` on
+**Real PostgreSQL, never SQLite.** `phpunit.xml` points at `hamyar_test` on
 Postgres. SQLite has no Row-Level Security, so a suite running on it would report
 green while proving nothing about the guarantee in [ADR 0002](adr/0002-single-db-tenancy-rls.md).
 
-**The test role is not a superuser.** `mobishop_app` is `NOSUPERUSER NOBYPASSRLS`, and
+**The test role is not a superuser.** `hamyar_app` is `NOSUPERUSER NOBYPASSRLS`, and
 `enableRls()` emits `FORCE ROW LEVEL SECURITY`, so tests exercise exactly the
 enforcement path production traffic takes.
 

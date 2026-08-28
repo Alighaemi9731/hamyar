@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "mobishop/mobishop",
+    "name": "hamyar/hamyar",
     "type": "project",
-    "description": "MobiShop — multi-tenant SaaS for mobile-phone shops (Iran market).",
+    "description": "Hamyar — multi-tenant SaaS for mobile-phone shops (Iran market).",
     "keywords": [
         "saas",
         "multi-tenant",

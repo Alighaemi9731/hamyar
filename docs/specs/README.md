@@ -1,4 +1,4 @@
-# MobiShop — Module specifications
+# Hamyar — Module specifications
 
 One file per module. **These are the source of truth for acceptance tests**: when a
 spec and an implementation disagree, the spec is right until it is deliberately

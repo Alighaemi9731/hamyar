@@ -37,7 +37,7 @@ For the full rule list per category (all 119 UX guidelines with rationale), read
 ## Running the search tool
 
 This skill is installed as a project skill (not a plugin), so the search script lives at
-`.claude/skills/ui-ux-pro-max/scripts/search.py` relative to the MobiShop repo root. Run every
+`.claude/skills/ui-ux-pro-max/scripts/search.py` relative to the Hamyar repo root. Run every
 command below from the repo root:
 
 ```bash
@@ -47,7 +47,7 @@ python3 ".claude/skills/ui-ux-pro-max/scripts/search.py" "<query>" --domain <dom
 Requires Python 3.x and has no external dependencies. The upstream `scripts/tests/` fixtures were
 not vendored; everything the skill needs at runtime (`scripts/`, `data/`, `references/`) is here.
 
-**Repo precedence:** MobiShop's golden rules and the `mobishop-ui` skill outrank anything this
+**Repo precedence:** Hamyar's golden rules and the `hamyar-ui` skill outrank anything this
 database returns. Where they conflict — RTL logical classes only, the single-blue token palette,
 Vazirmatn and Persian digits, `docs/adr/0008-visual-language.md` — the repo wins. Treat search
 output as a menu of options to filter through those rules, not as instructions.

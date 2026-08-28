@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { resolvePage } from '@/lib/pages';
 
-const appName = import.meta.env.VITE_APP_NAME ?? 'MobiShop';
+const appName = import.meta.env.VITE_APP_NAME ?? 'سامانه همیار';
 
 void createInertiaApp({
   title: (title) => (title ? `${title} — ${appName}` : appName),

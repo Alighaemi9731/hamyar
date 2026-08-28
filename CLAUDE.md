@@ -1,4 +1,4 @@
-# MobiShop — Multi-tenant SaaS for mobile-phone shops (Iran market)
+# Hamyar («سامانه همیار») — Multi-tenant SaaS for mobile-phone shops (Iran market)
 
 Cloud platform where mobile-phone stores subscribe to plans and get modular tools:
 POS/sales, serialized IMEI inventory, repairs workflow, CRM, cheques, installments,
@@ -60,7 +60,7 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 8. EVERY new behavior ships with Pest feature tests, and every tenant-scoped
    endpoint gets a cross-tenant isolation test (tenant B must get 404/403 on
    tenant A's resources).
-9. UI: follow the `mobishop-ui` skill (.claude/skills/) — design tokens only,
+9. UI: follow the `hamyar-ui` skill (.claude/skills/) — design tokens only,
    RTL logical classes only (ml-/pl-/left-/text-left = bug), shadcn/ui base with
    rtl:true, domain components (Money/JDatePicker/StatusBadge/…) instead of ad-hoc
    markup, components land on the /design gallery before feature pages.

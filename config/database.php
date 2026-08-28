@@ -93,9 +93,9 @@ return [
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'mobishop'),
+            'database' => env('DB_DATABASE', 'hamyar'),
             // A NON-superuser role on purpose — superusers bypass RLS (ADR 0002).
-            'username' => env('DB_USERNAME', 'mobishop_app'),
+            'username' => env('DB_USERNAME', 'hamyar_app'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
