@@ -267,7 +267,7 @@ log "cutting traffic over to $IDLE"
 cat > "$UPSTREAM_FILE" <<UPSTREAM
 # Written by bin/deploy on $(date -u +%Y-%m-%dT%H:%M:%SZ) — do not edit by hand.
 # Release: $IMAGE
-upstream hamyar_app {
+upstream mobishop_app {
     server ${IDLE}:9000;
 }
 UPSTREAM

@@ -284,8 +284,9 @@ Checked against the running box on 2026-08-21:
   does not exist).
 - **Nothing in `.github/workflows/` builds or pushes an image.** CI runs style, Larastan,
   Pest and a browser smoke, and stops there.
-- Every image on the box is local and unqualified — `hamyar-app:2e2951c6e`,
-  `hamyar-app:a168066d1`, … — tagged with the nine-character commit sha.
+- Every image on the box is local and unqualified — images cut before the Hamyar rename
+  carry the old `mobishop-app:` prefix — `mobishop-app:2e2951c6e`,
+  `mobishop-app:a168066d1`, … — tagged with the nine-character commit sha.
 
 So the real sequence is **sync, build on the box, deploy**:
 
@@ -295,10 +296,10 @@ rsync -az --delete \
       --exclude '.git' --exclude 'node_modules' --exclude 'vendor' \
       --exclude '.env' --exclude '.env.production' --exclude 'certbot' \
       --exclude 'docker/nginx/upstream/app.conf' \
-      ./ root@<box>:/srv/hamyar/
+      ./ root@<box>:/srv/mobishop/
 
 # 2. on the box
-cd /srv/hamyar
+cd /srv/mobishop
 docker build -f docker/app/Dockerfile.prod -t hamyar-app:$(git -C . rev-parse --short=9 HEAD 2>/dev/null || echo manual) .
 bin/deploy hamyar-app:<tag>
 ```
@@ -384,7 +385,7 @@ hard part**: a per-tenant restore means extracting rows by `tenant_id`, not rest
 file.
 
 ```
-17 2 * * *  cd /srv/hamyar && ./bin/backup-nightly >> /var/log/hamyar-backup.log 2>&1
+17 2 * * *  cd /srv/mobishop && ./bin/backup-nightly >> /var/log/mobishop-backup.log 2>&1
 ```
 
 **Host prerequisite: `postgresql-client`, matching the server's major version.** The dump
@@ -438,7 +439,7 @@ that restores an empty platform is the worst outcome available in this document.
 ### Restore drill
 
 ```bash
-bin/restore-drill /var/backups/hamyar/hamyar-<stamp>.dump
+bin/restore-drill /var/backups/mobishop/mobishop-<stamp>.dump
 ```
 
 Restores into a scratch database (never the live one — it refuses), then asserts four

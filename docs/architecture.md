@@ -20,7 +20,7 @@ wired* and *what you must do when adding code*.
                     │ Laravel 12 (PHP-FPM 8.4)                      │
                     │                                               │
                     │  central routes        tenant routes          │
-                    │  app.hamyar.ir       <shop>.hamyar.ir     │
+                    │  app.hamyar.ir       <shop>.hamyar.ir         │
                     │  ├─ Filament v4 panel  ├─ Inertia + React     │
                     │  └─ onboarding/billing └─ 16 tenant modules   │
                     └───┬──────────┬───────────┬────────────┬───────┘

@@ -150,7 +150,7 @@
                         <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="currentColor" stroke-width="2"/>
                         <path class="signoff__mark__lit" d="M12 24.5h8" stroke-width="2" stroke-linecap="round"/>
                     </svg>
-                    موبایل‌یار
+                    همیار
                 </span>
 
                 <p>
@@ -207,7 +207,7 @@
         {{-- The year is rendered, not typed: a hardcoded «۱۴۰۵» is correct for four more
              months and then quietly wrong on the one page every prospect reads. --}}
         <div class="shell signoff__base">
-            <span>© {{ jalali(now(), 'Y') }} موبایل‌یار — همهٔ حقوق محفوظ است.</span>
+            <span>© {{ jalali(now(), 'Y') }} همیار — همهٔ حقوق محفوظ است.</span>
             <span>ساخته‌شده برای مغازه‌های موبایل ایران.</span>
         </div>
     </div>

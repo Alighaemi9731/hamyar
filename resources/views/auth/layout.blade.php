@@ -14,7 +14,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title') — موبایل‌یار</title>
+    <title>@yield('title') — سامانه همیار</title>
     <meta name="robots" content="noindex">
     <meta name="theme-color" content="#F7F9FB">
     @vite(['resources/landing/landing.css', 'resources/landing/landing.js'])
@@ -28,7 +28,7 @@
                 <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="#0E1B2C" stroke-width="2"/>
                 <path d="M12 24.5h8" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            موبایل‌یار
+            همیار
         </a>
 
         <div class="auth__body">
@@ -36,7 +36,7 @@
             <div class="auth__art" aria-hidden="true">
                 <div class="receipt">
                     <div class="receipt__head">
-                        <div class="receipt__shop">موبایل‌یار</div>
+                        <div class="receipt__shop">همیار</div>
                         <div class="receipt__kind">قبض پذیرش تعمیر</div>
                     </div>
                     <dl>
@@ -48,7 +48,7 @@
                     </dl>
                     <div class="receipt__rule"></div>
                     <p class="receipt__act">— دستگاه آمادهٔ تحویل شد —</p>
-                    <p class="receipt__sms">«موبایل‌یار — دستگاه شما آمادهٔ تحویل است.»</p>
+                    <p class="receipt__sms">«همیار — دستگاه شما آمادهٔ تحویل است.»</p>
                     <div class="receipt__rule"></div>
                     <div class="receipt__total"><span>تسویه</span><span>۳۲۰٬۰۰۰ تومان</span></div>
                 </div>

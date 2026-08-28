@@ -134,8 +134,14 @@ The previous container is **stopped, not removed**, so it still holds the previo
 and a rollback is a cutover rather than a rebuild:
 
 ```bash
-ssh <box> "cd /srv/hamyar && bin/deploy hamyar-app:<previous-sha> --rollback"
+ssh <box> "cd /srv/mobishop && bin/deploy hamyar-app:<previous-sha> --rollback"
 ```
+
+`/srv/mobishop` is not a typo: the deploy directory, the database, the compose project
+and the backup paths keep the pre-rename name because they are resources that already
+exist on the box. Renaming them is a coordinated migration, not an edit. And a
+`<previous-sha>` from before the rename carries the old `mobishop-app:` image prefix —
+read the tag off `docker images` rather than assuming it.
 
 `--rollback` skips migrations. **That is the constraint that shapes every migration
 here:** blue/green means both releases briefly serve one already-migrated database, so a
