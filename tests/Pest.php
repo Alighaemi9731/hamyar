@@ -296,7 +296,12 @@ function registerTestMetrics(): void
         ),
         new App\Support\Quota\Metric(
             'quota.seats', 'صندلی', App\Support\Quota\Window::Total, 'quota',
-            measure: static fn (int $tenantId): int => (int) cache()->get("seats:{$tenantId}", 0),
+            measure: static function (int $tenantId): int {
+                /** @var int|numeric-string $seats */
+                $seats = cache()->get("seats:{$tenantId}", 0);
+
+                return (int) $seats;
+            },
         ),
     );
 }

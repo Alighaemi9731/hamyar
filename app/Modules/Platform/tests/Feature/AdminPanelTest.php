@@ -127,16 +127,16 @@ it('edits a plan limit and applies it to the shops on that plan', function (): v
 
     $basic = Plan::query()->where('code', 'basic')->firstOrFail();
 
-    $before = app(LimitResolver::class)->forTenant($tenant->getKey(), 'sales.invoices');
+    $before = app(LimitResolver::class)->forTenant(idOf($tenant), 'sales.invoices');
 
     Livewire::actingAs($this->staff, 'platform')
-        ->test(EditPlan::class, ['record' => $basic->getKey()])
+        ->test(EditPlan::class, ['record' => idOf($basic)])
         ->fillForm([PlanForm::fieldFor('sales.invoices') => 7])
         ->call('save')
         ->assertHasNoFormErrors();
 
     expect($before)->not->toBe(7);
-    expect(app(LimitResolver::class)->forTenant($tenant->getKey(), 'sales.invoices'))->toBe(7);
+    expect(app(LimitResolver::class)->forTenant(idOf($tenant), 'sales.invoices'))->toBe(7);
 });
 
 /* -------------------------------------------------------- impersonation -- */

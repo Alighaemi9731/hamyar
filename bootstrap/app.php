@@ -8,9 +8,16 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolvePublicTenant;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Modules\Platform\Services\Quota\QuotaBlock;
+use App\Modules\Platform\Services\Quota\UsageEvents;
+use App\Support\Quota\QuotaExceeded;
 use App\Support\SensitiveInput;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -128,4 +135,50 @@ return Application::configure(basePath: dirname(__DIR__))
         | for both. `SensitiveInputTest` asserts they stay wired together.
         */
         $exceptions->dontFlash(SensitiveInput::keys());
+
+        /*
+        | A shop that has spent a monthly credit.
+        |
+        | Rendered as an ERROR BAG plus a payload, never as a 4xx page, and the reason is
+        | what this application already does rather than what is conventional. There is no
+        | Inertia error page here: a 403 from a POST reaches the shopkeeper as Inertia's
+        | own English iframe modal, which is the worst possible answer for someone standing
+        | at a counter with a customer. Every domain failure in this codebase already
+        | arrives as `back()->withErrors([...])`, so this is the path the operator's eyes
+        | are already trained on.
+        |
+        | The payload rides in the session rather than in the bag because it is structured
+        | — the metric, the numbers, the next plan, the prorated price — and an error bag
+        | is a map of strings. `HandleInertiaRequests` shares it as its own prop and the
+        | shell renders it once, which matters: roughly twenty-five forms in this app
+        | render only the error keys they know about, so a bag entry alone would silently
+        | vanish on most of them.
+        |
+        | The event is recorded HERE, and not from inside `consume()`, because the refusal
+        | threw inside the caller's transaction and unwound it. An `afterCommit` callback
+        | registered in there is discarded by Laravel on rollback — so the most
+        | commercially interesting signal in the product would simply not exist. By the
+        | time this runs the transaction is gone and the connection is healthy.
+        */
+        $exceptions->render(function (QuotaExceeded $exception, Request $request): RedirectResponse|JsonResponse {
+            $payload = app(QuotaBlock::class)->for($exception->verdict, $request->user());
+
+            app(UsageEvents::class)->blocked(
+                app(TenantContext::class)->idOrFail(),
+                $exception->verdict,
+                $request->user()?->getAuthIdentifier() === null ? null : (int) $request->user()->getAuthIdentifier(),
+            );
+
+            if ($request->expectsJson() && ! $request->hasHeader('X-Inertia')) {
+                return response()->json([
+                    'message' => $payload['message'],
+                    'errors' => ['quota' => [$payload['message']]],
+                    'quota' => $payload,
+                ], 422);
+            }
+
+            return back()
+                ->withErrors(['quota' => $payload['message']])
+                ->with('quota_block', $payload);
+        });
     })->create();

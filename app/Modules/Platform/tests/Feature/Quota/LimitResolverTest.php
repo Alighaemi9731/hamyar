@@ -51,7 +51,7 @@ it('reads the limit off the subscribed plan', function (): void {
     subscribe($this->tenant, 'large');
     app(SubscriptionResolver::class)->forget();
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(500);
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(500);
 });
 
 it('falls back to the free plan when a subscription lapses', function (): void {
@@ -63,12 +63,12 @@ it('falls back to the free plan when a subscription lapses', function (): void {
     ]);
     app(SubscriptionResolver::class)->forget();
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
-    expect(($this->resolver)()->effectivePlanCode($this->tenant->getKey()))->toBe('small');
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(5);
+    expect(($this->resolver)()->effectivePlanCode(idOf($this->tenant)))->toBe('small');
 });
 
 it('falls back for a shop with no subscription at all', function (): void {
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(5);
 });
 
 it('THROWS when the fallback plan does not exist', function (): void {
@@ -77,7 +77,7 @@ it('THROWS when the fallback plan does not exist', function (): void {
     // failing open in the one layer whose whole job is the opposite.
     config()->set('hamyar.quota.fallback_plan', 'no-such-plan');
 
-    expect(fn (): ?int => ($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))
+    expect(fn (): ?int => ($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))
         ->toThrow(RuntimeException::class, 'no-such-plan');
 });
 
@@ -87,7 +87,7 @@ it('treats a metric with no row as unlimited on that plan', function (): void {
     subscribe($this->tenant, 'small');
     app(SubscriptionResolver::class)->forget();
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.unlimited'))->toBeNull();
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.unlimited'))->toBeNull();
 });
 
 it('lets an override beat the plan, in both directions', function (): void {
@@ -101,7 +101,7 @@ it('lets an override beat the plan, in both directions', function (): void {
         'reason' => 'قرارداد ویژه',
     ]));
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(50);
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(50);
 });
 
 it('ignores an override that has expired', function (): void {
@@ -118,7 +118,7 @@ it('ignores an override that has expired', function (): void {
         'expires_at' => now()->subHour(),
     ]));
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(5);
 });
 
 it('makes a shop unlimited with a null override', function (): void {
@@ -132,7 +132,7 @@ it('makes a shop unlimited with a null override', function (): void {
         'reason' => 'مشتری سازمانی',
     ]));
 
-    expect(($this->resolver)()->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBeNull();
+    expect(($this->resolver)()->forTenant(idOf($this->tenant), 'quota.widgets'))->toBeNull();
 });
 
 it('re-resolves a warm memo after the entitlement version moves', function (): void {
@@ -143,7 +143,7 @@ it('re-resolves a warm memo after the entitlement version moves', function (): v
 
     $resolver = ($this->resolver)();
 
-    expect($resolver->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
+    expect($resolver->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(5);
 
     app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->tenant->getKey(),
@@ -154,23 +154,23 @@ it('re-resolves a warm memo after the entitlement version moves', function (): v
 
     // Without the bump the memo is still authoritative — which is correct, and is why
     // every writer must bump.
-    expect($resolver->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
+    expect($resolver->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(5);
 
-    $resolver->bump($this->tenant->getKey());
+    $resolver->bump(idOf($this->tenant));
 
-    expect($resolver->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(99);
+    expect($resolver->forTenant(idOf($this->tenant), 'quota.widgets'))->toBe(99);
 });
 
 it('points an exhausted shop at the next rung up, never down', function (): void {
     subscribe($this->tenant, 'small');
     app(SubscriptionResolver::class)->forget();
 
-    expect(($this->resolver)()->nextPlanFor($this->tenant->getKey(), 'quota.widgets', 6))->toBe('large');
+    expect(($this->resolver)()->nextPlanFor(idOf($this->tenant), 'quota.widgets', 6))->toBe('large');
 
     // And a shop already on the top rung has nowhere to be sent — the block screen must
     // say "contact support", not offer a downgrade as an upgrade.
     subscribe($this->tenant, 'large');
     app(SubscriptionResolver::class)->forget();
 
-    expect(($this->resolver)()->nextPlanFor($this->tenant->getKey(), 'quota.widgets', 501))->toBeNull();
+    expect(($this->resolver)()->nextPlanFor(idOf($this->tenant), 'quota.widgets', 501))->toBeNull();
 });

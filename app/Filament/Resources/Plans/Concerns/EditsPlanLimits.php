@@ -126,9 +126,12 @@ trait EditsPlanLimits
             return;
         }
 
+        /** @var int $planId */
+        $planId = $plan->getKey();
+
         foreach ($this->quotaValues as $key => $value) {
             PlanLimit::query()->updateOrCreate(
-                ['plan_id' => $plan->getKey(), 'key' => $key],
+                ['plan_id' => $planId, 'key' => $key],
                 ['value' => $value],
             );
         }
@@ -137,13 +140,13 @@ trait EditsPlanLimits
 
         /** @var list<int> $tenantIds */
         $tenantIds = Subscription::query()
-            ->where('plan_id', $plan->getKey())
+            ->where('plan_id', $planId)
             ->distinct()
             ->pluck('tenant_id')
             ->all();
 
         foreach ($tenantIds as $tenantId) {
-            $resolver->bump((int) $tenantId);
+            $resolver->bump($tenantId);
         }
     }
 }

@@ -166,12 +166,13 @@ it('aims the upgrade at the cheapest plan that would fit', function (): void {
 });
 
 it('measures a standing capacity from live rows rather than a counter', function (): void {
-    cache()->put("seats:{$this->tenant->getKey()}", 2);
+    $tenantId = idOf($this->tenant);
+    cache()->put("seats:{$tenantId}", 2);
 
     expect(fn () => spendQuota($this->tenant, 'quota.seats'))
         ->toThrow(QuotaExceeded::class);
 
-    cache()->put("seats:{$this->tenant->getKey()}", 1);
+    cache()->put("seats:{$tenantId}", 1);
 
     $verdict = spendQuota($this->tenant, 'quota.seats');
 
@@ -206,4 +207,3 @@ it('starts a fresh credit when the Jalali month turns', function (): void {
 
     expect($rows)->toBe(2);
 });
-
