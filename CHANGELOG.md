@@ -7,6 +7,41 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.3 - 2026-08-29
+
+**An upgrade now actually upgrades.** Two defects on the one path the whole metered-plan
+ladder depends on, found while designing Phase 12 and fixed before any of it is built.
+
+**`applyPayment()` never wrote `subscriptions.plan_id`.** A shop pressed upgrade, paid,
+and stayed on its old plan: the period was extended, the invoice was marked paid, the
+events fired, and the only record that anything had been bought was the invoice's `lines`
+snapshot — which is deliberately a human-readable string, not something the settlement path
+can act on. So `subscription_invoices` gains a `plan_id` column that says what the invoice
+*means* beside the snapshot that says what it *said*, and settlement writes it onto the
+subscription, with `plan_changed_at` beside it so support can answer "since when". A
+renewal — paying again for the plan you are on — deliberately leaves `plan_changed_at`
+alone rather than stamping a change that did not happen.
+
+**The upgrade button 404'd.** `billing/index.tsx` has always posted `plan.code` to
+`POST /billing/subscribe/{plan}`, and the route was bound by id. Nothing caught it because
+no test had ever posted to that route — the suite drove `BillingService` directly, so
+seventeen green billing tests coexisted with a button that could not work. `Plan` now
+routes by `code` (unique, immutable once created, and readable in a URL); the Filament
+resource is pinned to `id` so panel URLs do not move.
+
+**And a third, found on the way:** a shop with no subscription row that paid got nothing at
+all — `applyPayment()` fired its event and returned. It now creates the subscription the
+invoice implies. Not reachable through the normal signup flow, which provisions one, but
+"we took the money and the shop got nothing" is not a failure mode to leave to chance.
+
+`SubscriptionActivated` also finally has the listener its own docblock promised since
+Phase 2: `SubscriptionResolver` is a singleton memoising one subscription per tenant, so
+until now the very request that took the payment kept answering from the pre-payment plan.
+
+Six new tests, including the first one in the suite that posts to `billing.subscribe`.
+
+**No release** — there is still no production server.
+
 ## 0.14.2 - 2026-08-29
 
 **Decision Gate 6 cleared; ADR 0018 is Accepted.** Still docs only — but two of the owner's

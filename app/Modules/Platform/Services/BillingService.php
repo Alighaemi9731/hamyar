@@ -89,6 +89,12 @@ final class BillingService
             $invoice = SubscriptionInvoice::query()->create([
                 'tenant_id' => $tenantId,
                 'subscription_id' => $subscription?->getKey(),
+                // What the money buys, in a form the settlement path can act on. The
+                // `lines` snapshot below is what the invoice SAYS and never changes;
+                // this is what it MEANS. Without it `applyPayment()` extended the period
+                // and left the shop on its old plan — an upgrade that took the money and
+                // changed nothing.
+                'plan_id' => $plan->getKey(),
                 // No branch: the platform bills the shop, not one of its shopfronts.
                 'number' => $this->counters->nextFormatted(
                     $tenantId, Counter::SUBSCRIPTION_INVOICE, 'SUB', branchId: null, pad: 5
@@ -306,15 +312,24 @@ final class BillingService
             'paid_at' => CarbonImmutable::now(),
         ]);
 
+        $now = CarbonImmutable::now();
         $subscription = $invoice->subscription;
 
         if (! $subscription instanceof Subscription) {
-            event(new SubscriptionInvoicePaid($invoice));
+            // A paid invoice with nothing to grant. Reachable when the shop had no
+            // subscription row at all when it bought — provisioning normally makes one,
+            // but "we took the money and the shop got nothing" is not a failure mode to
+            // leave to chance, and the invoice now knows which plan it was for.
+            $subscription = $this->startSubscriptionFor($invoice, $now);
 
-            return;
+            if (! $subscription instanceof Subscription) {
+                event(new SubscriptionInvoicePaid($invoice));
+
+                return;
+            }
+
+            $invoice->update(['subscription_id' => $subscription->getKey()]);
         }
-
-        $now = CarbonImmutable::now();
 
         // An upgrade keeps its renewal date (ADR 0006) — the period only rolls forward
         // when the one being paid for has actually run out.
@@ -328,10 +343,58 @@ final class BillingService
                 ? $end
                 : $extendFrom->addMonth(),
             'grace_ends_at' => null,
+            // THE fix. Everything else here was already right; this line is why an
+            // upgrade is an upgrade. `plan_changed_at` moves with it so support can
+            // answer "since when" without reading invoices.
+            ...$this->planChange($invoice, $subscription, $now),
         ]);
 
         event(new SubscriptionInvoicePaid($invoice));
         event(new SubscriptionActivated($subscription));
+    }
+
+    /**
+     * The plan half of the settlement update, or nothing.
+     *
+     * Separated because it has three cases and each is a decision: the invoice names no
+     * plan (written before the column existed — extend the period, change nothing); it
+     * names the plan the shop is already on (a renewal — no change, and no misleading
+     * `plan_changed_at`); or it names a different one (the upgrade, which is the whole
+     * point of the column).
+     *
+     * @return array<string, mixed>
+     */
+    private function planChange(SubscriptionInvoice $invoice, Subscription $subscription, CarbonImmutable $now): array
+    {
+        $planId = $invoice->plan_id;
+
+        if ($planId === null || $planId === $subscription->plan_id) {
+            return [];
+        }
+
+        return ['plan_id' => $planId, 'plan_changed_at' => $now];
+    }
+
+    /**
+     * Create the subscription a paid invoice implies, when the shop had none.
+     *
+     * Returns null only when the invoice cannot say which plan it bought, which is true
+     * exactly of rows written before `plan_id` existed.
+     */
+    private function startSubscriptionFor(SubscriptionInvoice $invoice, CarbonImmutable $now): ?Subscription
+    {
+        if ($invoice->plan_id === null) {
+            return null;
+        }
+
+        return Subscription::query()->create([
+            'tenant_id' => $invoice->tenant_id,
+            'plan_id' => $invoice->plan_id,
+            'status' => Subscription::STATUS_ACTIVE,
+            'current_period_start' => $now,
+            'current_period_end' => $now->addMonth(),
+            'plan_changed_at' => $now,
+        ]);
     }
 
     /**

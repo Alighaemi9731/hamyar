@@ -21,6 +21,15 @@ final class PlanResource extends Resource
 {
     protected static ?string $model = Plan::class;
 
+    /*
+    | Pinned to the id on purpose. `Plan::getRouteKeyName()` returns `code`, because the
+    | shop-facing `POST /billing/subscribe/{plan}` is addressed by code — but the panel's
+    | own URLs were never part of that decision, and letting a model-level change silently
+    | rewrite every `/admin/plans/{id}/edit` link is how a fix acquires a blast radius
+    | nobody asked for. The panel keeps the ids it has always had.
+    */
+    protected static ?string $recordRouteKeyName = 'id';
+
     protected static ?string $navigationLabel = 'پلن‌ها';
 
     protected static ?string $modelLabel = 'پلن';

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Providers;
 
+use App\Modules\Platform\Events\SubscriptionActivated;
+use App\Modules\Platform\Listeners\ForgetResolvedSubscription;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Policies\SubscriptionPolicy;
 use App\Modules\Platform\Services\Payments\FakeGateway;
@@ -13,6 +15,7 @@ use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Support\Modules\ModuleServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 
@@ -80,6 +83,10 @@ final class PlatformServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         Gate::policy(Subscription::class, SubscriptionPolicy::class);
+
+        // The memo is per process and keyed by tenant; a plan change has to invalidate it
+        // or the request that just took the money keeps answering from the old plan.
+        Event::listen(SubscriptionActivated::class, ForgetResolvedSubscription::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([

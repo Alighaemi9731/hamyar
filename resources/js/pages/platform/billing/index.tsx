@@ -165,6 +165,9 @@ export default function Billing({ subscription, plans, invoices }: BillingProps)
                   </Button>
                 ) : (
                   <>
+                    {/* Bound by `Plan::getRouteKeyName()` = code since Phase 12.1. The
+                        route was id-bound before that, so this button 404'd for every
+                        shop that ever pressed it. */}
                     <Button
                       className="w-full"
                       onClick={() => router.post(`/billing/subscribe/${plan.code}`)}

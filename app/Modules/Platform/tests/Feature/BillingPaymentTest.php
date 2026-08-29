@@ -14,6 +14,7 @@ use App\Modules\Platform\Services\BillingService;
 use App\Modules\Platform\Services\Payments\FakeGateway;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
+use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Event;
@@ -136,6 +137,115 @@ it('charges the full price when upgrading out of a trial', function (): void {
     $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
 
     expect($invoice->total)->toBe($this->pro->price);
+});
+
+/* ------------------------------------------------------- the plan change -- */
+
+it('MOVES THE SHOP ONTO THE PLAN IT PAID FOR', function (): void {
+    // The regression this whole section exists for. `applyPayment()` extended the period
+    // and never wrote `plan_id`, so a shop upgraded, paid, and stayed on Basic — with a
+    // paid invoice as the only evidence anything had happened. No test asserted the plan
+    // changed, which is why it survived from Phase 2 to Phase 12.
+    $subscription = subscribe($this->tenant, 'basic', [
+        'current_period_start' => now()->subDays(11),
+        'current_period_end' => now()->addDays(19),
+    ]);
+
+    payFor($this->tenant, $this->pro);
+
+    $fresh = app(TenantContext::class)->runAsPlatform(
+        fn (): Subscription => Subscription::query()->findOrFail($subscription->getKey())
+    );
+
+    expect($fresh->plan_id)->toBe($this->pro->getKey());
+    expect($fresh->plan_changed_at)->not->toBeNull();
+    // ADR 0006: an upgrade keeps its renewal date. The plan moves, the date does not.
+    expect($fresh->current_period_end?->toDateString())
+        ->toBe($subscription->current_period_end?->toDateString());
+});
+
+it('unlocks the new plan for the rest of the request', function (): void {
+    // The other half: the resolver is a singleton memoising one subscription per tenant,
+    // so without ForgetResolvedSubscription the process that just took the money keeps
+    // answering from the plan the shop had before it paid.
+    subscribe($this->tenant, 'basic');
+
+    app(TenantContext::class)->runFor($this->tenant, function (): void {
+        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeFalse();
+
+        payFor($this->tenant, $this->pro);
+
+        // No forget() here on purpose — the listener is what has to have done it.
+        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeTrue();
+    });
+});
+
+it('records which plan an invoice was for', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
+
+    expect($invoice->plan_id)->toBe($this->pro->getKey());
+    // And the snapshot still says what it said: the column is what the invoice MEANS,
+    // `lines` is what it SAYS, and neither replaces the other.
+    expect($invoice->lines[0]['label'])->toContain($this->pro->name_fa);
+});
+
+it('does not stamp plan_changed_at on a plain renewal', function (): void {
+    // Paying again for the plan you are already on is a renewal, not a change. A
+    // `plan_changed_at` that moved here would lie to whoever reads it next.
+    subscribe($this->tenant, 'pro', [
+        'current_period_start' => now()->subDays(40),
+        'current_period_end' => now()->subDay(),
+    ]);
+
+    payFor($this->tenant, $this->pro);
+
+    $fresh = app(TenantContext::class)->runAsPlatform(
+        fn (): ?Subscription => Subscription::query()->where('tenant_id', $this->tenant->getKey())->first()
+    );
+
+    expect($fresh?->plan_id)->toBe($this->pro->getKey());
+    expect($fresh?->plan_changed_at)->toBeNull();
+});
+
+it('grants a subscription to a shop that paid without one', function (): void {
+    // "We took the money and the shop got nothing" used to be the literal behaviour:
+    // with no subscription row, applyPayment() fired its event and returned.
+    expect(app(TenantContext::class)->runAsPlatform(
+        fn (): int => Subscription::query()->where('tenant_id', $this->tenant->getKey())->count()
+    ))->toBe(0);
+
+    payFor($this->tenant, $this->pro);
+
+    $created = app(TenantContext::class)->runAsPlatform(
+        fn (): ?Subscription => Subscription::query()->where('tenant_id', $this->tenant->getKey())->first()
+    );
+
+    expect($created)->not->toBeNull();
+    expect($created?->plan_id)->toBe($this->pro->getKey());
+    expect($created?->status)->toBe(Subscription::STATUS_ACTIVE);
+});
+
+/* -------------------------------------------------- the upgrade button -- */
+
+it('accepts the plan CODE the billing page actually posts', function (): void {
+    // `billing/index.tsx` has always posted `plan.code`; the route was bound by id, so
+    // every press of the upgrade button 404'd. Nothing caught it because no test had
+    // ever posted to this route at all — the suite drove BillingService directly.
+    subscribe($this->tenant, 'basic');
+
+    $this->actingAs($this->user)
+        ->post(appUrl().'/billing/subscribe/pro')
+        ->assertRedirect();
+});
+
+it('404s a plan code that does not exist', function (): void {
+    subscribe($this->tenant, 'basic');
+
+    $this->actingAs($this->user)
+        ->post(appUrl().'/billing/subscribe/no-such-plan')
+        ->assertNotFound();
 });
 
 /* ----------------------------------------------------------- idempotency -- */

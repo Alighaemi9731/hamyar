@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $plan_id
  * @property string $status
  * @property int $credit_balance
+ * @property CarbonImmutable|null $plan_changed_at
  * @property CarbonImmutable|null $trial_ends_at
  * @property CarbonImmutable|null $current_period_start
  * @property CarbonImmutable|null $current_period_end
@@ -40,7 +41,7 @@ final class Subscription extends Model
     public const STATUS_CANCELED = 'canceled';
 
     protected $fillable = [
-        'tenant_id', 'plan_id', 'status', 'trial_ends_at',
+        'tenant_id', 'plan_id', 'plan_changed_at', 'status', 'trial_ends_at',
         'current_period_start', 'current_period_end', 'canceled_at', 'grace_ends_at',
         'credit_balance',
     ];
@@ -51,6 +52,7 @@ final class Subscription extends Model
     protected function casts(): array
     {
         return [
+            'plan_changed_at' => 'immutable_datetime',
             'trial_ends_at' => 'immutable_datetime',
             'current_period_start' => 'immutable_datetime',
             'current_period_end' => 'immutable_datetime',
