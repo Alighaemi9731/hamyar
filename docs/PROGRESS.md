@@ -2084,3 +2084,45 @@ being blocked is error-bag shaped with the prorated upgrade CTA, never a 4xx pag
 
 **Operational:** the owner said there is currently no production server; a new one will be
 provided. Releases are suspended until then, and CLAUDE.md's environment section says so.
+
+## 1405/06/07 (2026-08-29) — Gate 6 cleared the same day, and it moved the window
+
+The owner answered all sixteen items within the hour. Fourteen came back as recommended;
+two changed the design, and the second one is the interesting one.
+
+**«کلاً می‌خوام سقف‌ها ماهانه باشه نه روزانه.»** The design had been written to their opening
+message, which said «روزانه». At the gate they replaced it with one credit per feature per
+Jalali month, refilled at 00:00 Tehran on the 1st, and named the model they had in mind:
+«دقیقاً مثل پلن‌های فعلی جی‌پی‌تی و کلاد که تا یه حد مصرف رو رایگان دارن، یه تایمی ریست میشه».
+
+That is a product U-turn that cost almost nothing, and the reason is worth writing down: the
+counter was never designed around a day. It is keyed `(tenant_id, metric, period_key)` and the
+clock computes the key from the metric's window, so switching every metric from `day` to
+`month` changed the matrix, the Persian copy and one enum — not the guard, not the SQL, not
+the migration, not the tests' shape. The design's one genuinely load-bearing choice (resolve
+the limit at check time, never bake it into the counter) is what made a window swap a
+data change. `Window::Day` is now deleted rather than kept "just in case": a case nothing uses
+is a promise nobody keeps. It also retires the burst-allowance item as a *problem* instead of
+deferring it as a feature — a monthly credit is what a burst allowance was trying to be.
+
+**The first rung is free, and it eats the trial.** The completeness review had already found
+that "paid Basic + lapse falls to Basic quotas" is a free rung through the back door, so the
+item was put to the owner openly and they chose free. The consequence is deletion, not
+addition: `TrialPolicy`, `BASELINE_PLAN_CODE`, the borrowed-limits table and the trial
+branches in `SubscriptionResolver::limit()` and `ProrationCalculator::preview()` all go, and a
+new shop simply starts `active` on a zero-price plan. `messaging.sms` is 0 there — the one
+quota that costs us cash per unit is funded by the wallet rather than given away, which closes
+the re-registration abuse the old trial docblock had documented.
+
+Numbers, monthly, for the free rung: 300 invoices, 200 IMEI units, 200 products, 200 parties,
+100 repair tickets, 100 quotes, 50 purchase receipts, 0 SMS. Deliberately below the 500 that
+the business plan gave *paid* Basic, because that number was priced at ۲۹۰ هزار تومان and this
+one is priced at nothing. `pro` is 5,000 invoices; `enterprise` is unlimited except the
+cost-bearing totals (25 seats, 50 GB), which an override lifts per shop.
+
+Recorded in the same pass: golden rule 7 rewritten in `CLAUDE.md` (gating is quantity, not
+availability — and a metered create path that does not call `consume()` is a bug of the same
+class as a tenant table without RLS), «سازمانی» → «نامحدود», `laravel/pennant` approved for
+removal, Moadian never metered and explicitly low-priority («کلا بیشتر مغازه‌ها معاف از
+مالیاتن اونو نمی‌خوان»), and the platform absorbing system-SMS cost under a per-tenant daily
+cap. Version `0.14.2`, docs only, no release — there is still no production box.

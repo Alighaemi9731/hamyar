@@ -1771,17 +1771,20 @@ trail worth reading**.*
 
 ---
 
-## Phase 12 — Metered plans: every module open, quantity limits per window, a three-rung ladder
+## Phase 12 — Metered plans: every module open, a monthly credit per feature, a three-rung ladder
 
-**Goal:** replace "a plan is a bundle of modules" with "a plan is how much work per Tehran
-day a shop may record". Every module opens for every shop; every kind of work has a
-counted cap; three plans form a ladder and hitting a cap is the moment a shop upgrades.
-Design, alternatives and the full metric matrix: [ADR 0018](adr/0018-metered-plans.md)
-(**Proposed** — nothing below 12.1 starts before Decision Gate 6 clears).
+**Goal:** replace "a plan is a bundle of modules" with "a plan is how much work a shop may
+record in a Jalali month". Every module opens for every shop; every kind of work has a
+monthly credit that refills at 00:00 Tehran on the 1st; the first rung is free; three plans
+form a ladder and running the credit out is the moment a shop upgrades. Design, alternatives
+and the full metric matrix: [ADR 0018](adr/0018-metered-plans.md) — **Accepted at Decision
+Gate 6, 2026-08-29**.
 
 Owner direction, 2026-08-29: «همه امکانات برای همه باز باشه اولش ولی محدودیت داشته باشن …
-روزانه تا یه تعداد … همه موارد و امکانات سایت محدودیت تعداد داشته باشن … اگه به محدودیت
-خوردن … اپگرید کنن به پلن بالاتر … در کل ۳ تا پلن.»
+همه موارد و امکانات سایت محدودیت تعداد داشته باشن … اگه به محدودیت خوردن … اپگرید کنن به پلن
+بالاتر … در کل ۳ تا پلن.» And at the gate, the window: «کلاً می‌خوام سقف‌ها ماهانه باشه نه
+روزانه. یعنی هر کاربر برای هر ماه یه کریدیتی برای هر امکانات سایت داشته باشه … دقیقاً مثل
+پلن‌های فعلی جی‌پی‌تی و کلاد که تا یه حد مصرف رو رایگان دارن، یه تایمی ریست میشه.»
 
 **Supersedes** the module-bundle premise of 2.1/2.3 (`plan_module`, add-ons,
 `EnsureModuleEnabled` as a *plan* gate) and the 11.4 "validate final pricing" task's
@@ -1794,21 +1797,23 @@ until the new box exists, and nothing in this phase may be reported as shipped u
 `bin/smoke` passes against it.
 
 **Ships in order.** Each PR is small, independently green and mergeable; the numbering is
-the dependency order. 12.1 is a bug fix and may land before the gate.
+the dependency order.
 
-### 12.0 Design and gate (docs only) — `0.14.1`
-- [x] [ADR 0018](adr/0018-metered-plans.md) written as **Proposed**, from a map of all 100
-      mutating actions across the 18 modules, three independent designs judged and merged,
-      and 20 load-bearing claims adversarially verified against the code (10 corrected)
+### 12.0 Design and gate (docs only) — `0.14.1` · `0.14.2`
+- [x] [ADR 0018](adr/0018-metered-plans.md) written, from a map of all 100 mutating actions
+      across the 18 modules, three independent designs judged and merged, and 20
+      load-bearing claims adversarially verified against the code (10 corrected)
 - [x] This phase, and 2.3/2.6 marked `[→]`
-- [ ] After the gate: `docs/specs/platform.md` (Data, Feature gating → kill-switch, Limits,
-      Events, Acceptance), `docs/specs/README.md` "Gating" rule, one Acceptance line per
-      metered module spec, `docs/architecture.md`, `docs/load-testing.md` (load-test shops on
+- [x] **Gate 6 cleared 2026-08-29**; ADR rewritten to monthly windows and a free first rung,
+      `TrialPolicy` scheduled for deletion, CLAUDE.md golden rule 7 replaced
+- [ ] `docs/specs/platform.md` (Data, Feature gating → kill-switch, Limits, Events,
+      Acceptance), `docs/specs/README.md` "Gating" rule, one Acceptance line per metered
+      module spec, `docs/architecture.md`, `docs/load-testing.md` (load-test shops on
       `enterprise`), `docs/testing.md:74-100` (cites `isolation()`/`actingAsUserOf()` helpers
       that do not exist — the real primitives are the `isolation` group and
-      `actingForTenant()`), CLAUDE.md golden rule 7 per the approved wording
+      `actingForTenant()`)
 
-### 12.1 Billing bug fix — independent of the gate
+### 12.1 Billing bug fix — first, because the ladder's upgrade click is broken today
 - [ ] `BillingService::applyPayment()` writes `subscriptions.plan_id` + `plan_changed_at`
       from a `plan_id` stored on the invoice (today a paid upgrade extends the period and
       **leaves the shop on the old plan** — no test ever asserted the plan changed)
@@ -1822,6 +1827,8 @@ the dependency order. 12.1 is a bug fix and may land before the gate.
 ### 12.2 Shared kernel — no behaviour change
 - [ ] `app/Support/Quota/{Metric,Window,MetricKind,MetricRegistry,QuotaGuard,QuotaVerdict,
       QuotaExceeded,OutsideTransaction,NoQuota,ShopClock}` + `Events/{QuotaWarning,LimitReached}`
+      — `Window` is `Month | Total` only; `ShopClock::periodKey()` returns the Gregorian date
+      of the first day of the Jalali month, `resetsAt()` the next one
 - [ ] `AppServiceProvider`: registry singleton, `bindIf(QuotaGuard, NoQuota)`;
       `config/hamyar.php` (`quota.fallback_plan`, `quota.warning_ratio`,
       `quota.system_sms_daily_cap`)
@@ -1847,8 +1854,8 @@ the dependency order. 12.1 is a bug fix and may land before the gate.
       `NOBYPASSRLS` role), `RollbackTest`, `ConcurrencyTest` (**new harness**: no
       `RefreshDatabase`, committed fixtures, `pcntl_fork`, one PDO connection per child,
       `pcntl_waitpid`, truncate in `afterEach` — `ConcurrentFinalisationTest` is sequential
-      and is not a precedent), `MidnightRolloverTest` (Tehran vs UTC control, Jalali month
-      boundary), `OverrideTest`, `QuotaIsolationTest` (`isolation` group), a data-migration
+      and is not a precedent), `MonthRolloverTest` (last day of Shahrivar 23:55 Tehran →
+      fresh credit on 1 Mehr; a mid-month UTC-midnight control that must NOT roll over), `OverrideTest`, `QuotaIsolationTest` (`isolation` group), a data-migration
       test that seeds legacy `plan_limits` rows and runs the class directly, a downgrade
       "frozen not truncated" test, a prune test, a `PlanLimitsChanged` propagation test
 
@@ -1862,10 +1869,13 @@ the dependency order. 12.1 is a bug fix and may land before the gate.
 - [ ] `PlanLimit::keys()/labelFor()` → registry; `PlanForm` limits repeater pre-filled per
       metric (window badge, «نامحدود», missing rows red), modules checklist removed,
       `PlanLimitsChanged` bump; `PlansTable` loses `modules_count`
-- [ ] `TrialPolicy` inverted (paid path) or retired (free path); `TenantProvisioner`
-      accordingly; `PlanLimitsTest`
-- [ ] Free-plan path only: `Subscription::isUsable()` free branch,
-      `BillingService::hasLivePeriod()` free → full price, `SendRenewalReminders` skips free
+- [ ] **`TrialPolicy` deleted** with the trial branches in `SubscriptionResolver::limit()`
+      and `ProrationCalculator::preview()`; `TenantProvisioner::startTrial()` →
+      `startOnFreePlan()`; the data migration moves existing `trialing` rows to `active` on
+      the free plan so no row is left in a state nothing writes; `PlanLimitsTest`
+- [ ] `Subscription::isUsable()` free branch (`active` + zero-price plan + no period);
+      `BillingService::hasLivePeriod()` treats a free plan as no live period (first paid plan
+      charged in full, never prorated against nothing); `SendRenewalReminders` skips free rows
 
 ### 12.5 Every module open; lapse falls to the fallback set; landing — `0.15.0`, `BREAKING`
 - [ ] `SubscriptionResolver::grants()` → `Module::isEnabledPlatformWide()`;
@@ -1975,50 +1985,48 @@ the dependency order. 12.1 is a bug fix and may land before the gate.
 - [ ] Remove `laravel/pennant` if Gate 6 item 15 says so
 
 ### Phase 12 — Definition of Done
-- [ ] A shop on `basic` hits `sales.invoices` at the till, sees `QuotaBlock` with the
-      prorated price, pays in sandbox, lands back on the same form and finalises the 31st
-      invoice — with no counter reset
+- [ ] A shop on the free plan runs its monthly `sales.invoices` credit out at the till, sees
+      `QuotaBlock` with the prorated price, pays in sandbox, lands back on the same form and
+      finalises the next invoice — with no counter reset
+- [ ] A shop that never pays keeps working for ever on the free plan, and its credit refills
+      at 00:00 Tehran on the 1st of the Jalali month
 - [ ] `ConcurrencyTest` green under the CI `NOBYPASSRLS` role
 - [ ] Every metered key has an enforcement-site test and an isolation test
-- [ ] The landing rows show quotas, not modules, and advertise no add-ons
+- [ ] The landing rows show monthly quotas, not modules, advertise no add-ons, and the
+      first rung reads «رایگان»
 - [ ] `bin/smoke` passes against the new production box (whenever it exists)
 
-> ### ⛔ DECISION GATE 6 — metered plans
-> Read [ADR 0018](adr/0018-metered-plans.md) §1 first. Answer each item; the recommendation
-> is the lead engineer's, the decision is the owner's. Items 1–2 change numbers and one
-> code path; nothing else changes the machinery.
+> ### ✅ DECISION GATE 6 — CLEARED 2026-08-29
+> Every item answered by the project owner the same day the design was presented. Two answers
+> changed the design as written; both are applied in [ADR 0018](adr/0018-metered-plans.md),
+> which is now **Accepted**.
 >
-> 1. **The limit matrix** (ADR §1 table) — recommend as tabled; revisit after 30 days of
->    `usage_events`. They are Filament data.
-> 2. **Is rung 1 free?** — recommend **free** («رایگان»), with `messaging.sms = 0` on it
->    (wallet-funded SMS only). The free plan is the trial; lapse falls to it. Paid
->    alternative: 14-day `pro` trial + a distinct `lapsed` limit set (read-only + receipts).
-> 3. **Trial** — only if rung 1 is paid: 14 days of `pro` quotas, SMS forced to 10/day.
-> 4. **Lapse never locks a shop out** — falls to the fallback limit set; recommend yes.
-> 5. **Repair-delivery invoice exempt from `sales.invoices`** — recommend exempt.
-> 6. **Automated SMS counts against the daily SMS quota** (one bucket) — recommend yes for
->    v1; a `messaging.automated_sms` key if `usage_events` shows automations blocking staff.
-> 7. **Voids and returns never refund quota** — recommend yes.
-> 8. **Keep `module:` middleware + `features` as a platform kill-switch** — recommend yes.
-> 9. **Enterprise keeps finite `total` ceilings** (25 users, 50 GB), lifted by override —
->    recommend yes.
-> 10. **Burst allowance = a second key, later** — recommend ship without.
-> 11. **`enterprise` renamed «نامحدود»** — recommend yes.
-> 12. **CLAUDE.md golden rule 7 wording** (owner-authored): «GATING: module availability is
->     platform-wide (kill-switch only). Plan differentiation is *quantity*: every metered
->     action consumes a `usage_counters` row through `QuotaGuard::consume()` inside its own
->     transaction, resolved from the tenant's effective plan.» — approve the text.
-> 13. **The three prices** — with modules no longer differentiating, `basic`'s price (or
->     0) is the whole of item 2; `pro`/`enterprise` stay at today's seeded values until the
->     competitor check.
-> 14. **Moadian is never metered** — a legal obligation, enabled per tenant via settings,
->     never per plan; recommend yes (records ADR 0011's assumption).
-> 15. **Remove `laravel/pennant`** — unused anywhere in `app/`; recommend remove (dependency
->     change, needs approval).
-> 16. **The platform pays for system SMS** (quota alerts; later reset/invite), hard-capped
->     per tenant per day — recommend yes.
+> **The window is a month, not a day.** «کلاً می‌خوام سقف‌ها ماهانه باشه نه روزانه. یعنی هر
+> کاربر برای هر ماه یه کریدیتی برای هر امکانات سایت داشته باشه … دقیقاً مثل پلن‌های فعلی
+> جی‌پی‌تی و کلاد که تا یه حد مصرف رو رایگان دارن، یه تایمی ریست میشه.» One credit per feature
+> per Jalali month, refilled at 00:00 Tehran on the 1st. `Window` therefore has two cases,
+> `Month` and `Total`, and no day bucket exists anywhere. This also retires item 10 (the burst
+> allowance) as a problem rather than deferring it as a feature.
 >
-> Nothing below 12.1 starts before this block reads **CLEARED**.
+> **The first rung is free**, and it replaces the trial. `TrialPolicy` and the 14-day trial
+> are deleted rather than inverted; a new shop starts `active` on a zero-price plan with no
+> period; a lapsed paid shop falls back to the same place. `messaging.sms` is **0** on it —
+> the one quota that costs cash per unit is funded by the wallet, not given away.
+>
+> The rest, as recommended: limit matrix as tabled but rewritten to monthly numbers, revisited
+> after 30 days of `usage_events` (1) · lapse never locks a shop out (4) · repair-delivery
+> invoice exempt (5) · automated SMS in the same bucket as manual (6) · voids and returns
+> never refund (7) · `module:` middleware kept as a platform kill-switch (8) · enterprise keeps
+> finite operational ceilings, 25 seats and 50 GB, lifted per shop by an override (9) ·
+> «سازمانی» renamed «نامحدود» (11) · golden rule 7 reworded, now in CLAUDE.md (12) · prices:
+> `basic` = 0, `pro` and `enterprise` unchanged until the 11.4 competitor check (13) · Moadian
+> never metered (14) · `laravel/pennant` removed (15) · the platform pays for system SMS, hard-
+> capped per tenant per day (16).
+>
+> **One scope note from the owner, recorded because it changes priority rather than design:**
+> Moadian is low priority for a later phase — «کلا بیشتر مغازه‌ها معاف از مالیاتن اونو
+> نمی‌خوان». Nothing in Phase 12 depends on it; the kill-switch (item 8) is what keeps it off.
+
 
 ---
 

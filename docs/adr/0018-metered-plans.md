@@ -1,6 +1,6 @@
 # ADR 0018 — Metered plans: every module open, quantity limits per window, a three-rung ladder
 
-- **Status:** **Proposed**, bound for **DECISION GATE 6** (`../ROADMAP.md`, Phase 12)
+- **Status:** **Accepted** at **DECISION GATE 6**, 2026-08-29 (`../ROADMAP.md`, Phase 12)
 - **Date:** 2026-08-29 (j1405-06-07)
 - **Amends:** [ADR 0006](0006-proration.md) — proration stays binding for upgrades; its
   "Add-ons" section is retired with add-ons. [ADR 0012](0012-tenant-keyed-caches.md) — a
@@ -13,7 +13,12 @@
   باشن … اگه به محدودیت خوردن … اپگرید کنن به پلن بالاتر … در کل ۳ تا پلن.» Designed from
   a map of all 100 mutating actions in the 18 modules, three independent designs judged
   and merged, and 20 load-bearing claims adversarially checked against the code; the
-  corrections are folded in below and named where they changed a decision.
+  corrections are folded in below and named where they changed a decision. **Cleared at the
+  gate the same day**, with two owner decisions that changed the design as written: the
+  first rung is **free**, and **every window is a month, not a day** — «کلاً می‌خوام سقف‌ها
+  ماهانه باشه نه روزانه. یعنی هر کاربر برای هر ماه یه کریدیتی برای هر امکانات سایت داشته
+  باشه … دقیقاً مثل پلن‌های فعلی جی‌پی‌تی و کلاد که تا یه حد مصرف رو رایگان دارن، یه تایمی
+  ریست میشه.» Both are applied throughout; the roadmap's gate block records every answer.
 
 ## Context
 
@@ -26,7 +31,7 @@ shop may open, `subscription_addons` sells the rest one at a time, `EnsureModule
 exhaustion" were never built). A trial is "Pro features, Basic quotas" for 14 days.
 
 The owner wants the opposite shape: **every module open to every shop from the first
-minute, and every kind of work capped by quantity** — mostly per day — with three plans
+minute, and every kind of work capped by quantity** — a monthly credit per feature — with three plans
 forming a ladder, so hitting a cap is the moment a shop upgrades.
 
 Two facts from the code shape the design more than anything else:
@@ -51,7 +56,7 @@ seeded once and Filament-owned afterwards, like prices:
 
 | rung | code | name_fa | tagline_fa |
 |---|---|---|---|
-| 1 | `basic` | **پایه** | «برای شروع؛ همهٔ امکانات، با سقف روزانه» |
+| 1 | `basic` | **پایه — رایگان** | «همهٔ امکانات، با سهمیهٔ ماهانه؛ رایگان و بدون کارت» |
 | 2 | `pro` | **حرفه‌ای** (recommended) | «برای مغازه‌ای که هر روز می‌فروشد و تعمیر می‌کند» |
 | 3 | `enterprise` | **نامحدود** | «بدون سقف؛ برای چند شعبه و حجم بالا» |
 
@@ -64,24 +69,27 @@ Add-ons are **retired as a product**: `plan_module` and `subscription_addons` st
 read in `0.15.0` and are dropped in `0.16.0` (VERSIONING blue/green rule). SMS credit —
 the wallet — is the only thing sold beside the plans.
 
-**Rung 1 — free or paid.** The two designs that scored highest disagreed, and the
-completeness review found that "paid basic + lapse falls to basic quotas" is a free
-basic through the back door (a rational shop never pays for what lapse gives). So the
-choice must be made openly. **Recommendation: rung 1 is free** («رایگان»), because it is
-what the owner's words describe, it makes the free plan *be* the trial (no trial
-machinery), and it gives lapse a coherent landing. Its one real cost — SMS costs cash per
-segment — is closed by **`messaging.sms = 0` on the free plan**: SMS is wallet-funded only,
-and the wallet is money. Code cost: `Subscription::isUsable()` gains `active && plan is
-free → true`, `BillingService::hasLivePeriod()` treats a free plan as "no live period → the
-first paid plan is charged in full, never prorated", `SendRenewalReminders` skips free rows,
-`RevenueOverview` MRR is unaffected (it sums `plans.price`). **If the owner chooses paid**,
-rung 1 keeps a 14-day trial of `pro` quotas with `messaging.sms` forced to 10/day, and
-lapse falls to a distinct config-defined `lapsed` limit set (read-only plus receipts,
-0 new documents) — *not* to basic. Gate 6 item 2. The counter, guard and UI are identical
-either way; nothing below waits on this item.
+**Rung 1 is free, and it replaces the trial.** Decided at the gate. The completeness
+review had found that "paid basic + lapse falls to basic quotas" is a free basic through
+the back door — a rational shop never pays for what lapsing already gives — so the choice
+had to be made openly, and it was made in the honest direction. Consequences, all of them:
+
+- **There is no 14-day trial and no `TrialPolicy`.** A shop signs up onto the free plan and
+  stays there until it outgrows it; the free plan *is* the evaluation, indefinitely. This
+  deletes machinery rather than adding it (`TrialPolicy`, `BASELINE_PLAN_CODE`, the borrowed
+  limits, the trial branches in `SubscriptionResolver::limit()` and `ProrationCalculator`).
+- **`messaging.sms` is 0 on it.** The one quota that costs us cash per unit is not given
+  away; free shops send SMS by funding the wallet, which is money.
+- **`Subscription::isUsable()` gains a free branch** (`active` on a zero-price plan is usable
+  with no period), `BillingService::hasLivePeriod()` treats a zero-price plan as "no live
+  period", so the first paid plan is charged in full and never prorated against nothing;
+  `SendRenewalReminders` skips zero-price rows; `RevenueOverview`'s MRR is unaffected because
+  it sums `plans.price`, and a free shop contributes zero — which is true.
+- **Lapse has a coherent landing**: back to the free plan, which is a real product state
+  rather than a punishment state.
 
 **Lapse never locks a shop out.** When `Subscription::isUsable()` is false (period ended
-past grace, trial ended, canceled), reads keep working, public receipts and tracking keep
+past grace, canceled), reads keep working, public receipts and tracking keep
 working, and creates are capped by the fallback limit set (`config('hamyar.quota.
 fallback_plan')` — the free plan, or the `lapsed` set). The shell banner says «اشتراک شما
 به پایان رسیده؛ سقف‌های پلن پایه اعمال می‌شود» with a renew CTA. Platform-initiated
@@ -108,42 +116,61 @@ every exclusion: **correcting a counted thing is free** (returns, voids, reversa
 and **getting your own money, phone or receipt is free** (collections, deliveries, public
 views, prints). Derived rows (ledger, movements, histories, reservations), customer-actioned
 things (approvals, tracking views), security flows and legal obligations (HAMTA, Moadian)
-are never metered. Windows: `day` = Tehran wall-clock day, `month` = Jalali month,
-`total` = live rows right now. `NULL` = unlimited, the meaning `plan_limits.value` has today.
+are never metered.
 
-| metric key | label_fa | window | basic | pro | enterprise | counted at |
+**Two windows, and the ordinary one is the month.** `month` = the Jalali month, refilled in
+full at 00:00 Tehran on the 1st — a credit the shop spends at whatever rhythm its week has,
+so a busy Thursday borrows from a quiet Saturday and the "a day cap punishes an honest busy
+day" problem never exists. `total` = live rows right now, for the things that are a standing
+capacity rather than a flow (seats, branches, storage, live price-list links, and the two
+Treasury templates). There is no day window: `Window` has exactly these two cases, because a
+case nothing uses is a promise nobody keeps. `NULL` = unlimited, the meaning
+`plan_limits.value` already has.
+
+| metric key | label_fa | window | پایه (رایگان) | حرفه‌ای | نامحدود | counted at |
 |---|---|---|---|---|---|---|
-| `sales.invoices` | فاکتور فروش | day | 30 | 150 | ∞ | `FinaliseInvoice::finalise` (draft→final); repair-delivery invoices exempt (§4) |
-| `sales.quotes` | پیش‌فاکتور | day | 10 | 50 | ∞ | new `IssueQuote` service (create + QUO number + consume in one tx; fixes the out-of-tx counter at `PosController:209`). A quote that converts then consumes `sales.invoices` too — two units for one sale, by design |
-| `inventory.units` | دستگاه (IMEI) ثبت‌شده | day | 20 | 150 | ∞ | `UnitStateMachine::recordAcquisition` — purchase receive **and** trade-in (or a trade-in is a loophole) |
-| `catalog.products` | کالای جدید | day | 20 | 100 | ∞ | `ProductController@store` (+tx); `ProductImporter` with `n = counts[create]` |
-| `purchasing.invoices` | فاکتور خرید دریافت‌شده | day | 5 | 30 | ∞ | `ReceivePurchaseInvoice::receive` (drafts free) |
-| `repairs.tickets` | قبض پذیرش تعمیر | day | 10 | 60 | ∞ | `TicketIntake::take` |
-| `crm.parties` | طرف حساب جدید | day | 20 | 150 | ∞ | `PartyController@store` (+tx); `PartyImporter` with `n = OUTCOME_CREATE` |
-| `crm.follow_ups` | پیگیری | day | 10 | 50 | ∞ | `FollowUpController@store` (+tx) |
-| `installments.plans` | قرارداد اقساطی | month | 5 | 40 | ∞ | `CreateInstallmentPlan::fromInvoice` |
-| `cheques.cheques` | ثبت چک | day | 5 | 40 | ∞ | the future `RegisterCheque` service — no route exists today; the roadmap box stays open |
-| `inventory.transfers` | حوالهٔ انبار | day | 0 | 10 | ∞ | `TransferService::dispatch` (drafts free). `0` renders as «۰ در روز» with an upgrade CTA; the screen stays visible, so it is not a module gate by the back door |
+| `sales.invoices` | فاکتور فروش | month | 300 | 5,000 | ∞ | `FinaliseInvoice::finalise` (draft→final); repair-delivery invoices exempt (§4) |
+| `sales.quotes` | پیش‌فاکتور | month | 100 | 1,500 | ∞ | new `IssueQuote` service (create + QUO number + consume in one tx; fixes the out-of-tx counter at `PosController:209`). A quote that converts then consumes `sales.invoices` too — two units for one sale, by design |
+| `inventory.units` | دستگاه (IMEI) ثبت‌شده | month | 200 | 3,000 | ∞ | `UnitStateMachine::recordAcquisition` — purchase receive **and** trade-in (or a trade-in is a loophole) |
+| `catalog.products` | کالای جدید | month | 200 | 2,000 | ∞ | `ProductController@store` (+tx); `ProductImporter` with `n = counts[create]` |
+| `purchasing.invoices` | فاکتور خرید دریافت‌شده | month | 50 | 800 | ∞ | `ReceivePurchaseInvoice::receive` (drafts free) |
+| `repairs.tickets` | قبض پذیرش تعمیر | month | 100 | 1,500 | ∞ | `TicketIntake::take` |
+| `crm.parties` | طرف حساب جدید | month | 200 | 3,000 | ∞ | `PartyController@store` (+tx); `PartyImporter` with `n = OUTCOME_CREATE` |
+| `crm.follow_ups` | پیگیری | month | 100 | 1,000 | ∞ | `FollowUpController@store` (+tx) |
+| `installments.plans` | قرارداد اقساطی | month | 20 | 200 | ∞ | `CreateInstallmentPlan::fromInvoice` |
+| `cheques.cheques` | ثبت چک | month | 50 | 500 | ∞ | the future `RegisterCheque` service — no route exists today; the roadmap box stays open |
+| `inventory.transfers` | حوالهٔ انبار | month | 0 | 200 | ∞ | `TransferService::dispatch` (drafts free). `0` renders as «۰ در ماه» with an upgrade CTA; the screen stays visible, so it is not a module gate by the back door |
 | `inventory.stock_counts` | انبارگردانی | month | 1 | 4 | ∞ | `StockCountService::apply` |
-| `treasury.transfers` | انتقال بین حساب‌ها | day | 5 | 30 | ∞ | `TransferBetweenAccounts::transfer` |
-| `treasury.cash_transactions` | ثبت هزینه/درآمد | day | 10 | 60 | ∞ | `RecordCashTransaction::record` when `generatedKey === null` — no screen yet; box stays open |
+| `treasury.transfers` | انتقال بین حساب‌ها | month | 60 | 600 | ∞ | `TransferBetweenAccounts::transfer` |
+| `treasury.cash_transactions` | ثبت هزینه/درآمد | month | 150 | 1,200 | ∞ | `RecordCashTransaction::record` when `generatedKey === null` — no screen yet; box stays open |
 | `treasury.recurring_templates` | الگوی تکراری | total | 3 | 20 | ∞ | computed; no route yet |
 | `treasury.rental_contracts` | قرارداد اجاره | total | 1 | 10 | ∞ | computed; no route yet |
-| `messaging.sms` | پیامک | day | **0** (free) / 20 (paid) | 300 | ∞ (wallet still pays) | `SendSms::send` — suppress, never fail (§4) |
-| `messaging.campaigns` | کمپین پیامکی | month | 0 | 4 | ∞ | `SendCampaign::send` + pre-flight on `messaging.sms` |
-| `reporting.exports` | خروجی اکسل | day | 3 | 20 | ∞ | every `*ReportController@export`, counted **after** a successful build |
+| `messaging.sms` | پیامک | month | **0** | 5,000 | ∞ (wallet still pays) | `SendSms::send` — suppress, never fail (§4) |
+| `messaging.campaigns` | کمپین پیامکی | month | 0 | 8 | ∞ | `SendCampaign::send` + pre-flight on `messaging.sms` |
+| `reporting.exports` | خروجی اکسل | month | 30 | 300 | ∞ | every `*ReportController@export`, counted **after** a successful build |
 | `storefront.price_list_links` | لینک لیست قیمت | total (live) | 1 | 5 | ∞ | `PriceListAccess::mint` |
-| `files.attachments` | پیوست | day | 20 | 200 | ∞ | `FileStore::attach` |
+| `files.attachments` | پیوست | month | 200 | 3,000 | ∞ | `FileStore::attach` |
 | `files.storage_mb` | فضای ذخیره‌سازی | total | 500 | 5,000 | 50,000 | computed `SUM(attachments.size_bytes)` |
 | `identity.users` | کاربر فعال | total | 2 | 6 | 25 | computed: active users + pending invitations; checked at invite and reactivate, **not** at accept (the seat was reserved at invite) |
 | `inventory.branches` | شعبه | total | 1 | 3 | ∞ | computed: live branches; the default branch counts |
 
-One key, one window. A burst allowance («۱۵۰ در روز ولی نه بیش از ۲٬۰۰۰ در ماه») is a
-*second key* with its own row, never a second window on one key. Ship without it; add it
-only if `usage_events` shows busy-day blocks converting to churn rather than upgrades.
-Enterprise keeps finite operational ceilings on the three cost-bearing totals (users,
-storage) — lifted per shop by an override, never sold as a lever. **All numbers are
-Filament data**; the table is the seed for a fresh install and the Gate 6 proposal.
+**Where the free column comes from.** The free rung has to be big enough that a one-person
+shop can genuinely run a month on it and small enough that a real shop feels the ceiling —
+roughly ten invoices a working day. It sits deliberately *below* the `invoices_per_month`
+value the business plan gave paid Basic (500), because that number was priced at ۲۹۰ هزار
+تومان and this one is priced at nothing. `messaging.sms` is **0** on it: SMS is the one
+quota that costs us cash per segment, so a free rung that hands out messages is a free SMS
+service for anyone willing to re-register. Free shops send SMS by funding the wallet, which
+is money — the hole closes without the door closing.
+
+One key, one window — and with the window a month, the burst allowance the daily design
+needed (a second key capping the month on top of the day) is not a deferred feature but a
+problem that no longer exists.
+
+Enterprise keeps finite operational ceilings on the cost-bearing totals (25 seats, 50 GB),
+lifted per shop by an override and never sold as a lever. **All numbers are Filament data**;
+the table is the seed for a fresh install, approved at the gate as the starting point and to
+be revisited after 30 days of `usage_events`.
 
 ### 2. Metric registry — shared kernel, filled by the owning module
 
@@ -157,7 +184,7 @@ Platform implements it. Nothing under `app/Modules/<X≠Platform>` imports
 app/Support/Quota/
   Metric.php           final readonly value object (key, labelFa, window, module, kind,
                        measure closure for Computed, unitFa, position, landing)
-  Window.php           enum: Day | Month | Total
+  Window.php           enum: Month | Total   (no Day — no metric uses one)
   MetricKind.php       enum: Counted | Computed
   MetricRegistry.php   singleton (AppServiceProvider); register() throws on a duplicate key
                        or a key not prefixed by "<module>."
@@ -233,12 +260,12 @@ hand, Filament reads run inside `PlatformPanelContext`, and all three join both 
 true`. `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price` are
 untouched in `0.15.0` and dropped in `0.16.0`.
 
-**Period keys (§6 for the clock).** `Window::Day` → the Gregorian `Y-m-d` of the Tehran
-wall-clock day (`2026-08-29`). `Window::Month` → **the Gregorian date of the first day of
-the Jalali month** (`2026-08-23` for ۱۴۰۵/۰۶). Both are 10-char Gregorian dates: fixed
-width, sortable, computable in SQL by `ShopClock::dayOf()`, never accidentally rendered in
-Persian digits, one retention cutoff, and **no Jalali string is ever stored** (golden rule
-5's letter is kept, not amended). Jalali is a display concern.
+**Period keys (§6 for the clock).** `Window::Month` → **the Gregorian date of the first day
+of the Jalali month**, e.g. `2026-08-23` for ۱۴۰۵/۰۶. A 10-char Gregorian date: fixed width,
+sortable, computable in SQL by `ShopClock::dayOf()`, never accidentally rendered in Persian
+digits, one retention cutoff for the whole table, and **no Jalali string is ever stored**
+(golden rule 5's letter is kept, not amended). Jalali is a display concern — the shop reads
+«شهریور ۱۴۰۵» and the column holds a date. `Window::Total` has no row and no key.
 
 **Retention.** `usage_counters` 400 days; `usage_events` forever (≤ 4 rows per metric per
 tenant per period, and it is the pricing signal). `quota:prune` is `@platform-wide`,
@@ -378,7 +405,7 @@ and refuse whole; they do not pre-consume — jobs consume one by one when they 
 one small `DB::transaction` doing **charge → consume** in that order, with wallet refusal
 throwing so the closure rolls back and a wallet-empty send cannot leak a quota unit; the
 `try` sits outside `DB::transaction()` (CLAUDE.md savepoint rule). On either refusal the
-message is marked `suppressed` with the matching reason («سقف پیامک روزانهٔ پلن پر شده
+message is marked `suppressed` with the matching reason («سهمیهٔ پیامک این ماه تمام شده
 است») and the method returns.
 
 **Middleware pre-check is a courtesy, never the guarantee.** `EnsureQuotaAvailable`
@@ -401,10 +428,11 @@ under any quota state and any lapse.
    everything, trial included;
 2. effective plan = the usable subscription's plan, else the fallback limit set
    (`config('hamyar.quota.fallback_plan')`);
-3. `TrialPolicy::apply()` while trialing (only forces `messaging.sms`; paid-basic path
-   only);
-4. the `plan_limits` row → value (NULL = unlimited);
-5. no row → unlimited, `Log::warning` once per process, Filament shows the gap in red.
+3. the `plan_limits` row for that plan → value (NULL = unlimited);
+4. no row → unlimited, `Log::warning` once per process, Filament shows the gap in red.
+
+There is no trial step: the free plan replaced it, so a shop's limits are its plan's limits
+from the first minute.
 
 **If the fallback plan resolves to no `plans` row, the resolver throws `FallbackPlanMissing`
 — always, tests included.** The lenient reading ("no plan → unlimited") would make a
@@ -444,15 +472,23 @@ after rollback. Middleware pre-check: one `SELECT` on guarded POSTs.
 a thin delegate so its tests stay put). Constructed with the timezone
 (`config('app.display_timezone')` today; `tenants.settings.timezone` later — because keys
 are computed, not stored with a zone, a timezone change simply starts a new bucket).
-`periodKey(Window)` is computed **at consume time, inside the transaction, from the wall
-clock** — never from `occurred_at` or any user-supplied date: a backdated expense counts on
-the day it was typed; a delayed campaign job counts on the day it actually sends.
-`resetsAt(Window)` is a UTC instant for the UI (`Jalali::startOfMonth(Jalali::addMonths(
-$nowLocal, 1))` for months — both helpers exist). Boundary: `00:00 Asia/Tehran` = 20:30 UTC
-through the tz database, never a fixed offset (Iran has had no DST since 2022, and the
-database knows). Tests `freezeTime()` in `beforeEach` and `travelTo` 23:55 Tehran, exhaust,
-`travel(10)->minutes()`, assert a new row; the control case at 00:25 → 00:35 UTC asserts
-**no** rollover; the month case crosses the last day of Shahrivar.
+`periodKey(Window::Month)` is computed **at consume time, inside the transaction, from the
+wall clock** — never from `occurred_at` or any user-supplied date: an expense backdated to
+last month still spends this month's credit, and a campaign job that runs after the turn of
+the month spends the new month's. `resetsAt()` is a UTC instant for the UI —
+`Jalali::startOfMonth(Jalali::addMonths($nowLocal, 1))`, both helpers exist — and the UI
+renders it as «۱ مهر» rather than a countdown, because a month is long enough that a date is
+more useful than "in 9 days".
+
+The boundary that matters is **the turn of the Jalali month at `00:00 Asia/Tehran`** (= 20:30
+UTC), taken from the tz database rather than a fixed offset (Iran has had no DST since 2022,
+and the database knows). Getting this wrong by 3½ hours would refill a shop's credit while it
+is still closing yesterday's till, or refuse a sale in the first hours of a month it has
+already paid for. Tests `freezeTime()` in `beforeEach`, `travelTo` the last day of Shahrivar
+at 23:55 Tehran, exhaust the credit, `travel(10)->minutes()` and assert a fresh row keyed on
+the first of Mehr with `used = 1`; the control case at 00:25 → 00:35 **UTC** on a mid-month
+day asserts **no** rollover, which is the assertion that fails if anyone reaches for
+`now()->startOfMonth()`.
 
 ### 7. UX
 
@@ -477,8 +513,8 @@ prepends `errors.quota` to its `blockingError` chain, and **parks the draft on r
 (the draft is created outside the finalise transaction) so the basket survives the upgrade
 round trip. Copy, Persian digits, one sentence plus one action:
 
-> «سقف روزانهٔ **۳۰ فاکتور فروش** در پلن **پایه** پر شده است. پلن **حرفه‌ای** تا ۱۵۰ فاکتور
-> در روز را پوشش می‌دهد؛ سهمیهٔ امروز فردا ساعت ۰۰:۰۰ تازه می‌شود.»
+> «سهمیهٔ **۳۰۰ فاکتور فروش** این ماه در پلن **پایه** تمام شد. پلن **حرفه‌ای** ماهی ۵٬۰۰۰
+> فاکتور دارد؛ سهمیهٔ پلن فعلی **۱ مهر** تازه می‌شود.»
 
 `<QuotaBlock>` shows the sentence, the `UsageMeter` for that metric and — when the user has
 `billing.manage` — a primary button «ارتقا به حرفه‌ای — ۲٬۴۰۰٬۰۰۰ تومان تا پایان دوره» whose
@@ -488,7 +524,8 @@ persisted on `payment_attempts` at initiate time** (the gateway callback arrives
 session) and validated as a same-host relative path (it is otherwise an open redirect);
 `BillingController` honours it after `applyPayment`, landing the operator back on the same
 form with «پلن حرفه‌ای فعال شد؛ ادامه دهید». Without the permission: «از مدیر فروشگاه
-بخواهید پلن را ارتقا دهد». Secondary: «فردا ادامه می‌دهم» with `resets_at`.
+بخواهید پلن را ارتقا دهد». Secondary, quiet: «سهمیهٔ بعدی: ۱ مهر» from `resets_at` — a date
+rather than a countdown, because a month is too long for "فردا" to be the honest answer.
 `Plan::getRouteKeyName()` returns `'code'` (`plans.code` is unique).
 
 **Meters.** `UsageMeter` (label, «<Num used/> از <Num limit/> <unit>» or «نامحدود», a
@@ -498,14 +535,15 @@ ok / warning / reached / blocked / unlimited / total states. Thresholds: amber a
 the consume path; **red only after a block actually happened** — a shop that sold exactly
 its cap and went home is not shouted at. `UsageBanner` in the shell's `no-print` block
 renders only when `attention` is non-empty or the plan is lapsed. The dashboard gets a
-«سهمیهٔ امروز» row of compact meters as a deferred prop; the billing page shows every meter
+«سهمیهٔ این ماه» row of compact meters as a deferred prop; the billing page shows every meter
 on the current-plan card and each `PlanCard` lists `limits` instead of `modules`.
 
 **Landing.** `pricing.blade.php` keeps its ladder-of-rows markup, CSS classes and the
 `landing.js` contract; `.tariff__included` lists the headline quotas from `plan->limits`
-joined to the registry («<b class="nums">۳۰</b> فاکتور در روز» …, enterprise «نامحدود»)
-under «سقف روزانه»; the add-on shelf and `closing.blade.php`'s per-plan framing go; the
-lede becomes «همهٔ امکانات برای همه؛ فقط سقف روزانه فرق می‌کند». `terms.blade.php`'s add-on
+joined to the registry («<b class="nums">۳۰۰</b> فاکتور در ماه» …, enterprise «نامحدود»)
+under «سهمیهٔ ماهانه»; the add-on shelf and `closing.blade.php`'s per-plan framing go; the
+lede becomes «همهٔ امکانات برای همه؛ فقط سهمیهٔ ماهانه فرق می‌کند»; the free rung's row carries
+«رایگان» where a price would be. `terms.blade.php`'s add-on
 sentence is rewritten. **The catalogue flip and the landing rewrite merge back-to-back and
 release once**, so the site never advertises add-ons the code no longer honours.
 
@@ -553,9 +591,12 @@ shops blocked in the last 7 days, by metric — «کدام سقف بیشترین
   `grantedModuleCodes()` → every enabled code for usable **or lapsed** tenants;
   `Subscription::grantedModuleCodes()` / `addons()` deprecated in `0.15.0`, deleted in
   `0.16.0`; `ProrationCalculator` / `invoiceForPlan()` checked for add-on lines.
-- `TrialPolicy`: `BASELINE_PLAN_CODE` and the borrowed list deleted; survives only on the
-  paid-basic path as `FORCED = ['messaging.sms' => 10]`. `TenantProvisioner::startTrial()`
-  becomes `startOnFreePlan()` (free path) or keeps `pro` with a rewritten comment (paid).
+- **`TrialPolicy` is deleted outright**, along with the trial branches in
+  `SubscriptionResolver::limit()` and `ProrationCalculator::preview()`.
+  `TenantProvisioner::startTrial()` becomes `startOnFreePlan()`: a new shop gets an `active`
+  subscription on the zero-price plan with no period and no `trial_ends_at`. Existing
+  `trialing` rows (the demo tenant and any seeded fixture) are migrated to `active` on the
+  free plan by the same data migration, so no row is left in a state nothing writes.
 - **Seeding — "seed once, never overwrite" kept, with one backfill mechanism.** The
   one-off data migration renames the three legacy keys, deletes `invoices_per_month`, and
   copies `sms_credit_bonus` into `plans.sms_credit_grant_count` before deleting it. It does
@@ -611,8 +652,13 @@ shops blocked in the last 7 days, by metric — «کدام سقف بیشترین
   group, jobs have no middleware, and a check outside the transaction cannot be atomic.
 - **Delete `module:` middleware and `features`.** Rejected: a 20-file diff for no
   behaviour, and ADR 0011 needs a platform kill-switch.
-- **Per-day caps for everything.** Rejected for stock counts, installment contracts and
-  campaigns, which a shop does on a monthly rhythm — a per-day cap there reads as arbitrary.
+- **Per-day caps** (the shape the owner first described, and the shape this ADR carried
+  until the gate). Rejected by the owner in favour of one monthly credit per feature, «دقیقاً
+  مثل پلن‌های فعلی جی‌پی‌تی و کلاد». It is the better answer for a shop whose week is not flat:
+  a day cap refuses the busiest Thursday of the month while the shop is nowhere near what it
+  pays for, and every mitigation for that (a burst key, a day-pass override, «فردا ادامه
+  می‌دهم») is machinery a monthly credit does not need. The cost is that a credit spent early
+  leaves a longer wait — answered by the 80 % warning and the one-click upgrade.
 - **Default-off guard in tests** (`subscribe()` binds `NoQuota`). Rejected: a create path
   that forgets `consume()` would pass every test forever.
 
@@ -624,11 +670,12 @@ shops blocked in the last 7 days, by metric — «کدام سقف بیشترین
   Filament and analytics all read one registry; the first real pricing signal the product
   will have (`usage_events`) exists from day one; the never-enforced `users` and `branches`
   caps finally bite; two latent billing bugs are fixed on the way.
-- **Negative, accepted.** A busy honest day is punished by a day cap — «فردا ادامه می‌دهم»,
-  the second-key burst allowance and a future day-pass override are the levers, and
-  `usage_events` will say whether it is happening. Automations can starve the operator's
-  SMS on the small plan; the message log explains «چرا نرفت», and a second key is promised
-  if it bites. A long transaction (a 1,000-IMEI receive) holds the `inventory.units` row
+- **Negative, accepted.** A monthly credit spent early leaves a shop capped for the rest of
+  the month, which is a longer wait than a day cap ever imposed — the meters, the 80 % warning
+  and the one-click prorated upgrade are what stand between that and a support ticket, and a
+  per-shop override is the manual escape. Automations can eat the operator's SMS credit on the
+  free plan (where it is zero anyway) and on `pro`; the message log explains «چرا نرفت», and a
+  separate `messaging.automated_sms` key is promised if `usage_events` shows it biting. A long transaction (a 1,000-IMEI receive) holds the `inventory.units` row
   until commit. Advisory locks for Computed totals are invisible to `tenancy:check`, so a
   future user-creation path that forgets `assertCapacity()` bypasses the seat cap silently
   — `quota:audit` and the enforcement-site tests are the mitigation. Every shell page pays
@@ -640,6 +687,33 @@ shops blocked in the last 7 days, by metric — «کدام سقف بیشترین
 
 ## Approved by
 
-Not yet. Bound for **DECISION GATE 6** in `../ROADMAP.md` (Phase 12), which lists the
-sixteen items and the recommendation for each. This ADR becomes Accepted when the gate is
-cleared and the roadmap block records what was approved.
+**DECISION GATE 6, cleared by the project owner on 2026-08-29**, recorded in
+`../ROADMAP.md` (Phase 12). Every item was answered; two answers changed the design as it
+had been written and both are applied above:
+
+| # | item | decision |
+|---|---|---|
+| 1 | the limit matrix | as tabled, **rewritten to monthly numbers**; revisit after 30 days of `usage_events` |
+| 2 | is rung 1 free | **free**, with `messaging.sms = 0` on it |
+| 3 | the 14-day trial | **obsolete** — the free plan is the evaluation; `TrialPolicy` is deleted |
+| 4 | lapse never locks a shop out | yes — falls to the free plan |
+| 5 | repair-delivery invoice | exempt from `sales.invoices` |
+| 6 | automated SMS | counts against the same bucket as manual SMS |
+| 7 | voids and returns | never refund quota |
+| 8 | `module:` middleware | stays, as a platform-wide kill-switch |
+| 9 | enterprise `total` ceilings | finite (25 seats, 50 GB), lifted by override |
+| 10 | burst allowance | **obsolete** — a monthly credit is the burst allowance |
+| 11 | «سازمانی» → «نامحدود» | yes |
+| 12 | golden rule 7 wording | approved as proposed (§1) |
+| 13 | prices | `basic` = 0; `pro` ۵۹۰ هزار and `enterprise` ۱٬۱۹۰ هزار تومان unchanged until the Phase 11.4 competitor check |
+| 14 | Moadian | never metered — a legal obligation, enabled per tenant from settings. The owner added that it is **low priority** for a later phase: most shops are tax-exempt and do not ask for it |
+| 15 | `laravel/pennant` | remove — unused anywhere in `app/` |
+| 16 | system SMS | the platform pays, hard-capped per tenant per day |
+
+**The window change is the one to read twice.** The owner's opening message said «روزانه»
+and this ADR was written that way; at the gate they replaced it with one monthly credit per
+feature, «دقیقاً مثل پلن‌های فعلی جی‌پی‌تی و کلاد که تا یه حد مصرف رو رایگان دارن، یه تایمی ریست
+میشه». Everything in the mechanism was already window-agnostic — the counter is keyed by
+`(tenant, metric, period_key)` and the clock computes the key — so the change cost the
+matrix and the copy, not the design. That is the evidence for the registry's shape, and the
+reason `Window` keeps `Total` beside `Month` rather than hard-coding one bucket.
