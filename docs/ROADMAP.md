@@ -207,7 +207,9 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [~] Module grants resolved from plan + add-ons via `SubscriptionResolver` (fails closed). Pennant `limit:<key>` flags land with the usage counters below
 - [x] `EnsureModuleEnabled` route middleware
 - [x] `features` shared Inertia prop; nav hides disabled modules
-- [ ] Usage counters service; soft-lock behaviour (warn → block create actions)
+- [→] Usage counters service; soft-lock behaviour (warn → block create actions) — moved to
+      Phase 12 (12.3–12.11), which supersedes the "a plan bundles modules" premise of 2.1/2.3
+      ([ADR 0018](adr/0018-metered-plans.md))
 
 ### 2.4 Payments
 - [x] `payment_attempts` and `subscription_addons` are real tenant tables with FORCE RLS
@@ -254,7 +256,7 @@ zero bonus SMS, Basic invoice cap — `TrialPolicy`)
 - [x] Feature gating: module off → 403 + hidden nav
 - [x] Billing tables isolated: cross-tenant read/write denied by RLS, and the
       `runAsPlatform()` hatch proven narrow (`PlatformBillingIsolationTest`)
-- [ ] Limit exhaustion behaviour
+- [→] Limit exhaustion behaviour — moved to Phase 12 (12.3, 12.7–12.11)
 - [x] Impersonation writes an audit record (into the tenant's own log, with the reason)
 
 ### Phase 2 — Definition of Done
@@ -1766,6 +1768,257 @@ trail worth reading**.*
 - [x] Restore drill log committed — [`docs/restore-drills/20260820T104721Z.md`](restore-drills/20260820T104721Z.md), RTO 102s observed
 - [x] Load test report in `docs/` — [`docs/load-tests/2026-08-20.md`](load-tests/2026-08-20.md). **The aggregate threshold fails** (p95 1.62s against 1000ms) with **zero errors** in 1339 requests; `/dashboard` is the cause and is 1.3s with a single user
 - [ ] Go-live checklist all green
+
+---
+
+## Phase 12 — Metered plans: every module open, quantity limits per window, a three-rung ladder
+
+**Goal:** replace "a plan is a bundle of modules" with "a plan is how much work per Tehran
+day a shop may record". Every module opens for every shop; every kind of work has a
+counted cap; three plans form a ladder and hitting a cap is the moment a shop upgrades.
+Design, alternatives and the full metric matrix: [ADR 0018](adr/0018-metered-plans.md)
+(**Proposed** — nothing below 12.1 starts before Decision Gate 6 clears).
+
+Owner direction, 2026-08-29: «همه امکانات برای همه باز باشه اولش ولی محدودیت داشته باشن …
+روزانه تا یه تعداد … همه موارد و امکانات سایت محدودیت تعداد داشته باشن … اگه به محدودیت
+خوردن … اپگرید کنن به پلن بالاتر … در کل ۳ تا پلن.»
+
+**Supersedes** the module-bundle premise of 2.1/2.3 (`plan_module`, add-ons,
+`EnsureModuleEnabled` as a *plan* gate) and the 11.4 "validate final pricing" task's
+framing (prices are now per-quota-ladder, not per-module-bundle; the competitor check still
+happens, at the gate). Phase 2's ticked boxes stay ticked — they were true when ticked.
+
+**Operational note (2026-08-29):** there is currently **no production server** (the owner
+will provide a new one). PRs merge on green as usual; `bin/release --deploy` is suspended
+until the new box exists, and nothing in this phase may be reported as shipped until
+`bin/smoke` passes against it.
+
+**Ships in order.** Each PR is small, independently green and mergeable; the numbering is
+the dependency order. 12.1 is a bug fix and may land before the gate.
+
+### 12.0 Design and gate (docs only) — `0.14.1`
+- [x] [ADR 0018](adr/0018-metered-plans.md) written as **Proposed**, from a map of all 100
+      mutating actions across the 18 modules, three independent designs judged and merged,
+      and 20 load-bearing claims adversarially verified against the code (10 corrected)
+- [x] This phase, and 2.3/2.6 marked `[→]`
+- [ ] After the gate: `docs/specs/platform.md` (Data, Feature gating → kill-switch, Limits,
+      Events, Acceptance), `docs/specs/README.md` "Gating" rule, one Acceptance line per
+      metered module spec, `docs/architecture.md`, `docs/load-testing.md` (load-test shops on
+      `enterprise`), `docs/testing.md:74-100` (cites `isolation()`/`actingAsUserOf()` helpers
+      that do not exist — the real primitives are the `isolation` group and
+      `actingForTenant()`), CLAUDE.md golden rule 7 per the approved wording
+
+### 12.1 Billing bug fix — independent of the gate
+- [ ] `BillingService::applyPayment()` writes `subscriptions.plan_id` + `plan_changed_at`
+      from a `plan_id` stored on the invoice (today a paid upgrade extends the period and
+      **leaves the shop on the old plan** — no test ever asserted the plan changed)
+- [ ] `Plan::getRouteKeyName() = 'code'`; `billing/index.tsx:170` posts `plan.code` to an
+      id-bound route today (the upgrade button 404s)
+- [ ] `ForgetResolvedSubscription` listener on `SubscriptionActivated` (the event's docblock
+      promises it; nothing in production code calls `forget()`)
+- [ ] `BillingPaymentTest` posts to `billing.subscribe` over HTTP for the first time and
+      asserts the plan changed
+
+### 12.2 Shared kernel — no behaviour change
+- [ ] `app/Support/Quota/{Metric,Window,MetricKind,MetricRegistry,QuotaGuard,QuotaVerdict,
+      QuotaExceeded,OutsideTransaction,NoQuota,ShopClock}` + `Events/{QuotaWarning,LimitReached}`
+- [ ] `AppServiceProvider`: registry singleton, `bindIf(QuotaGuard, NoQuota)`;
+      `config/hamyar.php` (`quota.fallback_plan`, `quota.warning_ratio`,
+      `quota.system_sms_daily_cap`)
+- [ ] Reporting's `ShopClock` becomes a delegate to the kernel one
+- [ ] `tests/Arch/QuotaBoundariesTest.php`: no module imports `Platform\Services\Quota`;
+      `App\Support\Quota` imports no module
+
+### 12.3 Counter, resolver, tables
+- [ ] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
+      `usage_events` — RLS `allowPlatform: true` in the same migration; models without
+      `BelongsToTenant`; `TenancyCheckCommand::PLATFORM_OWNED_TABLES`; both datasets of
+      `PlatformBillingIsolationTest`; grep gate: every `UsageCounter|TenantLimitOverride|
+      UsageEvent::query()` carries `where('tenant_id'`
+- [ ] `tenants.entitlement_version`, `subscriptions.scheduled_plan_id` + `plan_changed_at`
+- [ ] `DatabaseQuotaGuard` (two statements, every placeholder cast), `LimitResolver`
+      (overrides → plan → fallback; `FallbackPlanMissing` throws, always), `UsageEvents`,
+      `UsageSnapshot`; `ForgetEntitlements` with **write-through** `Cache::put`
+- [ ] `subscriptions:expire` and `subscriptions:apply-scheduled` (`@platform-wide`,
+      scheduled) — the first writers `past_due`, `grace_ends_at` and `canceled` ever had;
+      MRR stops counting lapsed shops
+- [ ] `quota:prune` (weekly, batched) + `HealthCheck` «last prune ran at …»; `quota:audit`
+- [ ] Tests: `ConsumeTest` (incl. the insert arm on a fresh period under the CI
+      `NOBYPASSRLS` role), `RollbackTest`, `ConcurrencyTest` (**new harness**: no
+      `RefreshDatabase`, committed fixtures, `pcntl_fork`, one PDO connection per child,
+      `pcntl_waitpid`, truncate in `afterEach` — `ConcurrentFinalisationTest` is sequential
+      and is not a precedent), `MidnightRolloverTest` (Tehran vs UTC control, Jalali month
+      boundary), `OverrideTest`, `QuotaIsolationTest` (`isolation` group), a data-migration
+      test that seeds legacy `plan_limits` rows and runs the class directly, a downgrade
+      "frozen not truncated" test, a prune test, a `PlanLimitsChanged` propagation test
+
+### 12.4 Catalogue and Filament limits — **numbers from Gate 6**
+- [ ] `PlanCatalogue::plans()[..]['limits']` = the ADR §1 matrix; `['modules']` and add-on
+      prices removed; `syncModules()` writes `is_enabled = true`
+- [ ] Data migration: rename `users/branches/storage_mb`, delete `invoices_per_month`,
+      copy `sms_credit_bonus` → `plans.sms_credit_grant_count` then delete. **No inserts** —
+      `PlanCatalogueSeeder::sync()` is the one backfill mechanism;
+      `platform:sync-limits --force` is the only overwrite path and is never automatic
+- [ ] `PlanLimit::keys()/labelFor()` → registry; `PlanForm` limits repeater pre-filled per
+      metric (window badge, «نامحدود», missing rows red), modules checklist removed,
+      `PlanLimitsChanged` bump; `PlansTable` loses `modules_count`
+- [ ] `TrialPolicy` inverted (paid path) or retired (free path); `TenantProvisioner`
+      accordingly; `PlanLimitsTest`
+- [ ] Free-plan path only: `Subscription::isUsable()` free branch,
+      `BillingService::hasLivePeriod()` free → full price, `SendRenewalReminders` skips free
+
+### 12.5 Every module open; lapse falls to the fallback set; landing — `0.15.0`, `BREAKING`
+- [ ] `SubscriptionResolver::grants()` → `Module::isEnabledPlatformWide()`;
+      `grantedModuleCodes()` → all enabled codes for usable **or lapsed** tenants;
+      `features()` reads `modules` rows; `EnsureModuleEnabled` copy; `DashboardController`;
+      `ModuleForm` `is_enabled`; `ModulesTable`; `Subscription::grantedModuleCodes()/addons()`
+      deprecated; `ProrationCalculator`/`invoiceForPlan()` checked for add-on lines
+- [ ] `ModuleKillSwitchTest`, `DashboardTest:127-150`, `PriceListSecurityTest:47-60` and
+      `MoadianSubmissionTest:54-70` fixtures, `LapsedPlanTest`
+- [ ] **Same release, back-to-back merge:** `LandingController` (`plans.limits`, no
+      `$addons`), `pricing.blade.php` rows as quotas (`landing.js` untouched), add-on shelf
+      removed, `closing.blade.php`, `terms.blade.php`; `bin/check-apex-domain` and the
+      direction gate apply
+- [ ] `SeedPlatformVolumeCommand` → `enterprise`; `tests/Load/endpoints.js` note
+
+### 12.6 Being blocked, meters, banner (gallery first)
+- [ ] `bootstrap/app.php` renders `QuotaExceeded` → `back()->withErrors(['quota'])` +
+      `quota_block` (422 JSON off-Inertia); `quota_block` and `usage` shared props;
+      `types/index.d.ts`
+- [ ] `EnsureQuotaAvailable` middleware (`quota:<metric>[,<n>]`), not on the POS route;
+      test that every route key is registered
+- [ ] `UsageMeter`, `QuotaBlock`, `UsageBanner` on `/design` (ok / warning / reached /
+      blocked / unlimited / total; can_upgrade / cannot / top rung / bulk / lapsed);
+      `QuotaBlock` rendered once in `app-shell.tsx`
+- [ ] `return_to` persisted on `payment_attempts`, validated as a same-host relative path,
+      honoured after `applyPayment`; `BillingController` `?upgrade=<code>`
+- [ ] `UsagePropTest`, `MiddlewarePrecheckTest`
+- [ ] Separate task, not on the quota path: a shared `<FormErrors>` domain component and the
+      ~25 forms that render only field-keyed errors (CLAUDE.md "a home for errors that
+      belong to no field")
+
+### 12.7 Sales and Inventory call sites
+- [ ] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
+- [ ] `IssueQuote` service (create + `nextFormatted('sales_quote')` + consume in one tx —
+      fixes the out-of-transaction counter at `PosController:209`)
+- [ ] POS parks the draft on refusal; `errors.quota` first in `blockingError`
+- [ ] `UnitStateMachine::recordAcquisition(…, bool $metered = true)`;
+      `ReceivePurchaseInvoice` consumes `n` once after the loop; `TradeInIntake` counts
+- [ ] `TransferService::dispatch`, `StockCountService::apply`
+- [ ] `bin/check-quota-lock-order`, `bin/check-quota-in-transaction`, `bin/check-quota-keys`
+      in the Style & RTL job; the spy-guard `afterEach` in the Pest fixture
+- [ ] `withUnlimitedQuota()` opt-in; the ~28 suites with no subscription gain
+      `subscribe()` or the opt-in (a missing fixture throws `FallbackPlanMissing`)
+- [ ] Enforcement-site tests per metric; `TradeInTest`, `DeliverTicketTest`,
+      `PurchaseScreensTest` receive-of-N consumes once
+
+### 12.8 Catalog, CRM, Purchasing
+- [ ] `ProductController@store` +tx; `ProductImporter` consumes `n = counts[create]` after
+      the loop; `catalog.import.analyse` returns `quota`
+- [ ] `PartyController@store` +tx; `PartyImporter`; `crm.import.dry-run` returns `quota`;
+      `FollowUpController@store` +tx
+- [ ] `ReceivePurchaseInvoice::receive`; `purchasing.invoices.imeis.parse` returns `quota`
+      (warn at paste time)
+- [ ] `BulkBoundaryTest`; preview UI copy «این فایل ۴۰ کالای جدید دارد؛ امروز فقط ۱۲ …»
+
+### 12.9 Repairs, Installments, Treasury
+- [ ] `TicketIntake::take`, `CreateInstallmentPlan::fromInvoice`,
+      `TransferBetweenAccounts::transfer`, `RecordCashTransaction::record` (manual only)
+- [ ] `treasury.cash_transactions`, `treasury.recurring_templates`,
+      `treasury.rental_contracts`, `cheques.cheques` registered and enforced at service
+      level — **boxes stay open** until their screens exist (no route, no screen, no tick)
+
+### 12.10 Messaging, Files, Reporting, Storefront
+- [ ] `SendSms::send`: `record()` → one small tx **charge → consume** (wallet refusal
+      throws), suppress with reason, never throw; `systemMessage: true` (quota alerts
+      today; reset/invite when Phase 8 wires them; platform pays; per-tenant daily cap)
+- [ ] `SendCampaign::send` +tx + pre-flight on `messaging.sms`
+- [ ] `FileStore::attach`: tx around consume + `assertCapacity('files.storage_mb')` + row,
+      `put()` after the row (fixes the orphan-blob order)
+- [ ] `*ReportController@export`: consume **after** a successful build, own tx
+- [ ] `PriceListAccess::mint` +tx
+- [ ] `SendSmsTest` (21st suppressed, wallet unchanged, system bypass), `CampaignTest`,
+      `ExpensesIncomesTest` generator rows exempt
+
+### 12.11 Seats and branches (advisory lock) — closes the never-enforced `users`/`branches`
+- [ ] `UserController@invite` (+tx, counts pending), `@toggleActive` on reactivation (+tx);
+      accept does **not** re-check (the seat was reserved at invite)
+- [ ] `BranchController@store` +tx; the default branch counts
+- [ ] `TotalWindowTest`: 7th seat refused at invite and reactivate, 6th accept succeeds; two
+      parallel invites at 5/6 → one; branch cap; storage cap
+
+### 12.12 Events, analytics, Filament ops
+- [ ] `UsageEvents` writer (`warning` afterCommit; `blocked`/`bulk_blocked` from the exception
+      handler after the rolled-back tx; `upgraded_after` attribution within 7 days)
+- [ ] Messaging `quota.warning`/`quota.reached` automations (default off, owner's mobile,
+      `systemMessage`); `SubscriptionRenewalDue` finally gets a listener; reminder copy
+      «renew or fall to پایه quotas»
+- [ ] Filament: `LimitOverridesRelationManager`, `TenantUsage` page (30-day sparkline via
+      `ShopClock::dayOf`), `QuotaPressure` and `QuotaConversion` widgets, «لغو در پایان دوره»
+      action; dead surfaces removed (`ListSubscriptions` `CreateAction`, `TenantForm`
+      `is_active`)
+- [ ] `EventsTest`, `AdminPanelTest` additions
+
+### 12.13 Shell, dashboard, billing UI
+- [ ] `UsageBanner` in the shell; dashboard «سهمیهٔ امروز» as a deferred prop; billing
+      current-plan meters + `PlanCard.limits`; browser test: POS at the cap shows
+      `QuotaBlock` RTL at 390 px with the prorated CTA; Manager sees «از مدیر بخواهید»
+
+### 12.14 Inertia error pages (separate, any time)
+- [ ] `resources/js/pages/errors/*` via `withExceptions(respond)` so 403/404/419/500 render
+      RTL and branded (the 11.4 "branded error pages" item, done the Inertia way)
+
+### 12.15 Drop the bundle tables — `0.16.0`
+- [ ] Drop `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price`,
+      `SubscriptionAddon`, `Subscription::addons()`; `ModuleResource` (blue/green rule: one
+      release after they stop being read)
+- [ ] Remove `laravel/pennant` if Gate 6 item 15 says so
+
+### Phase 12 — Definition of Done
+- [ ] A shop on `basic` hits `sales.invoices` at the till, sees `QuotaBlock` with the
+      prorated price, pays in sandbox, lands back on the same form and finalises the 31st
+      invoice — with no counter reset
+- [ ] `ConcurrencyTest` green under the CI `NOBYPASSRLS` role
+- [ ] Every metered key has an enforcement-site test and an isolation test
+- [ ] The landing rows show quotas, not modules, and advertise no add-ons
+- [ ] `bin/smoke` passes against the new production box (whenever it exists)
+
+> ### ⛔ DECISION GATE 6 — metered plans
+> Read [ADR 0018](adr/0018-metered-plans.md) §1 first. Answer each item; the recommendation
+> is the lead engineer's, the decision is the owner's. Items 1–2 change numbers and one
+> code path; nothing else changes the machinery.
+>
+> 1. **The limit matrix** (ADR §1 table) — recommend as tabled; revisit after 30 days of
+>    `usage_events`. They are Filament data.
+> 2. **Is rung 1 free?** — recommend **free** («رایگان»), with `messaging.sms = 0` on it
+>    (wallet-funded SMS only). The free plan is the trial; lapse falls to it. Paid
+>    alternative: 14-day `pro` trial + a distinct `lapsed` limit set (read-only + receipts).
+> 3. **Trial** — only if rung 1 is paid: 14 days of `pro` quotas, SMS forced to 10/day.
+> 4. **Lapse never locks a shop out** — falls to the fallback limit set; recommend yes.
+> 5. **Repair-delivery invoice exempt from `sales.invoices`** — recommend exempt.
+> 6. **Automated SMS counts against the daily SMS quota** (one bucket) — recommend yes for
+>    v1; a `messaging.automated_sms` key if `usage_events` shows automations blocking staff.
+> 7. **Voids and returns never refund quota** — recommend yes.
+> 8. **Keep `module:` middleware + `features` as a platform kill-switch** — recommend yes.
+> 9. **Enterprise keeps finite `total` ceilings** (25 users, 50 GB), lifted by override —
+>    recommend yes.
+> 10. **Burst allowance = a second key, later** — recommend ship without.
+> 11. **`enterprise` renamed «نامحدود»** — recommend yes.
+> 12. **CLAUDE.md golden rule 7 wording** (owner-authored): «GATING: module availability is
+>     platform-wide (kill-switch only). Plan differentiation is *quantity*: every metered
+>     action consumes a `usage_counters` row through `QuotaGuard::consume()` inside its own
+>     transaction, resolved from the tenant's effective plan.» — approve the text.
+> 13. **The three prices** — with modules no longer differentiating, `basic`'s price (or
+>     0) is the whole of item 2; `pro`/`enterprise` stay at today's seeded values until the
+>     competitor check.
+> 14. **Moadian is never metered** — a legal obligation, enabled per tenant via settings,
+>     never per plan; recommend yes (records ADR 0011's assumption).
+> 15. **Remove `laravel/pennant`** — unused anywhere in `app/`; recommend remove (dependency
+>     change, needs approval).
+> 16. **The platform pays for system SMS** (quota alerts; later reset/invite), hard-capped
+>     per tenant per day — recommend yes.
+>
+> Nothing below 12.1 starts before this block reads **CLEARED**.
 
 ---
 

@@ -92,6 +92,14 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 
 ## Environments — one box, and it is production (as of 2026-08-21)
 
+> **2026-08-29 — there is currently no production server.** The owner said so directly
+> («فعلا سرور پروداکشنی ندارم») and will provide a new box later. Until then: PRs still merge
+> on green, `VERSION` still bumps in the PR, but **`bin/release --deploy` and `bin/smoke` are
+> suspended** and nothing may be reported as shipped. The table and rules below describe the
+> Hetzner box that existed until then and are the shape the next box will take; the
+> coordinates in `.claude/OPS.local.md` / `.deploy.local` are stale until the owner replaces
+> them. Whoever brings up the new box deletes this note the same day.
+
 | | where | what it holds |
 |---|---|---|
 | local | colima/Docker on the dev laptop | throwaway demo tenant |

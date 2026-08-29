@@ -2033,3 +2033,54 @@ pathology is gone from the top of `pg_stat_statements` — no statement on the b
 11.5ms mean over 2,000,001 invoices — but those stats span both sides of the deploy and
 idle-state timings are not a load test. **Re-run the k6 suite before calling that finding
 closed.**
+
+## 1405/06/07 (2026-08-29) — Phase 12 designed: metered plans, a quota ladder instead of module bundles
+
+**The owner changed the business model** in one message: every module open for every shop
+from the first minute, every kind of work capped by quantity — mostly per day — and three
+plans forming a ladder, so hitting a cap is the moment a shop upgrades. Nothing was built
+today; the deliverable is the design, and it is [ADR 0018](adr/0018-metered-plans.md)
+(Proposed) plus Phase 12 in the roadmap ending in **Decision Gate 6** with sixteen items.
+
+**How the design was made, because the method is what makes it trustworthy.** Nine
+readers mapped every mutating action in the 18 modules — 100 of them, each with its
+transactional entry point, whether it is bulk or event-driven, and whether a shopkeeper
+would accept a cap on it — plus the platform layer, the tenancy/caching infrastructure,
+the test conventions and the frontend conventions. Three designers then wrote complete
+designs from different angles (correctness, hot-path scale, product/funnel); three judges
+scored them and the correctness-first design won (153 / 137 / 128) with grafts from the
+others; twenty load-bearing claims of the merged design were then handed to independent
+verifiers told to refute them against the code, and **ten did not survive as written**. Every
+correction is in the ADR and named where it changed a decision — the SQL needed explicit
+casts on every placeholder; the "must run inside a transaction" throw is inert under
+`RefreshDatabase`, so a spy guard and a grep gate enforce it instead; `ConcurrentFinalisationTest`
+is sequential and could not be the concurrency harness; the 60-second cached version made
+"Filament edits are seen next request" false until the bump became write-through;
+importers can only know their create count *after* their loop; roughly 25 forms render only
+field-keyed errors, so the block is rendered once in the shell rather than trusting the
+error bag; the SMS order had to be charge → consume or an empty wallet leaked a quota
+unit; invitation accept must not re-check a seat it already holds. A final completeness
+pass found two metrics the map had marked meter-worthy and the design had dropped, a
+lifecycle with no writers for `past_due`/`canceled` (so MRR counts lapsed shops forever),
+and a contradiction between "rung 1 is paid" and "lapse falls to rung 1 quotas" — a free
+plan through the back door — which is now Gate 6 item 2, decided openly.
+
+**Two latent billing bugs found on the way, both on the exact path a ladder depends on.**
+`BillingService::applyPayment()` never writes `subscriptions.plan_id` — a paid upgrade
+extends the period and leaves the shop on the old plan, and no test asserted otherwise —
+and `billing/index.tsx` posts `plan.code` to a route bound by id, so the upgrade button
+404s. Both are 12.1, a plain bug fix that may land before the gate.
+
+**Decisions taken in the design, for the gate to confirm:** the meter is a Postgres row
+incremented by one `INSERT … ON CONFLICT DO UPDATE … WHERE` inside the transaction that
+writes the counted document, never a `COUNT(*)` over domain tables (soft deletes, recreated
+children, drafts and voids make every such count wrong); the contract lives in
+`App\Support\Quota` with a `bindIf` null object and Platform's singleton, the
+`PartyExposure` shape; counters are never reset on upgrade — the limit is resolved at check
+time; period keys are Gregorian dates even for Jalali months (the first day of the month)
+so no Jalali string is stored and one retention cutoff works; `module:` middleware stays
+as a platform kill-switch; reads are never blocked and lapse never locks a shop out;
+being blocked is error-bag shaped with the prorated upgrade CTA, never a 4xx page.
+
+**Operational:** the owner said there is currently no production server; a new one will be
+provided. Releases are suspended until then, and CLAUDE.md's environment section says so.

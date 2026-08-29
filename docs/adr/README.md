@@ -39,6 +39,9 @@ given — and the next person to disagree with the decision is arguing with a gh
 | [0013](0013-flat-product-import.md) | Products import is flat: one row = one product + one variant, grouping opt-in | Accepted | **Checkpoint 2**, cleared 2026-08-18 |
 | [0014](0014-audit-surface-and-log-isolation.md) | What the audit log records, and how its own rows stay tenant-isolated | Accepted | 11c delivery, PROGRESS 2026-08-18 |
 | [0015](0015-observability-without-disclosure.md) | Observability sees the platform's shape, never the tenants' data | Accepted | Directed capture 2026-08-20 · lineage of 0002 |
+| [0016](0016-landing-direction.md) | Landing page direction | Accepted | **Gate 5**, second pass, 2026-08-20 |
+| [0017](0017-single-host-app.md) | One host for the application; tenant from the session, not the hostname | Accepted | Owner decision 2026-08-21 |
+| [0018](0018-metered-plans.md) | Metered plans: every module open, quantity limits per window, a three-rung ladder | **Proposed** | Bound for **Gate 6** (ROADMAP Phase 12) |
 
 ## Writing a new one
 
