@@ -182,20 +182,42 @@ Platform implements it. Nothing under `app/Modules/<X≠Platform>` imports
 
 ```
 app/Support/Quota/
-  Metric.php           final readonly value object (key, labelFa, window, module, kind,
-                       measure closure for Computed, unitFa, position, landing)
+  Metric.php           final readonly value object (key, labelFa, window, module, unitFa,
+                       position, landing, and a measure closure for Total metrics)
   Window.php           enum: Month | Total   (no Day — no metric uses one)
-  MetricKind.php       enum: Counted | Computed
   MetricRegistry.php   singleton (AppServiceProvider); register() throws on a duplicate key
                        or a key not prefixed by "<module>."
   QuotaGuard.php       the contract (§4)
-  QuotaVerdict.php     DTO: metric, used, limit, requested, periodKey, resetsAt, allowed,
-                       nextPlanCode
+  QuotaVerdict.php     DTO: metric, window, used, limit, requested, periodKey, resetsAt,
+                       allowed, nextPlanCode
   QuotaExceeded.php    exception carrying the verdict
+  OutsideTransaction.php · UnknownMetric.php
   NoQuota.php          null object: never refuses, counts nothing
-  ShopClock.php        period keys (§6)
+  PeriodClock.php      period keys, reset instants, period labels (§6)
   Events/{QuotaWarning,LimitReached}.php
 ```
+
+**Two shapes changed when this was built (12.2), both simplifications the gate's monthly
+decision unlocked; recorded here rather than left as a drift between the ADR and the code.**
+
+- **There is no `MetricKind` enum.** With `Day` gone, `Month` ⇔ counted and `Total` ⇔
+  computed exactly, so a second enum could only ever agree with the window or disagree with
+  it — two places for one fact. The window carries it (`Window::isCounted()`), and the
+  pairing is enforced where it can actually be wrong: `Metric`'s constructor rejects a
+  counted metric that brings a `measure` closure (two answers to "how much is used") and a
+  standing capacity that brings none (nothing to read, so a seat cap that never fires).
+- **The clock is `PeriodClock`, and Reporting's `ShopClock` stays where it is.** They answer
+  different questions — one returns period keys and reset instants in PHP, the other a SQL
+  expression for bucketing a column by the Tehran day — and Reporting's has ten call sites
+  that moving it would churn for no gain. Promoting `ShopClock` into `App\Support` is a
+  one-purpose PR for whenever 12.12's Filament sparkline needs it, not a prerequisite here.
+
+Building it also found the trap in the boundary itself: `Jalali::startOfMonth()` returns the
+first of the Jalali month at **midnight UTC**, which is 03:30 Tehran. That is exactly right
+for the period *key* (its date part is the key) and exactly wrong for `resetsAt`, which must
+be midnight *Tehran* — three and a half hours earlier. Returned unchanged it would have the
+screen promise a refill after the counter had already reset. `QuotaPeriodClockTest` asserts
+the time of day and not only the date, because a date-only assertion passes either way.
 
 Each module registers its metrics in its provider with `afterResolving(MetricRegistry)`,
 so provider discovery order is irrelevant (the `bindIf` lesson applied to a registry).

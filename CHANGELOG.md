@@ -7,6 +7,37 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.4 - 2026-08-30
+
+**The quota kernel — the shared contract eighteen modules will call, and nothing yet
+calls.** No behaviour changes: `App\Support\Quota` now holds the `QuotaGuard` interface,
+the `Metric` value object and its registry, the verdict DTO, the two events, and
+`PeriodClock`. Platform binds the real implementation next; until then the container
+answers with `NoQuota`, bound with `bindIf` so provider discovery order cannot decide which
+one wins — the failure mode there is not a crash but a product whose limits silently do
+nothing (CLAUDE.md, the `PartyExposure` incident).
+
+Two simplifications the monthly-window decision unlocked, both recorded in ADR 0018 rather
+than left as drift: there is **no `MetricKind` enum** (with `Day` gone, the window already
+carries counted-versus-computed exactly, and `Metric`'s constructor enforces the pairing
+where it can actually be wrong), and the clock is a new `PeriodClock` rather than a move of
+Reporting's `ShopClock`, which answers a different question and has ten call sites that
+moving would churn.
+
+**One real trap found while building it.** `Jalali::startOfMonth()` returns the first of the
+Jalali month at midnight **UTC** — 03:30 Tehran. That is right for the period key, whose
+date part *is* the key, and wrong for the refill instant, which is midnight Tehran, three
+and a half hours earlier. Returned unchanged, the screen would have promised a refill after
+the counter had already reset. The test asserts the time of day and not only the date,
+because a date-only assertion passes either way.
+
+`config/hamyar.php` arrives with it: the fallback plan for a lapsed shop, the warning
+threshold, and the daily ceiling on system SMS the platform pays for. A missing fallback
+plan throws rather than assuming unlimited — the lenient reading would hand every lapsed
+shop everything, failing open in the one layer whose job is to fail closed.
+
+**No release** — still no production server.
+
 ## 0.14.3 - 2026-08-29
 
 **An upgrade now actually upgrades.** Two defects on the one path the whole metered-plan

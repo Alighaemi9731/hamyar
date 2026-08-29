@@ -7,6 +7,10 @@ namespace App\Providers;
 use App\Support\Audit\AuditSubjects;
 use App\Support\Audit\Redactor;
 use App\Support\Documents\DocumentRegistry;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\NoQuota;
+use App\Support\Quota\PeriodClock;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Spreadsheet\CsvReader;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use App\Support\Spreadsheet\XlsxReader;
@@ -32,6 +36,35 @@ class AppServiceProvider extends ServiceProvider
         // Same shape, one level up: modules contribute what they know about a party and
         // the CRM customer page renders the union without importing any of them.
         $this->app->singleton(TimelineRegistry::class);
+
+        /*
+        | Fourth of the same shape, and the one with teeth: each module declares what it
+        | meters, and Platform's guard prices it. Registration happens via
+        | `afterResolving()` in each module's provider, so nothing may resolve this during
+        | the register phase — metrics declared after the first build would be silently
+        | absent, and `quota:audit` exists to catch exactly that.
+        */
+        $this->app->singleton(MetricRegistry::class);
+
+        // One clock per process, constructed from config rather than reading it on every
+        // call. The zone is the shop's wall clock (Asia/Tehran); when tenants get their
+        // own it is constructed per tenant instead — which is why it takes the zone as a
+        // constructor argument rather than reaching for config() inside.
+        $this->app->singleton(
+            PeriodClock::class,
+            static fn (): PeriodClock => new PeriodClock(config()->string('app.display_timezone'))
+        );
+
+        /*
+        | The quota guard's DEFAULT, and `bindIf` is load-bearing.
+        |
+        | Platform binds the real implementation with `singleton()` in its own provider,
+        | which runs after this one. `bind` here instead of `bindIf` would be a coin toss
+        | decided by provider discovery order, and the losing outcome is not a crash: it
+        | is a product whose limits silently do nothing (CLAUDE.md, the `PartyExposure`
+        | incident).
+        */
+        $this->app->bindIf(QuotaGuard::class, NoQuota::class);
 
         // Third of the same shape: the audit-log viewer needs a Persian name and a
         // URL-safe key for every kind of thing the log can be about, and getting that

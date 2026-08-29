@@ -1829,16 +1829,23 @@ the dependency order.
       `billing.subscribe` over HTTP
 
 ### 12.2 Shared kernel — no behaviour change
-- [ ] `app/Support/Quota/{Metric,Window,MetricKind,MetricRegistry,QuotaGuard,QuotaVerdict,
-      QuotaExceeded,OutsideTransaction,NoQuota,ShopClock}` + `Events/{QuotaWarning,LimitReached}`
-      — `Window` is `Month | Total` only; `ShopClock::periodKey()` returns the Gregorian date
-      of the first day of the Jalali month, `resetsAt()` the next one
-- [ ] `AppServiceProvider`: registry singleton, `bindIf(QuotaGuard, NoQuota)`;
+- [x] `app/Support/Quota/{Metric,Window,MetricRegistry,QuotaGuard,QuotaVerdict,QuotaExceeded,
+      OutsideTransaction,UnknownMetric,NoQuota,PeriodClock}` + `Events/{QuotaWarning,LimitReached}`.
+      `Window` is `Month | Total`; `PeriodClock::periodKey()` returns the Gregorian date of
+      the first day of the Jalali month and `resetsAt()` **midnight Tehran** on the next one
+- [x] No `MetricKind`: the window carries counted-versus-computed, and `Metric`'s
+      constructor enforces the pairing (see the ADR note added with this PR)
+- [x] `AppServiceProvider`: registry and clock singletons, `bindIf(QuotaGuard, NoQuota)`;
       `config/hamyar.php` (`quota.fallback_plan`, `quota.warning_ratio`,
       `quota.system_sms_daily_cap`)
-- [ ] Reporting's `ShopClock` becomes a delegate to the kernel one
-- [ ] `tests/Arch/QuotaBoundariesTest.php`: no module imports `Platform\Services\Quota`;
-      `App\Support\Quota` imports no module
+- [x] `tests/Arch/QuotaBoundariesTest.php`: no module imports `Platform\Services\Quota`;
+      `App\Support\Quota` imports no module and no HTTP
+- [x] Unit tests for the registry's invariants and the month boundary (UTC-midnight and
+      Gregorian-month-end controls that must NOT roll over)
+- [→] Reporting's `ShopClock` promoted to the shared kernel — **not needed yet and not done**.
+      It answers a different question (a SQL expression for bucketing a column by the Tehran
+      day) and has ten call sites in Reporting. Moved to 12.12, where the Filament usage
+      sparkline is the first thing outside Reporting that wants it
 
 ### 12.3 Counter, resolver, tables
 - [ ] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
