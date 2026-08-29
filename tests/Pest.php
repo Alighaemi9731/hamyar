@@ -214,6 +214,30 @@ function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $ca
 }
 
 /**
+ * Turn metering off for one test that genuinely does more than a plan allows.
+ *
+ * ## Why this is opt-IN and never the default
+ *
+ * Every existing suite subscribes to `pro` and runs against its real credits, on purpose.
+ * That is what makes them prove the guard is wired: if a create path forgets to call
+ * `consume()`, nothing anywhere else in the suite would notice. Binding `NoQuota` by
+ * default in `subscribe()` was considered and rejected for exactly that reason — a
+ * default-off guard lets a metered action ship unmetered and stay green for ever.
+ *
+ * So this is for the handful of tests whose volume is the point: a fifty-invoice
+ * concurrency run, a seeded month of trading, a bulk import fixture. Reach for it when the
+ * test is about something else and the credit is in the way — never to make a red test
+ * green without reading why it went red.
+ */
+function withUnlimitedQuota(): void
+{
+    app()->instance(
+        App\Support\Quota\QuotaGuard::class,
+        new App\Support\Quota\NoQuota(app(App\Support\Quota\MetricRegistry::class))
+    );
+}
+
+/**
  * Spend a credit as a shop, inside a transaction, and hand back the verdict.
  *
  * `runFor()` and `DB::transaction()` both return `mixed`, so without this every quota test

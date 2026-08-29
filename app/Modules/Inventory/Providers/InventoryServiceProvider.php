@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Inventory\Providers;
 
 use App\Modules\Inventory\Listeners\CreateDefaultLocation;
+use App\Modules\Inventory\Models\Branch;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\StockTransfer;
 use App\Modules\Inventory\Policies\ProductUnitPolicy;
@@ -14,6 +15,9 @@ use App\Modules\Platform\Events\TenantProvisioned;
 use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Quota\Metric;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\Window;
 use App\Support\Timeline\TimelineEntry;
 use App\Support\Timeline\TimelineRegistry;
 use Carbon\CarbonImmutable;
@@ -35,6 +39,33 @@ final class InventoryServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | What this module meters. Declared here rather than in Platform so shipping a
+        | metered action is a change in one module (golden rule 6), and registered with
+        | `afterResolving` so provider discovery order — a directory listing — cannot
+        | leave them out.
+        */
+        $this->app->afterResolving(MetricRegistry::class, static function (MetricRegistry $registry): void {
+            $registry->register(
+                new Metric('inventory.units', 'دستگاه ثبت‌شده', Window::Month, 'inventory', unitFa: 'دستگاه', position: 15, landing: true),
+                new Metric('inventory.transfers', 'حوالهٔ انبار', Window::Month, 'inventory', unitFa: 'حواله', position: 16),
+                new Metric('inventory.stock_counts', 'انبارگردانی', Window::Month, 'inventory', unitFa: 'انبارگردانی', position: 17),
+
+                // A standing capacity, not a flow: what matters is how many branches
+                // exist right now, and closing one gives the slot back. The default
+                // branch every shop is provisioned with counts — otherwise the free
+                // rung's "1" would silently mean two.
+                new Metric(
+                    'inventory.branches', 'شعبه', Window::Total, 'inventory',
+                    unitFa: 'شعبه', position: 18,
+                    measure: static fn (int $tenantId): int => Branch::query()
+                        ->where('tenant_id', $tenantId)
+                        ->where('is_active', true)
+                        ->count(),
+                ),
+            );
+        });
+
         /*
         | Both branch services are singletons, and `BranchAccess` has to be.
         |

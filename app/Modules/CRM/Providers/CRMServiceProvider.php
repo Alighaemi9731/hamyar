@@ -16,6 +16,9 @@ use App\Support\Documents\DocumentReference;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Documents\DocumentType;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Quota\Metric;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\Window;
 use App\Support\Timeline\TimelineRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
@@ -36,6 +39,25 @@ final class CRMServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | What this module meters.
+        |
+        | Declared here rather than in Platform so shipping a metered action is a change
+        | in one module (golden rule 6): the pricing page, the Filament limits editor, the
+        | usage meters and the analytics all iterate `MetricRegistry` and pick this up
+        | without Platform knowing the key exists.
+        |
+        | `afterResolving` rather than resolving the registry now: provider discovery
+        | order is a directory listing, and a registry built before this provider ran
+        | would silently be missing these — the `bindIf` lesson, applied to a registry.
+        */
+        $this->app->afterResolving(MetricRegistry::class, static function (MetricRegistry $registry): void {
+            $registry->register(
+                new Metric('crm.parties', 'طرف حساب جدید', Window::Month, 'crm', unitFa: 'طرف حساب', position: 50, landing: true),
+                new Metric('crm.follow_ups', 'پیگیری', Window::Month, 'crm', unitFa: 'پیگیری', position: 51),
+            );
+        });
+
         /*
         | The default answer, for a deployment with no Cheques module.
         |

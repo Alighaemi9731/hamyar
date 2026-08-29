@@ -78,6 +78,10 @@ final class TradeInIntake
 
         // The first line of the passport. Without it the device's history starts
         // mid-story and "bought from whom" has no answer (golden rule 4).
+        //
+        // Metered, on the default: a trade-in is a device entering the shop, which is what
+        // `inventory.units` counts. Exempting it because it arrived over the counter
+        // rather than on a purchase invoice would be a loophole in the shape of a door.
         $this->units->recordAcquisition(
             $unit,
             reference: $invoice,

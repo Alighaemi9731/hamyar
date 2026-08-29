@@ -7,6 +7,9 @@ namespace App\Modules\Installments\Providers;
 use App\Modules\Installments\Models\InstallmentPlan;
 use App\Modules\Installments\Policies\InstallmentPlanPolicy;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Quota\Metric;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\Window;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -24,6 +27,24 @@ final class InstallmentsServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | What this module meters.
+        |
+        | Declared here rather than in Platform so shipping a metered action is a change
+        | in one module (golden rule 6): the pricing page, the Filament limits editor, the
+        | usage meters and the analytics all iterate `MetricRegistry` and pick this up
+        | without Platform knowing the key exists.
+        |
+        | `afterResolving` rather than resolving the registry now: provider discovery
+        | order is a directory listing, and a registry built before this provider ran
+        | would silently be missing these — the `bindIf` lesson, applied to a registry.
+        */
+        $this->app->afterResolving(MetricRegistry::class, static function (MetricRegistry $registry): void {
+            $registry->register(
+                new Metric('installments.plans', 'قرارداد اقساطی', Window::Month, 'installments', unitFa: 'قرارداد', position: 60),
+            );
+        });
+
         //
     }
 

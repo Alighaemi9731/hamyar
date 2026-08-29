@@ -110,7 +110,11 @@ trait EditsPlanLimits
 
             $raw = $data[$field];
 
-            $this->quotaValues[$metric->key] = ($raw === null || $raw === '') ? null : (int) $raw;
+            // A blank box is unlimited, not zero. `is_numeric` rather than a bare cast
+            // because a form value arrives as a string and anything else here — a stray
+            // space, a Persian digit that failed to normalise — should read as "not set"
+            // rather than silently becoming a cap of zero, which would close the plan.
+            $this->quotaValues[$metric->key] = is_numeric($raw) ? (int) $raw : null;
 
             unset($data[$field]);
         }

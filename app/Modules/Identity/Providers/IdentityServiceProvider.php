@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Providers;
 
 use App\Modules\Identity\Models\Activity;
+use App\Modules\Identity\Models\Invitation;
 use App\Modules\Identity\Models\User;
 use App\Modules\Identity\Policies\ActivityPolicy;
 use App\Modules\Identity\Policies\UserPolicy;
 use App\Support\Audit\AuditSubjects;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Quota\Metric;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\Window;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -27,6 +31,40 @@ final class IdentityServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
+        /*
+        | What this module meters. Declared here rather than in Platform so shipping a
+        | metered action is a change in one module (golden rule 6), and registered with
+        | `afterResolving` so provider discovery order — a directory listing — cannot
+        | leave them out.
+        */
+        $this->app->afterResolving(MetricRegistry::class, static function (MetricRegistry $registry): void {
+            $registry->register(
+                /*
+                | Seats. Counted as active users PLUS pending invitations, because an
+                | invitation is a seat already promised — a shop that could invite ten
+                | people into a two-seat plan and only discover it as each of them
+                | accepted would have ten disappointed employees and one support ticket.
+                |
+                | Checked at invite and at re-activation, never at accept: the seat was
+                | reserved at invite, and re-checking there would refuse the very
+                | invitation it had already made room for.
+                */
+                new Metric(
+                    'identity.users', 'کاربر فعال', Window::Total, 'identity',
+                    unitFa: 'کاربر', position: 95,
+                    measure: static fn (int $tenantId): int => User::query()
+                        ->where('tenant_id', $tenantId)
+                        ->where('is_active', true)
+                        ->count()
+                        + Invitation::query()
+                            ->where('tenant_id', $tenantId)
+                            ->whereNull('accepted_at')
+                            ->where('expires_at', '>', now())
+                            ->count(),
+                ),
+            );
+        });
+
         //
     }
 

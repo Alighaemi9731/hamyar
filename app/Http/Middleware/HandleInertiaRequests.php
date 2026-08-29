@@ -19,6 +19,7 @@ use App\Support\Quota\QuotaVerdict;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Throwable;
 
 /**
  * Props every Inertia page receives.
@@ -189,6 +190,18 @@ final class HandleInertiaRequests extends Middleware
         $resolver = app(LimitResolver::class);
         $ratio = config()->float('hamyar.quota.warning_ratio', 0.8);
 
+        try {
+            $plan = $resolver->effectivePlanCode($tenantId);
+        } catch (Throwable $failure) {
+            // The meters are a convenience and this runs on every staff page, so a
+            // catalogue that cannot be resolved must not take the application down with
+            // it. Reported rather than swallowed: it is a misconfiguration, and the place
+            // to find out is the crash reporter, not a support ticket about a white page.
+            report($failure);
+
+            return [];
+        }
+
         $blocked = $this->blockedMetrics($tenantId);
 
         $meters = [];
@@ -219,7 +232,7 @@ final class HandleInertiaRequests extends Middleware
 
         return [
             'plan' => [
-                'code' => $resolver->effectivePlanCode($tenantId),
+                'code' => $plan,
                 'name' => $subscription?->plan->name_fa ?? '',
                 // "Lapsed" is a real state a shopkeeper needs named: the shop still works,
                 // on the free plan's credits, and the banner says so with a renew link.

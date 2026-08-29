@@ -41,7 +41,12 @@ final class PruneUsageCountersCommand extends Command
         $deleted = $context->runAsPlatform(
             // quota-scope-allow: the sweep is about periods, not shops, and deletes across
             // every tenant on purpose.
-            static fn (): int => UsageCounter::query()->where('period_key', '<', $cutoff)->delete()
+            static function () use ($cutoff): int {
+                /** @var int $rows */
+                $rows = UsageCounter::query()->where('period_key', '<', $cutoff)->delete();
+
+                return $rows;
+            }
         );
 
         cache()->forever('quota.pruned_at', CarbonImmutable::now()->toIso8601String());

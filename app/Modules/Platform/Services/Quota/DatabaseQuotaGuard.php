@@ -16,6 +16,7 @@ use App\Support\Quota\Window;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\ConnectionInterface;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * The real guard: one Postgres row per credit, one statement per spend.
@@ -180,6 +181,21 @@ final class DatabaseQuotaGuard implements QuotaGuard
     }
 
     /**
+     * Every counted metric's current standing, for the shared `usage` prop.
+     *
+     * ## Why this one is lenient when `consume()` is not
+     *
+     * `LimitResolver` throws when it cannot work out what a shop is allowed — a missing
+     * fallback plan is a misconfiguration, and refusing to *write* without knowing the
+     * limit is the safe direction.
+     *
+     * Reading is the other direction. This runs on every staff page render, so the same
+     * strictness would turn an unseeded catalogue into a white screen for the whole
+     * application — the meter is a convenience, and a convenience must never be able to
+     * take the product down. So a failure here is reported (so it is loud where failures
+     * are watched) and answered with no meters, which the frontend already renders as
+     * nothing at all.
+     *
      * @return list<QuotaVerdict>
      */
     public function snapshot(): array
@@ -189,6 +205,21 @@ final class DatabaseQuotaGuard implements QuotaGuard
         if ($tenantId === null) {
             return [];
         }
+
+        try {
+            return $this->meters($tenantId);
+        } catch (Throwable $failure) {
+            report($failure);
+
+            return [];
+        }
+    }
+
+    /**
+     * @return list<QuotaVerdict>
+     */
+    private function meters(int $tenantId): array
+    {
 
         $counted = $this->registry->counted();
 
