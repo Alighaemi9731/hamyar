@@ -7,6 +7,25 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.1 - 2026-08-29
+
+**Docs only — the pricing model is redesigned on paper, not yet in code.** The owner
+replaced "a plan is a bundle of modules" with "a plan is how much work per day a shop may
+record": every module open to every shop, every kind of work capped by quantity, three
+plans forming a ladder. [ADR 0018](docs/adr/0018-metered-plans.md) records the design as
+**Proposed** and Phase 12 of the roadmap ends in Decision Gate 6, where the owner answers
+sixteen items (whether the first rung is free, the limit matrix, what lapse means, …)
+before any code is written.
+
+Why it is a version at all: the release process says every merge to `main` carries its
+version, and this one carries something the next reader must not miss — the design also
+found that **a paid upgrade does not change the plan today** (`applyPayment()` never writes
+`plan_id`) and that the billing page's upgrade button posts a plan *code* to a route bound
+by *id*. Both are scheduled as 12.1, a plain bug fix that may land before the gate.
+
+**No release is cut for this version.** There is currently no production server (the owner
+is providing a new one); `bin/release --deploy` is suspended until it exists.
+
 ## 0.14.0 - 2026-08-29
 
 **BREAKING — the product is now «سامانه همیار».** The owner renamed it. Nothing in the
