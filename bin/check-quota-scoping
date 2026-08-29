@@ -1,0 +1,139 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — quota-table scoping gate.
+ *
+ * ## The rule
+ *
+ * `usage_counters`, `tenant_limit_overrides` and `usage_events` are platform-owned: RLS
+ * protects them, but they deliberately do NOT use `BelongsToTenant`, because the Filament
+ * panel reads them across every shop and `TenantScope` adds `1 = 0` when no tenant is
+ * pinned — a trait-scoped model would come back empty inside `runAsPlatform()` and the
+ * usage screen would render nothing while looking like it worked.
+ *
+ * The price of that exemption is that **every query must carry its own
+ * `where('tenant_id', …)`**. Miss one and the failure is not a crash: it is a query that
+ * returns whatever RLS lets through, which inside `runAsPlatform()` is every shop's rows.
+ * On a screen that reads "usage", that is one shop's numbers shown to another.
+ *
+ * RLS is still the guarantee. This gate is the second line, in the same spirit as
+ * `tenancy:check`: make the rule mechanical rather than a matter of whether the reviewer
+ * remembered.
+ *
+ * ## What it detects
+ *
+ * A query builder chain starting at one of these models that never mentions `tenant_id`.
+ * A lexical check, not a semantic one — it looks at the statement the call sits in.
+ *
+ * Escape hatch: `quota-scope-allow` in a comment on or above the line, with a reason. One
+ * legitimate case exists and is used: the platform-wide sweep in `quota:prune`, which is
+ * about periods rather than shops and deletes across all of them on purpose.
+ */
+
+const MODELS = ['UsageCounter', 'TenantLimitOverride', 'UsageEvent'];
+const SCAN_ROOTS = ['app', 'database', 'routes'];
+
+$failures = [];
+$scanned = 0;
+
+foreach (SCAN_ROOTS as $root) {
+    $path = __DIR__.'/../'.$root;
+
+    if (! is_dir($path)) {
+        continue;
+    }
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = file_get_contents($file->getPathname());
+
+        if ($source === false) {
+            continue;
+        }
+
+        // The models' own files define the class rather than query it.
+        if (preg_match('/\/Models\/('.implode('|', MODELS).')\.php$/', $file->getPathname()) === 1) {
+            continue;
+        }
+
+        // Tests query these tables unscoped ON PURPOSE — that is how an isolation test
+        // proves RLS is the thing doing the work rather than a `where` clause. The rule
+        // this gate enforces is about production code, and applying it to the suite would
+        // force an escape-hatch comment onto every test that does its job.
+        if (str_contains(str_replace('\\', '/', $file->getPathname()), '/tests/')) {
+            continue;
+        }
+
+        $scanned++;
+
+        $lines = explode("\n", $source);
+
+        foreach ($lines as $index => $line) {
+            foreach (MODELS as $model) {
+                if (! str_contains($line, $model.'::query()')) {
+                    continue;
+                }
+
+                // The statement this call belongs to: from here to the first line ending
+                // in `;`, which is where a fluent chain stops.
+                $statement = '';
+
+                for ($cursor = $index; $cursor < count($lines) && $cursor < $index + 12; $cursor++) {
+                    $statement .= $lines[$cursor]."\n";
+
+                    if (str_ends_with(rtrim($lines[$cursor]), ';')) {
+                        break;
+                    }
+                }
+
+                if (str_contains($statement, 'tenant_id')) {
+                    continue;
+                }
+
+                $context = ($lines[$index - 1] ?? '').$line.$statement;
+
+                if (str_contains($context, 'quota-scope-allow')) {
+                    continue;
+                }
+
+                $failures[] = relativePath((string) $file->getRealPath()).':'.($index + 1);
+            }
+        }
+    }
+}
+
+function relativePath(string $absolute): string
+{
+    $root = realpath(__DIR__.'/../');
+
+    return $root === false ? $absolute : ltrim(str_replace($root, '', $absolute), '/');
+}
+
+if ($failures === []) {
+    echo "\n  Quota scoping gate: every quota-table query is tenant-scoped ({$scanned} files).\n\n";
+
+    exit(0);
+}
+
+echo "\n  ✗ Quota scoping gate failed.\n\n";
+echo "    These tables are platform-owned: they carry RLS but NOT BelongsToTenant, so\n";
+echo "    nothing adds a tenant filter for you. Inside runAsPlatform() an unscoped query\n";
+echo "    returns every shop's rows.\n\n";
+
+foreach ($failures as $failure) {
+    echo "      {$failure}\n";
+}
+
+echo "\n    Add ->where('tenant_id', \$tenantId), or a `quota-scope-allow` comment with a reason\n";
+echo "    if the query is genuinely platform-wide.\n\n";
+
+exit(1);

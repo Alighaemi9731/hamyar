@@ -116,7 +116,14 @@ final class SubscriptionResolver
         $this->baseline = null;
     }
 
-    private function forTenantId(int $tenantId): ?Subscription
+    /**
+     * The live subscription for a tenant id, memoised.
+     *
+     * Public since Phase 12: `LimitResolver` needs the same lookup and has an id rather
+     * than a model — it is called from `consume()`, on the write path, where fetching a
+     * `Tenant` just to pass it in would be a query to avoid a query.
+     */
+    public function forTenantId(int $tenantId): ?Subscription
     {
         if (array_key_exists($tenantId, $this->cache)) {
             return $this->cache[$tenantId];

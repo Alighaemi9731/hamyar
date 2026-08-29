@@ -2199,3 +2199,49 @@ and neither must the end of a Gregorian month.
 to no row **throws**, rather than falling back to unlimited. The lenient reading would hand
 every lapsed shop everything — failing open, in the one layer whose whole job is to fail
 closed. `0.14.4`, no release; there is still no production box.
+
+## 1405/06/08 (2026-08-30) — 12.3: the meter, and three states nothing had ever written
+
+`usage_counters`, `tenant_limit_overrides` and `usage_events` exist, with
+`DatabaseQuotaGuard` and `LimitResolver` on top. No module calls the guard yet; the machine
+is complete and the call sites land next.
+
+**A spend is one statement.** `INSERT … SELECT … WHERE n <= limit ON CONFLICT DO UPDATE …
+WHERE used + EXCLUDED.used <= limit RETURNING used`. The shape it replaces — read, decide
+in PHP, write — is the double-spend bug: at the last unit two requests both read "one
+left", both say yes, and the shop gets two for one, silently, on its busiest day. Every
+placeholder in the bounded statement carries an explicit cast because Postgres cannot infer
+a parameter's type outside a `VALUES` column position and fails at prepare time without
+them; the unbounded statement uses `VALUES` and needs none.
+
+**The fork harness was written and then deleted.** Twenty children at the last unit, a PDO
+connection each, counting winners — and it went in the bin, because forking inside PHPUnit
+is fragile for reasons that have nothing to do with the code under test, and a concurrency
+test that hangs the build once a fortnight teaches everyone to re-run CI instead of reading
+it. `AtomicityTest` asserts the two properties that are both deterministic and the ones
+that actually matter: **one statement per spend** — a refactor into read-decide-write fails
+the test, and that refactor *is* the bug — and **the cap evaluated against committed
+state**, proved by making a decision from a stale read and watching the statement refuse
+it. Postgres's own `ON CONFLICT` re-evaluation under READ COMMITTED is documented behaviour
+we rely on rather than re-prove, and `DECISIONS-FOR-REVIEW.md` says so plainly rather than
+letting a green suite imply coverage it does not have.
+
+**Three states modelled since Phase 2 with nothing writing them.** `subscriptions:expire`
+is the first writer of `past_due`, `grace_ends_at` and `canceled`. Two consequences had
+been invisible the whole time: there was **no grace period** — `isUsable()` reads a column
+nobody set, so an active row stopped being usable the instant its period ended, which is
+the opposite of what its own docblock promises about Iranian gateway outages — and **MRR
+counted every shop that had ever paid**, for ever, because nothing ever left `active`. A
+zero-price subscription is exempt: it is not late, it is free.
+
+**Failing closed where it counts.** A fallback plan that resolves to no row throws. The
+lenient reading hands every lapsed shop unlimited everything and says nothing; in the test
+suite it would also let a file that forgot its subscription fixture pass unmetered, which
+is exactly how a create path that never calls `consume()` stays green for ever.
+
+`bin/check-quota-scoping` joins the lint job. These three tables carry RLS but not
+`BelongsToTenant` — the panel reads across shops and the Eloquent scope would return
+nothing inside `runAsPlatform()` — so every production query must carry its own
+`where('tenant_id')`, and the gate makes that mechanical rather than a matter of whether
+the reviewer remembered. It skips the suite on purpose: an isolation test queries unscoped
+precisely to prove RLS is the thing doing the work.

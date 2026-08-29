@@ -214,6 +214,37 @@ function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $ca
 }
 
 /**
+ * Register the quota metrics the guard's own suites meter against.
+ *
+ * Deliberately not borrowed from a module: the guard's tests must break when the guard
+ * breaks, not when Sales renames something. Lives here rather than in a test file because
+ * a function defined in one test file does not exist for another that runs before it.
+ *
+ * Idempotent — the registry is a singleton for the whole process and refuses duplicates.
+ */
+function registerTestMetrics(): void
+{
+    $registry = app(App\Support\Quota\MetricRegistry::class);
+
+    if ($registry->has('quota.widgets')) {
+        return;
+    }
+
+    $registry->register(
+        new App\Support\Quota\Metric(
+            'quota.widgets', 'ویجت', App\Support\Quota\Window::Month, 'quota', unitFa: 'ویجت'
+        ),
+        new App\Support\Quota\Metric(
+            'quota.unlimited', 'بی‌کران', App\Support\Quota\Window::Month, 'quota'
+        ),
+        new App\Support\Quota\Metric(
+            'quota.seats', 'صندلی', App\Support\Quota\Window::Total, 'quota',
+            measure: static fn (int $tenantId): int => (int) cache()->get("seats:{$tenantId}", 0),
+        ),
+    );
+}
+
+/**
  * @param  array<string, mixed>  $overrides
  */
 function subscribe(App\Modules\Platform\Models\Tenant $tenant, string $planCode, array $overrides = []): App\Modules\Platform\Models\Subscription

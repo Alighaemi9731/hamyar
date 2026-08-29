@@ -7,6 +7,44 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.5 - 2026-08-30
+
+**The meter, and the lifecycle it depends on.** `usage_counters`, `tenant_limit_overrides`
+and `usage_events` now exist, along with `DatabaseQuotaGuard` and `LimitResolver`. Nothing
+calls the guard from a module yet — the call sites land module by module next — but the
+machine underneath is complete and tested.
+
+**A spend is one statement.** `INSERT … SELECT … WHERE n <= limit ON CONFLICT (tenant_id,
+metric, period_key) DO UPDATE SET used = used + EXCLUDED.used WHERE used + EXCLUDED.used <=
+limit RETURNING used`. The read-decide-write shape it replaces is the double-spend bug: at
+the last unit of a credit, two requests both read "one left", both decide yes, and the shop
+gets two for one — silently, on the busiest day, which is when it happens. Every
+placeholder in the bounded statement carries an explicit cast, because Postgres cannot
+infer a parameter's type outside a `VALUES` column position and fails at prepare time
+without them.
+
+**Three states that had been modelled since Phase 2 with nothing writing them.**
+`subscriptions:expire` is the first writer of `past_due`, `grace_ends_at` and `canceled`.
+Two consequences had been invisible: there was **no grace period at all** — `isUsable()`
+reads a column nobody set — and **MRR counted every shop that had ever paid**, for ever,
+because nothing ever left `active`. A free plan is exempt: a zero-price subscription is not
+late, it is free.
+
+**Failing closed where it matters.** A fallback plan that resolves to no row throws rather
+than assuming unlimited; in tests that also stops a suite which forgot its fixture from
+passing unmetered, which is how a create path that never calls `consume()` stays green for
+ever.
+
+`bin/check-quota-scoping` joins the lint job: these tables carry RLS but no
+`BelongsToTenant`, so nothing adds a tenant filter and an unscoped query inside
+`runAsPlatform()` returns every shop's rows — on a screen that reads "usage", that is one
+shop's numbers shown to another.
+
+`docs/DECISIONS-FOR-REVIEW.md` records the judgement calls made in this run, including why
+CI has no fork-based concurrency test and what stands in its place.
+
+**No release** — still no production server.
+
 ## 0.14.4 - 2026-08-30
 
 **The quota kernel — the shared contract eighteen modules will call, and nothing yet
