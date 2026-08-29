@@ -1814,15 +1814,19 @@ the dependency order.
       `actingForTenant()`)
 
 ### 12.1 Billing bug fix — first, because the ladder's upgrade click is broken today
-- [ ] `BillingService::applyPayment()` writes `subscriptions.plan_id` + `plan_changed_at`
-      from a `plan_id` stored on the invoice (today a paid upgrade extends the period and
-      **leaves the shop on the old plan** — no test ever asserted the plan changed)
-- [ ] `Plan::getRouteKeyName() = 'code'`; `billing/index.tsx:170` posts `plan.code` to an
-      id-bound route today (the upgrade button 404s)
-- [ ] `ForgetResolvedSubscription` listener on `SubscriptionActivated` (the event's docblock
-      promises it; nothing in production code calls `forget()`)
-- [ ] `BillingPaymentTest` posts to `billing.subscribe` over HTTP for the first time and
-      asserts the plan changed
+- [x] `BillingService::applyPayment()` writes `subscriptions.plan_id` + `plan_changed_at`
+      from a `plan_id` now stored on the invoice (a paid upgrade extended the period and
+      **left the shop on the old plan** — no test ever asserted the plan changed). A plain
+      renewal deliberately does not stamp `plan_changed_at`
+- [x] `Plan::getRouteKeyName() = 'code'`; `billing/index.tsx` posted `plan.code` to an
+      id-bound route, so the upgrade button 404'd. `PlanResource` pinned to `id` so the
+      panel's URLs do not move with it
+- [x] `ForgetResolvedSubscription` listener on `SubscriptionActivated` (the event's docblock
+      promised it since Phase 2; nothing in production code called `forget()`)
+- [x] A paid invoice on a tenant with no subscription row now creates one — found on the
+      way; it used to fire the event and return, granting nothing
+- [x] `BillingPaymentTest`: six new cases, including the first in the suite that posts to
+      `billing.subscribe` over HTTP
 
 ### 12.2 Shared kernel — no behaviour change
 - [ ] `app/Support/Quota/{Metric,Window,MetricKind,MetricRegistry,QuotaGuard,QuotaVerdict,

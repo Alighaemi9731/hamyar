@@ -40,6 +40,21 @@ final class Plan extends Model
     }
 
     /**
+     * Plans are addressed by their code, not their id.
+     *
+     * `POST /billing/subscribe/{plan}` is the one route a shop's own screens hit, and the
+     * billing page has always posted `plan.code` to it — against an id-bound route, so the
+     * upgrade button 404'd for every shop that ever pressed it. Making the code the route
+     * key fixes it in the honest direction: the code is unique, immutable once created
+     * (`PlanForm` disables the field on edit) and readable in a URL, where an
+     * auto-increment id tells a support engineer nothing.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
+
+    /**
      * @return BelongsToMany<Module, $this>
      */
     public function modules(): BelongsToMany

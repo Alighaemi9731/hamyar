@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property int $tenant_id
  * @property int|null $subscription_id
+ * @property int|null $plan_id
  * @property int|null $coupon_id
  * @property string $number
  * @property int $subtotal
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $updated_at
  * @property array<int, array{label: string, amount: int}> $lines
  * @property-read Subscription|null $subscription
+ * @property-read Plan|null $plan
  */
 final class SubscriptionInvoice extends Model
 {
@@ -47,7 +49,7 @@ final class SubscriptionInvoice extends Model
     public const STATUS_CANCELED = 'canceled';
 
     protected $fillable = [
-        'tenant_id', 'subscription_id', 'coupon_id', 'number',
+        'tenant_id', 'subscription_id', 'plan_id', 'coupon_id', 'number',
         'subtotal', 'discount', 'credit_applied', 'total', 'status', 'paid_at', 'lines',
     ];
 
@@ -72,6 +74,20 @@ final class SubscriptionInvoice extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * The plan this invoice bought, for the settlement path to act on.
+     *
+     * Deliberately beside `lines` rather than instead of it: `lines` is what the invoice
+     * *said* and must never change, this is what it *meant* and must be exact. Null on
+     * invoices written before the column existed.
+     *
+     * @return BelongsTo<Plan, $this>
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     /**

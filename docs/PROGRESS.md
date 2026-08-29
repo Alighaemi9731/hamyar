@@ -2126,3 +2126,38 @@ class as a tenant table without RLS), «سازمانی» → «نامحدود»,
 removal, Moadian never metered and explicitly low-priority («کلا بیشتر مغازه‌ها معاف از
 مالیاتن اونو نمی‌خوان»), and the platform absorbing system-SMS cost under a per-tenant daily
 cap. Version `0.14.2`, docs only, no release — there is still no production box.
+
+## 1405/06/07 (2026-08-29) — 12.1: the upgrade click, which had never worked
+
+Phase 12's first PR is not new machinery, it is the path the machinery will depend on. Three
+defects, all on the single click that turns "you hit your limit" into revenue.
+
+**`applyPayment()` never wrote `subscriptions.plan_id`.** A shop pressed upgrade, paid, and
+stayed on its old plan. The period was extended, the invoice was marked paid, both events
+fired, and nothing was wrong anywhere a test was looking. The reason it survived from Phase 2
+is worth naming: `subscription_invoices.lines` is a deliberate human-readable snapshot — an
+invoice must read the same after a plan is renamed — so the settlement path had the plan's
+*name* and no way to act on it. The fix keeps both jobs separate: `lines` says what the
+invoice **said**, a new `plan_id` column says what it **meant**. A renewal (paying again for
+the plan you are on) deliberately leaves `plan_changed_at` null rather than stamping a change
+that did not happen.
+
+**The upgrade button 404'd.** `billing/index.tsx` has always posted `plan.code` at a route
+bound by id. Seventeen green billing tests coexisted with a button that could not work,
+because every one of them drove `BillingService` directly and **not one posted to the route**.
+That is the same lesson as `bin/smoke`'s landing check, in a different costume: a suite that
+tests the layer under the door proves nothing about the door. `Plan` now routes by `code`;
+`PlanResource` is pinned to `id` so a model-level change does not silently rewrite the panel's
+URLs, which nobody asked to move.
+
+**A shop with no subscription row that paid got nothing at all** — `applyPayment()` fired its
+event and returned. Found while reading the branch, not reachable through the normal signup
+flow, and fixed anyway: "we took the money and the shop got nothing" is not a failure mode to
+leave to the provisioning path being perfect.
+
+Plus the listener `SubscriptionActivated` had promised in its own docblock since Phase 2 and
+never had. `SubscriptionResolver` is a singleton memoising one subscription per tenant id, so
+without it the very request that took the payment kept answering from the pre-payment plan —
+the upgrade was real in the database and invisible to the process that made it.
+
+Six new tests. `0.14.3`, no release — still no production box.
