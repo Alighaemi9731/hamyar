@@ -80,8 +80,18 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
    Messaging, Reporting, Files, Settings, Storefront, Hamta, Moadian) — 18 in all.
    Cross-module calls only
    via events or public service interfaces. Pest arch tests enforce this.
-7. GATING: module availability = Pennant features resolved from the tenant's plan
-   + purchased add-ons. Guard both routes (middleware) and UI (shared Inertia props).
+7. GATING IS QUANTITY, NOT AVAILABILITY (rewritten at DECISION GATE 6, 2026-08-29 —
+   [ADR 0018](docs/adr/0018-metered-plans.md)). **Every module is open to every shop.**
+   Module availability is platform-wide only: `modules.is_enabled` is a kill-switch we
+   operate, not a thing a plan buys, and `EnsureModuleEnabled` + the `features` Inertia prop
+   keep their shape to serve it. What a plan sells is **how much work a shop may record in a
+   Jalali month**: every metered action goes through `QuotaGuard::consume()` **inside the
+   same transaction that writes the row it counts**, against a `usage_counters` row keyed
+   `(tenant_id, metric, period_key)` and a limit resolved at check time from the tenant's
+   effective plan. A metered create path that does not call `consume()` is a bug of the same
+   class as a tenant table without RLS. Reads are never blocked, a lapsed shop falls back to
+   the free plan rather than being locked out, and the first rung is free — so a shop that
+   never pays keeps working, with a monthly credit that refills at 00:00 Tehran on the 1st.
 8. EVERY new behavior ships with Pest feature tests, and every tenant-scoped
    endpoint gets a cross-tenant isolation test (tenant B must get 404/403 on
    tenant A's resources).

@@ -7,6 +7,37 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.14.2 - 2026-08-29
+
+**Decision Gate 6 cleared; ADR 0018 is Accepted.** Still docs only — but two of the owner's
+answers changed the design as it had been written, and the second one is the reason this
+entry is worth reading before any Phase 12 code lands.
+
+**Every window is a month, not a day.** The design was written to the owner's opening words
+(«روزانه تا یه تعداد»); at the gate they replaced it with one credit per feature per Jalali
+month, refilled at 00:00 Tehran on the 1st — «دقیقاً مثل پلن‌های فعلی جی‌پی‌تی و کلاد که تا یه
+حد مصرف رو رایگان دارن، یه تایمی ریست میشه». So `Window` has two cases, `Month` and `Total`,
+and there is no day bucket anywhere. This is worth stating plainly because the mechanism did
+not move: the counter was always keyed `(tenant, metric, period_key)` with the clock
+computing the key, so a change that reads like a product U-turn cost the matrix and the copy
+and nothing else. It also retires the "burst allowance" as a problem rather than deferring it
+as a feature — a monthly credit *is* the burst allowance.
+
+**The first rung is free, and it replaces the trial.** `TrialPolicy`, `BASELINE_PLAN_CODE`
+and the 14-day trial are scheduled for deletion rather than inversion; a new shop starts
+`active` on a zero-price plan with no period, and a lapsed paid shop falls back to the same
+place. `messaging.sms` is 0 on it: SMS is the one quota that costs cash per unit, so free
+shops send by funding the wallet, which is money. The alternative — paid Basic plus
+lapse-falls-to-Basic — was a free rung through the back door, and choosing openly was the
+point of the item.
+
+Also recorded: golden rule 7 in `CLAUDE.md` is rewritten (gating is quantity, not
+availability), «سازمانی» becomes «نامحدود», `laravel/pennant` is approved for removal, Moadian
+is never metered (and is low priority — most shops are tax-exempt and do not want it), and the
+platform absorbs the cost of system SMS with a per-tenant daily cap.
+
+**No release.** There is still no production server; `bin/release --deploy` stays suspended.
+
 ## 0.14.1 - 2026-08-29
 
 **Docs only — the pricing model is redesigned on paper, not yet in code.** The owner
