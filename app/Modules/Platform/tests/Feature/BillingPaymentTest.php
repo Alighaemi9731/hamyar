@@ -154,7 +154,10 @@ it('MOVES THE SHOP ONTO THE PLAN IT PAID FOR', function (): void {
     payFor($this->tenant, $this->pro);
 
     $fresh = app(TenantContext::class)->runAsPlatform(
-        fn (): Subscription => Subscription::query()->findOrFail($subscription->getKey())
+        // whereKey()->firstOrFail(), not findOrFail(): the latter also accepts an array
+        // of ids, so its return type widens to include a Collection and Larastan is
+        // right to refuse the narrower closure signature.
+        fn (): Subscription => Subscription::query()->whereKey($subscription->getKey())->firstOrFail()
     );
 
     expect($fresh->plan_id)->toBe($this->pro->getKey());
