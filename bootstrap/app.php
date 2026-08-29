@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\EnsureModuleEnabled;
+use App\Http\Middleware\EnsureQuotaAvailable;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolvePublicTenant;
@@ -66,6 +67,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // Plan gating: `->middleware('module:repairs')`. Golden rule 7 — the nav
             // hides disabled modules, but THIS is what actually enforces it.
             'module' => EnsureModuleEnabled::class,
+
+            // A courtesy check before the work starts. `QuotaGuard::consume()` inside the
+            // creating transaction is the guarantee; this only spares the server work it
+            // is about to throw away. See EnsureQuotaAvailable's docblock for the three
+            // request paths it cannot see.
+            'quota' => EnsureQuotaAvailable::class,
         ]);
 
         // Explicit middleware ordering. Two of these placements are load-bearing and
@@ -96,6 +103,9 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureUserBelongsToTenant::class,
             // After the tenant is known, before anything that reads plan features.
             EnsureModuleEnabled::class,
+            // And after that: there is no point asking how much credit a shop has left
+            // for a module that is switched off.
+            EnsureQuotaAvailable::class,
             Illuminate\Routing\Middleware\ThrottleRequests::class,
             Illuminate\Routing\Middleware\ThrottleRequestsWithRedis::class,
             Illuminate\Contracts\Session\Middleware\AuthenticatesSessions::class,

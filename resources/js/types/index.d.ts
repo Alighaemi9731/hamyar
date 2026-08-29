@@ -45,6 +45,59 @@ export interface FlashMessages {
  */
 export type Features = Record<string, boolean>;
 
+/**
+ * One monthly credit's standing, as the server computed it.
+ *
+ * `level` is decided server-side on purpose: one rule for the whole product, and the
+ * distinction between "full" (amber — the shop used what it bought) and "blocked" (red —
+ * a credit actually refused work) needs a fact only the server has.
+ */
+export interface UsageMeterState {
+  key: string;
+  label: string;
+  unit: string;
+  module: string;
+  used: number;
+  /** null = unlimited on this plan. Renders as «نامحدود», with no bar. */
+  limit: number | null;
+  window: 'month' | 'total';
+  /** UTC ISO. When this credit refills; null for a standing capacity. */
+  resets_at: string | null;
+  level: 'ok' | 'warning' | 'reached' | 'blocked';
+}
+
+export interface UsageState {
+  plan: { code: string; name: string; lapsed: boolean };
+  meters: UsageMeterState[];
+  /** Metric keys at warning or worse — what the banner is about. */
+  attention: string[];
+}
+
+/**
+ * Left in the session by a refusal, and rendered once by the shell.
+ *
+ * `due` is the PRORATED price of upgrading today, from the same calculator that writes
+ * the invoice (ADR 0006) — a figure quoted here that disagreed with the gateway would be
+ * worse than no figure.
+ */
+export interface QuotaBlockState {
+  metric: string;
+  label: string;
+  message: string;
+  used: number;
+  limit: number | null;
+  requested: number;
+  resets_at: string | null;
+  next_plan: {
+    code: string;
+    name: string;
+    limit: number | null;
+    price: MoneyValue;
+    due: MoneyValue;
+  } | null;
+  can_upgrade: boolean;
+}
+
 export interface Announcement {
   id: number;
   title: string;
@@ -75,6 +128,13 @@ export interface SharedProps {
    * switch between" and renders nothing.
    */
   branch?: BranchState;
+  /**
+   * Monthly credits and what is left of them. Empty (`{}`) outside a tenant and for
+   * non-staff, like `branch` — it is commercial information about the shop.
+   */
+  usage?: UsageState;
+  /** Present only on the request that follows a refusal. */
+  quota_block?: QuotaBlockState | null;
   /** Current URL path, for marking the active nav item. */
   location: string;
   [key: string]: unknown;

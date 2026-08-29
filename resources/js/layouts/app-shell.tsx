@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 
 import { AnnouncementBanner } from '@/components/domain/announcement-banner';
+import { QuotaBlock } from '@/components/domain/quota-block';
+import { UsageBanner } from '@/components/domain/usage-banner';
 import { BranchSwitcher } from '@/components/domain/branch-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -32,7 +34,7 @@ export function AppShell({ title, actions, children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
-  const { flash, features, tenant, location, branch } = props;
+  const { flash, features, tenant, location, branch, usage, quota_block: quotaBlock } = props;
 
   // Flash messages arrive as props on the next visit; surfacing them as toasts keeps
   // every module from having to render its own alert bar.
@@ -107,6 +109,12 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           )}
 
           <div className="no-print">
+            {/* The refusal first: it is about what the operator just tried to do, and it
+                has to be the thing their eye lands on. Rendered here rather than in each
+                form because most forms render only the error keys they were written to
+                expect — see QuotaBlock's docblock. */}
+            <QuotaBlock block={quotaBlock} />
+            <UsageBanner usage={usage} />
             <AnnouncementBanner announcements={announcements ?? []} />
           </div>
 
