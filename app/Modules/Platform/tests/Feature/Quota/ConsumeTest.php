@@ -47,16 +47,8 @@ beforeEach(function (): void {
 
 afterEach(fn () => app(TenantContext::class)->forget());
 
-/**
- * @param  Closure(): mixed  $callback
- */
-function spend(Tenant $tenant, Closure $callback): mixed
-{
-    return app(TenantContext::class)->runFor($tenant, fn (): mixed => DB::transaction($callback));
-}
-
 it('counts a spend and reports what is left', function (): void {
-    $verdict = spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets'));
+    $verdict = spendQuota($this->tenant, 'quota.widgets');
 
     expect($verdict->allowed)->toBeTrue();
     expect($verdict->used)->toBe(1);
@@ -65,32 +57,30 @@ it('counts a spend and reports what is left', function (): void {
 });
 
 it('refuses the spend that would cross the limit, and writes nothing', function (): void {
-    spend($this->tenant, function (): void {
-        app(QuotaGuard::class)->consume('quota.widgets', 3);
-    });
+    spendQuota($this->tenant, 'quota.widgets', 3);
 
-    $before = usedNow($this->tenant, 'quota.widgets');
+    $before = quotaUsed($this->tenant, 'quota.widgets');
 
-    expect(fn () => spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets')))
+    expect(fn () => spendQuota($this->tenant, 'quota.widgets'))
         ->toThrow(QuotaExceeded::class);
 
     // The refusal is the whole contract: nothing moved.
-    expect(usedNow($this->tenant, 'quota.widgets'))->toBe($before);
+    expect(quotaUsed($this->tenant, 'quota.widgets'))->toBe($before);
 });
 
 it('refuses a batch larger than the whole limit on an untouched period', function (): void {
     // The insert arm's guard. With no row yet there is nothing to conflict with, so the
     // cap has to be enforced by the WHERE on the SELECT or a first-of-month bulk import
     // would sail past a limit it exceeds outright.
-    expect(fn () => spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets', 4)))
+    expect(fn () => spendQuota($this->tenant, 'quota.widgets', 4))
         ->toThrow(QuotaExceeded::class);
 
-    expect(usedNow($this->tenant, 'quota.widgets'))->toBe(0);
-    expect(rowExists($this->tenant, 'quota.widgets'))->toBeFalse();
+    expect(quotaUsed($this->tenant, 'quota.widgets'))->toBe(0);
+    expect(quotaRowExists($this->tenant, 'quota.widgets'))->toBeFalse();
 });
 
 it('takes a batch that exactly fills the credit', function (): void {
-    $verdict = spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets', 3));
+    $verdict = spendQuota($this->tenant, 'quota.widgets', 3);
 
     expect($verdict->allowed)->toBeTrue();
     expect($verdict->remaining())->toBe(0);
@@ -99,27 +89,27 @@ it('takes a batch that exactly fills the credit', function (): void {
 it('counts an unlimited metric instead of skipping it', function (): void {
     // Unlimited means never refused, not never measured. The meters, the usage page and
     // every pricing decision depend on the row existing for the biggest customers too.
-    $verdict = spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.unlimited', 500));
+    $verdict = spendQuota($this->tenant, 'quota.unlimited', 500);
 
     expect($verdict->allowed)->toBeTrue();
     expect($verdict->isUnlimited())->toBeTrue();
-    expect(usedNow($this->tenant, 'quota.unlimited'))->toBe(500);
+    expect(quotaUsed($this->tenant, 'quota.unlimited'))->toBe(500);
 });
 
 it('rolls the reservation back with the write it was guarding', function (): void {
     // The reason consume() lives inside the caller's transaction. A create that fails
     // after the guard said yes must not leave the shop charged for it.
     try {
-        spend($this->tenant, function (): void {
+        app(TenantContext::class)->runFor($this->tenant, fn () => DB::transaction(function (): void {
             app(QuotaGuard::class)->consume('quota.widgets', 2);
 
             throw new RuntimeException('the domain write failed');
-        });
+        }));
     } catch (RuntimeException) {
         // expected
     }
 
-    expect(usedNow($this->tenant, 'quota.widgets'))->toBe(0);
+    expect(quotaUsed($this->tenant, 'quota.widgets'))->toBe(0);
 });
 
 it('refuses to run outside a transaction', function (): void {
@@ -151,7 +141,7 @@ it('checks without writing', function (): void {
         expect($verdict->allowed)->toBeTrue();
     });
 
-    expect(rowExists($this->tenant, 'quota.widgets'))->toBeFalse();
+    expect(quotaRowExists($this->tenant, 'quota.widgets'))->toBeFalse();
 });
 
 it('aims the upgrade at the cheapest plan that would fit', function (): void {
@@ -163,10 +153,10 @@ it('aims the upgrade at the cheapest plan that would fit', function (): void {
     $pro->update(['position' => 2]);
     app(LimitResolver::class)->forget();
 
-    spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets', 3));
+    spendQuota($this->tenant, 'quota.widgets', 3);
 
     try {
-        spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets'));
+        spendQuota($this->tenant, 'quota.widgets');
         $verdict = null;
     } catch (QuotaExceeded $exceeded) {
         $verdict = $exceeded->verdict;
@@ -178,54 +168,42 @@ it('aims the upgrade at the cheapest plan that would fit', function (): void {
 it('measures a standing capacity from live rows rather than a counter', function (): void {
     cache()->put("seats:{$this->tenant->getKey()}", 2);
 
-    expect(fn () => spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.seats')))
+    expect(fn () => spendQuota($this->tenant, 'quota.seats'))
         ->toThrow(QuotaExceeded::class);
 
     cache()->put("seats:{$this->tenant->getKey()}", 1);
 
-    $verdict = spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.seats'));
+    $verdict = spendQuota($this->tenant, 'quota.seats');
 
     expect($verdict->allowed)->toBeTrue();
     // No period, no row: a standing capacity is measured, never accumulated.
     expect($verdict->periodKey)->toBeNull();
-    expect(rowExists($this->tenant, 'quota.seats'))->toBeFalse();
+    expect(quotaRowExists($this->tenant, 'quota.seats'))->toBeFalse();
 });
 
 it('starts a fresh credit when the Jalali month turns', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-09-22 23:55:00', 'Asia/Tehran'));
 
-    spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets', 3));
+    spendQuota($this->tenant, 'quota.widgets', 3);
 
-    expect(fn () => spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets')))
+    expect(fn () => spendQuota($this->tenant, 'quota.widgets'))
         ->toThrow(QuotaExceeded::class);
 
     // Ten minutes later, and it is Mehr.
     $this->travelTo(CarbonImmutable::parse('2026-09-23 00:05:00', 'Asia/Tehran'));
 
-    $verdict = spend($this->tenant, fn () => app(QuotaGuard::class)->consume('quota.widgets'));
+    $verdict = spendQuota($this->tenant, 'quota.widgets');
 
     expect($verdict->allowed)->toBeTrue();
     expect($verdict->used)->toBe(1);
 
     // Two rows, not one reset row: last month's usage is still there to report on.
-    expect(app(TenantContext::class)->runAsPlatform(fn (): int => UsageCounter::query()
+    /** @var int $rows */
+    $rows = app(TenantContext::class)->runAsPlatform(fn (): int => UsageCounter::query()
         ->where('tenant_id', $this->tenant->getKey())
         ->where('metric', 'quota.widgets')
-        ->count()))->toBe(2);
+        ->count());
+
+    expect($rows)->toBe(2);
 });
 
-function usedNow(Tenant $tenant, string $metric): int
-{
-    return app(TenantContext::class)->runAsPlatform(fn (): int => (int) UsageCounter::query()
-        ->where('tenant_id', $tenant->getKey())
-        ->where('metric', $metric)
-        ->sum('used'));
-}
-
-function rowExists(Tenant $tenant, string $metric): bool
-{
-    return app(TenantContext::class)->runAsPlatform(fn (): bool => UsageCounter::query()
-        ->where('tenant_id', $tenant->getKey())
-        ->where('metric', $metric)
-        ->exists());
-}

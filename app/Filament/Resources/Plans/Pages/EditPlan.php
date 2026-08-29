@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Plans\Pages;
 
+use App\Filament\Resources\Plans\Concerns\EditsPlanLimits;
 use App\Filament\Resources\Plans\PlanResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 final class EditPlan extends EditRecord
 {
+    use EditsPlanLimits;
+
     protected static string $resource = PlanResource::class;
 
     protected function getHeaderActions(): array

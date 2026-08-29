@@ -167,7 +167,10 @@ final class DatabaseQuotaGuard implements QuotaGuard
         try {
             // Its own transaction: `record()` is called from jobs and sweeps that have no
             // domain write to join, and the statement still needs one to be atomic.
-            return $this->connection->transaction(fn (): QuotaVerdict => $this->consume($metric, $n));
+            /** @var QuotaVerdict $verdict */
+            $verdict = $this->connection->transaction(fn (): QuotaVerdict => $this->consume($metric, $n));
+
+            return $verdict;
         } catch (QuotaExceeded $exceeded) {
             // The whole point: automated work never throws. The caller reads the verdict
             // and decides — `SendSms` marks the message suppressed with a reason the shop
@@ -197,6 +200,7 @@ final class DatabaseQuotaGuard implements QuotaGuard
 
         // One query for every meter on the page — the index on (tenant_id, period_key)
         // covers it, and the alternative is a query per metric on every staff request.
+        /** @var array<string, UsageCounter> $rows */
         $rows = $this->context->runAsPlatform(
             fn (): array => UsageCounter::query()
                 ->where('tenant_id', $tenantId)
@@ -209,12 +213,11 @@ final class DatabaseQuotaGuard implements QuotaGuard
         $verdicts = [];
 
         foreach ($counted as $definition) {
-            /** @var UsageCounter|null $row */
             $row = $rows[$definition->key] ?? null;
 
             $verdicts[] = $this->verdict(
                 $definition,
-                used: $row?->used ?? 0,
+                used: $row instanceof UsageCounter ? $row->used : 0,
                 limit: $this->limits->forTenant($tenantId, $definition->key),
                 requested: 0,
                 allowed: true,

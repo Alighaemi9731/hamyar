@@ -115,6 +115,7 @@ it('prunes counter rows for long-past periods and keeps recent ones', function (
 
     $this->artisan('quota:prune', ['--days' => 400])->assertSuccessful();
 
+    /** @var list<int> $remaining */
     $remaining = app(TenantContext::class)->runAsPlatform(fn (): array => UsageCounter::query()
         ->where('tenant_id', $this->tenant->getKey())
         ->pluck('used')
@@ -128,7 +129,10 @@ it('prunes counter rows for long-past periods and keeps recent ones', function (
 
 function fresh(Subscription $subscription): Subscription
 {
-    return app(TenantContext::class)->runAsPlatform(
+    /** @var Subscription $reloaded */
+    $reloaded = app(TenantContext::class)->runAsPlatform(
         fn (): Subscription => Subscription::query()->whereKey($subscription->getKey())->firstOrFail()
     );
+
+    return $reloaded;
 }

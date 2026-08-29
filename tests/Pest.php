@@ -214,6 +214,63 @@ function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $ca
 }
 
 /**
+ * Spend a credit as a shop, inside a transaction, and hand back the verdict.
+ *
+ * `runFor()` and `DB::transaction()` both return `mixed`, so without this every quota test
+ * would carry its own `@var` annotation to satisfy Larastan — and a suite that annotates
+ * its way out of type errors one line at a time is a suite where a real one hides.
+ */
+function spendQuota(
+    App\Modules\Platform\Models\Tenant $tenant,
+    string $metric,
+    int $units = 1,
+): App\Support\Quota\QuotaVerdict {
+    /** @var App\Support\Quota\QuotaVerdict $verdict */
+    $verdict = app(App\Support\Tenancy\TenantContext::class)->runFor(
+        $tenant,
+        static fn (): App\Support\Quota\QuotaVerdict => Illuminate\Support\Facades\DB::transaction(
+            static fn (): App\Support\Quota\QuotaVerdict => app(App\Support\Quota\QuotaGuard::class)
+                ->consume($metric, $units)
+        )
+    );
+
+    return $verdict;
+}
+
+/**
+ * How much of one credit a shop has spent, across every period.
+ */
+function quotaUsed(App\Modules\Platform\Models\Tenant $tenant, string $metric): int
+{
+    /** @var int|numeric-string $used */
+    $used = app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(
+        static fn (): mixed => App\Modules\Platform\Models\UsageCounter::query()
+            ->where('tenant_id', $tenant->getKey())
+            ->where('metric', $metric)
+            ->sum('used')
+    );
+
+    return (int) $used;
+}
+
+/**
+ * Does a counter row exist at all? Distinguishes "spent nothing" from "never touched",
+ * which is how a refusal that wrote nothing is told apart from one that wrote a zero.
+ */
+function quotaRowExists(App\Modules\Platform\Models\Tenant $tenant, string $metric): bool
+{
+    /** @var bool $exists */
+    $exists = app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(
+        static fn (): bool => App\Modules\Platform\Models\UsageCounter::query()
+            ->where('tenant_id', $tenant->getKey())
+            ->where('metric', $metric)
+            ->exists()
+    );
+
+    return $exists;
+}
+
+/**
  * Register the quota metrics the guard's own suites meter against.
  *
  * Deliberately not borrowed from a module: the guard's tests must break when the guard

@@ -49,9 +49,7 @@ afterEach(fn () => app(TenantContext::class)->forget());
 it('does not spend one shop credit on another', function (): void {
     // The obvious failure this design could have: a counter keyed by metric alone, or a
     // memo keyed by nothing, and shop A's busy morning caps shop B.
-    app(TenantContext::class)->runFor($this->alpha, fn () => DB::transaction(
-        fn () => app(QuotaGuard::class)->consume('quota.widgets', 2)
-    ));
+    spendQuota($this->alpha, 'quota.widgets', 2);
 
     app(TenantContext::class)->runFor($this->beta, function (): void {
         $verdict = app(QuotaGuard::class)->check('quota.widgets');
@@ -76,7 +74,7 @@ it('denies a counter row written for another shop', function (): void {
 });
 
 it('hides another shop overrides', function (): void {
-    app(TenantContext::class)->runAsPlatform(fn () => TenantLimitOverride::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->alpha->getKey(),
         'metric' => 'quota.widgets',
         'value' => null,
@@ -99,11 +97,11 @@ it('keeps the platform flag a list rather than a blanket', function (): void {
     // The ADR 0002 amendment: `runAsPlatform()` opens the tables that opted in, and
     // nothing else. A tenant table that quietly gained the flag would be a silent hole,
     // so the list is asserted rather than assumed.
-    app(TenantContext::class)->runFor($this->alpha, fn () => DB::transaction(
-        fn () => app(QuotaGuard::class)->consume('quota.widgets')
-    ));
+    spendQuota($this->alpha, 'quota.widgets');
 
+    /** @var int $visible */
     $visible = app(TenantContext::class)->runAsPlatform(
+        // quota-scope-allow: counting across shops is what the platform flag is for.
         fn (): int => UsageCounter::query()->count()
     );
 

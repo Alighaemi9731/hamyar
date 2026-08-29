@@ -98,6 +98,7 @@ final class UsageEvents
      */
     public function upgradedAfterBlock(int $tenantId, string $planCode): void
     {
+        /** @var UsageEvent|null $recent */
         $recent = $this->context->runAsPlatform(fn (): ?UsageEvent => UsageEvent::query()
             ->where('tenant_id', $tenantId)
             ->whereIn('kind', [UsageEvent::KIND_BLOCKED, UsageEvent::KIND_BULK_BLOCKED])
@@ -152,12 +153,12 @@ final class UsageEvents
             // The `try` is OUTSIDE `transaction()` on purpose (CLAUDE.md): the closure has
             // to throw for the savepoint to roll back, so catching inside it would leave
             // an aborted transaction and every later statement would fail with 25P02.
-            $this->connection->transaction(fn (): bool => $this->context->runAsPlatform(
-                static fn (): bool => (bool) UsageEvent::query()->create([
+            $this->connection->transaction(function () use ($attributes): void {
+                $this->context->runAsPlatform(static fn (): UsageEvent => UsageEvent::query()->create([
                     ...$attributes,
                     'created_at' => CarbonImmutable::now(),
-                ])
-            ));
+                ]));
+            });
 
             return true;
         } catch (UniqueConstraintViolationException) {

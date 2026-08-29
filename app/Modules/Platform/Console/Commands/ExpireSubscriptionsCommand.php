@@ -42,7 +42,9 @@ final class ExpireSubscriptionsCommand extends Command
         $now = CarbonImmutable::now();
         $graceDays = max(0, (int) $this->option('days'));
 
+        /** @var int $expired */
         $expired = $context->runAsPlatform(fn (): int => $this->toPastDue($now, $graceDays));
+        /** @var int $canceled */
         $canceled = $context->runAsPlatform(fn (): int => $this->toCanceled($now));
 
         // The version bump is the point of doing this in one place: a shop whose state

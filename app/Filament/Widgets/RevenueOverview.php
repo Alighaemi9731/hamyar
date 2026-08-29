@@ -44,10 +44,16 @@ final class RevenueOverview extends StatsOverviewWidget
             ->distinct()
             ->count('tenant_id');
 
-        $trialing = Subscription::query()
-            ->where('status', Subscription::STATUS_TRIALING)
-            ->where('trial_ends_at', '>', $now)
-            ->count();
+        // Shops on the free rung. This replaced a "trials in progress" count, which
+        // could only ever read zero once the free plan took the trial's place — a dead
+        // number on the one dashboard that is supposed to say how the business is doing.
+        // It is also the more useful figure: the free rung is the upgrade pool.
+        $free = Subscription::query()
+            ->join('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->where('subscriptions.status', Subscription::STATUS_ACTIVE)
+            ->where('plans.price', 0)
+            ->distinct()
+            ->count('subscriptions.tenant_id');
 
         // Money actually collected this month, which is what the bank will agree with.
         $collected = (int) SubscriptionInvoice::query()
@@ -67,8 +73,8 @@ final class RevenueOverview extends StatsOverviewWidget
             Stat::make('دریافتی این ماه', Money::formatWithUnit($collected))
                 ->description('بر اساس صورتحساب‌های پرداخت‌شده'),
 
-            Stat::make('دوره آزمایشی', (string) $trialing)
-                ->description('در انتظار تبدیل')
+            Stat::make('فروشگاه‌های رایگان', (string) $free)
+                ->description('روی پلن پایه — بازار ارتقا')
                 ->color('info'),
 
             Stat::make('پرداخت معوق', (string) $pastDue)

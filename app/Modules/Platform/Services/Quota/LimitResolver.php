@@ -165,7 +165,10 @@ final class LimitResolver
      */
     public function bump(int $tenantId): void
     {
-        $version = (int) Tenant::query()->whereKey($tenantId)->value('entitlement_version') + 1;
+        /** @var int|numeric-string|null $current */
+        $current = Tenant::query()->whereKey($tenantId)->value('entitlement_version');
+
+        $version = (int) $current + 1;
 
         Tenant::query()->whereKey($tenantId)->update(['entitlement_version' => $version]);
 
@@ -245,6 +248,7 @@ final class LimitResolver
 
         // Explicit tenant scope: this table is platform-owned, so there is no global
         // scope to lean on and RLS is the only other guard.
+        /** @var list<TenantLimitOverride> $rows */
         $rows = $this->context->runAsPlatform(
             static fn (): array => TenantLimitOverride::query()->where('tenant_id', $tenantId)->get()->all()
         );
@@ -276,7 +280,10 @@ final class LimitResolver
             return $cached;
         }
 
-        $version = (int) (Tenant::query()->whereKey($tenantId)->value('entitlement_version') ?? 1);
+        /** @var int|numeric-string|null $stored */
+        $stored = Tenant::query()->whereKey($tenantId)->value('entitlement_version');
+
+        $version = (int) ($stored ?? 1);
 
         $this->putVersion($tenantId, $version);
 

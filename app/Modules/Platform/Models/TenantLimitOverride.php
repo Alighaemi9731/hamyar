@@ -17,8 +17,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $tenant_id
  * @property string $metric
- * @property int|null $value  null = unlimited for this shop
+ * @property int|null $value
  * @property string $reason
+ *
+ * `value` null means unlimited for this shop — the same meaning `plan_limits.value` has,
+ * deliberately, because two columns for one idea must not disagree about null.
  * @property CarbonImmutable|null $expires_at
  * @property int|null $created_by
  */

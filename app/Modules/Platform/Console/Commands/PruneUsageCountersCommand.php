@@ -37,7 +37,10 @@ final class PruneUsageCountersCommand extends Command
         $days = max(31, (int) $this->option('days'));
         $cutoff = CarbonImmutable::now()->subDays($days)->toDateString();
 
+        /** @var int $deleted */
         $deleted = $context->runAsPlatform(
+            // quota-scope-allow: the sweep is about periods, not shops, and deletes across
+            // every tenant on purpose.
             static fn (): int => UsageCounter::query()->where('period_key', '<', $cutoff)->delete()
         );
 

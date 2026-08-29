@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Services;
 
-use App\Modules\Platform\Models\Plan;
+use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\Tenant;
-use App\Modules\Platform\Support\TrialPolicy;
 use App\Support\Tenancy\TenantContext;
 
 /**
@@ -25,8 +24,6 @@ final class SubscriptionResolver
 {
     /** @var array<int, Subscription|null> */
     private array $cache = [];
-
-    private ?Plan $baseline = null;
 
     public function __construct(private readonly TenantContext $context) {}
 
@@ -50,23 +47,28 @@ final class SubscriptionResolver
     }
 
     /**
-     * Module codes the current tenant may use.
+     * Module codes this shop may use — which, since DECISION GATE 6, is every module we
+     * have switched on.
      *
-     * An unsubscribed or lapsed tenant gets an EMPTY list, not the core modules. The
-     * gating layer fails closed for the same reason RLS does: the safe failure is
-     * "nothing works and someone complains", not "everything is free".
+     * ## Why this no longer consults the subscription
+     *
+     * It used to return the plan's modules, and an empty list for a lapsed shop — gating
+     * that failed closed, on the reasoning that "nothing works and someone complains" beats
+     * "everything is free". That reasoning was right for a product where a plan bought
+     * modules. It is wrong for one where every module is open and a plan buys *quantity*:
+     * a shop whose payment is three days late would find every screen 403ing, conclude the
+     * software is broken, and be right to.
+     *
+     * What fails closed now is the quota layer, which is the layer that can: a lapsed shop
+     * reads everything, keeps its own data, and creates nothing beyond the free rung's
+     * credits (`LimitResolver`). The module switch remains — as a platform kill-switch for
+     * something we have turned off for everybody, which is what ADR 0011 needs for Moadian.
      *
      * @return list<string>
      */
     public function grantedModuleCodes(): array
     {
-        $subscription = $this->current();
-
-        if (! $subscription instanceof Subscription || ! $subscription->isUsable()) {
-            return [];
-        }
-
-        return $subscription->grantedModuleCodes();
+        return Module::enabledCodes();
     }
 
     public function grants(string $moduleCode): bool
@@ -77,8 +79,11 @@ final class SubscriptionResolver
     /**
      * A plan limit's value, or null for unlimited / no subscription.
      *
-     * During a trial the plan's own limits do not apply unmodified — see
-     * {@see TrialPolicy} for why a free Pro trial is capped like Basic.
+     * @deprecated Phase 12 — use `App\Modules\Platform\Services\Quota\LimitResolver`,
+     *             which also applies per-tenant overrides and the fallback plan a lapsed
+     *             shop drops to. This reads the subscribed plan and nothing else, so it is
+     *             right only for a shop whose subscription is usable. Kept while the
+     *             remaining callers migrate.
      */
     public function limit(string $key): ?int
     {
@@ -88,23 +93,7 @@ final class SubscriptionResolver
             return null;
         }
 
-        if ($subscription->isTrialing()) {
-            return TrialPolicy::limit($key, $subscription->plan, $this->trialBaselinePlan());
-        }
-
         return $subscription->plan->limit($key);
-    }
-
-    /**
-     * The plan whose quotas a trial borrows. Read from the database, not the catalogue,
-     * because the panel may have edited it (Gate 2, item 1).
-     */
-    private function trialBaselinePlan(): ?Plan
-    {
-        return $this->baseline ??= Plan::query()
-            ->with('limits')
-            ->where('code', TrialPolicy::BASELINE_PLAN_CODE)
-            ->first();
     }
 
     /**
@@ -113,7 +102,6 @@ final class SubscriptionResolver
     public function forget(): void
     {
         $this->cache = [];
-        $this->baseline = null;
     }
 
     /**

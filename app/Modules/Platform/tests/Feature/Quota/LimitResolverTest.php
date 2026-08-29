@@ -94,7 +94,7 @@ it('lets an override beat the plan, in both directions', function (): void {
     subscribe($this->tenant, 'small');
     app(SubscriptionResolver::class)->forget();
 
-    app(TenantContext::class)->runAsPlatform(fn () => TenantLimitOverride::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->tenant->getKey(),
         'metric' => 'quota.widgets',
         'value' => 50,
@@ -110,7 +110,7 @@ it('ignores an override that has expired', function (): void {
     subscribe($this->tenant, 'small');
     app(SubscriptionResolver::class)->forget();
 
-    app(TenantContext::class)->runAsPlatform(fn () => TenantLimitOverride::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->tenant->getKey(),
         'metric' => 'quota.widgets',
         'value' => 50,
@@ -125,7 +125,7 @@ it('makes a shop unlimited with a null override', function (): void {
     subscribe($this->tenant, 'small');
     app(SubscriptionResolver::class)->forget();
 
-    app(TenantContext::class)->runAsPlatform(fn () => TenantLimitOverride::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->tenant->getKey(),
         'metric' => 'quota.widgets',
         'value' => null,
@@ -145,7 +145,7 @@ it('re-resolves a warm memo after the entitlement version moves', function (): v
 
     expect($resolver->forTenant($this->tenant->getKey(), 'quota.widgets'))->toBe(5);
 
-    app(TenantContext::class)->runAsPlatform(fn () => TenantLimitOverride::query()->create([
+    app(TenantContext::class)->runAsPlatform(fn (): TenantLimitOverride => TenantLimitOverride::query()->create([
         'tenant_id' => $this->tenant->getKey(),
         'metric' => 'quota.widgets',
         'value' => 99,

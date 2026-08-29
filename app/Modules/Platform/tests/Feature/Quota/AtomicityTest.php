@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\Tenant;
-use App\Modules\Platform\Models\UsageCounter;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Support\Quota\QuotaExceeded;
@@ -138,13 +137,8 @@ it('refuses a spend decided from a stale read', function (): void {
             ->toThrow(QuotaExceeded::class);
     });
 
-    $used = app(TenantContext::class)->runAsPlatform(fn (): int => (int) UsageCounter::query()
-        ->where('tenant_id', $this->tenant->getKey())
-        ->where('metric', 'quota.widgets')
-        ->value('used'));
-
     // Ten, not eleven. The stale decision cost nothing.
-    expect($used)->toBe(10);
+    expect(quotaUsed($this->tenant, 'quota.widgets'))->toBe(10);
 });
 
 it('holds the line over a hundred sequential spends', function (): void {
