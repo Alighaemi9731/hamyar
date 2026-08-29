@@ -39,9 +39,9 @@ final class PruneUsageCountersCommand extends Command
 
         /** @var int $deleted */
         $deleted = $context->runAsPlatform(
-            // quota-scope-allow: the sweep is about periods, not shops, and deletes across
-            // every tenant on purpose.
             static function () use ($cutoff): int {
+                // quota-scope-allow: the sweep is about periods, not shops, and deletes
+                // across every tenant on purpose.
                 /** @var int $rows */
                 $rows = UsageCounter::query()->where('period_key', '<', $cutoff)->delete();
 

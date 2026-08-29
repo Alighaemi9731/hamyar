@@ -9,6 +9,8 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Http\Requests\BranchRequest;
 use App\Modules\Inventory\Models\Branch;
 use App\Modules\Inventory\Services\BranchAccess;
+use App\Support\Quota\QuotaGuard;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,16 +83,23 @@ final class BranchController extends Controller
         ]);
     }
 
-    public function store(BranchRequest $request): RedirectResponse
+    public function store(BranchRequest $request, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorise($request, 'settings.update');
 
-        $branch = new Branch;
+        // A standing capacity: the count is live branches, so closing one gives the slot
+        // back. The default branch every shop is provisioned with counts toward it —
+        // otherwise the free rung's «۱ شعبه» would quietly mean two.
+        $connection->transaction(function () use ($request, $quota): void {
+            $quota->consume('inventory.branches');
 
-        $this->fill($branch, $request);
-        $branch->save();
+            $branch = new Branch;
 
-        $this->settleDefault($branch, $request->boolean('is_default'));
+            $this->fill($branch, $request);
+            $branch->save();
+
+            $this->settleDefault($branch, $request->boolean('is_default'));
+        });
 
         return back()->with('success', 'شعبه ثبت شد.');
     }

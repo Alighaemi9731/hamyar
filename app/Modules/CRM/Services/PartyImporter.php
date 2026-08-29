@@ -8,6 +8,7 @@ use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyContact;
 use App\Support\Digits;
 use App\Support\Money;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use Illuminate\Database\ConnectionInterface;
 use InvalidArgumentException;
@@ -79,6 +80,7 @@ final class PartyImporter
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly SpreadsheetReaders $readers,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -124,9 +126,20 @@ final class PartyImporter
     public function import(string $path, string $extension, array $mapping, string $kind, string $unit): array
     {
         /** @var array{rows: list<array<string, mixed>>, counts: array<string, int>} $result */
-        $result = $this->connection->transaction(
-            fn (): array => $this->walk($path, $extension, $mapping, $kind, $unit, commit: true)
-        );
+        $result = $this->connection->transaction(function () use ($path, $extension, $mapping, $kind, $unit): array {
+            $walked = $this->walk($path, $extension, $mapping, $kind, $unit, commit: true);
+
+            // After the walk, because the create count does not exist until the file has
+            // been read — and still atomic: a refusal unwinds the whole import. Updates
+            // and duplicates are free; only genuinely new parties spend a credit.
+            $created = $walked['counts'][self::OUTCOME_CREATE] ?? 0;
+
+            if ($created > 0) {
+                $this->quota->consume('crm.parties', $created);
+            }
+
+            return $walked;
+        });
 
         return $result;
     }

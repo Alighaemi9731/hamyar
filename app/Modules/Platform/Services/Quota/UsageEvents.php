@@ -155,6 +155,10 @@ final class UsageEvents
             // an aborted transaction and every later statement would fail with 25P02.
             $this->connection->transaction(function () use ($attributes): void {
                 $this->context->runAsPlatform(static fn (): UsageEvent => UsageEvent::query()->create([
+                    // Named rather than left inside the spread: `bin/check-quota-scoping`
+                    // reads the statement, and a tenant id it cannot see is one a reviewer
+                    // cannot see either.
+                    'tenant_id' => $attributes['tenant_id'],
                     ...$attributes,
                     'created_at' => CarbonImmutable::now(),
                 ]));

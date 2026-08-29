@@ -9,6 +9,8 @@ use App\Modules\Identity\Models\Invitation;
 use App\Modules\Identity\Models\User;
 use App\Modules\Identity\Support\PermissionCatalogue;
 use App\Support\Digits;
+use App\Support\Quota\QuotaGuard;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -73,7 +75,7 @@ final class UserController extends Controller
         ]);
     }
 
-    public function invite(Request $request): RedirectResponse
+    public function invite(Request $request, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorize('invite', User::class);
 
@@ -91,15 +93,36 @@ final class UserController extends Controller
 
         ['token' => $token, 'hash' => $hash] = Invitation::mintToken();
 
-        $invitation = Invitation::query()->create([
-            'invited_by_id' => $request->user()?->getKey(),
-            'name' => $validated['name'],
-            'mobile' => $validated['mobile'],
-            'email' => $validated['email'] ?? null,
-            'role' => $validated['role'],
-            'token_hash' => $hash,
-            'expires_at' => now()->addDays(7),
-        ]);
+        /*
+        | The seat is reserved HERE, at invite, not at accept.
+        |
+        | `identity.users` measures active users plus pending invitations, so the check
+        | and the row have to happen together — otherwise two managers inviting at the
+        | same last seat both measure "one free" and both send. The advisory lock inside
+        | `assertCapacity()` is what serialises them, and it is transaction-scoped, which
+        | is why this needs one.
+        |
+        | Accepting deliberately does NOT re-check: the invitation being accepted is
+        | already inside the measure, so a second check would refuse the very seat it had
+        | made room for.
+        */
+        /** @var Invitation $invitation */
+        $invitation = $connection->transaction(function () use ($request, $validated, $hash, $quota): Invitation {
+            $quota->consume('identity.users');
+
+            /** @var Invitation $invitation */
+            $invitation = Invitation::query()->create([
+                'invited_by_id' => $request->user()?->getKey(),
+                'name' => $validated['name'],
+                'mobile' => $validated['mobile'],
+                'email' => $validated['email'] ?? null,
+                'role' => $validated['role'],
+                'token_hash' => $hash,
+                'expires_at' => now()->addDays(7),
+            ]);
+
+            return $invitation;
+        });
 
         // Phase 8 replaces this with a pattern SMS.
         Log::info('Invitation issued.', [
@@ -141,7 +164,7 @@ final class UserController extends Controller
         return back()->with('success', 'نقش‌ها به‌روزرسانی شد.');
     }
 
-    public function toggleActive(Request $request, User $user): RedirectResponse
+    public function toggleActive(Request $request, User $user, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorize('deactivate', $user);
 
@@ -155,7 +178,21 @@ final class UserController extends Controller
             return back()->withErrors(['user' => 'فروشگاه باید حداقل یک «مالک» فعال داشته باشد.']);
         }
 
-        $user->forceFill(['is_active' => $activating])->save();
+        /*
+        | Re-activating takes a seat back, so it is checked; deactivating gives one up and
+        | is always free.
+        |
+        | Without the check here the cap has a trivial back door: deactivate, invite
+        | somebody in the freed seat, re-activate. Three ordinary clicks, each of them
+        | individually reasonable, and the shop is a seat over its plan for ever.
+        */
+        $connection->transaction(function () use ($user, $activating, $quota): void {
+            if ($activating) {
+                $quota->consume('identity.users');
+            }
+
+            $user->forceFill(['is_active' => $activating])->save();
+        });
 
         return back()->with('success', $activating ? 'کاربر فعال شد.' : 'کاربر غیرفعال شد.');
     }

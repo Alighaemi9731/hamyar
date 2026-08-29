@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyFollowUp;
 use App\Modules\Identity\Models\User;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -61,7 +63,7 @@ final class FollowUpController extends Controller
         ]);
     }
 
-    public function store(Request $request, Party $party): RedirectResponse
+    public function store(Request $request, Party $party, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorize('view', $party);
 
@@ -77,14 +79,18 @@ final class FollowUpController extends Controller
             'due_at.required' => 'تاریخ پیگیری را انتخاب کنید.',
         ]);
 
-        PartyFollowUp::query()->create([
-            'party_id' => $party->getKey(),
-            'title' => $validated['title'],
-            'body' => $validated['body'] ?? null,
-            'due_at' => $validated['due_at'],
-            'assignee_id' => $validated['assignee_id'] ?? null,
-            'created_by' => $request->user()?->id,
-        ]);
+        $connection->transaction(function () use ($party, $validated, $request, $quota): void {
+            $quota->consume('crm.follow_ups');
+
+            PartyFollowUp::query()->create([
+                'party_id' => $party->getKey(),
+                'title' => $validated['title'],
+                'body' => $validated['body'] ?? null,
+                'due_at' => $validated['due_at'],
+                'assignee_id' => $validated['assignee_id'] ?? null,
+                'created_by' => $request->user()?->id,
+            ]);
+        });
 
         return back()->with('success', 'پیگیری ثبت شد.');
     }

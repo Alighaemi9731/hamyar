@@ -41,7 +41,16 @@ beforeEach(function (): void {
         ['key' => 'quota.seats', 'value' => 2],
     ]);
 
-    subscribe($this->tenant, 'quota-test');
+    /*
+    | A year of period, not the helper's default twenty days.
+    |
+    | Two tests here travel forward a month to watch a credit refill, and with the default
+    | the subscription would have LAPSED by the time they got there — the shop would fall
+    | to the fallback plan, which has no row for these test metrics, which reads as
+    | unlimited, and the assertion that a spend is refused would fail for a reason that has
+    | nothing to do with the month boundary it was written to test.
+    */
+    subscribe($this->tenant, 'quota-test', ['current_period_end' => now()->addYear()]);
     app(LimitResolver::class)->forget();
 });
 
@@ -146,11 +155,19 @@ it('checks without writing', function (): void {
 
 it('aims the upgrade at the cheapest plan that would fit', function (): void {
     // The refusal has to carry somewhere to go, or the block screen is a dead end.
+    //
+    // The test plan sits BELOW `pro` in the ladder and `pro` is made public and given a
+    // widget limit, so there is exactly one rung above with room. Positions are explicit
+    // because the seeded catalogue shares this database and a tie would let either plan
+    // answer.
     $pro = Plan::query()->where('code', 'pro')->firstOrFail();
     $pro->limits()->create(['key' => 'quota.widgets', 'value' => 50]);
+    $pro->update(['position' => 91, 'is_public' => true]);
 
-    $this->plan->update(['position' => 1]);
-    $pro->update(['position' => 2]);
+    $this->plan->update(['position' => 90]);
+
+    Plan::query()->whereNotIn('code', ['quota-test', 'pro'])->update(['is_public' => false]);
+
     app(LimitResolver::class)->forget();
 
     spendQuota($this->tenant, 'quota.widgets', 3);

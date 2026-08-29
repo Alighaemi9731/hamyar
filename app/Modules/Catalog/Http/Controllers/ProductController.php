@@ -14,6 +14,8 @@ use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Catalog\Services\CategoryTree;
 use App\Modules\Catalog\Services\VariantMatrix;
 use App\Support\Digits;
+use App\Support\Quota\QuotaGuard;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -86,11 +88,18 @@ final class ProductController extends Controller
         ]);
     }
 
-    public function store(ProductRequest $request): RedirectResponse
+    public function store(ProductRequest $request, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorize('create', Product::class);
 
-        $product = Product::query()->create($request->validated());
+        // A transaction the create did not have before: `consume()` and the row it counts
+        // must commit or roll back together, or a refused product still costs a credit.
+        /** @var Product $product */
+        $product = $connection->transaction(function () use ($request, $quota): Product {
+            $quota->consume('catalog.products');
+
+            return Product::query()->create($request->validated());
+        });
 
         return redirect()
             ->route('catalog.products.edit', $product)

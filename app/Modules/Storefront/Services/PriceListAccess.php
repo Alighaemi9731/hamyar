@@ -7,8 +7,10 @@ namespace App\Modules\Storefront\Services;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Storefront\Models\PriceListLink;
 use App\Modules\Storefront\Models\PriceListView;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -56,6 +58,11 @@ final class PriceListAccess
      */
     public const LOOKUP_LENGTH = 12;
 
+    public function __construct(
+        private readonly QuotaGuard $quota,
+        private readonly ConnectionInterface $connection,
+    ) {}
+
     /**
      * Mint a link. The plaintext token is returned **once** and never stored.
      *
@@ -75,6 +82,35 @@ final class PriceListAccess
         // two values to get wrong.
         $token = Str::random(self::LOOKUP_LENGTH).Str::random(32);
 
+        /** @var PriceListLink $link */
+        $link = $this->connection->transaction(fn (): PriceListLink => $this->createLink(
+            $token, $priceLevelId, $password, $expiresAt, $label, $categories, $actorId
+        ));
+
+        return ['link' => $link, 'token' => $token];
+    }
+
+    /**
+     * The row, and the credit it spends, in one transaction.
+     *
+     * A standing capacity rather than a monthly flow: a revoked or expired link gives the
+     * slot back, so what a plan caps is how many are live at once. Revoking a leaked price
+     * list is exactly the act that must stay free.
+     *
+     * @param  list<int>|null  $categories
+     */
+    private function createLink(
+        string $token,
+        int $priceLevelId,
+        ?string $password,
+        ?CarbonImmutable $expiresAt,
+        ?string $label,
+        ?array $categories,
+        ?int $actorId,
+    ): PriceListLink {
+        $this->quota->consume('storefront.price_list_links');
+
+        /** @var PriceListLink $link */
         $link = PriceListLink::query()->create([
             'lookup' => substr($token, 0, self::LOOKUP_LENGTH),
             'token_hash' => Hash::make($token),
@@ -86,7 +122,7 @@ final class PriceListAccess
             'created_by' => $actorId,
         ]);
 
-        return ['link' => $link, 'token' => $token];
+        return $link;
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Modules\Repairs\Events\TicketCreated;
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Support\Counters\CounterService;
 use App\Support\Imei;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
@@ -50,6 +51,7 @@ final class TicketIntake
         private readonly CounterService $counters,
         private readonly TenantContext $context,
         private readonly TicketStateMachine $machine,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -61,6 +63,10 @@ final class TicketIntake
 
         /** @var RepairTicket $ticket */
         $ticket = $this->connection->transaction(function () use ($data, $tenantId, $actorId): RepairTicket {
+            // The flagship count. After the counter's row lock, before the ticket row, so
+            // the lock order is the same here as everywhere else.
+            $this->quota->consume('repairs.tickets');
+
             $imei = $this->normaliseImei($data['device_imei'] ?? null);
 
             $ticket = RepairTicket::query()->create([

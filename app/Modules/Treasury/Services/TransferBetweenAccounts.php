@@ -8,6 +8,7 @@ use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Services\LedgerService;
 use App\Modules\Treasury\Events\TransferRecorded;
 use App\Modules\Treasury\Models\AccountTransfer;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,7 @@ final class TransferBetweenAccounts
         private readonly ConnectionInterface $connection,
         private readonly LedgerService $ledger,
         private readonly AccountBalances $balances,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -76,6 +78,8 @@ final class TransferBetweenAccounts
 
         /** @var AccountTransfer $transfer */
         $transfer = $this->connection->transaction(function () use ($from, $to, $amount, $fee, $reference, $occurredAt, $actorId): AccountTransfer {
+            $this->quota->consume('treasury.transfers');
+
             $transfer = AccountTransfer::query()->create([
                 'from_account_id' => $from->id,
                 'to_account_id' => $to->id,

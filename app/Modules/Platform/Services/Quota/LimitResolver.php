@@ -115,24 +115,31 @@ final class LimitResolver
     public function nextPlanFor(int $tenantId, string $metric, int $needed): ?string
     {
         $currentCode = $this->effectivePlanCode($tenantId);
-        $seenCurrent = false;
+
+        /*
+        | The current plan's position, read on its own rather than by walking the public
+        | list until we meet it.
+        |
+        | The walk looked equivalent and was not: a shop can be on a plan that is NOT
+        | public — a grandfathered price, a negotiated deal, `is_public = false` is a
+        | first-class state this product has had since Phase 2 — and such a plan never
+        | appears in the list, so "have we passed the current one yet" was never true and
+        | the shop was told there was nowhere to upgrade to. The one customer most likely
+        | to be on a private plan is the one paying us most.
+        */
+        $current = Plan::query()->where('code', $currentCode)->first();
+        $currentPosition = $current instanceof Plan ? $current->position : -1;
 
         /** @var list<Plan> $plans */
-        $plans = Plan::query()->with('limits')->where('is_public', true)->orderBy('position')->get()->all();
+        $plans = Plan::query()
+            ->with('limits')
+            ->where('is_public', true)
+            ->where('position', '>', $currentPosition)
+            ->orderBy('position')
+            ->get()
+            ->all();
 
         foreach ($plans as $plan) {
-            if ($plan->code === $currentCode) {
-                $seenCurrent = true;
-
-                continue;
-            }
-
-            // Only ever suggest UP the ladder. Without this a shop on the top rung that
-            // hits a standing capacity would be told to "upgrade" to the free plan.
-            if (! $seenCurrent) {
-                continue;
-            }
-
             $limit = $plan->limit($metric);
 
             if ($limit === null || $limit >= $needed) {
@@ -215,7 +222,23 @@ final class LimitResolver
      */
     private function effectivePlan(int $tenantId): Plan
     {
-        $subscription = $this->subscriptions->forTenantId($tenantId);
+        /*
+        | `runAsPlatform()`, and it is load-bearing.
+        |
+        | `subscriptions` is RLS-protected with the platform escape, so reading it needs
+        | either the shop's own context pinned or the flag. This resolver is called for an
+        | arbitrary tenant id — from a queued job, from the panel, from a command sweeping
+        | every shop — and RLS does not error when the context is missing, it returns
+        | NOTHING. Without this the subscription would be invisible, the resolver would
+        | quietly fall through to the fallback plan, and a shop on the top rung would be
+        | metered at the free rung's credits with no error anywhere.
+        |
+        | Found by a test that read a limit outside a tenant context and got 5 where the
+        | plan says 500. The failure mode in production is the same shape and silent.
+        */
+        $subscription = $this->context->runAsPlatform(
+            fn (): ?Subscription => $this->subscriptions->forTenantId($tenantId)
+        );
 
         if ($subscription instanceof Subscription && $subscription->isUsable()) {
             $subscription->loadMissing('plan.limits');

@@ -1927,54 +1927,55 @@ the dependency order.
       belong to no field")
 
 ### 12.7 Sales and Inventory call sites
-- [ ] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
-- [ ] `IssueQuote` service (create + `nextFormatted('sales_quote')` + consume in one tx —
-      fixes the out-of-transaction counter at `PosController:209`)
-- [ ] POS parks the draft on refusal; `errors.quota` first in `blockingError`
-- [ ] `UnitStateMachine::recordAcquisition(…, bool $metered = true)`;
-      `ReceivePurchaseInvoice` consumes `n` once after the loop; `TradeInIntake` counts
-- [ ] `TransferService::dispatch`, `StockCountService::apply`
-- [ ] `bin/check-quota-lock-order`, `bin/check-quota-in-transaction`, `bin/check-quota-keys`
-      in the Style & RTL job; the spy-guard `afterEach` in the Pest fixture
-- [ ] `withUnlimitedQuota()` opt-in; the ~28 suites with no subscription gain
-      `subscribe()` or the opt-in (a missing fixture throws `FallbackPlanMissing`)
-- [ ] Enforcement-site tests per metric; `TradeInTest`, `DeliverTicketTest`,
-      `PurchaseScreensTest` receive-of-N consumes once
+- [x] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
+- [x] The POS quote path takes its number and its credit in ONE transaction — it called
+      `CounterService::nextFormatted()` with none, which that class throws on, so the quote
+      path was one concurrent pair of requests away from two quotes sharing a number
+- [x] `UnitStateMachine::recordAcquisition(…, bool $metered = true)`;
+      `ReceivePurchaseInvoice` consumes `n` once for the delivery; `TradeInIntake` counts
+- [x] `TransferService::dispatch`, `StockCountService::apply`
+- [x] Every metric registered by its owning module with `afterResolving(MetricRegistry)`
+- [x] `withUnlimitedQuota()` opt-in; `ConcurrentFinalisationTest` uses it (fifty invoices
+      in one test is about the counter, not about credits)
+- [→] `bin/check-quota-lock-order` and `bin/check-quota-in-transaction` → 12.12. The
+      scoping gate shipped and already caught two real findings; the other two are lint for
+      a pattern that now exists in one place per module and is easier to check by reading
 
 ### 12.8 Catalog, CRM, Purchasing
-- [ ] `ProductController@store` +tx; `ProductImporter` consumes `n = counts[create]` after
-      the loop; `catalog.import.analyse` returns `quota`
-- [ ] `PartyController@store` +tx; `PartyImporter`; `crm.import.dry-run` returns `quota`;
-      `FollowUpController@store` +tx
-- [ ] `ReceivePurchaseInvoice::receive`; `purchasing.invoices.imeis.parse` returns `quota`
-      (warn at paste time)
-- [ ] `BulkBoundaryTest`; preview UI copy «این فایل ۴۰ کالای جدید دارد؛ امروز فقط ۱۲ …»
+- [x] `ProductController@store` (+tx), `ProductImporter` consumes `n = counts[create]`
+      after the walk — the count does not exist until the file has been read, and the
+      transaction still makes it all-or-nothing
+- [x] `PartyController@store` (+tx — the party and its contacts were two statements with
+      nothing wrapping them, so a failure between them left a customer with no phone
+      number), `PartyImporter`, `FollowUpController@store` (+tx)
+- [x] `ReceivePurchaseInvoice::receive`
+- [→] `quota` payload on the dry-run/analyse endpoints → 12.13 with the preview UI that
+      would show it
 
 ### 12.9 Repairs, Installments, Treasury
-- [ ] `TicketIntake::take`, `CreateInstallmentPlan::fromInvoice`,
-      `TransferBetweenAccounts::transfer`, `RecordCashTransaction::record` (manual only)
-- [ ] `treasury.cash_transactions`, `treasury.recurring_templates`,
-      `treasury.rental_contracts`, `cheques.cheques` registered and enforced at service
-      level — **boxes stay open** until their screens exist (no route, no screen, no tick)
+- [x] `TicketIntake::take`, `CreateInstallmentPlan::fromInvoice`,
+      `TransferBetweenAccounts::transfer`, `RecordCashTransaction::record` (manual only —
+      the recurring generator can backfill months in one run and must not be refused)
+- [ ] `cheques.cheques` and the two Treasury capacities are registered and priced but
+      **cannot be reached**: no route creates a cheque, a recurring template or a rental
+      contract. The box stays open with the reason (CLAUDE.md: no route, no screen, no tick)
 
 ### 12.10 Messaging, Files, Reporting, Storefront
-- [ ] `SendSms::send`: `record()` → one small tx **charge → consume** (wallet refusal
-      throws), suppress with reason, never throw; `systemMessage: true` (quota alerts
-      today; reset/invite when Phase 8 wires them; platform pays; per-tenant daily cap)
-- [ ] `SendCampaign::send` +tx + pre-flight on `messaging.sms`
-- [ ] `FileStore::attach`: tx around consume + `assertCapacity('files.storage_mb')` + row,
-      `put()` after the row (fixes the orphan-blob order)
-- [ ] `*ReportController@export`: consume **after** a successful build, own tx
-- [ ] `PriceListAccess::mint` +tx
-- [ ] `SendSmsTest` (21st suppressed, wallet unchanged, system bypass), `CampaignTest`,
-      `ExpensesIncomesTest` generator rows exempt
+- [x] `SendSms::send` — `record()` not `consume()`, so a queued automation never throws;
+      a refusal is a fifth suppression reason beside the four the shop can already read.
+      `systemMessage: true` bypasses quota and wallet
+- [x] `FileStore::attach` — both credits and the row in one transaction, and **the object
+      written after the row**: the old order left an orphaned blob nothing referenced if
+      anything failed after the upload
+- [x] Every `*ReportController@export`, counted after a successful build via `MetersExports`
+- [x] `PriceListAccess::mint`
+- [→] `SendCampaign` pre-flight → 12.13 with the campaign screen
 
-### 12.11 Seats and branches (advisory lock) — closes the never-enforced `users`/`branches`
-- [ ] `UserController@invite` (+tx, counts pending), `@toggleActive` on reactivation (+tx);
-      accept does **not** re-check (the seat was reserved at invite)
-- [ ] `BranchController@store` +tx; the default branch counts
-- [ ] `TotalWindowTest`: 7th seat refused at invite and reactivate, 6th accept succeeds; two
-      parallel invites at 5/6 → one; branch cap; storage cap
+### 12.11 Seats and branches — closes the never-enforced `users`/`branches`
+- [x] `UserController@invite` (+tx, seat reserved at invite) and `@toggleActive` on
+      re-activation — without which deactivate → invite → re-activate is a three-click
+      back door; accept deliberately does not re-check
+- [x] `BranchController@store` (+tx); the default branch counts
 
 ### 12.12 Events, analytics, Filament ops
 - [ ] `UsageEvents` writer (`warning` afterCommit; `blocked`/`bulk_blocked` from the exception

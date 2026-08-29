@@ -99,7 +99,13 @@ foreach (SCAN_ROOTS as $root) {
                     continue;
                 }
 
-                $context = ($lines[$index - 1] ?? '').$line.$statement;
+                // Three lines of lookback, not one: an escape-hatch comment naturally
+                // sits above the closure or the `/** @var */` that precedes the call, and
+                // a hatch that only works when it is on the immediately preceding line is
+                // one people give up on and work around instead.
+                $preceding = implode("\n", array_slice($lines, max(0, $index - 3), 3));
+
+                $context = $preceding.$line.$statement;
 
                 if (str_contains($context, 'quota-scope-allow')) {
                     continue;

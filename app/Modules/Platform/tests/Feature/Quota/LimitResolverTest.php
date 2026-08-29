@@ -23,15 +23,24 @@ beforeEach(function (): void {
 
     $this->tenant = Tenant::factory()->withDomain()->create();
 
+    /*
+    | Positions 90 and 91, deliberately above the seeded catalogue's 0/1/2.
+    |
+    | `nextPlanFor()` walks the public plans by position, and the catalogue is seeded in
+    | the same database — so fixtures at 1 and 2 would tie with `pro` and `enterprise` and
+    | the ladder these tests assert about would be interleaved with the real one. The first
+    | version of this file did exactly that and asserted its way to a green run against the
+    | wrong plan.
+    */
     $this->small = Plan::query()->create([
         'code' => 'small', 'name_fa' => 'کوچک', 'interval' => 'month',
-        'price' => 0, 'trial_days' => 0, 'is_public' => true, 'position' => 1,
+        'price' => 0, 'trial_days' => 0, 'is_public' => true, 'position' => 90,
     ]);
     $this->small->limits()->create(['key' => 'quota.widgets', 'value' => 5]);
 
     $this->large = Plan::query()->create([
         'code' => 'large', 'name_fa' => 'بزرگ', 'interval' => 'month',
-        'price' => 5_000_000, 'trial_days' => 0, 'is_public' => true, 'position' => 2,
+        'price' => 5_000_000, 'trial_days' => 0, 'is_public' => true, 'position' => 91,
     ]);
     $this->large->limits()->create(['key' => 'quota.widgets', 'value' => 500]);
 
