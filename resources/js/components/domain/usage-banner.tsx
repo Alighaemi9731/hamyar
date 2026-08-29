@@ -73,12 +73,18 @@ function describe(meters: { label: string; level: string }[]): string {
     return 'سهمیهٔ این ماه رو به پایان است.';
   }
 
-  const [first, ...rest] = meters;
+  const first = meters[0];
+
+  if (!first) {
+    return 'سهمیهٔ این ماه رو به پایان است.';
+  }
+
+  const others = meters.length - 1;
   const verb = first.level === 'blocked' ? 'تمام شده است' : 'رو به پایان است';
 
-  if (rest.length === 0) {
+  if (others === 0) {
     return `سهمیهٔ ${first.label} این ماه ${verb}.`;
   }
 
-  return `سهمیهٔ ${first.label} و ${rest.length} مورد دیگر این ماه ${verb}.`;
+  return `سهمیهٔ ${first.label} و ${others} مورد دیگر این ماه ${verb}.`;
 }

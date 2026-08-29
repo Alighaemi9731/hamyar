@@ -848,7 +848,7 @@ function StateSection({ alt }: { alt?: boolean }) {
  * wrong.
  */
 function QuotaSection({ alt = false }: { alt?: boolean }) {
-  const meter = (over: Partial<UsageMeterState>): UsageMeterState => ({
+  const meter = (over: Partial<UsageMeterState> = {}): UsageMeterState => ({
     key: 'sales.invoices',
     label: 'فاکتور فروش',
     unit: 'فاکتور',

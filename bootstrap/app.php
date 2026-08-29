@@ -173,13 +173,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (QuotaExceeded $exception, Request $request): RedirectResponse|JsonResponse {
             $payload = app(QuotaBlock::class)->for($exception->verdict, $request->user());
 
+            /** @var int|string|null $actorId */
+            $actorId = $request->user()?->getAuthIdentifier();
+
             app(UsageEvents::class)->blocked(
                 app(TenantContext::class)->idOrFail(),
                 $exception->verdict,
-                $request->user()?->getAuthIdentifier() === null ? null : (int) $request->user()->getAuthIdentifier(),
+                $actorId === null ? null : (int) $actorId,
             );
 
-            if ($request->expectsJson() && ! $request->hasHeader('X-Inertia')) {
+            $wantsJson = $request->expectsJson() && $request->hasHeader('X-Inertia') === false;
+
+            if ($wantsJson) {
                 return response()->json([
                     'message' => $payload['message'],
                     'errors' => ['quota' => [$payload['message']]],

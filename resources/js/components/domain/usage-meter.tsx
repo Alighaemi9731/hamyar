@@ -39,8 +39,9 @@ export interface UsageMeterProps {
  */
 export function UsageMeter({ meter, compact = false, className }: UsageMeterProps) {
   const tone = TONE[meter.level];
-  const unlimited = meter.limit === null;
-  const ratio = unlimited ? 0 : Math.min(1, meter.limit === 0 ? 1 : meter.used / meter.limit);
+  const limit = meter.limit;
+  const unlimited = limit === null;
+  const ratio = limit === null ? 0 : Math.min(1, limit === 0 ? 1 : meter.used / limit);
 
   return (
     <div className={cn('min-w-0', className)}>
@@ -52,7 +53,7 @@ export function UsageMeter({ meter, compact = false, className }: UsageMeterProp
             'نامحدود'
           ) : (
             <>
-              <Num value={meter.used} /> از <Num value={meter.limit ?? 0} />
+              <Num value={meter.used} /> از <Num value={limit ?? 0} />
             </>
           )}
         </span>
@@ -65,7 +66,7 @@ export function UsageMeter({ meter, compact = false, className }: UsageMeterProp
           aria-label={meter.label}
           aria-valuenow={meter.used}
           aria-valuemin={0}
-          aria-valuemax={meter.limit ?? 0}
+          aria-valuemax={limit ?? 0}
         >
           <div
             className={cn('h-full rounded-full transition-[width] duration-300', tone.fill)}
