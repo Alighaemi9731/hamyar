@@ -11,7 +11,6 @@ use Carbon\CarbonImmutable;
  * The month boundary — the one piece of this design that is wrong by three and a half
  * hours if anybody reaches for a Carbon convenience method.
  */
-
 beforeEach(function (): void {
     $this->clock = new PeriodClock('Asia/Tehran');
 });

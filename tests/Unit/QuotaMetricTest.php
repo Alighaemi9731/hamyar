@@ -11,7 +11,6 @@ use App\Support\Quota\Window;
  * The registry's invariants — the ones that decide whether a metering bug is loud or
  * silent. Unit-level on purpose: none of this touches a table.
  */
-
 function countedMetric(string $key = 'sales.invoices', int $position = 10): Metric
 {
     return new Metric(

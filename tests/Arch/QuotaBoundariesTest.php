@@ -16,7 +16,6 @@ declare(strict_types=1);
  * reaches for Platform's implementation instead of the shared-kernel contract, the
  * dependency direction inverts and every later module copies the shortcut.
  */
-
 test('no module reaches into the quota implementation', function (): void {
     // The contract lives in App\Support\Quota and Platform implements it. A module that
     // imported the implementation would be depending on Platform's internals to count its
