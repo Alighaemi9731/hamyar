@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CheckIcon } from 'lucide-react';
 
 import { Money } from '@/components/domain/money';
+import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -29,12 +30,21 @@ interface PlanChange {
   effective_at: 'immediately' | 'period_end';
 }
 
+interface PlanLimit {
+  key: string;
+  label: string;
+  unit: string;
+  window: 'month' | 'total';
+  /** null = unlimited on this plan. */
+  value: number | null;
+}
+
 interface PlanCard {
   code: string;
   name: string;
   tagline: string | null;
   price: MoneyValue;
-  modules: string[];
+  limits: PlanLimit[];
   is_current: boolean;
   change: PlanChange | null;
 }
@@ -145,15 +155,34 @@ export default function Billing({ subscription, plans, invoices }: BillingProps)
               ) : null}
 
               <p className="mt-4 text-3xl font-semibold tracking-tight">
-                <Money rial={plan.price.value} withUnit />
-                <span className="text-base font-normal text-muted-foreground"> / ماهانه</span>
+                {plan.price.value === 0 ? (
+                  <span>رایگان</span>
+                ) : (
+                  <>
+                    <Money rial={plan.price.value} withUnit />
+                    <span className="text-base font-normal text-muted-foreground"> / ماهانه</span>
+                  </>
+                )}
               </p>
 
+              {/* Monthly credits, not a module checklist: every module is open on every
+                  plan, so a list of ticks would be identical on all three cards and tell
+                  a shopkeeper nothing about what they are choosing between. */}
               <ul className="mt-5 grow space-y-2 text-sm">
-                {plan.modules.map((module) => (
-                  <li key={module} className="flex items-center gap-2">
+                {plan.limits.slice(0, 6).map((limit) => (
+                  <li key={limit.key} className="flex items-center gap-2">
                     <CheckIcon className="size-4 shrink-0 text-success" aria-hidden />
-                    <span>{module}</span>
+                    <span>
+                      {limit.value === null ? (
+                        <span className="font-semibold">نامحدود</span>
+                      ) : (
+                        <Num value={limit.value} className="font-semibold" />
+                      )}{' '}
+                      {limit.label}
+                      <span className="text-muted-foreground">
+                        {limit.window === 'month' ? ' در ماه' : ' (ظرفیت)'}
+                      </span>
+                    </span>
                   </li>
                 ))}
               </ul>

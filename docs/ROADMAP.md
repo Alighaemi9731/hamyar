@@ -1874,36 +1874,41 @@ the dependency order.
       Recorded in `DECISIONS-FOR-REVIEW.md` rather than left for a green suite to imply
 
 ### 12.4 Catalogue and Filament limits — **numbers from Gate 6**
-- [ ] `PlanCatalogue::plans()[..]['limits']` = the ADR §1 matrix; `['modules']` and add-on
-      prices removed; `syncModules()` writes `is_enabled = true`
-- [ ] Data migration: rename `users/branches/storage_mb`, delete `invoices_per_month`,
-      copy `sms_credit_bonus` → `plans.sms_credit_grant_count` then delete. **No inserts** —
-      `PlanCatalogueSeeder::sync()` is the one backfill mechanism;
-      `platform:sync-limits --force` is the only overwrite path and is never automatic
-- [ ] `PlanLimit::keys()/labelFor()` → registry; `PlanForm` limits repeater pre-filled per
-      metric (window badge, «نامحدود», missing rows red), modules checklist removed,
-      `PlanLimitsChanged` bump; `PlansTable` loses `modules_count`
-- [ ] **`TrialPolicy` deleted** with the trial branches in `SubscriptionResolver::limit()`
-      and `ProrationCalculator::preview()`; `TenantProvisioner::startTrial()` →
-      `startOnFreePlan()`; the data migration moves existing `trialing` rows to `active` on
-      the free plan so no row is left in a state nothing writes; `PlanLimitsTest`
-- [ ] `Subscription::isUsable()` free branch (`active` + zero-price plan + no period);
-      `BillingService::hasLivePeriod()` treats a free plan as no live period (first paid plan
-      charged in full, never prorated against nothing); `SendRenewalReminders` skips free rows
+- [x] `PlanCatalogue::plans()` carries the monthly matrix; `['modules']` and add-on prices
+      removed; `syncModules()` writes `is_enabled = true` on create and leaves it after
+- [x] Data migration: `modules.is_enabled`, `plans.sms_credit_grant_count`, the three legacy
+      limit keys renamed in place, `invoices_per_month` and `sms_credit_bonus` deleted, and
+      every `trialing` subscription moved to `active` on the free plan so no row is left in
+      a state nothing writes
+- [x] `PlanForm` is driven by `MetricRegistry` — one field per metric, grouped by owning
+      module; `EditsPlanLimits` translates between the flat field names and `plan_limits`
+      (a Filament field name may not contain a dot and every metric key has one) and bumps
+      every tenant on the plan; `PlansTable` counts limits, not modules
+- [x] **`TrialPolicy` deleted** with the trial branches in `SubscriptionResolver::limit()`;
+      `TenantProvisioner::startTrial()` → `startOnFreePlan()`; a new shop is `active` on a
+      zero-price plan with no period, and `tenants.status` is `active` rather than `trialing`
+- [x] `RevenueOverview`'s dead "trials in progress" stat replaced by free-shop count — the
+      upgrade pool, and a number that is not permanently zero
+- [→] `subscriptions:apply-scheduled` (scheduled downgrade) → 12.12, with the Filament
+      cancel action that is the only thing able to schedule one
 
-### 12.5 Every module open; lapse falls to the fallback set; landing — `0.15.0`, `BREAKING`
-- [ ] `SubscriptionResolver::grants()` → `Module::isEnabledPlatformWide()`;
-      `grantedModuleCodes()` → all enabled codes for usable **or lapsed** tenants;
-      `features()` reads `modules` rows; `EnsureModuleEnabled` copy; `DashboardController`;
-      `ModuleForm` `is_enabled`; `ModulesTable`; `Subscription::grantedModuleCodes()/addons()`
-      deprecated; `ProrationCalculator`/`invoiceForPlan()` checked for add-on lines
-- [ ] `ModuleKillSwitchTest`, `DashboardTest:127-150`, `PriceListSecurityTest:47-60` and
-      `MoadianSubmissionTest:54-70` fixtures, `LapsedPlanTest`
-- [ ] **Same release, back-to-back merge:** `LandingController` (`plans.limits`, no
-      `$addons`), `pricing.blade.php` rows as quotas (`landing.js` untouched), add-on shelf
-      removed, `closing.blade.php`, `terms.blade.php`; `bin/check-apex-domain` and the
-      direction gate apply
-- [ ] `SeedPlatformVolumeCommand` → `enterprise`; `tests/Load/endpoints.js` note
+### 12.5 Every module open; lapse falls to the free plan; landing — `0.15.0`, `BREAKING`
+- [x] `SubscriptionResolver::grantedModuleCodes()` → `Module::enabledCodes()`;
+      `EnsureModuleEnabled` asks "have we switched it on" and says «این بخش موقتاً در دسترس
+      نیست»; `features()` reads the DB rows so the panel toggle is honoured;
+      `Module::is_enabled` + `isEnabledPlatformWide()`; `ModuleForm`/`ModulesTable` show the
+      switch instead of an add-on price; `Subscription::grantedModuleCodes()/addons()`
+      `@deprecated`, dropped in 0.16.0
+- [x] `ModuleSwitchTest` (was `PlanGatingTest`, asserting the opposite);
+      `DashboardTest` free plan sees every card; `PriceListSecurityTest` and
+      `MoadianSubmissionTest` add-on fixtures deleted; `OnboardingTest` expects active +
+      free; `BillingPaymentTest`'s trial case became the free-plan case
+- [x] **Same release:** `LandingController` loads `plans.limits` + the registry, the pricing
+      rows list monthly credits with «رایگان» on the first rung, the add-on shelf is gone,
+      the trial CTAs and `terms.blade.php` §3 are rewritten. `landing.js` untouched
+- [x] Billing page: `PlanCard.limits` replaces `modules`, free plan shows «رایگان»
+- [→] `SeedPlatformVolumeCommand` → `enterprise` and the k6 note → 12.12, with the rest of
+      the operator tooling; nothing meters yet, so nothing can refuse the load test today
 
 ### 12.6 Being blocked, meters, banner (gallery first)
 - [ ] `bootstrap/app.php` renders `QuotaExceeded` → `back()->withErrors(['quota'])` +

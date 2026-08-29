@@ -32,8 +32,13 @@ it('provisions a working shop from the wizard', function (): void {
     $tenant = Tenant::query()->where('slug', 'iranian-mobile')->firstOrFail();
 
     expect($tenant->name)->toBe('موبایل ایرانیان');
-    expect($tenant->status)->toBe(Tenant::STATUS_TRIALING);
-    expect($tenant->trial_ends_at)->not->toBeNull(); // @phpstan-ignore-line
+    // Active, not trialing. `tenants.status` says whether WE have suspended a shop — a
+    // suspended or archived tenant cannot log in at all — and it was never about what the
+    // shop pays. Since DECISION GATE 6 a new shop starts on the free plan, which has no
+    // trial to be in and nothing to expire, so `trialing` would be a state describing a
+    // countdown that no longer exists.
+    expect($tenant->status)->toBe(Tenant::STATUS_ACTIVE);
+    expect($tenant->trial_ends_at)->toBeNull(); // @phpstan-ignore-line
 
     // The `domains` row is still written, and still asserted on. ADR 0017 retires it as
     // the RESOLUTION mechanism — nothing reads a hostname to find a tenant any more —

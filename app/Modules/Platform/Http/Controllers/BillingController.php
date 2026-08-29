@@ -15,6 +15,7 @@ use App\Modules\Platform\Services\Payments\PaymentGatewayException;
 use App\Modules\Platform\Services\ProrationCalculator;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Support\Money;
+use App\Support\Quota\MetricRegistry;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -48,10 +49,12 @@ final class BillingController extends Controller
         $now = CarbonImmutable::now();
 
         $plans = Plan::query()
-            ->with(['modules', 'limits'])
+            ->with('limits')
             ->where('is_public', true)
             ->orderBy('position')
             ->get();
+
+        $metrics = app(MetricRegistry::class)->all();
 
         return Inertia::render('platform/billing/index', [
             'subscription' => $subscription === null ? null : [
@@ -68,7 +71,15 @@ final class BillingController extends Controller
                 'name' => $plan->name_fa,
                 'tagline' => $plan->tagline_fa,
                 'price' => Money::toArray($plan->price),
-                'modules' => $plan->modules->pluck('name_fa')->values()->all(),
+                // What the plan lets a shop DO each month, not which parts of the product
+                // it may open — every module is open on every plan since DECISION GATE 6.
+                'limits' => array_values(array_map(static fn ($metric): array => [
+                    'key' => $metric->key,
+                    'label' => $metric->labelFa,
+                    'unit' => $metric->unitFa,
+                    'window' => $metric->window->value,
+                    'value' => $plan->limit($metric->key),
+                ], $metrics)),
                 'is_current' => $subscription?->plan_id === $plan->getKey(),
                 // What switching would actually cost today, so the shop is never
                 // surprised at the gateway (ADR 0006).

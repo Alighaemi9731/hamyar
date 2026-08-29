@@ -125,13 +125,14 @@ it('charges the full price to renew an EXPIRED subscription', function (): void 
     expect($invoice->requiresPayment())->toBeTrue();
 });
 
-it('charges the full price when upgrading out of a trial', function (): void {
-    // A trial was free, so there is no unused value to credit against the new plan
-    // (ADR 0006). Prorating here would hand out a discount funded by nothing.
+it('charges the full price when upgrading off the FREE plan', function (): void {
+    // The free rung cost nothing, so there is no unused value to credit against the new
+    // plan (ADR 0006) — prorating here would hand out a discount funded by nothing. This
+    // used to be the trial's rule; the free plan inherited it at DECISION GATE 6, and
+    // `hasLivePeriod()` gets it right for free because a free subscription has no period.
     subscribe($this->tenant, 'basic', [
-        'status' => Subscription::STATUS_TRIALING,
-        'trial_ends_at' => now()->addDays(10),
-        'current_period_end' => now()->addDays(10),
+        'current_period_start' => now()->subMonths(6),
+        'current_period_end' => null,
     ]);
 
     $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);

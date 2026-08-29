@@ -8,8 +8,6 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductPrice;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Identity\Models\User;
-use App\Modules\Platform\Models\Module;
-use App\Modules\Platform\Models\SubscriptionAddon;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
@@ -44,20 +42,15 @@ beforeEach(function (): void {
     $subscription = subscribe($this->tenant, 'pro');
 
     /*
-    | Storefront is `is_addonable`, so a `pro` plan does not include it — the ADMIN routes
-    | 403 without this. The PUBLIC routes deliberately do not care: a price list already in
-    | a colleague's WhatsApp keeps working for the days it was minted for, even if the shop's
-    | subscription lapses, which is why they carry no `module:` gate.
+    | Storefront used to need an add-on purchase here: it was `is_addonable`, so a `pro`
+    | plan did not include it and the ADMIN routes 403'd without one. DECISION GATE 6 opened
+    | every module to every plan, so the fixture is gone and the routes are simply reachable.
+    |
+    | The PUBLIC routes never cared and still do not: a price list already in a colleague's
+    | WhatsApp keeps working for the days it was minted for, which is why they carry no
+    | `module:` gate at all.
     */
-    app(TenantContext::class)->runAsPlatform(function () use ($subscription): void {
-        SubscriptionAddon::query()->create([
-            'tenant_id' => $this->tenant->getKey(),
-            'subscription_id' => $subscription->getKey(),
-            'module_id' => Module::query()->where('code', 'storefront')->firstOrFail()->getKey(),
-            'price' => 80_000,
-            'starts_at' => now()->subDay(),
-        ]);
-    });
+    unset($subscription);
 
     app(SubscriptionResolver::class)->forget();
     app(TenantProvisioner::class)->seedRoles($this->tenant);

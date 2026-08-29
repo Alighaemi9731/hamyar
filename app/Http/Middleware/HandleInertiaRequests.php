@@ -7,8 +7,8 @@ namespace App\Http\Middleware;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Platform\Models\Announcement;
+use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Tenant;
-use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Support\PlanCatalogue;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
@@ -107,9 +107,13 @@ final class HandleInertiaRequests extends Middleware
     /**
      * `module:<code> => bool` for every sellable module.
      *
-     * Every module is listed explicitly, including the disabled ones, so the frontend
-     * can distinguish "not in your plan" (false) from "unknown key" (absent) — the
-     * first is an upsell, the second is a bug.
+     * Since DECISION GATE 6 these say whether WE have a module switched on platform-wide,
+     * not whether this shop bought it — no plan buys a module any more. A `false` here is
+     * therefore rare and temporary (ADR 0011's Moadian is the standing example), and the
+     * nav hides the item rather than offering an upsell for something nobody can buy.
+     *
+     * What a shop's PLAN decides now travels in the separate `usage` prop: how much of
+     * each thing it may still record this month.
      *
      * @return array<string, bool>
      */
@@ -119,12 +123,15 @@ final class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        $granted = app(SubscriptionResolver::class)->grantedModuleCodes();
+        $enabled = Module::enabledCodes();
 
         $features = [];
 
+        // Every module the application knows about, including the ones switched off, so
+        // the frontend can tell "off right now" (false) from "unknown key" (absent) —
+        // the first is a message, the second is a bug.
         foreach (PlanCatalogue::modules() as $module) {
-            $features['module:'.$module['code']] = in_array($module['code'], $granted, true);
+            $features['module:'.$module['code']] = in_array($module['code'], $enabled, true);
         }
 
         return $features;

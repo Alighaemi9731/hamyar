@@ -7,6 +7,44 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.15.0 - 2026-08-30
+
+**BREAKING — every module is open to every shop, and the first rung is free.** The plan
+model the owner approved at DECISION GATE 6, in code. Prefixed BREAKING because an existing
+plan row's *meaning* changes: `plan_module` stops being read, `plan_limits` keys become
+metric keys, and a `trialing` subscription is migrated to `active` on the free plan.
+
+**What a plan sells is now quantity.** `basic` is free, permanently, with real monthly
+credits — 300 invoices, 200 IMEI units, 200 products, 100 repair tickets — and zero SMS,
+because SMS is the one credit that costs us cash per unit and a free rung that handed it out
+would be a free SMS service for anyone willing to re-register. `pro` is 5,000 invoices;
+`enterprise` is unlimited except the two things that cost per unit whatever we charge (25
+seats, 50 GB), which an override lifts for a particular shop.
+
+**`TrialPolicy` is deleted, not inverted.** The free rung replaced the 14-day trial: a shop
+evaluates the product by using it, for as long as it likes. That also gives a lapsed paid
+subscription somewhere coherent to land instead of a lock-out.
+
+**`EnsureModuleEnabled` survives with a different question.** It used to ask "does this
+shop's plan include Repairs?" and 403 if not — correct for a product where a plan bought
+modules, and wrong for one where it buys quantity: a shop three days late on payment found
+every screen 403ing and concluded the software was broken. It now asks "have WE switched
+this module on", reading `modules.is_enabled`, which is what ADR 0011 has needed for Moadian
+since it shipped without a provider. What fails closed is the quota layer, which can refuse
+a *create* without taking the product away.
+
+**The panel is where limits live.** `PlanForm` is built from the metric registry — one
+field per metric, grouped by owning module — so shipping a metered action in Sales makes it
+appear on the pricing screen without Platform being touched. Saving bumps every shop on the
+plan, so an edit applies on their next request rather than whenever each worker restarts.
+
+**The landing page sells credits.** Pricing rows list monthly quotas with «رایگان» on the
+first rung, the add-on shelf is gone with the product it advertised, the trial CTAs became
+«رایگان شروع کنید», and Terms §3 explains the credit model and says plainly that a lapsed
+subscription drops to the free plan rather than closing the shop.
+
+**No release** — still no production server.
+
 ## 0.14.5 - 2026-08-30
 
 **The meter, and the lifecycle it depends on.** `usage_counters`, `tenant_limit_overrides`

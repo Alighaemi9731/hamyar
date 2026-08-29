@@ -11,6 +11,7 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Enums\MovementType;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Services\StockLedger;
+use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
@@ -124,30 +125,46 @@ it('gives a technician the bench and not the books', function (): void {
         );
 });
 
-it('withholds a module the plan does not include, even from the owner', function (): void {
-    $basic = Tenant::factory()->withDomain()->create();
-    subscribe($basic, 'basic');
+it('gives the free plan every card, and withholds only what we switched off', function (): void {
+    // This test used to assert the opposite — that a Basic shop had no cheques card,
+    // because Basic had no Cheques module. DECISION GATE 6 opened every module to every
+    // plan, so the free rung sees every widget its permissions allow; the only thing that
+    // withholds one now is a module WE have switched off (ADR 0011's Moadian is the
+    // standing example).
+    $free = Tenant::factory()->withDomain()->create();
+    subscribe($free, 'basic');
     app(SubscriptionResolver::class)->forget();
-    app(TenantProvisioner::class)->seedRoles($basic);
+    app(TenantProvisioner::class)->seedRoles($free);
 
-    $owner = inTenantContext($basic, function (): User {
+    $owner = inTenantContext($free, function (): User {
         $user = User::factory()->create();
         $user->assignRole('Owner');
 
         return $user;
     });
 
-    // Every permission in the catalogue, and still no cheques card: Basic has no
-    // Cheques module to have a card about.
+    $this->actingAs($owner)
+        ->get(appUrl().'/dashboard')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('cheques')
+            ->has('installments')
+            ->has('repairs')
+            ->has('today')
+            ->has('low_stock')
+            ->etc()
+        );
+
+    Module::query()->where('code', 'cheques')->update(['is_enabled' => false]);
+    cache()->forget('platform.modules.enabled');
+    app(SubscriptionResolver::class)->forget();
+
     $this->actingAs($owner)
         ->get(appUrl().'/dashboard')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('cheques', null)
-            ->where('installments', null)
-            ->where('repairs', null)
-            ->has('today')
-            ->has('low_stock')
+            ->has('installments')
             ->etc()
         );
 });

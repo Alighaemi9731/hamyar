@@ -110,7 +110,13 @@ final class DashboardController extends Controller
     }
 
     /**
-     * Plan grants the module AND the user holds the permission.
+     * The module is switched on AND the user holds the permission.
+     *
+     * `grants()` used to mean "this shop's plan includes the module". Since DECISION GATE 6
+     * it means "we have this module switched on for everybody" — so a widget disappears
+     * only when Moadian has no provider behind it (ADR 0011) or we have taken something
+     * down, never because a shop is on the free rung. What the plan decides now is how
+     * much each shop may record, and that is enforced where the recording happens.
      */
     private function may(?User $user, SubscriptionResolver $plan, string $module, string $permission): bool
     {

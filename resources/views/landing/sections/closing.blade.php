@@ -72,7 +72,7 @@
             <div class="signoff__act">
                 <div class="signoff__actions">
                     <a href="{{ route('register') }}" class="btn btn--light btn--lg">
-                        ۱۴ روز رایگان شروع کنید
+                        رایگان شروع کنید
                         @include('landing.icon', ['name' => 'arrow', 'size' => 16])
                     </a>
                     <a href="#pricing" class="btn btn--ghost btn--lg">دیدن تعرفه‌ها</a>

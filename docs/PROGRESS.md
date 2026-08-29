@@ -2245,3 +2245,47 @@ nothing inside `runAsPlatform()` — so every production query must carry its ow
 `where('tenant_id')`, and the gate makes that mechanical rather than a matter of whether
 the reviewer remembered. It skips the suite on purpose: an isolation test queries unscoped
 precisely to prove RLS is the thing doing the work.
+
+## 1405/06/08 (2026-08-30) — 12.4 and 12.5: the flip
+
+Every module is open to every shop, `basic` is free, and `TrialPolicy` is gone. This is the
+release where the gate's decisions stop being a document.
+
+**Deleting a policy rather than inverting one.** The obvious move was to keep `TrialPolicy`
+and turn it inside out — trial gets *these* quotas now. The free rung made the whole class
+unnecessary: a shop evaluates the product by using it, indefinitely, so there is no trial to
+have a policy about. `BASELINE_PLAN_CODE`, the borrowed-limits list and the trial branches in
+`SubscriptionResolver::limit()` and the resolver's `$baseline` memo all went with it.
+`startTrial()` became `startOnFreePlan()`, and a new shop is now `active` on a zero-price
+plan with `current_period_end` null — which `isUsable()` already read as "usable" and
+`hasLivePeriod()` already read as "nothing to prorate against", so the first paid upgrade is
+charged in full without a special case being written for it.
+
+**The middleware kept its shape and changed its question.** `EnsureModuleEnabled` used to
+ask whether a shop's plan included a module. Thirteen route groups, the nav, the dashboard's
+widget list and three public-page tests consume that shape correctly for a *different*
+question — have we switched this on? — which is exactly what ADR 0011 has needed since
+Moadian shipped as an adapter with no provider. Deleting it would have been a twenty-file
+diff to arrive back where we started. What changed is the answer's source
+(`modules.is_enabled`, a panel toggle) and the copy: «این بخش موقتاً در دسترس نیست» instead
+of «در پلن فعلی فروشگاه شما فعال نیست».
+
+The test that guarded the old behaviour now guards the opposite, and says so at the top of
+the file — `PlanGatingTest` became `ModuleSwitchTest`, and its cases went from "Basic is
+refused Repairs" to "the free plan gets every module, and only a switch we flipped takes one
+away". Renaming rather than editing in place was deliberate: a file called PlanGating
+asserting that plans do not gate is a name that lies.
+
+**A Filament field name cannot contain a dot**, and every metric key has one. Discovered by
+reasoning rather than by a red build — `limits.sales.invoices` would have become nested
+state and every metric would have collided with its own module prefix. `PlanForm::fieldFor()`
+flattens to `quota_sales__invoices` and `EditsPlanLimits` translates back, in one place, so
+the form and the pages that fill it cannot disagree about what a field is called.
+
+**One dead number found on the way.** `RevenueOverview` counted "trials in progress" — a
+stat that could only ever read zero once the free plan took the trial's place, sitting on
+the one dashboard that is supposed to say how the business is doing. Replaced by the count
+of shops on the free rung, which is the same query shape and is the actual upgrade pool.
+
+`0.15.0`, BREAKING-prefixed: an existing plan row's meaning changes. Still no production box,
+so still no release.
