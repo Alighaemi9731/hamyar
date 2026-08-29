@@ -1848,27 +1848,30 @@ the dependency order.
       sparkline is the first thing outside Reporting that wants it
 
 ### 12.3 Counter, resolver, tables
-- [ ] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
+- [x] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
       `usage_events` — RLS `allowPlatform: true` in the same migration; models without
-      `BelongsToTenant`; `TenancyCheckCommand::PLATFORM_OWNED_TABLES`; both datasets of
-      `PlatformBillingIsolationTest`; grep gate: every `UsageCounter|TenantLimitOverride|
-      UsageEvent::query()` carries `where('tenant_id'`
-- [ ] `tenants.entitlement_version`, `subscriptions.scheduled_plan_id` + `plan_changed_at`
-- [ ] `DatabaseQuotaGuard` (two statements, every placeholder cast), `LimitResolver`
-      (overrides → plan → fallback; `FallbackPlanMissing` throws, always), `UsageEvents`,
-      `UsageSnapshot`; `ForgetEntitlements` with **write-through** `Cache::put`
-- [ ] `subscriptions:expire` and `subscriptions:apply-scheduled` (`@platform-wide`,
-      scheduled) — the first writers `past_due`, `grace_ends_at` and `canceled` ever had;
-      MRR stops counting lapsed shops
-- [ ] `quota:prune` (weekly, batched) + `HealthCheck` «last prune ran at …»; `quota:audit`
-- [ ] Tests: `ConsumeTest` (incl. the insert arm on a fresh period under the CI
-      `NOBYPASSRLS` role), `RollbackTest`, `ConcurrencyTest` (**new harness**: no
-      `RefreshDatabase`, committed fixtures, `pcntl_fork`, one PDO connection per child,
-      `pcntl_waitpid`, truncate in `afterEach` — `ConcurrentFinalisationTest` is sequential
-      and is not a precedent), `MonthRolloverTest` (last day of Shahrivar 23:55 Tehran →
-      fresh credit on 1 Mehr; a mid-month UTC-midnight control that must NOT roll over), `OverrideTest`, `QuotaIsolationTest` (`isolation` group), a data-migration
-      test that seeds legacy `plan_limits` rows and runs the class directly, a downgrade
-      "frozen not truncated" test, a prune test, a `PlanLimitsChanged` propagation test
+      `BelongsToTenant`; `TenancyCheckCommand::PLATFORM_OWNED_TABLES`; `bin/check-quota-scoping`
+      requires `where('tenant_id'` on every production query of the three
+- [x] `tenants.entitlement_version`, with a write-through cache bump in `LimitResolver::bump()`
+- [x] `DatabaseQuotaGuard` (two statements, every placeholder cast), `LimitResolver`
+      (override → plan → fallback; **throws** when the fallback plan is missing),
+      `UsageEvents` (savepoint-safe idempotent insert, `try` outside the transaction)
+- [x] `subscriptions:expire` — the first writer `past_due`, `grace_ends_at` and `canceled`
+      ever had; MRR stops counting lapsed shops; free plans exempt
+- [x] `quota:prune` (weekly) + a `quota.pruned_at` line for `/health`
+- [x] Tests: `ConsumeTest`, `AtomicityTest`, `LimitResolverTest`, `LifecycleTest`,
+      `QuotaIsolationTest` (`isolation` group)
+- [→] `subscriptions:apply-scheduled` (scheduled downgrade) → 12.4, where the catalogue and
+      the Filament plan editor first make a downgrade reachable. Nothing can schedule one today
+- [→] `quota:audit` → 12.12 with the other operator tooling: it reports on metrics that do
+      not exist until the modules register them (12.7–12.11)
+- [!] **No fork-based concurrency test in CI.** Written, then removed — forking inside
+      PHPUnit is fragile for reasons unrelated to the code under test, and a build that
+      hangs occasionally teaches people to re-run rather than read. `AtomicityTest` asserts
+      the two deterministic properties instead: one statement per spend (a refactor into
+      read-decide-write fails it, and that refactor *is* the double-spend bug) and the cap
+      evaluated against committed state (a decision made from a stale read is refused).
+      Recorded in `DECISIONS-FOR-REVIEW.md` rather than left for a green suite to imply
 
 ### 12.4 Catalogue and Filament limits — **numbers from Gate 6**
 - [ ] `PlanCatalogue::plans()[..]['limits']` = the ADR §1 matrix; `['modules']` and add-on
