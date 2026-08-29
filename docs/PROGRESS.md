@@ -2161,3 +2161,41 @@ without it the very request that took the payment kept answering from the pre-pa
 the upgrade was real in the database and invisible to the process that made it.
 
 Six new tests. `0.14.3`, no release — still no production box.
+
+## 1405/06/08 (2026-08-30) — 12.2: the quota kernel, and a boundary that was wrong by 3½ hours
+
+`App\Support\Quota` exists: the `QuotaGuard` contract every metered module will call, the
+`Metric` value object and its registry, the verdict DTO, two events, and `PeriodClock`.
+Nothing calls it yet — Platform binds the real implementation in 12.3 — so the container
+answers with `NoQuota`, bound with `bindIf` while Platform will bind with `singleton`. That
+asymmetry is the `PartyExposure` lesson written into a new file: two providers binding one
+interface with `bind` means a directory listing picks the winner, and the losing outcome is
+not a crash but a product whose limits silently do nothing.
+
+**Two simplifications the owner's monthly decision unlocked.** With `Window::Day` gone,
+`Month` ⇔ counted and `Total` ⇔ computed exactly — so `MetricKind` was deleted before it was
+written. A second enum could only agree with the window or disagree with it, and the second
+is the bug. The pairing is enforced where it can actually be wrong instead: `Metric`'s
+constructor refuses a counted metric carrying a `measure` closure (two answers to "how much
+has been used", nothing to say which is right) and a standing capacity carrying none
+(nothing to read, so a seat cap that never fires). And the clock is a new `PeriodClock`
+rather than a move of Reporting's `ShopClock`: they answer different questions, and moving
+ten call sites to share a name is churn, not reuse. The promotion is now a 12.12 task, owned
+by the first thing outside Reporting that actually wants the SQL expression.
+
+**The trap, and it is a good one.** `Jalali::startOfMonth()` returns the first of the Jalali
+month at midnight **UTC**, which is 03:30 Tehran. That is exactly right for the period key —
+the key is its *date* part, and the date is the same either way — and exactly wrong for
+`resetsAt`, which is what a screen shows a shopkeeper. Returned unchanged, the billing page
+would have promised «سهمیهٔ بعدی ۰۳:۳۰» while the counter had already refilled at ۰۰:۰۰: a
+shopkeeper told to wait for something that had already happened. What makes it worth writing
+down is that the obvious test does not catch it. Asserting the *date* of the reset passes
+with both the right and the wrong instant; only asserting the time of day fails. So
+`QuotaPeriodClockTest` asserts `H:i === '00:00'`, plus the two controls that fail if anyone
+reaches for a Carbon convenience method later: UTC midnight must NOT roll the credit over,
+and neither must the end of a Gregorian month.
+
+`config/hamyar.php` arrives with it. Its one opinionated line: a fallback plan that resolves
+to no row **throws**, rather than falling back to unlimited. The lenient reading would hand
+every lapsed shop everything — failing open, in the one layer whose whole job is to fail
+closed. `0.14.4`, no release; there is still no production box.
