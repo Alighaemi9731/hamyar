@@ -2496,3 +2496,58 @@ one was never built at all — and from the roadmap alone the two were indisting
 unticked box that is secretly done trains you to skim; the one time it is genuinely undone
 is the time you skim past it. Checked each against the code, ticked what was real, built what
 was not.
+
+---
+
+## 2026-08-30 — `0.18.0`: what the product says when something goes wrong
+
+Two findings, both from the same question: not "does the server refuse correctly" — it
+always did — but "what does the shopkeeper read when it does".
+
+**Every validation message in the product was English.** `config('app.locale')` is `fa`, the
+fallback is `en`, and there was **no `lang/` directory at all**, so Laravel answered from its
+own English file inside `vendor/`. «The identifier field is required.» — left-to-right,
+naming a database column, on a right-to-left page, in a product whose entire market is Iran.
+
+It hid for eighteen releases because 21 of the 24 FormRequests hand-write Persian for the
+specific rules somebody remembered — 121 keys. So every path anybody actually tested was
+Persian, and every path nobody anticipated was English. Plus all 40 inline
+`$request->validate()` calls, which have no `messages()` at all.
+
+`lang/fa/validation.php` now covers all 109 rules with the nested size/password structures
+intact, and 220 `attributes` labels. The attributes half is the one that decides whether a
+message reads as Persian or as a leak of the schema: without an entry, the raw column name
+is substituted mid-sentence.
+
+**The till could refuse a sale without telling anybody.** An audit of all 34 submitting
+components — every finding then adversarially verified against the real FormRequest, and the
+verifier told to default to "not a bug" — confirmed 24 orphan keys across 9 files.
+`PosSaleRequest` can return **twelve** the POS screen could never display; its error region
+was `errors.lines ?? errors.branch_id ?? errors.invoice`, three hardcoded keys, and
+`PaymentBox` is not passed the error bag at all. A cashier who typed a tendered amount below
+the total pressed F9 and the screen did not change. No message, no highlight, nothing to
+debug — because from their side there was no error. So they press it again.
+
+That is CLAUDE.md's "a home for errors that belong to no field" rule, almost verbatim,
+happening on the one screen where somebody is standing at a counter with a customer waiting.
+
+`<FormErrors>` takes the **whole bag** rather than a list of keys, and that inversion is the
+design. A component you have to tell which keys to show needs updating every time somebody
+adds a rule — and the keys nobody thought to place are exactly the ones that go missing.
+Default-visible, hide-deliberately. `handled` collapses nested keys so naming `lines` covers
+`lines.0.quantity` without doubling up on forms that already do the right thing.
+
+**On the review pass that did not run.** The session limit killed three agents, including
+both reviewers of the Persian file. Doing that review myself found two things they were
+meant to: **nine duplicate attribute keys** — PHP silently keeps the last, so which label a
+shopkeeper sees depended on file order — and inconsistent ezafe («شماره تماس» beside «شمارهٔ
+پیگیری»). Worth recording that the failure mode of a dead reviewer is not an error but a
+plausible-looking file, and that the two defects it would have caught were both invisible to
+`php -l` and to every test.
+
+**And two of my own tests were wrong, not the code.** I asserted placeholders in order —
+but Persian puts the condition first («چون :other برابر :value است، :attribute…»), so the
+order differs on every conditional rule and differing is correct. And I asserted no Latin in
+any label, but «کد IMEI» is what is printed on the box and said out loud in the shop.
+Both now assert the true thing: placeholder *sets*, and Latin outside an allow-list of
+proper nouns.
