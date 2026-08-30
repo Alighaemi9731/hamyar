@@ -14,6 +14,7 @@ use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\Payments\GatewayRedirect;
 use App\Modules\Platform\Services\Payments\GatewayVerification;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
+use App\Modules\Platform\Support\ReturnPath;
 use App\Support\Counters\Counter;
 use App\Support\Counters\CounterService;
 use App\Support\Tenancy\TenantContext;
@@ -151,7 +152,14 @@ final class BillingService
     /**
      * Register the invoice with the gateway and get somewhere to send the customer.
      */
-    public function initiatePayment(SubscriptionInvoice $invoice, string $callbackUrl): GatewayRedirect
+    /**
+     * @param  string|null  $returnTo  where to put the shopkeeper back afterwards. Sanitised
+     *                                 here rather than trusted, because this ends at
+     *                                 `redirect()` after a round trip through a payment
+     *                                 gateway — see {@see ReturnPath}. Passing an unsafe
+     *                                 value is not an error; it simply does not travel.
+     */
+    public function initiatePayment(SubscriptionInvoice $invoice, string $callbackUrl, ?string $returnTo = null): GatewayRedirect
     {
         if ($invoice->isPaid()) {
             throw new RuntimeException("Invoice {$invoice->number} is already paid.");
@@ -161,11 +169,16 @@ final class BillingService
             throw new RuntimeException("Invoice {$invoice->number} has nothing to pay.");
         }
 
-        return $this->context->runAsPlatform(function () use ($invoice, $callbackUrl): GatewayRedirect {
+        // Sanitised at the boundary, so nothing downstream has to remember to. The column
+        // holds only values that were safe at the moment they were written.
+        $safeReturn = ReturnPath::sanitise($returnTo);
+
+        return $this->context->runAsPlatform(function () use ($invoice, $callbackUrl, $safeReturn): GatewayRedirect {
             $attempt = PaymentAttempt::query()->create([
                 'tenant_id' => $invoice->tenant_id,
                 'subscription_invoice_id' => $invoice->getKey(),
                 'gateway' => $this->gateway->name(),
+                'return_to' => $safeReturn,
                 'amount' => $invoice->total,
                 'status' => PaymentAttempt::STATUS_INITIATED,
             ]);

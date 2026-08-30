@@ -7,6 +7,55 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.17.0 - 2026-08-30
+
+**The upgrade round trip, which was the half of the quota story nobody had built.** Phase
+12.6, whose boxes were never ticked — and checking the code rather than trusting the memory
+of having written it found that most of it was there and the most important piece was not.
+
+**A shop that paid mid-sale did not get its sale back.** The Definition of Done for this
+phase says a shop runs out of credit at the till, upgrades, and *lands back on the same
+form*. Every clause of that was true except the last one: `billing/callback` sent every
+shop to the invoice receipt. An operator blocked mid-sale paid, landed on a receipt, and
+had to walk back to the till and retype a basket they had already built with a customer
+waiting — the upgrade worked and the sale still did not happen, which reads as the payment
+having failed.
+
+`payment_attempts.return_to` now carries the screen they were on, and the callback puts them
+back. On the attempt row rather than in the session, because the session is the one thing
+that cannot be relied on here: the customer may return in a different browser, which is why
+`billing/callback` sits outside `auth` and `tenant` in the first place (ADR 0017). The
+credit-covered path honours it too — a shop whose stored credit covers the upgrade skips
+the gateway entirely and still needs putting back.
+
+**`ReturnPath` is an allow-list, not a sanitiser**, and the distinction is the point. This
+value starts in a query string, survives a round trip through a payment gateway, and comes
+back to be handed to `redirect()` — the exact shape of an open redirect, on
+`https://…/billing/callback`, which is a URL a customer has been trained to trust. Anything
+not obviously a path on our own site is discarded and the caller falls back to the receipt,
+losing a convenience and never the payment. 22 unit cases, four of them driven end to end
+through the real gateway round trip; the one worth naming is `//evil.test`, which starts
+with a slash and is a *host* to every browser — the case hand-rolled checks miss.
+
+**The blocked-shops widget could not see the shops most worth talking to.** `blocked_at` was
+stamped with an `UPDATE` on `usage_counters`, and a shop refused on its **first** attempt has
+no counter row for that update to match. The metric most often capped at zero is
+`messaging.sms` on the free rung — which is every shop that has never paid us anything — so
+a free shop could be refused every day and never once turn red, on the widget whose entire
+job is to start the upgrade conversation. Read from `usage_events` now, which is written
+whether or not a counter exists, and scoped to the current period so a block in Mordad does
+not still show red in Mehr.
+
+**Also:** `?upgrade=<code>` highlights the rung a block named, so a shop arriving from one
+presses a button instead of re-deciding something it was already told; the top-rung block
+state is on `/design`, which was the one missing case; and three new suites —
+`UpgradeRoundTripTest`, `UsagePropTest`, `MiddlewarePrecheckTest`. The last of those walks
+the real route table to check every `quota:<metric>` names a metric that exists, because
+`quota:sales.invoice` reads exactly like `quota:sales.invoices` and a route gated on a typo
+looks gated in review and is not.
+
+Not deployed. There is still no production server.
+
 ## 0.16.0 - 2026-08-30
 
 **The bundle tables are gone, and the meter now has tests where a shopkeeper meets it.**

@@ -14,10 +14,12 @@ use App\Modules\Platform\Services\BillingService;
 use App\Modules\Platform\Services\Payments\PaymentGatewayException;
 use App\Modules\Platform\Services\ProrationCalculator;
 use App\Modules\Platform\Services\SubscriptionResolver;
+use App\Modules\Platform\Support\ReturnPath;
 use App\Support\Money;
 use App\Support\Quota\MetricRegistry;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -41,7 +43,7 @@ final class BillingController extends Controller
         private readonly TenantContext $context,
     ) {}
 
-    public function index(ProrationCalculator $proration): Response
+    public function index(Request $request, ProrationCalculator $proration): Response
     {
         $this->authorize('viewAny', Subscription::class);
 
@@ -86,7 +88,41 @@ final class BillingController extends Controller
                 'change' => $subscription === null ? null : $this->previewFor($proration, $subscription, $plan, $now),
             ])->values()->all(),
             'invoices' => $this->recentInvoices(),
+
+            /*
+            | `?upgrade=<code>&return_to=<path>` — the block card's link.
+            |
+            | A shop arriving here from a quota block is not browsing plans; it has already
+            | been told which one clears the wall it just hit, and it is mid-task. So the
+            | page highlights that rung and carries the path forward, and the shop presses
+            | one button instead of re-deciding something it was already told.
+            |
+            | Both are validated: the code must name a public plan (otherwise the page
+            | would highlight nothing and look broken), and the path goes through
+            | `ReturnPath` like every other copy of it.
+            */
+            'highlight' => $this->highlightedPlan($request, $plans),
+            'return_to' => ReturnPath::sanitise($request->query('return_to')),
         ]);
+    }
+
+    /**
+     * The plan code to draw attention to, if it names a real public plan.
+     *
+     * @param  Collection<int, Plan>  $plans
+     */
+    private function highlightedPlan(Request $request, Collection $plans): ?string
+    {
+        $code = $request->query('upgrade');
+
+        if (! is_string($code) || $code === '') {
+            return null;
+        }
+
+        // Checked against the list the page actually renders, not against the plans table:
+        // highlighting a private or archived plan would draw the eye to a card that is not
+        // on the screen.
+        return $plans->contains(static fn (Plan $plan): bool => $plan->code === $code) ? $code : null;
     }
 
     /**
@@ -104,10 +140,30 @@ final class BillingController extends Controller
 
         $invoice = $this->billing->invoiceForPlan($tenant, $plan);
 
+        /*
+        | Where they were when they pressed «ارتقا».
+        |
+        | A shop blocked at the till upgrades to finish the sale it is halfway through, so
+        | the receipt is the wrong place to land: they would have to walk back and retype a
+        | basket they had already built, and the upgrade would read as not having worked.
+        |
+        | Sanitised by `BillingService` rather than here, so the one column that ends at
+        | `redirect()` can only ever hold values that were checked — see {@see ReturnPath}
+        | on why this is an open-redirect hole otherwise.
+        */
+        $returnTo = ReturnPath::sanitise($request->input('return_to'));
+
         // Fully covered by credit, or a free plan: nothing to pay, so skip the gateway
         // round trip entirely rather than sending someone to pay zero rial.
         if (! $invoice->requiresPayment()) {
             $this->billing->settleWithoutPayment($invoice);
+
+            // Same courtesy on the free path: the shop upgraded and the credit is theirs
+            // now, so put them back on the screen that stopped them either way.
+            if ($returnTo !== null) {
+                return redirect()->to($returnTo)
+                    ->with('success', 'اشتراک شما با استفاده از اعتبار موجود فعال شد.');
+            }
 
             return redirect()
                 ->route('billing.receipt', ['invoice' => $invoice->getKey()])
@@ -117,15 +173,14 @@ final class BillingController extends Controller
         try {
             $redirect = $this->billing->initiatePayment(
                 $invoice,
-                route('billing.callback', absolute: true)
+                route('billing.callback', absolute: true),
+                $returnTo,
             );
         } catch (PaymentGatewayException $exception) {
             report($exception);
 
             return back()->with('error', 'ارتباط با درگاه پرداخت برقرار نشد. لطفاً چند لحظه بعد دوباره تلاش کنید.');
         }
-
-        unset($request);
 
         return redirect()->away($redirect->url);
     }
@@ -192,6 +247,24 @@ final class BillingController extends Controller
         if (! $attempt->isVerified()) {
             return redirect()->route('billing.index')
                 ->with('error', $attempt->error ?? 'پرداخت ناموفق بود.');
+        }
+
+        /*
+        | Home, if they told us where that was.
+        |
+        | Re-sanitised on the way out even though it was sanitised on the way in. The value
+        | has been sitting in a database across a round trip through somebody else's
+        | website, and this is the line that hands it to `redirect()`; a check at the point
+        | of use costs nothing and does not depend on every future writer of this column
+        | having remembered.
+        |
+        | The receipt is still reachable — the success message names the plan and the
+        | billing page lists every invoice — so nothing is lost by going back to work.
+        */
+        $returnTo = ReturnPath::sanitise($attempt->return_to);
+
+        if ($returnTo !== null) {
+            return redirect()->to($returnTo)->with('success', 'پرداخت انجام شد؛ می‌توانید ادامه دهید.');
         }
 
         return redirect()

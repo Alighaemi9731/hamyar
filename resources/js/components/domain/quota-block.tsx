@@ -80,7 +80,18 @@ export function QuotaBlock({ block, className }: QuotaBlockProps) {
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {next && block.can_upgrade ? (
-              <Button onClick={() => router.post(`/billing/subscribe/${next.code}`)}>
+              <Button
+                onClick={() =>
+                  router.post(`/billing/subscribe/${next.code}`, {
+                    // Where they are right now, so paying puts them back here rather than
+                    // on a receipt. A shop blocked at the till is mid-sale with a customer
+                    // waiting; landing on the billing page means walking back and retyping
+                    // a basket they had already built, and the upgrade reads as not having
+                    // worked. Sanitised server-side — see `ReturnPath`.
+                    return_to: window.location.pathname + window.location.search,
+                  })
+                }
+              >
                 ارتقا به {next.name} — {next.due.formatted}
               </Button>
             ) : null}

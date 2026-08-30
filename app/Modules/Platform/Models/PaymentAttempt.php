@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $gateway
  * @property string|null $authority
  * @property string|null $reference the gateway's receipt number, shown to the shop
+ * @property string|null $return_to same-host relative path to return to; null = the receipt
  * @property int $amount
  * @property string $status
  * @property string|null $error
@@ -45,7 +46,7 @@ final class PaymentAttempt extends Model
 
     protected $fillable = [
         'tenant_id', 'subscription_invoice_id', 'gateway', 'authority', 'reference',
-        'amount', 'status', 'error', 'payload', 'verified_at',
+        'return_to', 'amount', 'status', 'error', 'payload', 'verified_at',
     ];
 
     /**
