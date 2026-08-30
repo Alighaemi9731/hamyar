@@ -35,6 +35,16 @@ That second one matters because a misspelt placeholder does not error — `:atri
 verbatim to a customer. Placeholders are compared as sets rather than sequences, because
 Persian puts the condition first and the order differs on every conditional rule.
 
+**`/design` had been throwing an uncaught TypeError since `0.15.0`.** The `usage` shared
+prop returned PHP `[]` when there is no tenant — and an empty PHP array crosses the JSON
+boundary as an *array*, which is truthy in JavaScript and has no `attention` property. So
+`UsageBanner`'s `!usage` guard waved it straight through into `usage.attention.length` and
+the page died. Every browser test until now visited a page that has a tenant, so nothing
+looked at the one shell page that does not; the new `FormErrors` gallery test was the first
+thing to open it in a browser and it failed immediately. Fixed at the source — the prop is
+`null` when there is nothing to report — and defended in the component too, because a shared
+prop has many writers. Two tests now pin the exact shape.
+
 **The till could refuse a sale without telling anybody.** An audit of all 34 submitting
 components — each finding then adversarially verified against the real FormRequest — found
 that `PosSaleRequest` can return twelve keys the POS screen could never display. Its only
