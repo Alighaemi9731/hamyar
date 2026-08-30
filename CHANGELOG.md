@@ -7,6 +7,48 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.19.0 - 2026-08-30
+
+**The test suite goes from 16 minutes to 2, and CI should follow.** Measured on the same
+machine, same 1486 tests, same real PostgreSQL: **969s → 136s**. Nothing about the suite's
+strictness changed — it still runs against a real database, because RLS is the guarantee
+this product sells and SQLite cannot express it.
+
+Two changes, and the second was harder to land than it looks.
+
+**`pest --parallel`, which had never been used.** `paratest` ships with Pest and was sitting
+in `vendor/bin` unused for eighteen releases. Each worker gets its own `<db>_test_N` clone,
+so nothing is shared and no test can see another worker's rows. It failed immediately with
+`permission denied to create database`: the app role is deliberately `NOCREATEDB`. That
+attribute is now granted **on the CI and local dev roles only** — it is not what makes the
+isolation suite real. `NOBYPASSRLS` is, and it is untouched; the production role in `deploy/`
+stays `NOCREATEDB`, since nothing there runs tests.
+
+**The plan catalogue is seeded once per process instead of once per test.** It was a
+`beforeEach` since Phase 12: ~1486 runs at 76ms, **113 seconds of the suite** re-proving the
+same eighteen modules and three plans. Two obvious seams do not work, and both look right:
+
+- `afterRefreshingDatabase()` is called *after* `refreshTestDatabase()` has opened the
+  per-test transaction, so a seed there still runs per test **and rolls back with it**. It
+  cost 26 `ModelNotFoundException`s to discover.
+- Overriding `migrateDatabases()` on `Tests\TestCase` **never executes**. Pest applies
+  `RefreshDatabase` to the generated test class, and a trait method takes precedence over an
+  inherited parent method — so the override is dead code that looks alive. The same shape as
+  the `jdate()` and `bindIf` bugs in `docs/lessons.md`: nothing crashes, the wrong thing
+  quietly wins.
+
+The seam that works is the one the framework offers: `RefreshDatabase` reads `$this->seeder`
+— a **property**, which does resolve through inheritance — and passes it to
+`migrate:fresh --seeder=…`, once per process, before any transaction opens.
+`TestCatalogueSeeder` carries the reasoning so the next person does not repeat the walk.
+
+`composer test:pest` now runs parallel; `composer test:serial` keeps the old behaviour for
+when a failure needs to be read in order.
+
+Known limit, written into the CI comment: **eight processes overflow Postgres's shared lock
+table** — `migrate:fresh` drops ~100 tables in one transaction. Four is safe. Raise
+`max_locks_per_transaction` before raising the process count on a bigger runner.
+
 ## 0.18.0 - 2026-08-30
 
 **Every validation message in the product was in English.** `config('app.locale')` is `fa`,

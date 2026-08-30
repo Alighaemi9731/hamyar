@@ -155,12 +155,19 @@ jobs:
       - name: Provision the test database and the non-superuser app role
         # Mirrors docker/postgres/init/. The app role must not be a superuser or RLS
         # is silently bypassed and the isolation suite becomes theatre.
+        #
+        # CREATEDB is the ONE grant that differs from production, and it is deliberate:
+        # `--parallel` has each worker clone the schema into `hamyar_test_test_N`, and
+        # without it every worker dies with "permission denied to create database".
+        # It does not weaken the guarantee this role exists to prove — **NOBYPASSRLS is
+        # what makes the isolation suite real**, and that is untouched. CREATEDB only
+        # lets the role make throwaway databases on a throwaway CI Postgres.
         env:
           PGPASSWORD: secret
         run: |
           psql -h 127.0.0.1 -U hamyar -d hamyar -v ON_ERROR_STOP=1 <<'SQL'
             CREATE ROLE hamyar_app LOGIN PASSWORD 'app-secret'
-              NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+              NOSUPERUSER CREATEDB NOCREATEROLE NOBYPASSRLS;
             CREATE DATABASE hamyar_test OWNER hamyar;
           SQL
           psql -h 127.0.0.1 -U hamyar -d hamyar_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -187,6 +194,20 @@ jobs:
           php artisan migrate:fresh --force
           php artisan tenancy:check
 
+      # `--parallel`, and it is the difference between a 13-minute job and a 4-minute one.
+      #
+      # The suite is ~1500 tests against a real PostgreSQL, because RLS is the guarantee
+      # this product sells and SQLite cannot express it. That costs ~0.35s per test against
+      # 0.02s for a test that touches no database — 17x — and it is not negotiable. What IS
+      # negotiable is running them one after another on a four-core runner.
+      #
+      # Each worker gets its own `hamyar_test_test_N` database (hence CREATEDB above), so
+      # nothing is shared and no test can see another worker's rows. Process count is left
+      # to Pest, which uses the core count: pinning a number here would either waste a
+      # bigger runner or overflow a smaller one. Eight processes DID overflow Postgres's
+      # shared lock table locally — `migrate:fresh` drops ~100 tables in one transaction —
+      # so if this job ever moves to a larger runner, raise `max_locks_per_transaction`
+      # before raising the process count.
       - name: Pest
         env:
           DB_HOST: 127.0.0.1
@@ -195,7 +216,7 @@ jobs:
           DB_USERNAME: hamyar_app
           DB_PASSWORD: app-secret
           REDIS_HOST: 127.0.0.1
-        run: ./vendor/bin/pest --ci
+        run: ./vendor/bin/pest --ci --parallel
 
       # Runs again on its own so a failure is unambiguous in the checks list: this is
       # the suite that must never be skipped (golden rule 8).
