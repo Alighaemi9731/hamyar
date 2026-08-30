@@ -15,6 +15,7 @@ import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { type ReportPreset, ReportPresets } from '@/components/domain/report-presets';
+import { FormErrors } from '@/components/domain/form-errors';
 import { QuotaBlock } from '@/components/domain/quota-block';
 import { StatCard } from '@/components/domain/stat-card';
 import { UsageBanner } from '@/components/domain/usage-banner';
@@ -101,6 +102,7 @@ export default function DesignGallery() {
         <TableSection />
         <StatCardSection alt />
         <QuotaSection />
+        <FormErrorsSection alt />
         <BarChartSection />
         <ImeiSection alt />
         <DataTableSection />
@@ -847,6 +849,61 @@ function StateSection({ alt }: { alt?: boolean }) {
  * turning it red would tell a shop that spent precisely what it bought that something is
  * wrong.
  */
+function FormErrorsSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      title="FormErrors"
+      note="خانهٔ خطاهایی که به هیچ فیلدی تعلق ندارند. بدون آن، خطای «lines» یا «accessories» جایی برای نمایش ندارد و دکمهٔ ثبت بی‌صدا کاری نمی‌کند — و فروشنده، با مشتری جلوی پیشخوان، دوباره فشار می‌دهد و نتیجه می‌گیرد که نرم‌افزار خراب است."
+      alt={alt}
+    >
+      <Row label="یک خطا">
+        <FormErrors
+          errors={{ lines: 'حداقل یک قلم کالا لازم است.' }}
+          className="max-w-xl"
+        />
+      </Row>
+
+      <Row label="چند خطا">
+        <FormErrors
+          errors={{
+            lines: 'حداقل یک قلم کالا لازم است.',
+            payments: 'جمع پرداخت‌ها با مبلغ فاکتور برابر نیست.',
+            branch_id: 'شعبه انتخاب نشده است.',
+          }}
+          className="max-w-xl"
+        />
+      </Row>
+
+      <Row label="خطای تودرتو — به والدش خلاصه می‌شود">
+        {/* The form renders `errors.lines` beside its table, so `lines.2.quantity` must
+            not appear here as well: one problem shown twice reads as two problems. */}
+        <FormErrors
+          errors={{ 'lines.2.quantity': 'تعداد باید بیشتر از صفر باشد.', imei: 'کد IMEI نامعتبر است.' }}
+          handled={['lines']}
+          className="max-w-xl"
+        />
+      </Row>
+
+      <Row label="همه جای دیگری نمایش داده شده‌اند — چیزی رندر نمی‌شود">
+        <div className="text-sm text-muted-foreground">
+          <FormErrors errors={{ name: 'نام لازم است.' }} handled={['name']} />
+          (خالی — این خطا کنار فیلد خودش نمایش داده می‌شود)
+        </div>
+      </Row>
+
+      <Row label="سهمیه — هرگز اینجا نه">
+        <div className="text-sm text-muted-foreground">
+          {/* `quota` is rendered once in the shell by <QuotaBlock>, with a price and an
+              upgrade button. Repeating it here as a bare sentence would put a worse
+              version of the same message above a better one. */}
+          <FormErrors errors={{ quota: 'سهمیهٔ ۳۰۰ فاکتور این ماه تمام شد.' }} />
+          (خالی — «سهمیه» را QuotaBlock در پوستهٔ صفحه نشان می‌دهد)
+        </div>
+      </Row>
+    </Section>
+  );
+}
+
 function QuotaSection({ alt = false }: { alt?: boolean }) {
   const meter = (over: Partial<UsageMeterState> = {}): UsageMeterState => ({
     key: 'sales.invoices',
