@@ -151,6 +151,10 @@ Emits: `ProductCreated`, `PriceChanged`, `BulkPriceUpdateApplied`.
 - Bulk update preview matches exactly what is applied.
 - Deactivating a variant with stock is prevented or warned, never silent.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** Creating a product spends one `catalog.products` credit **inside the same
+  transaction that writes the row** — a product that fails validation costs nothing. At the
+  cap the create is refused with the next plan named; reading and editing the catalogue
+  stay open (ADR 0018).
 
 ## Out of scope
 

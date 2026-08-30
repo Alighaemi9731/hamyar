@@ -22,9 +22,9 @@ final class ModulesTable
                 IconColumn::make('is_core')->label('پایه')->boolean(),
             ])
             ->recordActions([EditAction::make()->label('ویرایش')])
-            // Modules come from code. Creating or deleting one here would produce a row
-            // with no `app/Modules/<Name>` behind it — a plan could then grant a module
-            // that does not exist.
+            // Modules come from code. Creating one here would produce a row with no
+            // `app/Modules/<Name>` behind it — a switch over nothing — and deleting one
+            // would close a section of the product with no way to reopen it.
             ->toolbarActions([]);
     }
 }

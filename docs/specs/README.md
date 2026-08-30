@@ -49,8 +49,11 @@ These are golden rules from `CLAUDE.md`, repeated because every spec assumes the
   `ledger_entries`. Never a stored total.
 - **Dates.** Stored UTC, rendered Jalali via helpers.
 - **Boundaries.** Cross-module contact is by domain event or a bound public interface.
-- **Gating.** Module availability comes from the plan via Pennant, enforced on the
-  route *and* reflected in the nav.
+- **Gating is quantity, not availability.** Every module is open to every shop. What a
+  plan sells is how much work a shop may record in a Jalali month, spent through
+  `QuotaGuard::consume()` inside the same transaction that writes the row it counts
+  (ADR 0018). The `module:` middleware survives as a platform kill-switch — «have *we*
+  switched this on at all» — not as a thing a plan buys.
 - **Numbering.** Invoice, ticket and receipt numbers come from the `counters` table
   with a row lock — never `MAX(number) + 1`.
 - **Tests.** Feature tests plus a cross-tenant isolation test for every endpoint.

@@ -9,7 +9,7 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Frontend: Inertia.js v2 + React + TypeScript + Tailwind CSS, RTL, font Vazirmatn
 - Super-admin (central): Filament v4. Tenant app: Inertia pages only.
 - Tests: Pest v4 · Static: Larastan level 8 · Style: Pint · CI: GitHub Actions
-- Key packages: spatie/laravel-permission (teams = tenant_id), laravel/pennant,
+- Key packages: spatie/laravel-permission (teams = tenant_id),
   shetabit/multipay (Zarinpal), morilog/jalali, spatie/laravel-medialibrary,
   spatie/laravel-activitylog, maatwebsite/excel, picqer/php-barcode-generator, bacon/qr-code
 

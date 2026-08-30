@@ -25,10 +25,22 @@ It is also the wrong shape of machine. The thing this test exists to find — FP
 starvation, connection-pool contention, a plan that is fine alone and not fine forty times
 over — depends on how many cores and how much RAM the box actually has.
 
-> **Never run this against production.** It signs in as fifty shops and reads every hot
-> screen for ninety seconds. On staging that is the point; on production it is a
-> self-inflicted incident, and the audit log will record fifty owner logins that nobody
-> made.
+> **Never run this against a box that holds a real shop's data.** It signs in as fifty
+> shops and reads every hot screen for ninety seconds. Against fixtures that is the point;
+> against a live shop it is a self-inflicted incident, and the audit log will record fifty
+> owner logins that nobody made.
+>
+> This sentence was suspended between 2026-08-21 and 2026-08-29, while `mobiyar.com` held
+> nothing but seeded fixtures and a second box would have cost money to teach us nothing.
+> It is written in its permanent form now, keyed to *what the data is worth* rather than to
+> what the box is called, so that the day a paying customer lands there is the day it
+> already means the right thing — rather than the day somebody has to remember to
+> reinstate it.
+
+> **The seeder must run on a plan that will not stop it.** Fifty shops writing thousands
+> of invoices apiece is precisely what `QuotaGuard` exists to refuse (ADR 0018). Seed the
+> load-test tenants onto the unlimited plan, or the run measures how fast the product says
+> «سقف ماهانه شما پر شده است» — which is a real answer, but not this test's question.
 
 ---
 

@@ -2337,3 +2337,82 @@ Deferred with reasons: the quota SMS alerts and the renewal-reminder listener bo
 pattern registered with an SMS provider we have no account for. Inventing a template id
 would produce a string the gateway rejects at send time — the same reason Phase 8 deferred
 `sms.ir`, and the banner already carries this message.
+
+---
+
+## 2026-08-30 — `0.16.0`: the bundle tables go, and the meter gets tested where it is met
+
+Phase 12.15 as scheduled: `plan_module`, `subscription_addons`,
+`modules.is_addonable`/`addon_price`, `SubscriptionAddon`, `Subscription::addons()`,
+`Plan::modules()`, `Module::plans()` and `laravel/pennant` all dropped, one release after
+`0.15.0` stopped reading them. `ModuleResource` was on that list and is deliberately kept:
+its add-on fields went last release, and what remains is the only screen that flips
+`modules.is_enabled` — deleting it would have left a kill-switch only Tinker can reach.
+
+Then the phase's Definition-of-Done item nobody had walked — *every metered key has an
+enforcement-site test* — which is where the session actually went.
+
+**There were none.** Every quota test in the repository meters a synthetic `quota.widgets`
+metric against the guard in isolation. Correct, and deliberately isolated so the guard's
+tests break when the guard breaks; but a guard that is perfect and never called is
+indistinguishable, from the shop floor, from no guard at all. Writing the first one — POS at
+its ceiling — took four attempts to go green, and each failure was a real thing.
+
+**`QuotaExceeded extends RuntimeException` had disabled the block on most of the product.**
+A dozen controllers wrap their domain call in `catch (RuntimeException $e)` and turn it into
+a field-level validation message — the established way this codebase reports «موجودی کافی
+نیست» beside the input that caused it. Every one of those arms swallowed the quota block on
+the way past. At the till, a shop that hit its monthly invoice cap got the raw English
+`Quota exceeded for [sales.invoices]: 300 used of 300, 1 requested.` under the line-items
+field, and `quota_block` — the Persian sentence, the reset date, the upgrade button — never
+reached the page at all.
+
+Nothing crashed. The refusal was correct, the transaction rolled back, no credit was spent;
+only the *telling* was wrong, which is exactly why nothing caught it. Every existing test
+asserted on the counter, and the counter was right. It is the same shape as the `bindIf` bug
+and the `jdate()` one: no error, the wrong implementation just wins.
+
+Fixed at the root rather than at the call sites. `QuotaExceeded extends Exception` puts it
+outside every one of those arms by construction, including in controllers nobody has
+written yet — where adding `catch (QuotaExceeded) { throw; }` above a dozen existing arms
+works today and silently stops working at the thirteenth.
+
+**Six metered features have no way in.** Looking for an enforcement site to test found
+that, across 104 write routes, nothing creates a cheque, an expense or income, a recurring
+template, a rental contract, a campaign, or a treasury account. Each has its service, its
+ledger-posting matrix, its events and its tests — a `Cheque` row is written in nine test
+files and zero production files — and each is priced on the ladder, so the free rung
+advertises «۵۰ ثبت چک» for something a shop cannot do once. This is precisely the failure
+CLAUDE.md's last workflow rule names, and it had been sitting under three ticked boxes
+since Phase 7. Those are now `[~]` with the reason on the line, and §12.16 lists the six
+missing screens.
+
+Not built here, deliberately: six create screens is Phase 7/8 product work, not a release
+about dropping tables. Written down rather than fixed quietly, because the dangerous
+version of this bug is the one nobody says out loud.
+
+**Ten `QuotaEnforcementTest` files**, one per metered module, driving the real route at its
+ceiling: refused, `quota` in the session, the block payload carrying the keys the React
+component reads, its message in Persian, and no counter row *at all* — a different claim
+from a row reading zero, and the only one that says the transaction really rolled back.
+With the exemptions nothing had ever asserted: a repair-delivery invoice does not spend a
+sales credit, a report on screen does not spend an export, collecting an installment is
+free, and a system SMS is never metered. The Files module had no tests whatsoever before
+today; it now has four.
+
+**On running six agents against one Postgres.** They raced on `RefreshDatabase` and produced
+`relation "migrations" does not exist` in files nobody had touched. Six databases, one per
+agent, fixed it. Worth remembering before the next fan-out that writes tests: parallel
+agents need parallel schemas, not just parallel worktrees.
+
+Docs caught up with Gate 6 in the same pass: `docs/specs/platform.md`, the Gating rule in
+`docs/specs/README.md`, an acceptance line on each of the 14 metered specs,
+`docs/architecture.md` — which still described `SET LOCAL`, the exact thing golden rule 1
+exists to forbid — `docs/VERSIONING.md`, and `docs/testing.md`, which cited two helpers
+that do not exist. `docs/load-testing.md`'s "never against production" note is rewritten to
+key on *what the data is worth* rather than on a box's name, so it cannot expire the way it
+did; and the volume seeder now seeds onto the unlimited plan, since fifty shops writing
+thousands of invoices is precisely what the meter exists to refuse.
+
+Not deployed: there is no production server. `bin/release --deploy` and `bin/smoke` stay
+suspended until the owner provides the new box.

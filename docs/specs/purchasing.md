@@ -76,6 +76,8 @@ Emits: `PurchaseReceived`, `PurchaseReturned`, `LandedCostAllocated`.
 - A purchase return reverses everything it should and nothing it should not.
 - Persian and Arabic digits in the IMEI box are normalised before validation.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** A purchase invoice spends one `purchasing.invoices` credit in the transaction
+  that writes it. Receiving stock against an invoice already recorded is free (ADR 0018).
 
 ## Out of scope
 

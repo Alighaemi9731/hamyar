@@ -19,20 +19,19 @@ use Illuminate\Support\Facades\DB;
  *
  * ## What this does and does not overwrite
  *
- * Prices, limits, trial length and plan/module membership are **business data**. Gate 2
- * settled that they stay editable in the Filament panel, and a seeder that rewrote them
- * on every deploy would silently revert whatever the owner had just changed — the kind
- * of bug that surfaces weeks later as "why is the price wrong again".
+ * Prices and limits are **business data**. Gate 2 settled that they stay editable in the
+ * Filament panel, and a seeder that rewrote them on every deploy would silently revert
+ * whatever the owner had just changed — the kind of bug that surfaces weeks later as
+ * "why is the price wrong again".
  *
  * So the split is:
  *
- * - **Seeded once, on create.** Price, add-on price, limits, trial days, visibility,
- *   Persian copy, and which modules a plan includes. `PlanCatalogue` is the starting
- *   point for these, not the ongoing source of truth. After the row exists, Filament
- *   owns it.
+ * - **Seeded once, on create.** Price, the monthly limit matrix, visibility and Persian
+ *   copy. `PlanCatalogue` is the starting point for these, not the ongoing source of
+ *   truth. After the row exists, Filament owns it.
  * - **Kept in sync on every run.** Only what the *code* determines: which module codes
- *   exist at all, whether a module is core or sellable as an add-on, and nav position.
- *   No amount of Filament editing can invent a module the application cannot serve.
+ *   exist at all, whether a module is core, and nav position. No amount of Filament
+ *   editing can invent a module the application cannot serve.
  *
  * The consequence to know: changing a price in `PlanCatalogue` no longer changes any
  * existing environment. It sets the price for a fresh install. To change a live price,

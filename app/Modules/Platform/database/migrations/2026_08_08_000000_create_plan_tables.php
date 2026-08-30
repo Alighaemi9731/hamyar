@@ -19,7 +19,7 @@ return new class extends Migration
         Schema::create('modules', function (Blueprint $table): void {
             $table->id();
 
-            // Matches app/Modules/<Name> lowercased — the same code Pennant uses for
+            // Matches app/Modules/<Name> lowercased — the same code used for
             // `module:<code>` and the route middleware checks.
             $table->string('code')->unique();
             $table->string('name_fa');

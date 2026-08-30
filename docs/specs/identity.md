@@ -119,6 +119,9 @@ Emits: `TenantOnboarded`, `UserInvited`, `UserActivated`, `UserDeactivated`,
   the screen.
 - A price change is visible on the product's history, not only the variant's.
 - Tenant B asking for tenant A's record history gets an empty log **and** no record name.
+- **Quota.** `identity.users` is a standing capacity, not a monthly flow: it counts active
+  seats, so deactivating somebody frees theirs immediately. Inviting past the cap is refused
+  with the next plan named; nobody already signed in is ever signed out (ADR 0018).
 
 ## Out of scope
 

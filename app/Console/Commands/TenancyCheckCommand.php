@@ -47,7 +47,6 @@ final class TenancyCheckCommand extends Command
     private const PLATFORM_OWNED_TABLES = [
         'subscriptions',
         'subscription_invoices',
-        'subscription_addons',
         'payment_attempts',
 
         // Phase 12 (ADR 0018). The panel's usage page and the blocked-shops widget read

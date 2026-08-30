@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Modules\CRM\Models\Party;
-use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
@@ -104,9 +103,10 @@ it('does NOT let the platform flag open ordinary tenant tables', function (): vo
     | What `app.platform` opens today is a LIST, and proving it is still a list rather
     | than a blanket is this test's whole job:
     |
-    |   · billing — `subscriptions`, `subscription_invoices`, `subscription_addons`,
-    |     `payment_attempts` (ADR 0002's amendment: the Platform module reports MRR and
-    |     churn across every shop).
+    |   · billing — `subscriptions`, `subscription_invoices`, `payment_attempts`
+    |     (ADR 0002's amendment: the Platform module reports MRR and churn across every
+    |     shop). `subscription_addons` was a fourth until 0.16.0, when add-ons stopped
+    |     being a product and the table was dropped.
     |   · `users` — one login form for every shop (ADR 0017), so the account lookup must
     |     precede the tenant.
     |   · the public token surfaces — `price_list_links`, `repair_tickets`,
@@ -151,32 +151,31 @@ it('clears the platform flag even when the callback throws', function (): void {
 
 /**
  * The child tables were the Gate 2 item-0 gap: they had a foreign key to a protected
- * parent and nothing of their own. These assert they now stand on their own, because
- * Phase 2.4 will query them directly by id.
+ * parent and nothing of their own. These assert they stand on their own, because Phase
+ * 2.4 queries them directly by id.
+ *
+ * A dataset of one, deliberately. `subscription_addons` was the other entry until 0.16.0
+ * dropped it; the shape stays because the *rule* is about the family — any table hanging
+ * off a platform-owned parent — not about which members it has this month.
  */
 dataset('billing child tables', [
-    'add-ons' => ['subscription_addons', 'subscription_id'],
     'payment attempts' => ['payment_attempts', 'subscription_invoice_id'],
 ]);
 
 it('denies a cross-tenant raw insert into each billing child table', function (string $table, string $parentKey): void {
-    $mine = subscribe($this->alpha, 'basic');
-    $theirs = subscribe($this->beta, 'basic');
+    subscribe($this->alpha, 'basic');
+    subscribe($this->beta, 'basic');
 
     // Whatever the parent column means, point it at a row that exists so the ONLY
     // reason this can fail is the tenant policy.
-    $parentId = $table === 'subscription_addons'
-        ? $theirs->getKey()
-        : app(TenantContext::class)->runAsPlatform(fn (): int => (int) DB::table('subscription_invoices')->insertGetId([
-            'tenant_id' => $this->beta->getKey(),
-            'number' => 'TEST-1',
-            'subtotal' => 1000, 'total' => 1000,
-            'lines' => '[]', 'created_at' => now(), 'updated_at' => now(),
-        ]));
+    $parentId = app(TenantContext::class)->runAsPlatform(fn (): int => (int) DB::table('subscription_invoices')->insertGetId([
+        'tenant_id' => $this->beta->getKey(),
+        'number' => 'TEST-1',
+        'subtotal' => 1000, 'total' => 1000,
+        'lines' => '[]', 'created_at' => now(), 'updated_at' => now(),
+    ]));
 
-    $row = $table === 'subscription_addons'
-        ? ['module_id' => Module::query()->value('id'), 'price' => 0, 'starts_at' => now()]
-        : ['gateway' => 'zarinpal', 'amount' => 1000, 'status' => 'initiated', 'payload' => '{}'];
+    $row = ['gateway' => 'zarinpal', 'amount' => 1000, 'status' => 'initiated', 'payload' => '{}'];
 
     app(TenantContext::class)->runFor($this->alpha, function () use ($table, $parentKey, $parentId, $row): void {
         expect(fn () => DB::transaction(fn () => DB::table($table)->insert([
@@ -188,21 +187,17 @@ it('denies a cross-tenant raw insert into each billing child table', function (s
             'updated_at' => now(),
         ])))->toThrow(QueryException::class, 'violates row-level security policy');
     });
-
-    unset($mine);
 })->with('billing child tables');
 
 it('hides one shop billing children from another', function (string $table): void {
     $subscription = subscribe($this->beta, 'pro');
 
-    app(TenantContext::class)->runAsPlatform(function () use ($table, $subscription): void {
-        $row = $table === 'subscription_addons'
-            ? ['subscription_id' => $subscription->getKey(), 'module_id' => Module::query()->value('id'), 'price' => 0, 'starts_at' => now()]
-            : ['subscription_invoice_id' => DB::table('subscription_invoices')->insertGetId([
-                'tenant_id' => $this->beta->getKey(), 'number' => 'TEST-2',
-                'subtotal' => 1000, 'total' => 1000, 'lines' => '[]',
-                'created_at' => now(), 'updated_at' => now(),
-            ]), 'gateway' => 'zarinpal', 'amount' => 1000, 'status' => 'initiated', 'payload' => '{}'];
+    app(TenantContext::class)->runAsPlatform(function () use ($table): void {
+        $row = ['subscription_invoice_id' => DB::table('subscription_invoices')->insertGetId([
+            'tenant_id' => $this->beta->getKey(), 'number' => 'TEST-2',
+            'subtotal' => 1000, 'total' => 1000, 'lines' => '[]',
+            'created_at' => now(), 'updated_at' => now(),
+        ]), 'gateway' => 'zarinpal', 'amount' => 1000, 'status' => 'initiated', 'payload' => '{}'];
 
         DB::table($table)->insert([...$row, 'tenant_id' => $this->beta->getKey(), 'created_at' => now(), 'updated_at' => now()]);
     });
@@ -213,4 +208,4 @@ it('hides one shop billing children from another', function (string $table): voi
     );
 
     expect($seen)->toBe(0);
-})->with([['subscription_addons'], ['payment_attempts']]);
+})->with([['payment_attempts']]);

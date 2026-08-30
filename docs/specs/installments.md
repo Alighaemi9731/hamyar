@@ -95,6 +95,9 @@ Listens: `InstallmentPlanRequested` (Sales).
 - SMS nudges fire at T-3, T-0 and overdue, once each
   ([messaging.md](messaging.md)).
 - Cross-tenant isolation on every endpoint.
+- **Quota.** Opening an installment plan spends one `installments.plans` credit in the
+  transaction that writes the schedule. Recording an installment *payment* is free — a shop
+  that has hit its cap must still be able to take money it is owed (ADR 0018).
 
 ## Out of scope
 

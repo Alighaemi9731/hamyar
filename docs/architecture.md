@@ -43,11 +43,17 @@ One deployable. The only asynchrony is the queue.
    - `demo.hamyar.ir` → looks up `domains.subdomain`, loads the tenant, and binds it
      into the container as the request-scoped `TenantContext`.
    - Unknown subdomain → 404. Never a silent fallback to another tenant.
-3. **`SET LOCAL app.tenant_id`** is issued on the database connection inside the
-   request transaction. This is what makes RLS active; see §4.
-4. **`EnsureModuleEnabled`** (Phase 2) checks the Pennant feature for the module the
-   route belongs to and 403s if the plan does not include it.
-5. Controller → FormRequest → module Service/Action → Model.
+3. **`select set_config('app.tenant_id', <id>, false)`** is issued on the database
+   connection. This is what makes RLS active; see §4. **Session-scoped, not `SET LOCAL`** —
+   Laravel does not wrap a request in a transaction, so the transaction-scoped form would
+   silently set nothing and every tenant query would return zero rows. Session scope is why
+   the value must be cleared at four boundaries (ADR 0007).
+4. **`EnsureModuleEnabled`** (Phase 2) 403s if *we* have switched the module off —
+   a kill-switch for a module with no provider behind it (ADR 0011), not something a plan
+   buys. Since DECISION GATE 6 every module is open to every shop; what a plan sells is
+   quantity, enforced at the write by `QuotaGuard` (§4a, ADR 0018).
+5. Controller → FormRequest → module Service/Action → Model. A metered action calls
+   `QuotaGuard::consume()` **inside the same transaction that writes the row it counts**.
 6. **Inertia** renders a React page with the shared props from §6.
 
 Queued jobs run the same context restoration before `handle()` — see §4.3.

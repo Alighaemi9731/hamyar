@@ -7,6 +7,79 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.16.0 - 2026-08-30
+
+**The bundle tables are gone, and the meter now has tests where a shopkeeper meets it.**
+Phase 12.15 as scheduled, plus the phase's Definition-of-Done item that nobody had walked —
+which is what found the two things below.
+
+**`plan_module`, `subscription_addons`, `modules.is_addonable` and `modules.addon_price`
+dropped**, one release after `0.15.0` stopped reading them. That gap is the blue/green rule
+in `docs/VERSIONING.md`, not caution for its own sake: a deploy runs both containers against
+one already-migrated database, so a column dropped in the same release that stops writing it
+takes the site down for the length of the cutover — and the 500s come from the *old*
+container, which reads as a reason to roll back rather than as that release's fault. With
+`SubscriptionAddon`, `Subscription::addons()`, `Plan::modules()` and `Module::plans()`.
+`laravel/pennant` removed with them; nothing had imported it since Gate 6 turned gating from
+availability into quantity.
+
+`ModuleResource` was on the list to delete and is deliberately kept. Its add-on fields went
+in `0.15.0`; what is left is the only screen that flips `modules.is_enabled`, the platform
+kill-switch Gate 6 chose to keep. Deleting it would have left a switch only Tinker can reach.
+
+**`QuotaExceeded` no longer extends `RuntimeException`, and that one word had disabled the
+block on most of the product.** A dozen controllers wrap their domain call in
+`catch (RuntimeException $e)` and turn it into a field-level validation message — the
+established way this codebase reports «موجودی کافی نیست» beside the input that caused it.
+Every one of those arms swallowed the quota block on its way past. At the till, a shop that
+hit its monthly invoice cap got the raw English `Quota exceeded for [sales.invoices]: 300
+used of 300, 1 requested.` under the line-items field, and `quota_block` — the payload
+carrying the Persian sentence, the reset date and the upgrade button — never reached the
+page at all.
+
+Nothing crashed. The refusal was correct, the transaction rolled back, no credit was spent;
+only the *telling* was wrong, which is why no existing test saw it. Every quota test
+asserted on the counter, and the counter was right. Extending `Exception` puts the block
+outside those catch arms by construction, including in controllers nobody has written yet —
+the alternative, adding `catch (QuotaExceeded) { throw; }` above a dozen existing arms,
+works today and silently stops working at the thirteenth.
+
+POS additionally deletes its draft and re-throws: the block redirects back to the till, and
+an operator with a customer waiting presses the button again, so every press that left its
+draft behind would park another numberless orphan.
+
+**Six metered features have no way in, and the boxes that said otherwise are corrected.**
+Looking for an enforcement site to test found that across 104 write routes nothing creates a
+cheque, an expense or income, a recurring template, a rental contract, a campaign, or a
+treasury account. Each has its service, its ledger matrix and its tests — a `Cheque` row is
+written in nine test files and zero production files — and each is priced on the ladder, so
+the free rung advertises «۵۰ ثبت چک» for something a shop cannot do once. Roadmap 7.2, 7.3
+and 8.3 are now `[~]` with the reason on the line, and §12.16 names the six missing screens.
+Not built here: six create screens is Phase 7/8 product work, not a release about dropping
+tables, and it is written down rather than fixed quietly because the dangerous version of
+this bug is the one nobody says out loud.
+
+**One `QuotaEnforcementTest` per metered module**, driving the real route at its ceiling:
+the write is refused, the session carries the `quota` key, the block payload has the keys
+the React component reads, its message is Persian, and no counter row exists at all — which
+is a different claim from a row reading zero, and the only one that says the transaction
+really rolled back. Plus the exemptions nothing had ever asserted: a repair-delivery invoice
+does not spend a sales credit, viewing a report on screen does not spend an export, and
+collecting an installment payment is free.
+
+**Docs caught up with Gate 6.** `docs/specs/platform.md` (limits, screens, events,
+acceptance), the Gating rule in `docs/specs/README.md`, one acceptance line on each of the
+14 metered module specs, `docs/architecture.md` — which still described `SET LOCAL`, the
+exact thing golden rule 1 exists to forbid — `docs/VERSIONING.md`, and `docs/testing.md`,
+which cited two test helpers that do not exist. `docs/load-testing.md`'s "never against
+production" note is rewritten to key on *what the data is worth* rather than on a box's
+name, so it cannot expire again the way it did; and the volume seeder now seeds onto the
+unlimited plan, since fifty shops writing thousands of invoices is precisely what the meter
+exists to refuse.
+
+Not deployed. There is no production server as of 2026-08-29; `bin/release --deploy` and
+`bin/smoke` stay suspended until the owner provides the new box.
+
 ## 0.15.1 - 2026-08-30
 
 **Every module now spends credits, and four real bugs surfaced doing it.** Phases 12.6

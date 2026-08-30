@@ -134,6 +134,11 @@ Listens: `CustomerCreditLimitChanged` (CRM).
 - Return restores stock and reverses the ledger.
 - Void leaves the number allocated and every effect reversed.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** Finalising an invoice spends one `sales.invoices` credit and a quote spends one
+  `sales.quotes`, each **inside the transaction that writes the row** — so an invoice that
+  fails to save costs nothing, and a spent credit always has an invoice behind it. A void or
+  a return does **not** refund the credit (Gate 6): the work was done, and refunding it would
+  make the meter a thing to game. A repair-delivery invoice is exempt (see `repairs.md`).
 
 ## Out of scope
 

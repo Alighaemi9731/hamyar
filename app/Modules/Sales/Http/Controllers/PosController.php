@@ -20,6 +20,7 @@ use App\Modules\Sales\Services\PaymentOptions;
 use App\Modules\Sales\Services\PosScanner;
 use App\Support\Counters\CounterService;
 use App\Support\Money;
+use App\Support\Quota\QuotaExceeded;
 use App\Support\Quota\QuotaGuard;
 use App\Support\Settings\ShopSettings;
 use App\Support\Tenancy\TenantContext;
@@ -242,6 +243,27 @@ final class PosController extends Controller
             }
 
             $finaliser->finalise($invoice, $user->id);
+        } catch (QuotaExceeded $exceeded) {
+            /*
+            | The draft goes, and the exception is re-thrown untouched.
+            |
+            | Deleting it is not about the basket being unsellable — unlike the race below,
+            | this basket is perfectly good and will sell the moment the shop upgrades. It
+            | is about what happens next: the block redirects `back()` to the till, and an
+            | operator with a customer waiting presses the button again. Every press that
+            | left its draft behind would park another orphan with no number, and a
+            | parked-drafts list full of ghosts is one nobody reads.
+            |
+            | Re-thrown rather than converted, because `QuotaExceeded` is the one exception
+            | on this path that already has a renderer: `bootstrap/app.php` turns it into
+            | the Persian sentence and the `quota_block` payload the till renders as an
+            | upgrade card. Converting it here to a `lines` message is exactly the bug that
+            | `QuotaExceeded extends Exception` now makes impossible to reintroduce by
+            | accident — see that class. Doing it deliberately would be worse.
+            */
+            $invoice->forceDelete();
+
+            throw $exceeded;
         } catch (UnitNoLongerAvailable $exception) {
             // The race, lost. The draft is deleted rather than left behind: it is a
             // basket that can never be sold, and a till whose parked-drafts list fills up

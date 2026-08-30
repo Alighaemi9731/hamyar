@@ -26,8 +26,10 @@ breaks. In this product that is almost always one of four things:
 - **A narrowed or removed RLS policy, or a change to how `app.tenant_id` is pinned.**
   Tenancy is the product's one hard guarantee; a change here that needs a data migration
   or a re-grant is not something to discover from a 500.
-- **A removed or renamed route, permission name, or Pennant feature key** that a shop's
-  saved link, a printed QR code, or an existing plan row depends on.
+- **A removed or renamed route, permission name, module code, or quota metric key** that
+  a shop's saved link, a printed QR code, or an existing plan row depends on. A metric key
+  is a row in `plan_limits`: rename one and every plan silently stops granting it, which
+  reads to a shop as "my credit vanished" rather than as an error.
 
 If a normal `bin/release --deploy` would break the box or need hand-holding → MAJOR.
 
@@ -36,9 +38,10 @@ If a normal `bin/release --deploy` would break the box or need hand-holding → 
 A new backward-compatible feature, or a substantial enhancement. Existing shops upgrade
 with no manual step:
 
-- a new module, screen, report, or workflow (a new Pennant feature that defaults off);
+- a new module, screen, report, or workflow (a new module code, switched on for
+  everybody, with a `plan_limits` row on every plan so no shop is left with no credit);
 - a new payment method, a new SMS template kind, a new export;
-- a new plan or add-on;
+- a new plan, or a raised limit on an existing one;
 - a meaningful new setting that defaults to today's behaviour.
 
 ## PATCH — no new capability

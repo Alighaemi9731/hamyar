@@ -241,6 +241,10 @@ Listens: `InvoiceFinalised` (Sales) → reserve/sell units; `InvoiceVoided` → 
   every operation.
 - Landed costs from Purchasing land in `product_units.cost`.
 - Cross-tenant isolation on every endpoint, including the IMEI search.
+- **Quota.** Registering a unit spends `inventory.units`, a transfer spends
+  `inventory.transfers`, a stock count spends `inventory.stock_counts` — each in the
+  transaction that writes it, so a ten-IMEI paste that fails on line seven spends nothing.
+  `inventory.branches` is a standing capacity: closing a branch frees the slot (ADR 0018).
 
 ## Out of scope
 
