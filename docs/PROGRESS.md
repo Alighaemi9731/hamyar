@@ -2551,3 +2551,60 @@ order differs on every conditional rule and differing is correct. And I asserted
 any label, but «کد IMEI» is what is printed on the box and said out loud in the shop.
 Both now assert the true thing: placeholder *sets*, and Latin outside an allow-list of
 proper nouns.
+
+---
+
+## 2026-08-30 — `0.19.0`: why this project develops slower than its sibling, measured
+
+The owner asked why Hamyar moves slower than their `invoice_system` project, and guessed at
+VMs and machine load. Measuring both settled it, and most of the answer was actionable.
+
+**The comparison, on real numbers rather than impressions:**
+
+| | invoice_system | Hamyar |
+|---|---|---|
+| lines of code | 66,000 | **132,000** |
+| tests | 1131, per-test **SQLite** | 1486, real **PostgreSQL** |
+| CI | **4 min** | **13 min** |
+| releases | 359 tags / 90 days | 3 tags / 24 days |
+| PRs | 1 (works on `main`) | 56 |
+| local stack | native | colima VM + 6 containers |
+
+First correction: **Hamyar is not the lighter system, it is twice the size.** Multi-tenant
+with RLS, 18 modules, Jalali, RTL. Some of the difference is inherent and should not be
+argued away.
+
+**But most of the gap was not inherent.** A test that touches the database costs 0.35s
+against 0.02s for one that does not — 17x, and not negotiable, because RLS is the guarantee
+this product sells and SQLite cannot express it. What *was* negotiable: **`paratest` ships
+with Pest and had never been switched on.** Eighteen releases of running 1486 database tests
+one after another.
+
+Turning it on: **969s → 136s locally (7x), 13min → 6min in CI (2.2x)** — CI gains less
+because a GitHub runner has 4 cores against the laptop's 12. Plus the plan catalogue, which
+was seeded per test since Phase 12: 1486 × 76ms = 113 seconds of pure repetition.
+
+**Two seams that look correct and are not**, both worth the entry in `docs/lessons.md`:
+`afterRefreshingDatabase()` fires *after* the per-test transaction opens, so a seed there
+runs every test and rolls back with it (26 failures to discover). And overriding
+`migrateDatabases()` on `Tests\TestCase` **never executes at all** — Pest applies
+`RefreshDatabase` to the generated subclass, and a trait method beats an inherited parent
+method. Dead code that looks alive; the same family as `jdate()` and `bindIf`.
+
+The seam that works is `$this->seeder` — a *property*, which does inherit — read into
+`migrate:fresh --seeder=…` once per process, before any transaction opens.
+
+**The honest part of the answer is that some of the slowness was mine.** I ran the full
+suite locally twice in one day (16 minutes each) and fanned out six agents that each ran
+tests — the exact thing this project's own memory forbids — and they raced on one database
+and cost a round of false diagnosis. The per-test catalogue seed was also mine, added in
+Phase 12 without measuring what it cost.
+
+**And the part that is not fixable with code:** 3 tags against 359. `bin/release` is
+suspended because there is no production box. invoice_system puts every change on real
+production the same day, and that feedback loop is itself most of its speed.
+
+**On `main`-only versus PRs**, since the owner asked: recommended keeping PRs. The bottleneck
+was never the PR, it was the 13-minute wait inside it — now largely gone. And the one real
+asymmetry is that invoice_system is single-tenant: here a scoping mistake leaks one shop's
+data to another, and a mandatory gate before `main` buys something there that it does not.
