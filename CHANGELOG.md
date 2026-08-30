@@ -7,6 +7,69 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.20.0 - 2026-08-30
+
+**A shopkeeper can register a cheque.** Until now they could not, and everything downstream
+of that worked perfectly: the full lifecycle state machine, every row of the posting matrix
+pinned by `ChequePostingMatrixTest`, the exposure check that counts uncleared cheques toward
+a customer's credit, the due-date calendar, the guard that refuses to void an invoice with a
+live cheque against it. All correct, all unreachable. Across 104 write routes nothing created
+a `Cheque`: the row was written in **nine test files and zero production files**, while the
+plan ladder advertised «۵۰ ثبت چک در ماه» for something a shop could not do once.
+
+`POST /cheques` → `RegisterCheque`, which creates the row, spends the `cheques.cheques`
+credit and posts the opening ledger entry **in one transaction**. That atomicity is the
+design, not caution: a cheque that exists without its posting is counted by `ChequeExposure`
+toward a customer's credit while the ledger does not know it exists, so the two answers a
+shop gets about the same customer disagree — worse than having no cheque at all.
+
+Both directions, with their real postings: a **received** cheque debits `cheques_receivable`
+and credits the party (R1); an **issued** one debits the party and credits `cheques_payable`
+and needs the bank account it is drawn on (I1). Both land in `in_hand`, and everything after
+is the state machine that already existed.
+
+The form is a disclosure on the cheques page rather than its own route — the list is what a
+shop opens that screen for, and registering is occasional by comparison. Fields are in the
+order they are printed on the paper, so it fills top to bottom. `sayad_id` is optional but
+shape-checked at 16 digits: paper older than 1400 has none, and a mistyped صیاد recorded as
+fact is worse than a blank one.
+
+Eight tests drive the real route, including the two that had nothing to test before: the
+credit is spent, and a refusal at the ceiling leaves no row, no posting and no credit.
+Roadmap 7.3's tick, which had claimed this since Phase 7, is now honest.
+
+**Four of the six unreachable features remain** (12.16): expense/income, recurring template,
+rental contract, campaign, treasury account.
+
+## 0.19.1 - 2026-08-30
+
+**Dead code removed, each piece verified twice.** An audit of `app/`, `resources/js`, assets
+and docs proposed 83 candidates; an adversarial pass — each verifier told to *save* the file
+if it could find any reference — kept 53 and confirmed 30. This ships the 19 that are pure
+subtraction:
+
+- Sixteen methods nothing calls, including `TenantProvisioner::checkSubdomain()` (orphaned by
+  ADR 0017 when the route and its only caller were deleted and this was left behind),
+  `LimitResolver::allFor()` (born dead in `0.15.0`) and `Plan::intervalDays()`.
+- Three orphaned Inertia pages — `auth/login.tsx`, `auth/register.tsx`, `welcome.tsx` —
+  superseded by Blade views when ADR 0016/0017 moved those screens. Verified by sweeping all
+  75 `Inertia::render()` strings: none names them, and the controllers return
+  `view('auth.login')` / `view('auth.register')` instead.
+
+Left alone deliberately: the `package.json` and CSS candidates, where the risk of breaking a
+build outweighs the gain, and everything on CLAUDE.md's load-bearing list.
+
+**And a near-miss worth recording, now in `docs/lessons.md`.** The first attempt removed the
+sixteen methods with a regex that matched the signature and then walked braces. It deleted
+**1,325 lines instead of ~120** — the whole `InvoiceStatus` enum including its three cases
+and `labelFa()`, 242 lines of `TenantProvisioner`, 171 of `AuditSubjects` — because
+`(?:/\*\*.*?\*/)?` under `re.S` let "the preceding docblock" start at the file's first one.
+
+It ran clean and `php -l` passed on every file, because a gutted enum is still valid PHP. The
+only signal was `git diff --stat`: 242 deletions for one method is not a number a correct
+edit produces. Redone with `token_get_all()`, which counts braces as *tokens* — braces inside
+strings and comments are not tokens, which is why the regex could never have worked.
+
 ## 0.19.0 - 2026-08-30
 
 **The test suite goes from 16 minutes to 2, and CI should follow.** Measured on the same

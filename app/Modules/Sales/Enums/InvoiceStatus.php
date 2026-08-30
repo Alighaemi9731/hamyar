@@ -35,20 +35,4 @@ enum InvoiceStatus: string
             self::Void => 'ابطال‌شده',
         };
     }
-
-    /**
-     * Whether the document has touched stock and the ledger.
-     */
-    public function isIssued(): bool
-    {
-        return $this === self::Final;
-    }
-
-    /**
-     * Whether lines and payments may still be edited.
-     */
-    public function isEditable(): bool
-    {
-        return $this === self::Draft;
-    }
 }

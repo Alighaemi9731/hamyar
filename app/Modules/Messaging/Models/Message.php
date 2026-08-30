@@ -80,9 +80,4 @@ final class Message extends Model
     {
         return $this->belongsTo(Party::class);
     }
-
-    public function wasSent(): bool
-    {
-        return $this->status === self::STATUS_SENT;
-    }
 }

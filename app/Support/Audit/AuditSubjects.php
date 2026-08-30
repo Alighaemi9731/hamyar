@@ -200,12 +200,4 @@ final class AuditSubjects
             array_keys($subjects),
         ));
     }
-
-    /**
-     * @return list<class-string<Model>>
-     */
-    public function registeredClasses(): array
-    {
-        return array_keys($this->keys);
-    }
 }

@@ -14,7 +14,6 @@ use App\Modules\Platform\Models\Tenant;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -236,37 +235,5 @@ final class TenantProvisioner
                 ]);
             }
         }
-    }
-
-    /**
-     * Is this subdomain available and legal?
-     *
-     * @return array{ok: bool, reason?: string}
-     */
-    public function checkSubdomain(string $subdomain): array
-    {
-        $subdomain = Str::lower(trim($subdomain));
-
-        if (preg_match('/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/', $subdomain) !== 1) {
-            return ['ok' => false, 'reason' => 'نشانی فروشگاه باید ۳ تا ۳۰ نویسه انگلیسی، عدد یا خط تیره باشد و با حرف یا عدد شروع و تمام شود.'];
-        }
-
-        if (str_contains($subdomain, '--')) {
-            // Two hyphens in a row is the IDN "punycode" prefix form; disallowing it
-            // avoids a class of homograph lookalikes.
-            return ['ok' => false, 'reason' => 'دو خط تیره پشت‌سرهم مجاز نیست.'];
-        }
-
-        if (in_array($subdomain, self::RESERVED_SUBDOMAINS, true)) {
-            return ['ok' => false, 'reason' => 'این نشانی رزرو شده است. لطفاً نشانی دیگری انتخاب کنید.'];
-        }
-
-        $taken = Domain::query()->where('hostname', Domain::hostnameFor($subdomain))->exists();
-
-        if ($taken) {
-            return ['ok' => false, 'reason' => 'این نشانی قبلاً گرفته شده است.'];
-        }
-
-        return ['ok' => true];
     }
 }

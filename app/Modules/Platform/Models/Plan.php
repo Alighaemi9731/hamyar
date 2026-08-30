@@ -62,19 +62,6 @@ final class Plan extends Model
     }
 
     /**
-     * Days in one billing period. Used by the proration calculator when a subscription
-     * has no explicit period yet.
-     */
-    public function intervalDays(): int
-    {
-        return match ($this->interval) {
-            'year' => 365,
-            'quarter' => 91,
-            default => 30,
-        };
-    }
-
-    /**
      * A limit's value, or null for unlimited.
      *
      * Null means unlimited on purpose: a sentinel like 0 or -1 reads as "none" to

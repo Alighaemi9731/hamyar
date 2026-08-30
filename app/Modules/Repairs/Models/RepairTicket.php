@@ -173,14 +173,6 @@ final class RepairTicket extends Model
     }
 
     /**
-     * Whether the shop is waiting on a customer's yes right now.
-     */
-    public function isAwaitingApproval(): bool
-    {
-        return $this->approval_token !== null && $this->approved_at === null;
-    }
-
-    /**
      * Whether a passcode was recorded at all.
      *
      * The UI needs to distinguish "there is a code, ask if you need it" from "the

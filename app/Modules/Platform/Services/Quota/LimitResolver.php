@@ -96,16 +96,6 @@ final class LimitResolver
     }
 
     /**
-     * Every effective limit for a tenant, keyed by metric.
-     *
-     * @return array<string, int|null>
-     */
-    public function allFor(int $tenantId): array
-    {
-        return $this->resolve($tenantId)['limits'];
-    }
-
-    /**
      * The cheapest public plan that would fit `$needed` of `$metric`, or null when the
      * shop is already on the most generous one.
      *

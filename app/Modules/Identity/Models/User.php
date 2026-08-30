@@ -101,14 +101,4 @@ final class User extends Authenticatable
             ->logOnlyDirty()
             ->dontLogEmptyChanges();
     }
-
-    /**
-     * spatie/permission resolves the "team" from this. Returning the model's own
-     * tenant rather than the ambient context matters when an administrator edits
-     * another tenant's user from the Platform panel.
-     */
-    public function getTenantId(): int
-    {
-        return $this->tenant_id;
-    }
 }

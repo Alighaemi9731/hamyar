@@ -88,18 +88,6 @@ final class HamtaRegistry
     }
 
     /**
-     * A new device, or anything that owes nothing.
-     */
-    public function markNotRequired(ProductUnit $unit): void
-    {
-        if ($unit->hamta_status === HamtaStatus::NotRequired->value) {
-            return;
-        }
-
-        $unit->forceFill(['hamta_status' => HamtaStatus::NotRequired->value])->save();
-    }
-
-    /**
      * Record that a transfer completed.
      *
      * The activation id is optional. A shop often knows the transfer went through — they

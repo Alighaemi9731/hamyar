@@ -32,6 +32,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $serial
  * @property string|null $sayad_id
  * @property CarbonImmutable $due_date
+ * @property CarbonImmutable|null $received_at
+ * @property CarbonImmutable|null $deposited_at
  * @property CarbonImmutable|null $cleared_at
  * @property CarbonImmutable|null $bounced_at
  * @property string|null $bounce_reason

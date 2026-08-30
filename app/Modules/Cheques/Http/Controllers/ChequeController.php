@@ -6,9 +6,11 @@ namespace App\Modules\Cheques\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Cheques\Enums\ChequeDirection;
+use App\Modules\Cheques\Http\Requests\ChequeRequest;
 use App\Modules\Cheques\Models\Cheque;
 use App\Modules\Cheques\Services\ChequeCalendar;
 use App\Modules\Cheques\Services\ChequeTransitions;
+use App\Modules\Cheques\Services\RegisterCheque;
 use App\Modules\CRM\Models\Account;
 use App\Modules\Inventory\Services\BranchContext;
 use App\Support\Money;
@@ -68,6 +70,46 @@ final class ChequeController extends Controller
                 ->map(fn (Account $a): array => ['id' => $a->id, 'name' => $a->name])
                 ->all(),
         ]);
+    }
+
+    /**
+     * Register a cheque — the door that did not exist until `0.20.0`.
+     *
+     * Everything downstream of this worked and none of it was reachable: the posting matrix,
+     * the exposure check, the due-date calendar, the void guard. Across 104 write routes,
+     * nothing created a `Cheque`. It was written in nine test files and zero production
+     * files, while the plan ladder sold «۵۰ ثبت چک در ماه».
+     *
+     * The refusals come back as a general error rather than beside a field, because the ones
+     * `RegisterCheque` and `ChequeTransitions` throw are about the cheque as a whole — a
+     * missing bank account for an issued cheque, a quota ceiling — and have no input to sit
+     * under. That is the CLAUDE.md rule about errors with no home, applied at the point of
+     * writing rather than retrofitted later.
+     */
+    public function store(ChequeRequest $request, RegisterCheque $register): RedirectResponse
+    {
+        $this->authorize('create', Cheque::class);
+
+        $direction = ChequeDirection::from($request->string('direction')->value());
+
+        $drawnOn = $direction === ChequeDirection::Issued
+            ? Account::query()->whereKey($request->integer('account_id'))->first()
+            : null;
+
+        try {
+            $cheque = $register->register(
+                $direction,
+                $request->columns(),
+                $drawnOn,
+                $request->user()?->id,
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->withErrors(['cheque' => $exception->getMessage()]);
+        }
+
+        return redirect()
+            ->route('cheques.index', ['direction' => $direction->value])
+            ->with('success', "چک {$cheque->serial} ثبت شد.");
     }
 
     /**
