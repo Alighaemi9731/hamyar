@@ -22,7 +22,20 @@ export interface UsageBannerProps {
  * broken. It disappears on its own when the shop upgrades or the month turns.
  */
 export function UsageBanner({ usage, className }: UsageBannerProps) {
-  if (!usage || (usage.attention.length === 0 && !usage.plan.lapsed)) {
+  /*
+  | `Array.isArray(usage.attention)` rather than trusting the type, and it is not
+  | belt-and-braces for its own sake: this prop crosses a PHP/JSON boundary where an
+  | empty PHP array becomes a JSON *array*, not an object. That is truthy in JavaScript
+  | and has no `attention`, so `!usage` waved it through and `.length` threw — an
+  | uncaught TypeError on every shell page without a tenant. Fixed at the source too
+  | (`HandleInertiaRequests::usage()` now returns null), but a shared prop has many
+  | writers and this component should survive the next one.
+  */
+  if (!usage || !Array.isArray(usage.attention) || !usage.plan) {
+    return null;
+  }
+
+  if (usage.attention.length === 0 && !usage.plan.lapsed) {
     return null;
   }
 

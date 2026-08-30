@@ -229,7 +229,21 @@ it('renders the page even when the catalogue cannot be resolved', function (): v
     $this->actingAs($this->user)->get($this->url.'/dashboard')
         ->assertOk()
         ->assertInertia(function ($page): void {
-            expect(propsOf($page)['usage'] ?? ['not-set'])->toBe([]);
+            /*
+            | `null`, not `[]`. An empty PHP array crosses the JSON boundary as an
+            | *array*, which is truthy in JavaScript and has no `attention` property —
+            | so `UsageBanner`'s `!usage` guard waved it through into
+            | `usage.attention.length` and threw. Asserting the exact shape here is what
+            | stops that being reintroduced by somebody who reads "return nothing" as
+            | "return an empty array".
+            */
+            // `array_key_exists`, not `??`: null IS the expected value, and `?? 'not-set'`
+            // cannot tell it from a missing key — the same trap that made an earlier test
+            // in this file assert nothing at all.
+            $props = propsOf($page);
+
+            expect(array_key_exists('usage', $props))->toBeTrue()
+                ->and($props['usage'])->toBeNull();
         });
 });
 
@@ -324,4 +338,26 @@ it('stops showing red once the month has turned', function (): void {
     $this->travelTo(now()->addDays(40));
 
     expect(meterFor('sales.invoices')['level'] ?? null)->toBe('reached');
+});
+
+it('reports no usage at all rather than an empty array', function (): void {
+    /*
+    | The distinction that caused an uncaught TypeError on every shell page without a
+    | tenant. `[]` in PHP is a JSON array; `{}` would be an object; `null` is neither and
+    | is the only one a `!usage` guard on the client can recognise.
+    |
+    | `/design` renders inside the shell with no tenant and had been throwing since the
+    | prop shipped in 0.15.0 — invisible because every browser test until then visited a
+    | page that has a tenant.
+    */
+    app(TenantContext::class)->forget();
+
+    $page = $this->get(appUrl('/design'));
+
+    $page->assertOk()->assertInertia(function ($page): void {
+        $props = propsOf($page);
+
+        expect(array_key_exists('usage', $props))->toBeTrue()
+            ->and($props['usage'])->toBeNull();
+    });
 });

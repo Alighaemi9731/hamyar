@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTenantSettings } from '@/hooks/use-tenant-settings';
+import { FormErrors } from '@/components/domain/form-errors';
 import { AppShell } from '@/layouts/app-shell';
 import { toLatinDigits } from '@/lib/digits';
 import { type RoundingDirection, calculateTotals } from '@/lib/invoice-totals';
@@ -266,6 +267,22 @@ export default function PosIndex({
     );
   }
 
+  /*
+  | The three keys this screen places itself, kept as they were — they render in a
+  | position the cashier is already looking at.
+  |
+  | Everything ELSE the server can refuse now falls to <FormErrors> below. That gap was
+  | not small: `PosSaleRequest` can return twelve keys this page could never show —
+  | `payments.0.amount`, `payments.0.account_id`, `payments.0.tendered_amount`,
+  | `lines.0.unit_price`, `lines.0.quantity`, `discount_amount`, `shipping_amount` and
+  | more — and `PaymentBox` is not even passed the error bag. So a cashier who typed a
+  | tendered amount below the total pressed F9 and the screen did not change: no message,
+  | no highlight, nothing to debug, because from their side there was no error at all.
+  |
+  | That is the exact scenario CLAUDE.md's "a home for errors that belong to no field"
+  | rule was written from, on the one screen where somebody is standing at a counter with
+  | a customer waiting.
+  */
   const blockingError = errors.lines ?? errors.branch_id ?? errors.invoice;
 
   return (
@@ -321,6 +338,15 @@ export default function PosIndex({
           {blockingError}
         </p>
       )}
+
+      {/* Everything the three keys above do not cover. `handled` names what already has
+          a home so nothing is said twice — and it collapses nested keys, so listing
+          `lines` covers `lines.0.quantity` and every sibling beneath it. */}
+      <FormErrors
+        errors={errors}
+        handled={['lines', 'branch_id', 'invoice', 'trade_in']}
+        className="mb-4"
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-4">

@@ -94,7 +94,21 @@ final class HandleInertiaRequests extends Middleware
             | keyed `(tenant_id, period_key)` and covering — which is the price of a
             | shopkeeper never being surprised by a refusal.
             */
-            'usage' => fn (): array => $this->isStaff($request) ? $this->usage() : [],
+            /*
+            | `null`, not `[]`, when there is nothing to report — and that one character
+            | was an uncaught TypeError on every shell page without a tenant.
+            |
+            | PHP's `[]` serialises to a JSON **array**, which is truthy in JavaScript and
+            | has no `attention` property. So `UsageBanner`'s `!usage` guard passed it
+            | straight through to `usage.attention.length` and the page died. `/design`
+            | renders in the shell with no tenant and had been throwing since the prop
+            | shipped in 0.15.0; nothing caught it because every browser test until now
+            | visited pages that have a tenant.
+            |
+            | Typed `?array` so the shape is unambiguous at the boundary rather than
+            | something each component has to defend against.
+            */
+            'usage' => fn (): ?array => $this->isStaff($request) ? $this->usage() : null,
 
             /*
             | Set only on the request that follows a refusal.
@@ -177,14 +191,14 @@ final class HandleInertiaRequests extends Middleware
      * actually happened. A meter that turns red merely for being full would shout at a
      * shop that used exactly what it paid for and went home.
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null
      */
-    private function usage(): array
+    private function usage(): ?array
     {
         $context = app(TenantContext::class);
 
         if (! $context->has()) {
-            return [];
+            return null;
         }
 
         $tenantId = $context->idOrFail();
@@ -201,7 +215,7 @@ final class HandleInertiaRequests extends Middleware
             // to find out is the crash reporter, not a support ticket about a white page.
             report($failure);
 
-            return [];
+            return null;
         }
 
         $blocked = $this->blockedMetrics($tenantId);

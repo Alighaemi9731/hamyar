@@ -7,6 +7,68 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.18.0 - 2026-08-30
+
+**Every validation message in the product was in English.** `config('app.locale')` is `fa`,
+the fallback is `en`, and there was no `lang/` directory at all — so Laravel resolved every
+message from its own English file inside `vendor/`. A shopkeeper who left a field blank read
+«The identifier field is required.»: left-to-right English, naming a database column, on a
+right-to-left Persian page. That is the most common error interaction in any application,
+and it was in the wrong language everywhere in a product whose entire market is Iran.
+
+Twenty-one of the twenty-four FormRequests hid it by hand-writing Persian for the specific
+rules somebody remembered — 121 keys. Everything they did not anticipate, plus all forty
+inline `$request->validate()` calls in controllers, fell through. So the bug was invisible
+exactly where it was most likely to bite: on the rule nobody thought of.
+
+`lang/fa/validation.php` now covers all 109 rules Laravel ships, with the nested
+`size`/`min`/`max`/`between`/`gt`/`gte`/`lt`/`lte`/`password` structures intact, plus 220
+`attributes` labels — the half that decides whether a message reads as Persian or as a leak
+of the schema, since a field missing from that map renders its own column name mid-sentence.
+Messages are written as instructions rather than diagnoses: «تعداد اقساط را وارد کنید.»
+rather than «فیلد تعداد اقساط الزامی است.», because the person reading is mid-task with a
+customer in front of them. The per-request `messages()` entries survive as refinements.
+
+Six tests pin it, and the first two would have failed for the product's entire life: every
+rule Laravel ships has a Persian message, and every placeholder matches Laravel's own file.
+That second one matters because a misspelt placeholder does not error — `:atribute` renders
+verbatim to a customer. Placeholders are compared as sets rather than sequences, because
+Persian puts the condition first and the order differs on every conditional rule.
+
+**`/design` had been throwing an uncaught TypeError since `0.15.0`.** The `usage` shared
+prop returned PHP `[]` when there is no tenant — and an empty PHP array crosses the JSON
+boundary as an *array*, which is truthy in JavaScript and has no `attention` property. So
+`UsageBanner`'s `!usage` guard waved it straight through into `usage.attention.length` and
+the page died. Every browser test until now visited a page that has a tenant, so nothing
+looked at the one shell page that does not; the new `FormErrors` gallery test was the first
+thing to open it in a browser and it failed immediately. Fixed at the source — the prop is
+`null` when there is nothing to report — and defended in the component too, because a shared
+prop has many writers. Two tests now pin the exact shape.
+
+**The till could refuse a sale without telling anybody.** An audit of all 34 submitting
+components — each finding then adversarially verified against the real FormRequest — found
+that `PosSaleRequest` can return twelve keys the POS screen could never display. Its only
+error region was `errors.lines ?? errors.branch_id ?? errors.invoice`, three hardcoded keys,
+and `PaymentBox` is not passed the error bag at all. So a cashier who typed a tendered
+amount below the total pressed F9 and the screen did not change — no message, no highlight,
+nothing to debug, because from their side there was no error. They press it again.
+
+That is CLAUDE.md's "a home for errors that belong to no field" rule, quoted almost verbatim,
+happening on the one screen where somebody is standing at a counter with a customer waiting.
+
+`<FormErrors>` is the fix, and it takes **the whole error bag** rather than a list of keys.
+A component you must tell which keys to show needs updating every time somebody adds a rule,
+and the keys nobody thought to place are precisely the ones that go missing — so the default
+is now "visible" and hiding one is the deliberate act. `handled` collapses nested keys, so
+naming `lines` covers `lines.0.quantity` and every sibling beneath it without doubling up on
+forms that already render the parent. Five states on `/design` with a browser test.
+
+Four more confirmed dead-button forms are recorded in roadmap 12.6 and not yet retrofitted —
+the best-documented being password reset, where a link that loses its `identifier` parameter
+renders normally, accepts a new password, and does nothing at all when submitted.
+
+Not deployed. There is still no production server.
+
 ## 0.17.0 - 2026-08-30
 
 **The upgrade round trip, which was the half of the quota story nobody had built.** Phase
