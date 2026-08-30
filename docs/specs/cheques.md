@@ -334,3 +334,12 @@ revenue. The books close.
   bounce, a return and an endorsement are all things that genuinely happened.
 - Never infer a status from a date passing. A due date arriving does not clear a cheque,
   and a spent cheque is never auto-settled — somebody has to be told.
+
+---
+
+## Acceptance
+
+- **Quota.** Registering a cheque spends one `cheques.cheques` credit, in the transaction
+  that writes it. Every later event in the cheque's life — deposit, bounce, endorsement,
+  settlement — is **free**: the credit buys the cheque, not each thing that happens to it,
+  and a shop must never be unable to record a bounce (ADR 0018).

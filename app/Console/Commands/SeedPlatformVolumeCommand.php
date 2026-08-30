@@ -77,8 +77,17 @@ final class SeedPlatformVolumeCommand extends Command
 
         $plans->sync();
 
+        /*
+        | The unlimited rung, not `pro`, and that is a correctness requirement rather than
+        | generosity.
+        |
+        | This command writes thousands of invoices per shop in one go, and since ADR 0018
+        | every one of them spends a `sales.invoices` credit. On `pro` the seeder would
+        | stop dead a few hundred rows in with «سقف ماهانه شما پر شده است» — which is the
+        | product working exactly as designed, and a load test that never gets its data.
+        */
         /** @var Plan $plan */
-        $plan = Plan::query()->where('code', 'pro')->firstOrFail();
+        $plan = Plan::query()->where('code', 'enterprise')->firstOrFail();
 
         $seeder = new BulkVolumeSeeder;
         $started = microtime(true);
@@ -135,7 +144,10 @@ final class SeedPlatformVolumeCommand extends Command
     }
 
     /**
-     * Put the shop on a paid plan so plan-gated modules are reachable.
+     * Put the shop on the unlimited plan so the seeder is not metered mid-run.
+     *
+     * Not about reaching modules any more — since DECISION GATE 6 every module is open to
+     * every shop. It is about quantity: see the note at the call site.
      *
      * `subscriptions` is RLS-protected and platform-owned, so selling a plan is a
      * platform act — the same wrapper `TenantProvisioner` uses. If this ever works

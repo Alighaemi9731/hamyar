@@ -77,9 +77,23 @@ final class TenantProvisioner
 
             $this->startOnFreePlan($tenant);
 
-            // Everything below writes tenant-scoped rows, so RLS needs the context —
-            // without it the inserts are rejected by the policy's WITH CHECK clause,
-            // which is exactly the protection working as intended.
+            /*
+            | Everything below writes tenant-scoped rows, so RLS needs the context —
+            | without it the inserts are rejected by the policy's WITH CHECK clause,
+            | which is exactly the protection working as intended.
+            |
+            | savepoint-allow: `runFor()` restores the tenant id in a `finally`, so
+            | `bin/check-savepoint-recovery` flags it inside a transaction — correctly, in
+            | general. It cannot be hoisted here: `runFor($tenant, …)` needs the tenant that
+            | this very transaction is in the middle of creating, so wrapping the transaction
+            | would mean entering a context for a row that does not exist yet.
+            |
+            | Safe because the hazard that rule prevents is a `finally`'s 25P02 **replacing**
+            | an exception somebody was catching. Nothing catches here: a duplicate mobile
+            | during signup fails the request either way, and the only cost is that the log
+            | shows 25P02 where 23505 would be clearer. Add a `catch` inside this transaction
+            | and that stops being true — read the rule before you do.
+            */
             return $this->context->runFor($tenant, function () use ($tenant, $input): Tenant {
                 $this->seedRoles($tenant);
 

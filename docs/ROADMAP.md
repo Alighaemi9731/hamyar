@@ -722,14 +722,24 @@ converging on them later.
 - [x] Simple reconciliation check-off (per-entry, un-tickable)
 
 ### 7.2 Expenses & incomes
-- [x] Expense/income modules with category trees (one table, a direction column)
-- [x] Recurring templates (rent, salaries) — period-keyed idempotency, no `last_run_at`
-- [x] **Rental module**: contracts for leasing shop desk/space → periodic income entries
+- [~] Expense/income modules with category trees (one table, a direction column) —
+      **the engine only.** `RecordCashTransaction` posts a balanced pair of ledger entries
+      and is tested; there is no route and no screen that reaches it. A shopkeeper cannot
+      record a single expense. See «موارد بدون در ورودی» below
+- [~] Recurring templates (rent, salaries) — period-keyed idempotency, no `last_run_at`.
+      `GenerateRecurring` runs on the schedule and is correct; nothing creates a template
+      for it to run, so it generates from an empty table for ever
+- [~] **Rental module**: contracts for leasing shop desk/space → periodic income entries —
+      same shape: the model, the periodic posting and the tests exist, the create screen
+      does not
 - [ ] Rental reminder — deferred to Phase 8, which owns every notification channel;
       building a bespoke reminder here would be building it twice
 
 ### 7.3 Cheques
-- [x] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced | spent_to_third_party | returned
+- [~] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced |
+      spent_to_third_party | returned — **every transition works and none can be started.**
+      `POST cheques/{cheque}/transition` exists; nothing creates the cheque it transitions.
+      A `Cheque` row is written in nine test files and zero production files
 - [x] Due-date reminders list (overdue derived from the date, issued side leads)
 - [x] Ledger posting matrix documented in `docs/specs/cheques.md` — **written before the
       code**, and pinned row-for-row by `ChequePostingMatrixTest` (R1–R13, I1–I7)
@@ -783,8 +793,10 @@ converging on them later.
       every toggle OFF by default, per-automation opt-out asserted
 
 ### 8.3 Campaigns
-- [x] Audience builder over CRM filters (kind, tags, recent purchase, balance)
-- [x] Throttled queued sending (`per_minute` per campaign)
+- [~] Audience builder over CRM filters (kind, tags, recent purchase, balance) — the
+      builder resolves an audience correctly; no screen composes a campaign to give it one
+- [~] Throttled queued sending (`per_minute` per campaign) — `SendCampaign` is correct and
+      unreachable: there is no route that creates or sends a campaign
 - [ ] Per-message delivery polling — deferred to Phase 11: it needs a scheduled poller and
       a real gateway account to poll. Provider references are stored, so the data is ready.
 - [x] Opt-out honoured everywhere — excluded from the audience count AND refused at the door
@@ -1806,12 +1818,15 @@ the dependency order.
 - [x] This phase, and 2.3/2.6 marked `[→]`
 - [x] **Gate 6 cleared 2026-08-29**; ADR rewritten to monthly windows and a free first rung,
       `TrialPolicy` scheduled for deletion, CLAUDE.md golden rule 7 replaced
-- [ ] `docs/specs/platform.md` (Data, Feature gating → kill-switch, Limits, Events,
-      Acceptance), `docs/specs/README.md` "Gating" rule, one Acceptance line per metered
-      module spec, `docs/architecture.md`, `docs/load-testing.md` (load-test shops on
-      `enterprise`), `docs/testing.md:74-100` (cites `isolation()`/`actingAsUserOf()` helpers
-      that do not exist — the real primitives are the `isolation` group and
-      `actingForTenant()`)
+- [x] `docs/specs/platform.md` (Data, Feature gating → kill-switch, Limits, Screens, Events,
+      Acceptance), `docs/specs/README.md` "Gating" rule, one Acceptance line on each of the
+      14 metered module specs, `docs/architecture.md` (which also still said `SET LOCAL` —
+      the exact thing golden rule 1 exists to forbid), `docs/load-testing.md` (load-test
+      shops on `enterprise`; and its "never against production" note rewritten to key on
+      *what the data is worth* rather than on a box's name, so it cannot expire again),
+      `docs/VERSIONING.md`, `docs/testing.md:74-100` (cited `isolation()`/`actingAsUserOf()`
+      helpers that do not exist — the real primitives are the `isolation` group and
+      `actingForTenant()`; a quota-helpers section added beside them) — shipped in `0.16.0`
 
 ### 12.1 Billing bug fix — first, because the ladder's upgrade click is broken today
 - [x] `BillingService::applyPayment()` writes `subscriptions.plan_id` + `plan_changed_at`
@@ -2019,10 +2034,68 @@ the dependency order.
       writing since Phase 1 that **nobody had ever seen**
 
 ### 12.15 Drop the bundle tables — `0.16.0`
-- [ ] Drop `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price`,
-      `SubscriptionAddon`, `Subscription::addons()`; `ModuleResource` (blue/green rule: one
-      release after they stop being read)
-- [ ] Remove `laravel/pennant` if Gate 6 item 15 says so
+- [x] Dropped `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price`,
+      `SubscriptionAddon`, `Subscription::addons()`/`grantedModuleCodes()`, `Plan::modules()`,
+      `Module::plans()`/`featureName()` — one release after they stopped being read, per the
+      blue/green rule in VERSIONING
+- [x] `ModuleResource` **kept**, deliberately against the line above. Its add-on fields were
+      already gone in `0.15.0`; what is left is the only screen that flips
+      `modules.is_enabled`, which Gate 6 item 8 kept as the platform kill-switch. Deleting it
+      would leave a switch that only Tinker can reach — the exact thing CLAUDE.md's last
+      workflow rule forbids
+- [x] Removed `laravel/pennant` (Gate 6 item 15). Nothing had imported it since `0.15.0`;
+      the only remaining traces were four comments and a CLAUDE.md package line, all of which
+      described gating that no longer works that way
+
+### 12.16 موارد بدون در ورودی — six metered features no shopkeeper can start
+
+**Found on 2026-08-30, by the Phase 12 DoD item that asks for an enforcement-site test per
+metric.** There was no enforcement site to test, because there is no way in.
+
+Across 104 write routes, nothing creates a cheque, an expense or income, a recurring
+template, a rental contract, a campaign, or a treasury account. Each of these has its
+service, its ledger-posting matrix, its events and its tests — `Cheque` rows are written in
+nine test files and zero production files — and each is priced on the plan ladder, so the
+free rung advertises «۵۰ ثبت چک» for something a shop cannot do once.
+
+This is the exact failure CLAUDE.md's last workflow rule names: *a service whose tests pass
+but which only Tinker can call is not a shipped feature.* The boxes in 7.2, 7.3 and 8.3 that
+claimed otherwise are now `[~]` with the reason on the line.
+
+**Not fixed in 0.16.0, deliberately.** Six create screens is Phase 7/8 product work, not a
+release about dropping bundle tables, and the owner should decide where it sits against the
+new production server. It is written down here rather than fixed quietly because the
+dangerous version of this bug is the one nobody has said out loud.
+
+- [ ] `POST cheques` — register a received or issued cheque (`cheques.cheques`)
+- [ ] `POST treasury/transactions` — record an expense or income (`treasury.cash_transactions`)
+- [ ] `POST treasury/accounts` — open a cash box, bank or POS terminal (unmetered; every
+      other treasury screen assumes an account already exists)
+- [ ] `POST treasury/recurring` — create a recurring template (`treasury.recurring_templates`)
+- [ ] `POST treasury/rentals` — create a rental contract (`treasury.rental_contracts`)
+- [ ] `POST messaging/campaigns` — compose and send a campaign (`messaging.campaigns`)
+- [ ] Each one consumes its credit **inside the transaction that writes the row**, and gets
+      the `QuotaEnforcementTest` its siblings now have
+- [ ] Until then, those five metrics meter nothing. Leave them registered — the plan rows,
+      the resolver and the meter are all correct and waiting — but know that the usage page
+      shows a shop «۰ از ۵۰» for a thing it cannot do
+
+### 12.17 Two smaller things the enforcement tests walked past
+
+Neither is a quota defect; both were found while driving metered routes at their ceilings
+and are written down here so they are not rediscovered.
+
+- [ ] **`PartyImporter::validate()` checks that `name` is non-empty and never that it fits.**
+      `parties.name` is `varchar(255)`, so an operator who maps «توضیحات» onto the name column
+      gets SQLSTATE 22001 mid-transaction and a 500 that loses the whole import — where every
+      other bad cell in that file produces a row-level message naming the column. One guard,
+      beside the `national_id` length check that is already there. Inferred from reading, not
+      reproduced.
+- [ ] **A quota-refused import leaves the uploaded customer list on disk.** The exception
+      propagates out of `$importer->import()` before `PartyImportController@store` reaches its
+      `Storage::delete()`. Possibly what we want — the operator can upgrade and retry without
+      re-uploading — but it sits against that method's own comment about leftover lists being
+      a liability nobody remembers to clean up. Decide which it is, then make the code say so.
 
 ### Phase 12 — Definition of Done
 - [ ] A shop on the free plan runs its monthly `sales.invoices` credit out at the till, sees
@@ -2031,7 +2104,15 @@ the dependency order.
 - [ ] A shop that never pays keeps working for ever on the free plan, and its credit refills
       at 00:00 Tehran on the 1st of the Jalali month
 - [ ] `ConcurrencyTest` green under the CI `NOBYPASSRLS` role
-- [ ] Every metered key has an enforcement-site test and an isolation test
+- [~] Every metered key has an enforcement-site test and an isolation test — done for the
+      metrics a route can reach: 13 `QuotaEnforcementTest` files, one per metered module
+      (0.16.0). Five have no enforcement site to test (12.16), and `inventory.units` is
+      covered from Purchasing and Sales, which are the only two doors into it.
+      **These tests found four production bugs in their first hour**: the quota block being
+      swallowed by every `catch (RuntimeException)` on the product, the second block of any
+      month returning a white 500, a revoked invitation never giving its seat back, and every
+      standing capacity being promised a monthly reset. All four are fixed in `0.16.0`; none
+      of them were in the counter, which is why nothing before this caught them
 - [ ] The landing rows show monthly quotas, not modules, advertise no add-ons, and the
       first rung reads «رایگان»
 - [ ] `bin/smoke` passes against the new production box (whenever it exists)

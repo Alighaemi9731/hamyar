@@ -118,7 +118,7 @@ final class SubscriptionResolver
         }
 
         $subscription = Subscription::query()
-            ->with(['plan.modules', 'plan.limits', 'addons.module'])
+            ->with(['plan.limits'])
             ->where('tenant_id', $tenantId)
             // A tenant can accumulate canceled rows over time; the live one is the
             // most recent.

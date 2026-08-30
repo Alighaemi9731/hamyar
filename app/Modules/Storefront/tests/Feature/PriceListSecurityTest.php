@@ -39,8 +39,6 @@ beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
     $this->url = appUrl();
 
-    $subscription = subscribe($this->tenant, 'pro');
-
     /*
     | Storefront used to need an add-on purchase here: it was `is_addonable`, so a `pro`
     | plan did not include it and the ADMIN routes 403'd without one. DECISION GATE 6 opened
@@ -50,7 +48,7 @@ beforeEach(function (): void {
     | WhatsApp keeps working for the days it was minted for, which is why they carry no
     | `module:` gate at all.
     */
-    unset($subscription);
+    subscribe($this->tenant, 'pro');
 
     app(SubscriptionResolver::class)->forget();
     app(TenantProvisioner::class)->seedRoles($this->tenant);

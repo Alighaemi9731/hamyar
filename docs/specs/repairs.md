@@ -205,6 +205,11 @@ Listens: `UnitStatusChanged` (Inventory) to link a repair to a unit we sold.
 - The abandoned scheduler flags at exactly N days and escalates in order.
 - Repair profit reconciles against parts, labour and outsource cost.
 - Cross-tenant isolation on every endpoint, including the public page.
+- **Quota.** Taking a device in spends one `repairs.tickets` credit, in the transaction that
+  writes the intake receipt. Everything afterwards is free — status transitions, parts,
+  the technician's notes, and **the delivery invoice, which is explicitly exempt from
+  `sales.invoices`** (Gate 6): the work was metered once, at intake, and billing it is not a
+  second act (ADR 0018).
 
 ## Out of scope
 

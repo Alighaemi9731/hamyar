@@ -71,37 +71,59 @@ Full application, refreshed database, real HTTP. Every endpoint gets one.
 
 ### Isolation (`--group=isolation`)
 
-The suite this product's credibility rests on. Mark a test with the `isolation()`
-helper from `tests/Pest.php`.
+The suite this product's credibility rests on. Membership is a Pest **group**, not a
+helper call — `pest()->group('isolation')` for a whole file, or `->group('isolation')` on
+one test. `composer test:isolation` and the dedicated CI job select on it.
 
 Minimum shape for every tenant-scoped resource:
 
 ```php
 it('does not leak tenant A resources to tenant B', function (): void {
-    isolation();
-
     [$a, $b] = Tenant::factory()->count(2)->create();
 
-    $ticket = RepairTicket::factory()->for($a)->create();
+    $ticket = inTenantContext($a, fn () => RepairTicket::factory()->create());
 
-    actingAsUserOf($b)
+    actingForTenant($b)
         ->get("/repairs/{$ticket->id}")
         ->assertNotFound();          // 404, never 403 — do not confirm existence
-});
+})->group('isolation');
 ```
+
+`actingForTenant()` pins the session to that shop and signs in as one of its users;
+`inTenantContext()` runs a closure inside a shop's context so a factory writes rows that
+actually belong to it. Both live in `tests/Pest.php`.
 
 Plus, once per phase, a **raw-SQL** test that bypasses Eloquent entirely and proves
 RLS alone stops the leak:
 
 ```php
 it('cannot read another tenant rows even without the Eloquent scope', function (): void {
-    isolation();
-
-    DB::statement("SET LOCAL app.tenant_id = '{$b->id}'");
+    // Session-scoped, never `SET LOCAL` (golden rule 1): Laravel does not wrap a request
+    // in a transaction, so the transaction-scoped form sets nothing and the test passes
+    // for the wrong reason — an unset context denies everything.
+    DB::select("select set_config('app.tenant_id', ?, false)", [(string) $b->id]);
 
     expect(DB::select('select * from repair_tickets'))->toBeEmpty();
-});
+})->group('isolation');
 ```
+
+### Quota
+
+Every metered write spends a credit, so a test that writes a hundred invoices will hit
+the free plan's ceiling and fail for a reason that has nothing to do with what it is
+testing. `tests/Pest.php` carries four helpers for this:
+
+- **`withUnlimitedQuota()`** — the default posture for a suite that is not about quota.
+  Grants this shop an override on every metric.
+- **`spendQuota($tenant, $metric, $n)`** — burn credits to set up the interesting state:
+  one below the cap, at the cap, over it.
+- **`quotaUsed($tenant, $metric)`** / **`quotaRowExists($tenant, $metric)`** — assert on
+  the counter. The second is the one that catches a credit spent by a write that then
+  rolled back: no row at all is the correct answer, not a row reading zero.
+
+Every suite gets the plan catalogue seeded before each test (`PlanCatalogueSeeder`), so a
+metric always resolves to a limit. A missing catalogue surfaces as
+`Quota fallback plan [basic] does not exist`, which is the tell.
 
 **404, not 403.** A 403 confirms the record exists, which is itself a leak: a
 competitor could enumerate invoice ids to size a rival shop's business.

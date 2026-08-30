@@ -5,28 +5,37 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * A sellable capability, matching a folder under app/Modules.
+ * A capability, matching a folder under app/Modules.
  *
- * `code` is the same string used everywhere else: the Pennant feature `module:<code>`,
- * the `module:<code>` route middleware, and the nav's `feature` key. One spelling, so
- * a typo fails loudly rather than silently leaving a module ungated.
+ * **No longer a sellable one.** Until 0.15.0 a plan was a bundle: `plan_module` said which
+ * modules a shop's plan opened and `subscription_addons` sold the rest one at a time. Since
+ * DECISION GATE 6 (ADR 0018) every module is open to every shop and what a plan sells is
+ * how much work a shop may record in a Jalali month. So this table no longer answers "may
+ * this shop use Cheques" — nothing does, because the answer is always yes.
+ *
+ * What it still answers is "have *we* switched Cheques on at all", which is a different
+ * question with a different owner: `is_enabled` is the platform kill-switch that
+ * `EnsureModuleEnabled` consults, and it exists for a module with no provider behind it
+ * (Moadian, ADR 0011) or one we have taken down. `is_core` records which modules a shop
+ * cannot function without — nothing gates on it; it is documentation with a schema.
+ *
+ * `code` is the same string used everywhere else: the `module:<code>` route middleware and
+ * the nav's key. One spelling, so a typo fails loudly rather than silently leaving a
+ * module unreachable.
  *
  * @property int $id
  * @property string $code
  * @property string $name_fa
- * @property bool $is_addonable
  * @property bool $is_core
  * @property bool $is_enabled
- * @property int|null $addon_price
  * @property int $position
  */
 final class Module extends Model
 {
     protected $fillable = [
-        'code', 'name_fa', 'description_fa', 'is_addonable', 'addon_price', 'is_core', 'is_enabled', 'position',
+        'code', 'name_fa', 'description_fa', 'is_core', 'is_enabled', 'position',
     ];
 
     /**
@@ -35,24 +44,9 @@ final class Module extends Model
     protected function casts(): array
     {
         return [
-            'is_addonable' => 'boolean',
             'is_core' => 'boolean',
             'is_enabled' => 'boolean',
-            'addon_price' => 'integer',
         ];
-    }
-
-    /**
-     * @return BelongsToMany<Plan, $this>
-     */
-    public function plans(): BelongsToMany
-    {
-        return $this->belongsToMany(Plan::class, 'plan_module');
-    }
-
-    public function featureName(): string
-    {
-        return 'module:'.$this->code;
     }
 
     /**

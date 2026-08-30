@@ -1,6 +1,9 @@
 # ADR 0018 — Metered plans: every module open, quantity limits per window, a three-rung ladder
 
-- **Status:** **Accepted** at **DECISION GATE 6**, 2026-08-29 (`../ROADMAP.md`, Phase 12)
+- **Status:** **Accepted** at **DECISION GATE 6**, 2026-08-29 (`../ROADMAP.md`, Phase 12).
+  Amended 2026-08-30 (`0.16.0`) in two places, both marked inline in §Error surface: the
+  exception hierarchy is now part of the contract, and POS deletes its draft on refusal
+  rather than parking it.
 - **Date:** 2026-08-29 (j1405-06-07)
 - **Amends:** [ADR 0006](0006-proration.md) — proration stays binding for upgrades; its
   "Add-ons" section is retired with add-ons. [ADR 0012](0012-tenant-keyed-caches.md) — a
@@ -520,6 +523,19 @@ meters: UsageMeterState[], attention: string[], can_upgrade: bool }` with
 `UsageMeterState = { key, label, unit, module, used, limit | null, window, resets_at,
 level: 'ok' | 'warning' | 'reached' | 'blocked' }`. Mirrored by hand in `types/index.d.ts`.
 
+**`QuotaExceeded` extends `Exception`, and that is a contract rather than a detail.**
+It extended `RuntimeException` until `0.16.0`, which disabled the block on most of the
+product: roughly a dozen controllers wrap their domain call in `catch (RuntimeException $e)`
+and convert it into a field-level validation message — the established way this codebase
+reports «موجودی کافی نیست» beside the input that caused it — and every one of those arms
+swallowed the block on its way past. The operator got the raw English exception text under a
+field, and `quota_block` never reached the page. Nothing crashed and no credit was spent;
+only the telling was wrong, which is why every counter-based test passed. Extending
+`Exception` puts the block outside those arms *by construction*, including in controllers
+nobody has written yet — where adding `catch (QuotaExceeded) { throw; }` above a dozen
+existing arms works today and silently stops working at the thirteenth. **Anything that
+catches broadly on a metered path must let `QuotaExceeded` through.**
+
 **Being blocked is error-bag shaped, never a 4xx page.** The repo has no Inertia error
 page (a 403 from a POST reaches the shopkeeper as Inertia's English iframe modal), and
 domain failures already arrive as `back()->withErrors([...])`. `QuotaExceeded` is mapped
@@ -531,9 +547,22 @@ adversarial check found that roughly 25 forms render only field-keyed errors, so
 error-bag key alone would vanish on them. Retrofitting those forms with a shared
 `<FormErrors>` domain component is its own task (the CLAUDE.md "a home for errors that
 belong to no field" rule), not something the quota path depends on. POS additionally
-prepends `errors.quota` to its `blockingError` chain, and **parks the draft on refusal**
-(the draft is created outside the finalise transaction) so the basket survives the upgrade
-round trip. Copy, Persian digits, one sentence plus one action:
+prepends `errors.quota` to its `blockingError` chain.
+
+> **Amended 2026-08-30 (`0.16.0`).** This paragraph said POS **parks the draft on refusal**,
+> so the basket would survive the upgrade round trip. It now deletes it and re-throws.
+>
+> The original reasoning assumed the draft was the only copy of the basket. It is not: the
+> block redirects `back()`, Inertia does not remount a component on a validation-error
+> redirect, and the till's basket is still on screen. So the parked draft bought nothing the
+> operator could see — and cost something they would: `back()` puts them on the same form
+> with the same button, an operator with a customer waiting presses it again, and every press
+> that parked its draft left another numberless orphan in the parked-drafts list. A list full
+> of ghosts is one nobody reads, which is how a real parked sale gets lost.
+>
+> Found by the first enforcement-site test (`Sales/tests/Feature/QuotaEnforcementTest.php`),
+> which is also what found that the block never reached this screen at all — see the
+> `QuotaExceeded extends Exception` note below. Copy, Persian digits, one sentence plus one action:
 
 > «سهمیهٔ **۳۰۰ فاکتور فروش** این ماه در پلن **پایه** تمام شد. پلن **حرفه‌ای** ماهی ۵٬۰۰۰
 > فاکتور دارد؛ سهمیهٔ پلن فعلی **۱ مهر** تازه می‌شود.»

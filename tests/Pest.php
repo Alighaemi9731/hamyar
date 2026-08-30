@@ -312,6 +312,32 @@ function quotaRowExists(App\Modules\Platform\Models\Tenant $tenant, string $metr
 }
 
 /**
+ * Cap one metric for one shop, at whatever number the test needs.
+ *
+ * The enforcement-site tests all want the same thing: a shop one write away from its
+ * ceiling, without burning three hundred credits to get there. An override is the honest
+ * way to do it — it is the same row the Filament panel writes, resolved by the same
+ * `LimitResolver` branch, so a test that caps this way exercises the production path
+ * rather than a fixture the product does not have.
+ *
+ * `LimitResolver` memoises per tenant, so the memo is cleared: without that the cap is
+ * written and the guard goes on using the number it read before the test changed it.
+ */
+function capQuota(App\Modules\Platform\Models\Tenant $tenant, string $metric, int $limit): void
+{
+    $tenantId = idOfModel($tenant);
+
+    app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(
+        static fn () => App\Modules\Platform\Models\TenantLimitOverride::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'metric' => $metric],
+            ['value' => $limit, 'reason' => 'test'],
+        )
+    );
+
+    app(App\Modules\Platform\Services\Quota\LimitResolver::class)->forget($tenantId);
+}
+
+/**
  * Register the quota metrics the guard's own suites meter against.
  *
  * Deliberately not borrowed from a module: the guard's tests must break when the guard

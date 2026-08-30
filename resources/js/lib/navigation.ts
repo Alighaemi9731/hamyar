@@ -25,8 +25,11 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   /**
-   * Pennant feature key gating this item. Undefined = always visible.
-   * Hiding here is convenience; the route is guarded by EnsureModuleEnabled too.
+   * Module key (`module:<code>`) gating this item. Undefined = always visible.
+   *
+   * Answers "have we switched this module on", not "does this shop's plan include it" —
+   * every plan includes every module. Hiding here is convenience; the route is guarded by
+   * EnsureModuleEnabled too.
    */
   feature?: string;
 }

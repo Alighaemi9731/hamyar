@@ -98,6 +98,9 @@ presets, print and export.
 - Excel export matches the on-screen figures.
 - Role-aware widgets: a salesperson sees no cost or profit data.
 - Cross-tenant isolation on every report endpoint.
+- **Quota.** Generating an export spends one `reporting.exports` credit. **Viewing a report
+  on screen never does** — the credit buys the file, not the answer, and a shop at its cap
+  can still see every figure it could see yesterday (ADR 0018).
 
 ## Out of scope
 

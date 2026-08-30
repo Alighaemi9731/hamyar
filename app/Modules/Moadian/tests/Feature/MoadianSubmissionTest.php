@@ -46,18 +46,17 @@ beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
     $this->url = appUrl();
 
-    $subscription = subscribe($this->tenant, 'pro');
-
     /*
     | Moadian used to need an add-on purchase here: it was `is_addonable`, so a `pro`
     | subscription did not reach these routes. DECISION GATE 6 opened every module to every
     | plan, so a subscription is all it takes — and `module:moadian` now answers a different
     | question: have we switched the module on for everybody? (ADR 0011 says we would not
     | have, if there were a provider to switch it on for.)
+    |
+    | 0.16.0 dropped `subscription_addons` with the rest of the bundle, so the no-op
+    | `buyMoadian` closure that stood in for the purchase went with it.
     */
-    $this->buyMoadian = function (Tenant $tenant, $subscription): void {
-        unset($tenant, $subscription);
-    };
+    subscribe($this->tenant, 'pro');
 
     app(SubscriptionResolver::class)->forget();
     app(TenantProvisioner::class)->seedRoles($this->tenant);
@@ -567,14 +566,14 @@ it('never shows another shop’s submissions or lets one be resent', function ()
     $other = Tenant::factory()->withDomain()->create();
 
     /*
-    | The neighbour buys the add-on too, and that is the point.
+    | The neighbour subscribes too, and that is the point.
     |
-    | Without it they are refused by `module:moadian` and the test proves only that the plan
-    | gate works — a green isolation test that never exercises RLS at all. The claim worth
-    | making is that a shop which legitimately HAS the module still cannot see another
-    | shop's filings.
+    | Without a subscription they are refused before RLS is ever consulted, and the test
+    | proves only that the door is shut — a green isolation test that never exercises the
+    | thing it is named after. The claim worth making is that a shop which legitimately
+    | reaches Moadian still cannot see another shop's filings.
     */
-    ($this->buyMoadian)($other, subscribe($other, 'pro'));
+    subscribe($other, 'pro');
 
     app(SubscriptionResolver::class)->forget();
     app(TenantProvisioner::class)->seedRoles($other);

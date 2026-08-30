@@ -59,6 +59,15 @@ final class IdentityServiceProvider extends ModuleServiceProvider
                         + Invitation::query()
                             ->where('tenant_id', $tenantId)
                             ->whereNull('accepted_at')
+                            // `revoked_at` is not optional here, and leaving it out cost a
+                            // shop a week. `Invitation::isPending()` treats a revoked
+                            // invitation as not pending, and the users screen shows it as
+                            // «لغو شده» — but this count did not agree, so revoking held the
+                            // seat until `expires_at`, seven days out. A shop at its cap that
+                            // mistyped a mobile number could not re-invite, while its own
+                            // screen told it the seat was free. Any change to what "pending"
+                            // means belongs in both places or in neither.
+                            ->whereNull('revoked_at')
                             ->where('expires_at', '>', now())
                             ->count(),
                 ),

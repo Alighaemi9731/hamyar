@@ -16,8 +16,9 @@ use App\Support\Money;
  * record in a Jalali month** (ADR 0018). So `modules()` describes what exists and whether
  * we have it switched on platform-wide, and `plans()` carries the credit matrix.
  *
- * Add-ons are gone as a product. `is_addonable` and `addon_price` are dropped in 0.16.0,
- * one release after the last code that read them, per the blue/green rule in VERSIONING.
+ * Add-ons are gone as a product. `is_addonable`, `addon_price`, `plan_module` and
+ * `subscription_addons` were dropped in 0.16.0, one release after the last code that read
+ * them, per the blue/green rule in VERSIONING.
  *
  * ## These numbers seed; they do not govern
  *

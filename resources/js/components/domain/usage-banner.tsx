@@ -67,12 +67,17 @@ function nearingLimit(usage: UsageState) {
 /**
  * Names the credits rather than counting them. «سهمیهٔ فاکتور فروش و ۲ مورد دیگر رو به
  * پایان است» tells a shopkeeper what to do; «۳ سهمیه» does not.
+ *
+ * ## «این ماه» only when there is a month
+ *
+ * A Total-window meter — seats, storage, branches, live price-list links — is a standing
+ * capacity that nothing refills. Calling it «سهمیهٔ این ماه» tells a shopkeeper to wait for
+ * a reset that never comes, on precisely the metrics where the right move is to free
+ * something. The whole sentence is chosen from the *leading* meter's window, because that
+ * is the one it names; a mixed list falls back to the neutral «سهمیه‌های شما», which is
+ * true of both kinds.
  */
-function describe(meters: { label: string; level: string }[]): string {
-  if (meters.length === 0) {
-    return 'سهمیهٔ این ماه رو به پایان است.';
-  }
-
+function describe(meters: { label: string; level: string; window: string }[]): string {
   const first = meters[0];
 
   if (!first) {
@@ -81,10 +86,21 @@ function describe(meters: { label: string; level: string }[]): string {
 
   const others = meters.length - 1;
   const verb = first.level === 'blocked' ? 'تمام شده است' : 'رو به پایان است';
+  const monthly = first.window === 'month';
 
   if (others === 0) {
-    return `سهمیهٔ ${first.label} این ماه ${verb}.`;
+    return monthly
+      ? `سهمیهٔ ${first.label} این ماه ${verb}.`
+      : `ظرفیت ${first.label} ${verb}.`;
   }
 
-  return `سهمیهٔ ${first.label} و ${others} مورد دیگر این ماه ${verb}.`;
+  const mixed = meters.some((meter) => (meter.window === 'month') !== monthly);
+
+  if (mixed) {
+    return `سهمیهٔ ${first.label} و ${others} مورد دیگر ${verb}.`;
+  }
+
+  return monthly
+    ? `سهمیهٔ ${first.label} و ${others} مورد دیگر این ماه ${verb}.`
+    : `ظرفیت ${first.label} و ${others} مورد دیگر ${verb}.`;
 }

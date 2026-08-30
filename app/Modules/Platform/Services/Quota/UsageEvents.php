@@ -150,11 +150,35 @@ final class UsageEvents
     private function write(array $attributes): bool
     {
         try {
-            // The `try` is OUTSIDE `transaction()` on purpose (CLAUDE.md): the closure has
-            // to throw for the savepoint to roll back, so catching inside it would leave
-            // an aborted transaction and every later statement would fail with 25P02.
-            $this->connection->transaction(function () use ($attributes): void {
-                $this->context->runAsPlatform(static fn (): UsageEvent => UsageEvent::query()->create([
+            /*
+            | Two orderings matter here, and only one of them was right the first time.
+            |
+            | **The `try` is OUTSIDE `transaction()`** (CLAUDE.md): the closure has to throw
+            | for the savepoint to roll back, so catching inside it would leave an aborted
+            | transaction and every later statement would fail with 25P02.
+            |
+            | **`runAsPlatform()` is also OUTSIDE `transaction()`**, and it was inside until
+            | 0.16.0 — which reintroduced that exact 25P02 through a door the rule above does
+            | not cover. `runAsPlatform()` restores the flag in a `finally`, and a `finally`
+            | is not a `catch`: it runs on the way out of the *failed* insert, while the
+            | Postgres transaction is still aborted and before `transaction()` has reached
+            | its ROLLBACK. So `select set_config('app.platform', …)` died with 25P02, and
+            | that `QueryException` **replaced** the `UniqueConstraintViolationException` on
+            | the way up — so the catch below never matched and a duplicate escaped as a 500.
+            |
+            | What it cost: this row is written by the exception renderer every time a shop
+            | is blocked, and the unique index means the second block of the month is always
+            | a duplicate. A shop therefore saw the Persian block and its upgrade button
+            | **once per metric per month**, and every attempt after that was a white 500 —
+            | on exactly the "operator presses submit again with a customer at the counter"
+            | case the block exists to handle well.
+            |
+            | The general rule, which is the fourth face of the savepoint rule in CLAUDE.md:
+            | **anything whose `finally` issues SQL must sit outside the transaction that
+            | may abort**, not just the `catch`.
+            */
+            $this->context->runAsPlatform(function () use ($attributes): void {
+                $this->connection->transaction(static fn (): UsageEvent => UsageEvent::query()->create([
                     // Named rather than left inside the spread: `bin/check-quota-scoping`
                     // reads the statement, and a tenant id it cannot see is one a reviewer
                     // cannot see either.

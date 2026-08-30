@@ -37,8 +37,12 @@ export interface FlashMessages {
 }
 
 /**
- * Feature flags resolved from the tenant's plan and add-ons (Pennant, Phase 2).
- * Keys look like `module:repairs` or `limit:invoices_per_month`.
+ * Which modules the platform has switched on. Keys look like `module:repairs`.
+ *
+ * Not a plan question since DECISION GATE 6 — every module is open to every shop, and
+ * what a plan sells is how much a shop may record (see `UsageState`). This says only
+ * whether *we* are serving the module at all: a module with no provider behind it
+ * (Moadian, ADR 0011) or one we have taken down.
  *
  * Hiding UI with these is a convenience, never authorization — the route is also
  * guarded by EnsureModuleEnabled (golden rule 7).

@@ -7,7 +7,6 @@ namespace App\Modules\Platform\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * What one shop has bought.
@@ -78,16 +77,6 @@ final class Subscription extends Model
         return $this->belongsTo(Plan::class);
     }
 
-    /**
-     * @deprecated DECISION GATE 6 — add-ons are retired as a product. Dropped in 0.16.0.
-     *
-     * @return HasMany<SubscriptionAddon, $this>
-     */
-    public function addons(): HasMany
-    {
-        return $this->hasMany(SubscriptionAddon::class);
-    }
-
     public function isTrialing(?CarbonImmutable $now = null): bool
     {
         $now ??= CarbonImmutable::now();
@@ -114,32 +103,5 @@ final class Subscription extends Model
             self::STATUS_PAST_DUE => $this->grace_ends_at?->greaterThan($now) ?? false,
             default => false,
         };
-    }
-
-    /**
-     * Module codes this subscription grants: the plan's modules plus active add-ons.
-     *
-     * @deprecated DECISION GATE 6 — no plan bundles modules any more. Nothing reads this
-     *             from 0.15.0; it and `addons()`, `plan_module` and `subscription_addons`
-     *             are dropped in 0.16.0, one release later, so both versions can serve the
-     *             same database during a blue/green cutover (docs/VERSIONING.md).
-     *
-     * @return list<string>
-     */
-    public function grantedModuleCodes(?CarbonImmutable $now = null): array
-    {
-        $now ??= CarbonImmutable::now();
-
-        /** @var list<string> $fromPlan */
-        $fromPlan = $this->plan->modules->pluck('code')->values()->all();
-
-        /** @var list<string> $fromAddons */
-        $fromAddons = $this->addons
-            ->filter(fn (SubscriptionAddon $addon): bool => $addon->isActive($now))
-            ->map(fn (SubscriptionAddon $addon): string => $addon->module->code)
-            ->values()
-            ->all();
-
-        return array_values(array_unique([...$fromPlan, ...$fromAddons]));
     }
 }

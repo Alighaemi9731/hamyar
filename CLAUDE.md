@@ -9,7 +9,7 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - Frontend: Inertia.js v2 + React + TypeScript + Tailwind CSS, RTL, font Vazirmatn
 - Super-admin (central): Filament v4. Tenant app: Inertia pages only.
 - Tests: Pest v4 · Static: Larastan level 8 · Style: Pint · CI: GitHub Actions
-- Key packages: spatie/laravel-permission (teams = tenant_id), laravel/pennant,
+- Key packages: spatie/laravel-permission (teams = tenant_id),
   shetabit/multipay (Zarinpal), morilog/jalali, spatie/laravel-medialibrary,
   spatie/laravel-activitylog, maatwebsite/excel, picqer/php-barcode-generator, bacon/qr-code
 
@@ -206,6 +206,26 @@ contain**, because it goes on reading as permission long after the permission en
 
   // RIGHT — the closure throws, the savepoint rolls back, the catch runs on a healthy one.
   try { DB::transaction(fn () => insert()); } catch { select(); }
+  ```
+
+  **And a `finally` that issues SQL is the same bug wearing a different hat.** Fourth
+  occurrence, `UsageEvents::write()`, 2026-08-30: the `try` was outside `transaction()`
+  exactly as above — and a `TenantContext::runAsPlatform()` sat *inside* the closure. That
+  helper restores its flag in a `finally`, and a `finally` is not a `catch`: it runs on the
+  way out of the failed insert, while the transaction is still aborted and before
+  `transaction()` reaches its ROLLBACK. So `set_config` died with 25P02 and **that**
+  exception replaced the `UniqueConstraintViolationException`, so the catch written to
+  handle the duplicate never matched. A shop saw the quota block once per metric per month
+  and a white 500 every time after. So: **anything whose `finally` issues a query — every
+  `runAsPlatform()`, every `runFor()` — goes OUTSIDE the transaction that may abort, not
+  just the `catch`.**
+
+  ```php
+  // WRONG — the finally's set_config runs on the aborted transaction and masks the 23505.
+  try { DB::transaction(fn () => $ctx->runAsPlatform(fn () => insert())); } catch (Dup) {}
+
+  // RIGHT — rollback first, then the flag is restored on a healthy connection.
+  try { $ctx->runAsPlatform(fn () => DB::transaction(fn () => insert())); } catch (Dup) {}
   ```
 - **A `function_exists`-guarded global helper must not take a name a dependency also
   defines.** Same failure as `bindIf` below and same tell — nothing crashes, the wrong

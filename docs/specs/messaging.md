@@ -105,6 +105,11 @@ why cross-module contact is event-based ([ADR 0003](../adr/0003-modular-monolith
 - Opt-out is respected at send time by campaigns and automations alike.
 - No test ever reaches a real provider.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** Every message sent spends one `messaging.sms` credit — **automated and manual
+  from the same bucket** (Gate 6), so a busy month of delivery notifications is visibly the
+  same resource as a campaign. A campaign additionally spends one `messaging.campaigns`.
+  The free rung has `messaging.sms = 0`: SMS costs the platform real money per message, and
+  it is the one metric where a zero is the honest number rather than a stingy one (ADR 0018).
 
 ## Out of scope
 

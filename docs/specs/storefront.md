@@ -76,6 +76,10 @@ Emits: `PriceListLinkCreated`, `PriceListViewed`, `PriceListLinkRevoked`.
 - The PDF matches the web list exactly.
 - Rate limiting holds under a brute-force attempt on the password.
 - Cross-tenant isolation: one shop's link never renders another shop's catalogue.
+- **Quota.** `storefront.price_list_links` is a standing capacity — how many links are live
+  at once, not how many were ever minted — so revoking a leaked price list gives the slot
+  back. That is deliberate: revoking a leak is the one act that must never be rationed
+  (ADR 0018).
 
 ## Out of scope
 

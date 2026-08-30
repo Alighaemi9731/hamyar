@@ -91,13 +91,33 @@ final class QuotaBlock
         // A bulk refusal is a different sentence: "you asked for forty and have twelve
         // left" is actionable, "your credit is full" is not — the operator is holding a
         // spreadsheet and needs to know how much of it will fit.
+        /*
+        | A standing capacity has no month, and saying it does was a promise we could not
+        | keep.
+        |
+        | Every sentence here used to be phrased monthly regardless of window, so a shop
+        | blocked on seats read «سهمیهٔ ۲ کاربر *این ماه* … تمام شد. پلن نامحدود *ماهی* ۲۵
+        | کاربر دارد.» — telling somebody to wait for a refill that never comes, on the one
+        | metric where waiting is exactly the wrong advice. `resets_at` was already null for
+        | these, so the card said "this month" and then declined to name the date; the copy
+        | and the payload disagreed, and the copy was the half a person reads.
+        |
+        | `Window::labelFa()` and `PeriodClock::label()` have always distinguished the two
+        | («ظرفیت» versus «در ماه»); this is the sentence catching up with them.
+        */
+        $counted = $metric->window->isCounted();
+
         if ($verdict->requested > 1) {
             $remaining = Digits::toPersian((string) ($verdict->remaining() ?? 0));
             $requested = Digits::toPersian((string) $verdict->requested);
 
-            $sentence = "این عملیات {$requested} {$metric->unitFa} می‌خواهد و سهمیهٔ باقی‌ماندهٔ شما {$remaining} است.";
+            $sentence = $counted
+                ? "این عملیات {$requested} {$metric->unitFa} می‌خواهد و سهمیهٔ باقی‌ماندهٔ شما {$remaining} است."
+                : "این عملیات {$requested} {$metric->unitFa} می‌خواهد و ظرفیت آزاد شما {$remaining} است.";
         } else {
-            $sentence = "سهمیهٔ {$limit} {$metric->unitFa} این ماه در پلن {$planName} تمام شد.";
+            $sentence = $counted
+                ? "سهمیهٔ {$limit} {$metric->unitFa} این ماه در پلن {$planName} تمام شد."
+                : "ظرفیت {$limit} {$metric->unitFa} پلن {$planName} تکمیل است.";
         }
 
         if ($nextPlan instanceof Plan) {
@@ -106,7 +126,16 @@ final class QuotaBlock
                 ? 'نامحدود'
                 : Digits::toPersian(number_format($nextLimit));
 
-            $sentence .= " پلن {$nextPlan->name_fa} ماهی {$nextText} {$metric->unitFa} دارد.";
+            $sentence .= $counted
+                ? " پلن {$nextPlan->name_fa} ماهی {$nextText} {$metric->unitFa} دارد."
+                : " پلن {$nextPlan->name_fa} ظرفیت {$nextText} {$metric->unitFa} دارد.";
+        }
+
+        if (! $counted) {
+            // The actionable half, and the reason this branch exists: a capacity is freed
+            // by removing something, not by waiting. Without this the shop is left with a
+            // refusal and no move it can make today.
+            $sentence .= " با آزاد کردن یکی از {$metric->unitFa}‌های موجود هم جا باز می‌شود.";
         }
 
         if ($verdict->resetsAt !== null) {

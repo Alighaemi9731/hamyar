@@ -35,14 +35,29 @@ declare(strict_types=1);
  *
  * ## What it detects
  *
- * A `try` statement lexically inside a closure passed to `DB::transaction()` /
- * `$connection->transaction()`, whose catch block mentions 23505 or a unique-violation
- * check. That is the exact broken shape; the correct shape puts the `try` outside and is
- * invisible to this walk.
+ * **1. A `try` inside the transaction closure** whose catch block mentions 23505 or a
+ * unique-violation check. That is the original broken shape; the correct shape puts the
+ * `try` outside and is invisible to this walk.
  *
- * Escape hatch: `savepoint-allow` in a comment inside the try block, with a reason. A
- * legitimate case exists — catching something that is *not* a constraint violation, where
- * the transaction is still healthy.
+ * **2. A context wrapper inside the transaction closure** — `runAsPlatform()` or
+ * `runFor()`. Added 2026-08-30, the fourth occurrence and the one the rule above did not
+ * cover: `UsageEvents::write()` had its `try` correctly outside and a `runAsPlatform()`
+ * *inside*. That helper restores its flag in a `finally`, and a `finally` is not a `catch`
+ * — it runs on the way out of the failed insert, while the transaction is still aborted and
+ * before `transaction()` reaches its ROLLBACK. `set_config` then died with 25P02, and that
+ * exception **replaced** the `UniqueConstraintViolationException`, so the catch written to
+ * handle the duplicate never matched and it escaped as a 500. A shop saw the quota block
+ * once per metric per month and a blank error page every time after.
+ *
+ * So the rule generalises: **anything whose `finally` issues SQL goes outside the
+ * transaction that may abort, not just the `catch`.** Both wrappers nest correctly the
+ * other way round — `runAsPlatform(fn () => DB::transaction(...))` — which is also how
+ * `BillingService` has always written it.
+ *
+ * Escape hatch: `savepoint-allow` in a comment inside the try block (rule 1) or in the
+ * 25 lines above the wrapper call (rule 2), with a reason. A legitimate case exists for
+ * rule 1 — catching something that is *not* a constraint violation, where the transaction
+ * is still healthy — and for rule 2, a transaction that provably cannot abort.
  */
 
 require __DIR__.'/../vendor/autoload.php';
@@ -57,6 +72,12 @@ const SCAN_ROOTS = ['app', 'database', 'routes'];
 
 /** Signals that a catch block is recovering from a unique violation. */
 const VIOLATION_MARKERS = ['23505', 'uniqueviolation', 'unique violation', 'duplicate key'];
+
+/**
+ * Helpers that restore state in a `finally` by issuing SQL, so they must wrap the
+ * transaction rather than sit inside it. Both live on `TenantContext`.
+ */
+const FINALLY_WRAPPERS = ['runAsPlatform', 'runFor'];
 
 $parser = (new ParserFactory)->createForNewestSupportedVersion();
 $finder = new NodeFinder;
@@ -144,6 +165,35 @@ foreach (SCAN_ROOTS as $root) {
                     $failures[] = [
                         'file' => relativePath((string) $file->getRealPath()),
                         'line' => $try->getStartLine(),
+                        'kind' => 'try',
+                    ];
+                }
+
+                /*
+                | Rule 2: a context wrapper whose `finally` issues SQL, nested inside the
+                | transaction rather than around it.
+                */
+                /** @var list<Node\Expr\MethodCall> $wrappers */
+                $wrappers = $finder->find($closure, static function (Node $node): bool {
+                    if (! $node instanceof Node\Expr\MethodCall) {
+                        return false;
+                    }
+
+                    return $node->name instanceof Node\Identifier
+                        && in_array($node->name->toString(), FINALLY_WRAPPERS, true);
+                });
+
+                foreach ($wrappers as $wrapper) {
+                    // A generous lookback: this hatch needs a real reason, and a real
+                    // reason is a paragraph, not a trailing `// ok`.
+                    if (str_contains(slice($lines, $wrapper->getStartLine() - 25, $wrapper->getStartLine()), 'savepoint-allow')) {
+                        continue;
+                    }
+
+                    $failures[] = [
+                        'file' => relativePath((string) $file->getRealPath()),
+                        'line' => $wrapper->getStartLine(),
+                        'kind' => 'finally',
                     ];
                 }
             }
@@ -194,27 +244,48 @@ function relativePath(string $absolute): string
 }
 
 if ($failures === []) {
-    echo "\n  Savepoint gate: no 23505 recovery inside a nested transaction in {$scanned} files.\n\n";
+    echo "\n  Savepoint gate: nothing that recovers or restores inside a nested transaction, in {$scanned} files.\n\n";
 
     exit(0);
 }
 
 echo "\n  ✗ Savepoint-recovery gate failed.\n\n";
-echo "    A `try` that recovers from a unique violation must sit OUTSIDE `DB::transaction()`,\n";
-echo "    not inside its closure. Inside, the closure never throws, so the SAVEPOINT is never\n";
-echo "    rolled back and the recovery query dies with 25P02 on an aborted connection.\n\n";
 
-foreach ($failures as $failure) {
-    echo "      {$failure['file']}:{$failure['line']}\n";
+$tries = array_values(array_filter($failures, static fn (array $f): bool => $f['kind'] === 'try'));
+$finallys = array_values(array_filter($failures, static fn (array $f): bool => $f['kind'] === 'finally'));
+
+if ($tries !== []) {
+    echo "    A `try` that recovers from a unique violation must sit OUTSIDE `DB::transaction()`,\n";
+    echo "    not inside its closure. Inside, the closure never throws, so the SAVEPOINT is never\n";
+    echo "    rolled back and the recovery query dies with 25P02 on an aborted connection.\n\n";
+
+    foreach ($tries as $failure) {
+        echo "      {$failure['file']}:{$failure['line']}\n";
+    }
+
+    echo "\n    Rewrite as:\n\n";
+    echo "      try {\n";
+    echo "          return DB::transaction(fn () => Model::query()->create([...]));\n";
+    echo "      } catch (Throwable \$e) {\n";
+    echo "          if (! str_contains(\$e->getMessage(), '23505')) { throw \$e; }\n";
+    echo "          return Model::query()->where(...)->firstOrFail();\n";
+    echo "      }\n\n";
 }
 
-echo "\n    Rewrite as:\n\n";
-echo "      try {\n";
-echo "          return DB::transaction(fn () => Model::query()->create([...]));\n";
-echo "      } catch (Throwable \$e) {\n";
-echo "          if (! str_contains(\$e->getMessage(), '23505')) { throw \$e; }\n";
-echo "          return Model::query()->where(...)->firstOrFail();\n";
-echo "      }\n\n";
+if ($finallys !== []) {
+    echo "    `runAsPlatform()` / `runFor()` restore their state in a `finally`, which issues SQL.\n";
+    echo "    A `finally` is not a `catch`: inside a transaction that has just aborted, it runs\n";
+    echo "    BEFORE the ROLLBACK and dies with 25P02 — and that exception then REPLACES the one\n";
+    echo "    the caller was trying to catch. Wrap the transaction, do not sit inside it.\n\n";
+
+    foreach ($finallys as $failure) {
+        echo "      {$failure['file']}:{$failure['line']}\n";
+    }
+
+    echo "\n    Rewrite as:\n\n";
+    echo "      \$context->runAsPlatform(fn () => \$connection->transaction(fn () => …));\n\n";
+}
+
 echo "    See CLAUDE.md → Conventions, and docs/testing.md → §3.\n\n";
 
 exit(1);

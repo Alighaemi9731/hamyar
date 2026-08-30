@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -52,17 +51,6 @@ final class Plan extends Model
     public function getRouteKeyName(): string
     {
         return 'code';
-    }
-
-    /**
-     * @return BelongsToMany<Module, $this>
-     */
-    public function modules(): BelongsToMany
-    {
-        // Table named explicitly: Laravel's convention would order the segments
-        // alphabetically to `module_plan`, but the documented schema (roadmap 2.1)
-        // calls it `plan_module`.
-        return $this->belongsToMany(Module::class, 'plan_module');
     }
 
     /**

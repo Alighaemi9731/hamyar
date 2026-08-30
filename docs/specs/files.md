@@ -75,6 +75,10 @@ Emits: `FileUploaded`, `FileDeleted`, `QuotaExceeded`, `SensitiveFileAccessed`.
 - EXIF is stripped from uploaded images.
 - Access to a sensitive collection requires the permission and writes a log entry.
 - Deleting a tenant removes its whole prefix.
+- **Quota.** An upload spends one `files.attachments` credit **and** is checked against
+  `files.storage_mb`, a standing capacity measured from what exists rather than counted —
+  so deleting a file gives the space back, while the attachment credit stays spent. Both are
+  checked before the file is written, never after (ADR 0018).
 
 ## Out of scope
 

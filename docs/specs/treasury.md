@@ -146,6 +146,10 @@ Listens: `PaymentReceived`, `ChequeStatusChanged`, `InstallmentCollected`.
 - **The "one crazy month" seeded scenario reconciles to the rial** across P&L,
   cash-flow and every account statement.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** A cash transaction spends `treasury.cash_transactions` and an inter-account
+  transfer spends `treasury.transfers`, each in the transaction that writes the ledger rows.
+  `treasury.recurring_templates` and `treasury.rental_contracts` are standing capacities:
+  what a plan caps is how many are active, so ending a contract frees its slot (ADR 0018).
 
 ## Out of scope
 

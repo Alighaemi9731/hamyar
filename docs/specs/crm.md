@@ -142,6 +142,9 @@ named.
 - The timeline shows events from every module in the right chronological order.
 - Opening balance appears as the first ledger entry, not as a special case.
 - Cross-tenant isolation on every endpoint.
+- **Quota.** A new party spends one `crm.parties` credit and a logged follow-up spends one
+  `crm.follow_ups`, each in the transaction that writes the row. At the party cap the shop
+  can still sell to, and collect from, every customer it already has (ADR 0018).
 
 ## Out of scope
 
