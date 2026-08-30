@@ -48,6 +48,40 @@ POS additionally deletes its draft and re-throws: the block redirects back to th
 an operator with a customer waiting presses the button again, so every press that left its
 draft behind would park another numberless orphan.
 
+**The second block of the month was a white 500, on every metric.** The exception renderer
+writes a `usage_events` row every time a shop is blocked, and a unique index means the
+second block of a month is always a duplicate — which `UsageEvents::write()` catches. Except
+the insert sat inside `transaction()` with a `runAsPlatform()` wrapped *inside* it, and that
+helper restores its flag in a `finally`. A `finally` is not a `catch`: it ran on the way out
+of the failed insert, while the transaction was still aborted and before `transaction()`
+reached its ROLLBACK, so `set_config` died with `25P02` — and that exception **replaced** the
+duplicate-key one, so the catch never matched. A shop saw the Persian block and its upgrade
+button exactly once per metric per month; every attempt after that, for the rest of the
+month, was a blank error page. On precisely the "operator presses submit again with a
+customer at the counter" case the block exists to handle well.
+
+This is the fourth face of the savepoint rule in CLAUDE.md, and the first that the `try`
+being outside the transaction does not prevent. `bin/check-savepoint-recovery` now fails the
+build on a `runAsPlatform()` or `runFor()` nested inside a transaction, so the rule is
+mechanical rather than remembered. One legitimate case exists and carries its reason:
+`TenantProvisioner` cannot hoist a `runFor()` for the tenant that transaction is creating.
+
+**Revoking an invitation did not give the seat back.** The `identity.users` measure counted
+pending invitations without `whereNull('revoked_at')`, while `Invitation::isPending()` and
+the users screen both treat a revoked invitation as gone. So a shop at its seat cap that
+mistyped a mobile number was locked out of re-inviting for seven days, while its own screen
+showed that invitation as «لغو شده» — the screen said the seat was free and the meter said
+it was not. It was also exactly the asymmetry the module's own docblock claimed not to have:
+deactivating a *user* freed a seat instantly, revoking an *invitation* did not.
+
+**A standing capacity was being sold a monthly reset it never gets.** Seats, storage,
+branches, live price-list links and the two treasury contracts are `Total`-window metrics —
+freed by removing something, never by waiting — and every sentence about them was phrased
+monthly anyway: «سهمیهٔ ۲ کاربر **این ماه** … تمام شد. پلن نامحدود **ماهی** ۲۵ کاربر دارد.»
+`resets_at` was already correctly null, so the card promised a reset and then declined to
+name its date. The block message, the block card and the shell banner now all branch on the
+window, and say «ظرفیت» with the move that actually helps: free one of the ones you have.
+
 **Six metered features have no way in, and the boxes that said otherwise are corrected.**
 Looking for an enforcement site to test found that across 104 write routes nothing creates a
 cheque, an expense or income, a recurring template, a rental contract, a campaign, or a

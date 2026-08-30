@@ -155,6 +155,13 @@ Emits: `ProductCreated`, `PriceChanged`, `BulkPriceUpdateApplied`.
   transaction that writes the row** — a product that fails validation costs nothing. At the
   cap the create is refused with the next plan named; reading and editing the catalogue
   stay open (ADR 0018).
+- **Quota, the importer.** It is the one metered path in the product that consumes *after*
+  its write rather than before, because it cannot count new rows until it has made them. The
+  rollback proof is therefore the interesting one: at the ceiling the products are already in
+  the table when the guard says no, and the table must still be empty afterwards. A dry run
+  spends nothing and stays available at zero credits — a shop must be able to check its own
+  file before deciding to upgrade — and a re-import that only updates existing rows spends
+  nothing, so refreshing a price list every Saturday is not a month's allowance.
 
 ## Out of scope
 

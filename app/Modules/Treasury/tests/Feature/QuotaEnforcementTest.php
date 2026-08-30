@@ -91,6 +91,8 @@ afterEach(fn () => app(TenantContext::class)->forget());
  * Deliberately asserts nothing about the response: every test here wants to say something
  * different about it, and a helper that asserted success could not be used by the tests
  * about refusal.
+ *
+ * @return Illuminate\Testing\TestResponse<Illuminate\Http\Response>
  */
 function bankTakings(int $amount = 10_000_000, int $fee = 0): Illuminate\Testing\TestResponse
 {
@@ -173,17 +175,14 @@ it('refuses the transfer that would cross the ceiling, and moves no money', func
 it('refuses through the controller arm that used to swallow the block', function (): void {
     capQuota($this->tenant, 'treasury.transfers', 0);
 
-    bankTakings()->assertSessionHasErrors('quota');
-
-    /** @var array<string, mixed> $errors */
-    $errors = session('errors')?->getBag('default')->getMessages() ?? [];
-
-    // `transfer` is the key `TreasuryController::transfer()` writes when it converts a
-    // `RuntimeException` into a field message. A quota refusal must NOT arrive that way:
-    // «موجودی کافی نیست» and «سهمیهٔ شما تمام شد» are different problems with different
-    // answers, and the second one has an upgrade button behind it that the first must
-    // never show.
-    expect($errors)->not->toHaveKey('transfer');
+    bankTakings()
+        ->assertSessionHasErrors('quota')
+        // `transfer` is the key `TreasuryController::transfer()` writes when it converts a
+        // `RuntimeException` into a field message. A quota refusal must NOT arrive that
+        // way: «موجودی کافی نیست» and «سهمیهٔ شما تمام شد» are different problems with
+        // different answers, and the second one has an upgrade button behind it that the
+        // first must never show.
+        ->assertSessionDoesntHaveErrors('transfer');
 });
 
 it('hands the operator something to render, not just an error string', function (): void {

@@ -2080,6 +2080,23 @@ dangerous version of this bug is the one nobody has said out loud.
       the resolver and the meter are all correct and waiting — but know that the usage page
       shows a shop «۰ از ۵۰» for a thing it cannot do
 
+### 12.17 Two smaller things the enforcement tests walked past
+
+Neither is a quota defect; both were found while driving metered routes at their ceilings
+and are written down here so they are not rediscovered.
+
+- [ ] **`PartyImporter::validate()` checks that `name` is non-empty and never that it fits.**
+      `parties.name` is `varchar(255)`, so an operator who maps «توضیحات» onto the name column
+      gets SQLSTATE 22001 mid-transaction and a 500 that loses the whole import — where every
+      other bad cell in that file produces a row-level message naming the column. One guard,
+      beside the `national_id` length check that is already there. Inferred from reading, not
+      reproduced.
+- [ ] **A quota-refused import leaves the uploaded customer list on disk.** The exception
+      propagates out of `$importer->import()` before `PartyImportController@store` reaches its
+      `Storage::delete()`. Possibly what we want — the operator can upgrade and retry without
+      re-uploading — but it sits against that method's own comment about leftover lists being
+      a liability nobody remembers to clean up. Decide which it is, then make the code say so.
+
 ### Phase 12 — Definition of Done
 - [ ] A shop on the free plan runs its monthly `sales.invoices` credit out at the till, sees
       `QuotaBlock` with the prorated price, pays in sandbox, lands back on the same form and
@@ -2088,8 +2105,14 @@ dangerous version of this bug is the one nobody has said out loud.
       at 00:00 Tehran on the 1st of the Jalali month
 - [ ] `ConcurrencyTest` green under the CI `NOBYPASSRLS` role
 - [~] Every metered key has an enforcement-site test and an isolation test — done for the
-      18 metrics a route can reach (one `QuotaEnforcementTest` per module, 0.16.0). The
-      remaining six have no enforcement site to test: see 12.16
+      metrics a route can reach: 13 `QuotaEnforcementTest` files, one per metered module
+      (0.16.0). Five have no enforcement site to test (12.16), and `inventory.units` is
+      covered from Purchasing and Sales, which are the only two doors into it.
+      **These tests found four production bugs in their first hour**: the quota block being
+      swallowed by every `catch (RuntimeException)` on the product, the second block of any
+      month returning a white 500, a revoked invitation never giving its seat back, and every
+      standing capacity being promised a monthly reset. All four are fixed in `0.16.0`; none
+      of them were in the counter, which is why nothing before this caught them
 - [ ] The landing rows show monthly quotas, not modules, advertise no add-ons, and the
       first rung reads «رایگان»
 - [ ] `bin/smoke` passes against the new production box (whenever it exists)

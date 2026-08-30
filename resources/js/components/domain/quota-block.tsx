@@ -61,7 +61,20 @@ export function QuotaBlock({ block, className }: QuotaBlockProps) {
 
           {block.limit === null ? null : (
             <p className="mt-1 text-muted-foreground">
-              مصرف این ماه: <Num value={block.used} /> از <Num value={block.limit} />
+              {/*
+                A standing capacity has no month, so it must not be labelled with one.
+                `resets_at` is the signal already on the wire: it is null exactly for a
+                Total-window metric, because nothing ever refills one — a seat or a live
+                price-list link is freed by removing something, not by waiting.
+
+                Without this branch the card contradicted itself in adjacent lines: the
+                message (fixed on the server side in 0.16.0) correctly said «ظرفیت … تکمیل
+                است», and then this line said «مصرف این ماه», promising a reset that never
+                comes. Affects every Total metric — seats, storage, branches, price-list
+                links, recurring templates, rental contracts.
+              */}
+              {block.resets_at === null ? 'ظرفیت مصرف‌شده: ' : 'مصرف این ماه: '}
+              <Num value={block.used} /> از <Num value={block.limit} />
             </p>
           )}
 

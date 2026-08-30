@@ -229,3 +229,33 @@ it('meters a quote against quotes, never against invoices', function (): void {
         // a shop does ten of to close one.
         ->and(quotaRowExists($this->tenant, 'sales.invoices'))->toBeFalse();
 });
+
+it('blocks a second time in the same month without falling over', function (): void {
+    capQuota($this->tenant, 'sales.invoices', 0);
+
+    sellOnce()->assertSessionHasErrors('quota');
+
+    /*
+    | The second block, and it used to be a white 500.
+    |
+    | The exception renderer records a `usage_events` row every time a shop is blocked, and
+    | a unique index on `(tenant, metric, period, kind)` means the second block of the month
+    | is always a duplicate. `UsageEvents::write()` catches that — except the insert ran
+    | inside `transaction()` with a `runAsPlatform()` wrapped *around* it, and
+    | `runAsPlatform()` restores its flag in a `finally`. A `finally` is not a `catch`: it
+    | fired while the Postgres transaction was still aborted, `set_config` died with 25P02,
+    | and that exception replaced the duplicate-key one so the catch never matched.
+    |
+    | The shop-visible cost was the worst possible shape: the block and its upgrade button
+    | worked exactly once per metric per month, and every attempt after that — the operator
+    | pressing submit again with a customer at the counter — was a blank error page. Every
+    | enforcement test in this repository blocked only once, which is why none of them saw it.
+    */
+    sellOnce()->assertSessionHasErrors('quota');
+
+    /** @var array<string, mixed> $block */
+    $block = session('quota_block') ?? [];
+
+    expect($block['metric'] ?? null)->toBe('sales.invoices')
+        ->and(invoiceCount())->toBe(0);
+});

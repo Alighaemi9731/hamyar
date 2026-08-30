@@ -76,8 +76,14 @@ Emits: `PurchaseReceived`, `PurchaseReturned`, `LandedCostAllocated`.
 - A purchase return reverses everything it should and nothing it should not.
 - Persian and Arabic digits in the IMEI box are normalised before validation.
 - Cross-tenant isolation on every endpoint.
-- **Quota.** A purchase invoice spends one `purchasing.invoices` credit in the transaction
-  that writes it. Receiving stock against an invoice already recorded is free (ADR 0018).
+- **Quota.** Both credits are spent at **receipt**, not at draft creation, and that is the
+  whole design: `POST purchasing/invoices` and pasting IMEIs onto the draft spend nothing,
+  because a draft is a person typing and a shop must be able to prepare a delivery it cannot
+  yet afford to receive. `ReceivePurchaseInvoice` then spends one `purchasing.invoices` and a
+  batch of N `inventory.units` in one transaction — so a paste of ten devices that crosses
+  the ceiling is refused whole, takes the document credit back with it, and leaves the ten
+  lines sitting in the draft where the operator typed them. Receiving twice is refused before
+  the service is reached, so it costs nothing either (ADR 0018).
 
 ## Out of scope
 

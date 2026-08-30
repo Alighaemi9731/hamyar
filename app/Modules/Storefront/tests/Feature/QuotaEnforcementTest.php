@@ -206,20 +206,29 @@ it('names the cheapest plan that would actually fit', function (): void {
     mintLink()->assertSessionHasNoErrors();
     mintLink();
 
-    /** @var array{next_plan?: array{code?: string, limit?: int|null, due?: array<string, mixed>}} $block */
+    /** @var array{next_plan: array{code: string, limit: int|null, due: array<string, mixed>}} $block */
     $block = session('quota_block') ?? [];
 
     // Not "the next one up the list" — the cheapest rung whose limit clears the wall the
     // shop just hit. Aiming a shop at a plan that would block it again tomorrow is how an
     // upsell becomes a refund.
-    expect($block['next_plan']['code'] ?? null)->toBe('enterprise')
-        // Links cost us nothing per unit, so the top rung really is unlimited here — and
-        // `null` has to survive the whole way to the screen as "no ceiling" rather than
-        // being flattened into a zero, which is what a limit of «۰» would read as.
-        ->and($block['next_plan']['limit'] ?? 'missing')->toBeNull()
+    expect($block)->toHaveKey('next_plan')
+        ->and($block['next_plan']['code'])->toBe('enterprise')
+        /*
+        | Links cost us nothing per unit, so the top rung really is unlimited here — and
+        | `null` has to arrive at the screen still meaning "no ceiling".
+        |
+        | The key has to be asserted separately from its value, and that is the whole point
+        | rather than pedantry: `$block['next_plan']['limit'] ?? …` cannot tell an
+        | unlimited plan from a payload that dropped the key, because `??` reads both as
+        | absent. A screen that made the same mistake would render «۰ لینک» — a plan that
+        | sells nothing — for the plan that sells everything.
+        */
+        ->and($block['next_plan'])->toHaveKey('limit')
+        ->and($block['next_plan']['limit'])->toBeNull()
         // The prorated amount, not the sticker price: the shop is mid-period on «حرفه‌ای»
         // and is owed credit for the days it already paid for (ADR 0006).
-        ->and($block['next_plan']['due'] ?? null)->toBeArray();
+        ->and($block['next_plan']['due'])->toBeArray();
 });
 
 it('gives the slot back the instant a leaked link is revoked', function (): void {

@@ -298,9 +298,17 @@ function branchesInUse(): int
 }
 
 /**
+ * What the refusal left in the session for the shell to render.
+ *
+ * Prefixed with the module, and so is its sibling below. A `function` in a Pest file is a
+ * plain global one — the whole suite loads into a single process — so a name as obvious as
+ * `blockPayload()` is a name every module's enforcement-site test would reach for, and the
+ * second file to declare it does not fail as a collision but as a fatal on an unrelated
+ * module's run.
+ *
  * @return array<string, mixed>
  */
-function blockPayload(): array
+function inventoryRefusal(): array
 {
     /** @var array<string, mixed> $block */
     $block = session('quota_block') ?? [];
@@ -311,12 +319,12 @@ function blockPayload(): array
 /**
  * The rung the refusal aims its upgrade button at.
  *
- * Read through its own shaped annotation rather than off `blockPayload()`, because the
+ * Read through its own shaped annotation rather than off `inventoryRefusal()`, because the
  * payload's values are honestly `mixed` — the block carries strings, ints, nulls and a
  * nested money array — and reaching two levels into `mixed` is exactly what Larastan's
  * `checkExplicitMixed` is set to refuse.
  */
-function blockedNextPlan(): ?string
+function inventoryRefusalPlan(): ?string
 {
     /** @var array{next_plan?: array{code?: string}} $block */
     $block = session('quota_block') ?? [];
@@ -379,7 +387,7 @@ it('hands the warehousekeeper something to render, not just an error string', fu
     addTransferLine($transfer, 1);
     dispatchTransfer($transfer);
 
-    $block = blockPayload();
+    $block = inventoryRefusal();
 
     // These are the keys `quota-block.tsx` reads. A refusal that reached the browser
     // without them would render an empty card, which is worse than a 500 because nobody
@@ -392,7 +400,7 @@ it('hands the warehousekeeper something to render, not just an error string', fu
         // dozen screens until `QuotaExceeded` stopped extending `RuntimeException`. This
         // assertion is the tripwire for that regression on this route.
         ->and($block['message'])->toBeString()->not->toContain('Quota exceeded')
-        ->and($block['next_plan']['code'] ?? null)->toBe('enterprise');
+        ->and(inventoryRefusalPlan())->toBe('enterprise');
 });
 
 it('spends nothing when the dispatch fails inside the transaction', function (): void {
@@ -445,7 +453,7 @@ it('refuses to apply a count past the ceiling and leaves the sheet open', functi
 
     applyCount($count)->assertSessionHasErrors('quota');
 
-    $block = blockPayload();
+    $block = inventoryRefusal();
 
     expect($block['metric'] ?? null)->toBe('inventory.stock_counts')
         ->and($block['message'] ?? null)->toBeString()->not->toContain('Quota exceeded');
@@ -545,7 +553,7 @@ it('does not promise a refill it cannot give, for a capacity that never refills'
 
     addBranch('KRJ')->assertSessionHasErrors('quota');
 
-    $block = blockPayload();
+    $block = inventoryRefusal();
 
     expect($block)->toHaveKeys(['metric', 'label', 'message', 'used', 'limit', 'resets_at', 'next_plan'])
         ->and($block['metric'])->toBe('inventory.branches')
@@ -560,5 +568,5 @@ it('does not promise a refill it cannot give, for a capacity that never refills'
         // The upgrade has to be aimed at a rung that actually fits — «سازمانی» is the one
         // with unlimited branches. Sending them to a plan that would refuse them again is
         // how an upsell becomes a refund.
-        ->and($block['next_plan']['code'] ?? null)->toBe('enterprise');
+        ->and(inventoryRefusalPlan())->toBe('enterprise');
 });

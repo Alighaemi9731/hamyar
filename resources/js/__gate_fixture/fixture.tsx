@@ -1,0 +1,1 @@
+export const x = <div className="border-l-2" />;

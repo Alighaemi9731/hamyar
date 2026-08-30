@@ -2400,6 +2400,38 @@ sales credit, a report on screen does not spend an export, collecting an install
 free, and a system SMS is never metered. The Files module had no tests whatsoever before
 today; it now has four.
 
+**Three more, all found by agents writing the enforcement tests, none of them in the quota
+arithmetic.** The counter was never wrong. What was wrong, every time, was what a shop was
+*told*:
+
+- **The second block of any month was a white 500.** The renderer writes a `usage_events`
+  row on every block; the unique index makes the month's second one a duplicate, which
+  `UsageEvents::write()` catches. But a `runAsPlatform()` sat *inside* the transaction, and
+  it restores its flag in a `finally` — which ran while the transaction was still aborted,
+  died with 25P02, and **replaced** the duplicate-key exception on the way up, so the catch
+  never matched. The block worked once per metric per month and then went blank. The `try`
+  was outside `transaction()`, correctly, exactly as CLAUDE.md says; the rule simply did not
+  cover `finally`. It does now, and `bin/check-savepoint-recovery` enforces it — which
+  immediately found a second instance in `TenantProvisioner`, where the nesting is
+  unavoidable and now carries its reason.
+- **Revoking an invitation did not free the seat.** The measure counted pending invitations
+  without `whereNull('revoked_at')`, while `Invitation::isPending()` and the users screen
+  both say a revoked one is gone. A shop at its cap that mistyped a mobile was locked out
+  for seven days while its own screen said the seat was free.
+- **Total-window metrics were promised a monthly reset.** «سهمیهٔ ۲ کاربر این ماه … تمام
+  شد» for a standing capacity that nothing refills. `resets_at` was already null, so the
+  card said "this month" and then would not name the date. Fixed in the message, the card
+  and the banner — and the fix on the PHP side landed first, which is how an agent caught
+  the React half contradicting it in the adjacent line.
+
+**What the delegation was actually worth.** Six agents wrote thirteen files; between them
+they found three production bugs I had not, corrected my brief twice where I had the
+enforcement site in the wrong place (Purchasing meters at *receipt*, not at draft; Inventory
+at *dispatch*, not at create), and refused to assert four claims they could not make
+honestly — writing down why instead of engineering a contrived failure to satisfy the
+template. That last part is the one worth keeping: a test suite that asserts only what is
+true is worth more than one that is complete.
+
 **On running six agents against one Postgres.** They raced on `RefreshDatabase` and produced
 `relation "migrations" does not exist` in files nobody had touched. Six databases, one per
 agent, fixed it. Worth remembering before the next fan-out that writes tests: parallel
