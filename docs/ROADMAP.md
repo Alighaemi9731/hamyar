@@ -105,7 +105,12 @@ design-system skeleton — so every later phase is only about domain work.
 - [x] App shell: RTL sidebar (fa-IR nav), topbar, toast host — built strictly from gallery components
 
 ### 0.10 AI tooling
-- [x] `laravel/boost` installed; generated guidelines merged **below** the golden rules in `CLAUDE.md` (diff reviewed)
+- [x] `laravel/boost` installed; its MCP tools (`search-docs`, `tinker`, `database-query`,
+      `browser-logs`) are in use. Its generated guidelines sat below the golden rules in
+      `CLAUDE.md` until 2026-08-30 and were **deleted** there: ~450 lines of generic framework
+      guidance, four times the length of the actual project law, read into context every
+      session. The three genuine conflicts are settled in the golden rules themselves. If
+      `boost:update` re-appends the block, delete it again — CLAUDE.md says so at the bottom
 - [x] Laravel Boost MCP registered (`docker compose exec -T app php artisan boost:mcp`)
 - [x] Playwright MCP registered
 - [x] Confirm `.claude/skills/hamyar-ui/SKILL.md` loads
