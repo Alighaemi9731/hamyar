@@ -15,8 +15,6 @@ use App\Modules\Moadian\Models\MoadianInvoice;
 use App\Modules\Moadian\Models\MoadianSetting;
 use App\Modules\Moadian\Services\InvoiceMapper;
 use App\Modules\Moadian\Services\SubmitInvoice;
-use App\Modules\Platform\Models\Module;
-use App\Modules\Platform\Models\SubscriptionAddon;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
@@ -51,25 +49,15 @@ beforeEach(function (): void {
     $subscription = subscribe($this->tenant, 'pro');
 
     /*
-    | Moadian is `is_addonable`, not part of any plan — so a `pro` subscription does NOT
-    | reach these routes. The add-on has to be bought, which is the same act a shop
-    | performs, and `module:moadian` is what would 403 without it.
+    | Moadian used to need an add-on purchase here: it was `is_addonable`, so a `pro`
+    | subscription did not reach these routes. DECISION GATE 6 opened every module to every
+    | plan, so a subscription is all it takes — and `module:moadian` now answers a different
+    | question: have we switched the module on for everybody? (ADR 0011 says we would not
+    | have, if there were a provider to switch it on for.)
     */
     $this->buyMoadian = function (Tenant $tenant, $subscription): void {
-        app(TenantContext::class)->runAsPlatform(function () use ($tenant, $subscription): void {
-            $module = Module::query()->where('code', 'moadian')->firstOrFail();
-
-            SubscriptionAddon::query()->create([
-                'tenant_id' => $tenant->getKey(),
-                'subscription_id' => $subscription->getKey(),
-                'module_id' => $module->getKey(),
-                'price' => 150_000,
-                'starts_at' => now()->subDay(),
-            ]);
-        });
+        unset($tenant, $subscription);
     };
-
-    ($this->buyMoadian)($this->tenant, $subscription);
 
     app(SubscriptionResolver::class)->forget();
     app(TenantProvisioner::class)->seedRoles($this->tenant);

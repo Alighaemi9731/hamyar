@@ -20,8 +20,10 @@ use App\Modules\Sales\Services\PaymentOptions;
 use App\Modules\Sales\Services\PosScanner;
 use App\Support\Counters\CounterService;
 use App\Support\Money;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Settings\ShopSettings;
 use App\Support\Tenancy\TenantContext;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +54,7 @@ final class PosController extends Controller
         private readonly ShopSettings $settings,
         private readonly TenantContext $context,
         private readonly PaymentOptions $options,
+        private readonly ConnectionInterface $connection,
     ) {}
 
     /**
@@ -144,6 +147,7 @@ final class PosController extends Controller
         DraftInvoiceWriter $writer,
         FinaliseInvoice $finaliser,
         CounterService $counters,
+        QuotaGuard $quota,
     ): RedirectResponse {
         $this->authorize('create', SalesInvoice::class);
 
@@ -203,16 +207,28 @@ final class PosController extends Controller
             );
 
             if ($isQuote) {
-                // Numbered on creation, unlike a draft: this one gets printed and handed
-                // over, and the customer quotes the number back a week later.
-                $invoice->forceFill([
-                    'number' => $counters->nextFormatted(
+                /*
+                | Numbered on creation, unlike a draft: this one gets printed and handed
+                | over, and the customer quotes the number back a week later.
+                |
+                | The number and the credit are taken together, in a transaction. Before
+                | Phase 12 this counter call ran with none — `CounterService::next()`
+                | requires one and throws without it, so the quote path was one concurrent
+                | pair of requests away from two quotes sharing a number. The quota work
+                | is what surfaced it; the transaction fixes both.
+                */
+                $this->connection->transaction(function () use ($invoice, $counters, $branch, $quota): void {
+                    $number = $counters->nextFormatted(
                         $this->context->idOrFail(),
                         'sales_quote',
                         'QUO',
                         $branch->id,
-                    ),
-                ])->save();
+                    );
+
+                    $quota->consume('sales.quotes');
+
+                    $invoice->forceFill(['number' => $number])->save();
+                });
 
                 return redirect()
                     ->route('sales.invoices.show', $invoice)

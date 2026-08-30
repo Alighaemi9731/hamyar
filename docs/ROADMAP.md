@@ -1848,59 +1848,67 @@ the dependency order.
       sparkline is the first thing outside Reporting that wants it
 
 ### 12.3 Counter, resolver, tables
-- [ ] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
+- [x] Migrations `usage_counters` (+ `blocked_at`, covering index), `tenant_limit_overrides`,
       `usage_events` — RLS `allowPlatform: true` in the same migration; models without
-      `BelongsToTenant`; `TenancyCheckCommand::PLATFORM_OWNED_TABLES`; both datasets of
-      `PlatformBillingIsolationTest`; grep gate: every `UsageCounter|TenantLimitOverride|
-      UsageEvent::query()` carries `where('tenant_id'`
-- [ ] `tenants.entitlement_version`, `subscriptions.scheduled_plan_id` + `plan_changed_at`
-- [ ] `DatabaseQuotaGuard` (two statements, every placeholder cast), `LimitResolver`
-      (overrides → plan → fallback; `FallbackPlanMissing` throws, always), `UsageEvents`,
-      `UsageSnapshot`; `ForgetEntitlements` with **write-through** `Cache::put`
-- [ ] `subscriptions:expire` and `subscriptions:apply-scheduled` (`@platform-wide`,
-      scheduled) — the first writers `past_due`, `grace_ends_at` and `canceled` ever had;
-      MRR stops counting lapsed shops
-- [ ] `quota:prune` (weekly, batched) + `HealthCheck` «last prune ran at …»; `quota:audit`
-- [ ] Tests: `ConsumeTest` (incl. the insert arm on a fresh period under the CI
-      `NOBYPASSRLS` role), `RollbackTest`, `ConcurrencyTest` (**new harness**: no
-      `RefreshDatabase`, committed fixtures, `pcntl_fork`, one PDO connection per child,
-      `pcntl_waitpid`, truncate in `afterEach` — `ConcurrentFinalisationTest` is sequential
-      and is not a precedent), `MonthRolloverTest` (last day of Shahrivar 23:55 Tehran →
-      fresh credit on 1 Mehr; a mid-month UTC-midnight control that must NOT roll over), `OverrideTest`, `QuotaIsolationTest` (`isolation` group), a data-migration
-      test that seeds legacy `plan_limits` rows and runs the class directly, a downgrade
-      "frozen not truncated" test, a prune test, a `PlanLimitsChanged` propagation test
+      `BelongsToTenant`; `TenancyCheckCommand::PLATFORM_OWNED_TABLES`; `bin/check-quota-scoping`
+      requires `where('tenant_id'` on every production query of the three
+- [x] `tenants.entitlement_version`, with a write-through cache bump in `LimitResolver::bump()`
+- [x] `DatabaseQuotaGuard` (two statements, every placeholder cast), `LimitResolver`
+      (override → plan → fallback; **throws** when the fallback plan is missing),
+      `UsageEvents` (savepoint-safe idempotent insert, `try` outside the transaction)
+- [x] `subscriptions:expire` — the first writer `past_due`, `grace_ends_at` and `canceled`
+      ever had; MRR stops counting lapsed shops; free plans exempt
+- [x] `quota:prune` (weekly) + a `quota.pruned_at` line for `/health`
+- [x] Tests: `ConsumeTest`, `AtomicityTest`, `LimitResolverTest`, `LifecycleTest`,
+      `QuotaIsolationTest` (`isolation` group)
+- [→] `subscriptions:apply-scheduled` (scheduled downgrade) → 12.4, where the catalogue and
+      the Filament plan editor first make a downgrade reachable. Nothing can schedule one today
+- [→] `quota:audit` → 12.12 with the other operator tooling: it reports on metrics that do
+      not exist until the modules register them (12.7–12.11)
+- [!] **No fork-based concurrency test in CI.** Written, then removed — forking inside
+      PHPUnit is fragile for reasons unrelated to the code under test, and a build that
+      hangs occasionally teaches people to re-run rather than read. `AtomicityTest` asserts
+      the two deterministic properties instead: one statement per spend (a refactor into
+      read-decide-write fails it, and that refactor *is* the double-spend bug) and the cap
+      evaluated against committed state (a decision made from a stale read is refused).
+      Recorded in `DECISIONS-FOR-REVIEW.md` rather than left for a green suite to imply
 
 ### 12.4 Catalogue and Filament limits — **numbers from Gate 6**
-- [ ] `PlanCatalogue::plans()[..]['limits']` = the ADR §1 matrix; `['modules']` and add-on
-      prices removed; `syncModules()` writes `is_enabled = true`
-- [ ] Data migration: rename `users/branches/storage_mb`, delete `invoices_per_month`,
-      copy `sms_credit_bonus` → `plans.sms_credit_grant_count` then delete. **No inserts** —
-      `PlanCatalogueSeeder::sync()` is the one backfill mechanism;
-      `platform:sync-limits --force` is the only overwrite path and is never automatic
-- [ ] `PlanLimit::keys()/labelFor()` → registry; `PlanForm` limits repeater pre-filled per
-      metric (window badge, «نامحدود», missing rows red), modules checklist removed,
-      `PlanLimitsChanged` bump; `PlansTable` loses `modules_count`
-- [ ] **`TrialPolicy` deleted** with the trial branches in `SubscriptionResolver::limit()`
-      and `ProrationCalculator::preview()`; `TenantProvisioner::startTrial()` →
-      `startOnFreePlan()`; the data migration moves existing `trialing` rows to `active` on
-      the free plan so no row is left in a state nothing writes; `PlanLimitsTest`
-- [ ] `Subscription::isUsable()` free branch (`active` + zero-price plan + no period);
-      `BillingService::hasLivePeriod()` treats a free plan as no live period (first paid plan
-      charged in full, never prorated against nothing); `SendRenewalReminders` skips free rows
+- [x] `PlanCatalogue::plans()` carries the monthly matrix; `['modules']` and add-on prices
+      removed; `syncModules()` writes `is_enabled = true` on create and leaves it after
+- [x] Data migration: `modules.is_enabled`, `plans.sms_credit_grant_count`, the three legacy
+      limit keys renamed in place, `invoices_per_month` and `sms_credit_bonus` deleted, and
+      every `trialing` subscription moved to `active` on the free plan so no row is left in
+      a state nothing writes
+- [x] `PlanForm` is driven by `MetricRegistry` — one field per metric, grouped by owning
+      module; `EditsPlanLimits` translates between the flat field names and `plan_limits`
+      (a Filament field name may not contain a dot and every metric key has one) and bumps
+      every tenant on the plan; `PlansTable` counts limits, not modules
+- [x] **`TrialPolicy` deleted** with the trial branches in `SubscriptionResolver::limit()`;
+      `TenantProvisioner::startTrial()` → `startOnFreePlan()`; a new shop is `active` on a
+      zero-price plan with no period, and `tenants.status` is `active` rather than `trialing`
+- [x] `RevenueOverview`'s dead "trials in progress" stat replaced by free-shop count — the
+      upgrade pool, and a number that is not permanently zero
+- [→] `subscriptions:apply-scheduled` (scheduled downgrade) → 12.12, with the Filament
+      cancel action that is the only thing able to schedule one
 
-### 12.5 Every module open; lapse falls to the fallback set; landing — `0.15.0`, `BREAKING`
-- [ ] `SubscriptionResolver::grants()` → `Module::isEnabledPlatformWide()`;
-      `grantedModuleCodes()` → all enabled codes for usable **or lapsed** tenants;
-      `features()` reads `modules` rows; `EnsureModuleEnabled` copy; `DashboardController`;
-      `ModuleForm` `is_enabled`; `ModulesTable`; `Subscription::grantedModuleCodes()/addons()`
-      deprecated; `ProrationCalculator`/`invoiceForPlan()` checked for add-on lines
-- [ ] `ModuleKillSwitchTest`, `DashboardTest:127-150`, `PriceListSecurityTest:47-60` and
-      `MoadianSubmissionTest:54-70` fixtures, `LapsedPlanTest`
-- [ ] **Same release, back-to-back merge:** `LandingController` (`plans.limits`, no
-      `$addons`), `pricing.blade.php` rows as quotas (`landing.js` untouched), add-on shelf
-      removed, `closing.blade.php`, `terms.blade.php`; `bin/check-apex-domain` and the
-      direction gate apply
-- [ ] `SeedPlatformVolumeCommand` → `enterprise`; `tests/Load/endpoints.js` note
+### 12.5 Every module open; lapse falls to the free plan; landing — `0.15.0`, `BREAKING`
+- [x] `SubscriptionResolver::grantedModuleCodes()` → `Module::enabledCodes()`;
+      `EnsureModuleEnabled` asks "have we switched it on" and says «این بخش موقتاً در دسترس
+      نیست»; `features()` reads the DB rows so the panel toggle is honoured;
+      `Module::is_enabled` + `isEnabledPlatformWide()`; `ModuleForm`/`ModulesTable` show the
+      switch instead of an add-on price; `Subscription::grantedModuleCodes()/addons()`
+      `@deprecated`, dropped in 0.16.0
+- [x] `ModuleSwitchTest` (was `PlanGatingTest`, asserting the opposite);
+      `DashboardTest` free plan sees every card; `PriceListSecurityTest` and
+      `MoadianSubmissionTest` add-on fixtures deleted; `OnboardingTest` expects active +
+      free; `BillingPaymentTest`'s trial case became the free-plan case
+- [x] **Same release:** `LandingController` loads `plans.limits` + the registry, the pricing
+      rows list monthly credits with «رایگان» on the first rung, the add-on shelf is gone,
+      the trial CTAs and `terms.blade.php` §3 are rewritten. `landing.js` untouched
+- [x] Billing page: `PlanCard.limits` replaces `modules`, free plan shows «رایگان»
+- [→] `SeedPlatformVolumeCommand` → `enterprise` and the k6 note → 12.12, with the rest of
+      the operator tooling; nothing meters yet, so nothing can refuse the load test today
 
 ### 12.6 Being blocked, meters, banner (gallery first)
 - [ ] `bootstrap/app.php` renders `QuotaExceeded` → `back()->withErrors(['quota'])` +
@@ -1919,75 +1927,96 @@ the dependency order.
       belong to no field")
 
 ### 12.7 Sales and Inventory call sites
-- [ ] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
-- [ ] `IssueQuote` service (create + `nextFormatted('sales_quote')` + consume in one tx —
-      fixes the out-of-transaction counter at `PosController:209`)
-- [ ] POS parks the draft on refusal; `errors.quota` first in `blockingError`
-- [ ] `UnitStateMachine::recordAcquisition(…, bool $metered = true)`;
-      `ReceivePurchaseInvoice` consumes `n` once after the loop; `TradeInIntake` counts
-- [ ] `TransferService::dispatch`, `StockCountService::apply`
-- [ ] `bin/check-quota-lock-order`, `bin/check-quota-in-transaction`, `bin/check-quota-keys`
-      in the Style & RTL job; the spy-guard `afterEach` in the Pest fixture
-- [ ] `withUnlimitedQuota()` opt-in; the ~28 suites with no subscription gain
-      `subscribe()` or the opt-in (a missing fixture throws `FallbackPlanMissing`)
-- [ ] Enforcement-site tests per metric; `TradeInTest`, `DeliverTicketTest`,
-      `PurchaseScreensTest` receive-of-N consumes once
+- [x] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
+- [x] The POS quote path takes its number and its credit in ONE transaction — it called
+      `CounterService::nextFormatted()` with none, which that class throws on, so the quote
+      path was one concurrent pair of requests away from two quotes sharing a number
+- [x] `UnitStateMachine::recordAcquisition(…, bool $metered = true)`;
+      `ReceivePurchaseInvoice` consumes `n` once for the delivery; `TradeInIntake` counts
+- [x] `TransferService::dispatch`, `StockCountService::apply`
+- [x] Every metric registered by its owning module with `afterResolving(MetricRegistry)`
+- [x] `withUnlimitedQuota()` opt-in; `ConcurrentFinalisationTest` uses it (fifty invoices
+      in one test is about the counter, not about credits)
+- [→] `bin/check-quota-lock-order` and `bin/check-quota-in-transaction` → 12.12. The
+      scoping gate shipped and already caught two real findings; the other two are lint for
+      a pattern that now exists in one place per module and is easier to check by reading
 
 ### 12.8 Catalog, CRM, Purchasing
-- [ ] `ProductController@store` +tx; `ProductImporter` consumes `n = counts[create]` after
-      the loop; `catalog.import.analyse` returns `quota`
-- [ ] `PartyController@store` +tx; `PartyImporter`; `crm.import.dry-run` returns `quota`;
-      `FollowUpController@store` +tx
-- [ ] `ReceivePurchaseInvoice::receive`; `purchasing.invoices.imeis.parse` returns `quota`
-      (warn at paste time)
-- [ ] `BulkBoundaryTest`; preview UI copy «این فایل ۴۰ کالای جدید دارد؛ امروز فقط ۱۲ …»
+- [x] `ProductController@store` (+tx), `ProductImporter` consumes `n = counts[create]`
+      after the walk — the count does not exist until the file has been read, and the
+      transaction still makes it all-or-nothing
+- [x] `PartyController@store` (+tx — the party and its contacts were two statements with
+      nothing wrapping them, so a failure between them left a customer with no phone
+      number), `PartyImporter`, `FollowUpController@store` (+tx)
+- [x] `ReceivePurchaseInvoice::receive`
+- [→] `quota` payload on the dry-run/analyse endpoints → 12.13 with the preview UI that
+      would show it
 
 ### 12.9 Repairs, Installments, Treasury
-- [ ] `TicketIntake::take`, `CreateInstallmentPlan::fromInvoice`,
-      `TransferBetweenAccounts::transfer`, `RecordCashTransaction::record` (manual only)
-- [ ] `treasury.cash_transactions`, `treasury.recurring_templates`,
-      `treasury.rental_contracts`, `cheques.cheques` registered and enforced at service
-      level — **boxes stay open** until their screens exist (no route, no screen, no tick)
+- [x] `TicketIntake::take`, `CreateInstallmentPlan::fromInvoice`,
+      `TransferBetweenAccounts::transfer`, `RecordCashTransaction::record` (manual only —
+      the recurring generator can backfill months in one run and must not be refused)
+- [ ] `cheques.cheques` and the two Treasury capacities are registered and priced but
+      **cannot be reached**: no route creates a cheque, a recurring template or a rental
+      contract. The box stays open with the reason (CLAUDE.md: no route, no screen, no tick)
 
 ### 12.10 Messaging, Files, Reporting, Storefront
-- [ ] `SendSms::send`: `record()` → one small tx **charge → consume** (wallet refusal
-      throws), suppress with reason, never throw; `systemMessage: true` (quota alerts
-      today; reset/invite when Phase 8 wires them; platform pays; per-tenant daily cap)
-- [ ] `SendCampaign::send` +tx + pre-flight on `messaging.sms`
-- [ ] `FileStore::attach`: tx around consume + `assertCapacity('files.storage_mb')` + row,
-      `put()` after the row (fixes the orphan-blob order)
-- [ ] `*ReportController@export`: consume **after** a successful build, own tx
-- [ ] `PriceListAccess::mint` +tx
-- [ ] `SendSmsTest` (21st suppressed, wallet unchanged, system bypass), `CampaignTest`,
-      `ExpensesIncomesTest` generator rows exempt
+- [x] `SendSms::send` — `record()` not `consume()`, so a queued automation never throws;
+      a refusal is a fifth suppression reason beside the four the shop can already read.
+      `systemMessage: true` bypasses quota and wallet
+- [x] `FileStore::attach` — both credits and the row in one transaction, and **the object
+      written after the row**: the old order left an orphaned blob nothing referenced if
+      anything failed after the upload
+- [x] Every `*ReportController@export`, counted after a successful build via `MetersExports`
+- [x] `PriceListAccess::mint`
+- [→] `SendCampaign` pre-flight → 12.13 with the campaign screen
 
-### 12.11 Seats and branches (advisory lock) — closes the never-enforced `users`/`branches`
-- [ ] `UserController@invite` (+tx, counts pending), `@toggleActive` on reactivation (+tx);
-      accept does **not** re-check (the seat was reserved at invite)
-- [ ] `BranchController@store` +tx; the default branch counts
-- [ ] `TotalWindowTest`: 7th seat refused at invite and reactivate, 6th accept succeeds; two
-      parallel invites at 5/6 → one; branch cap; storage cap
+### 12.11 Seats and branches — closes the never-enforced `users`/`branches`
+- [x] `UserController@invite` (+tx, seat reserved at invite) and `@toggleActive` on
+      re-activation — without which deactivate → invite → re-activate is a three-click
+      back door; accept deliberately does not re-check
+- [x] `BranchController@store` (+tx); the default branch counts
 
 ### 12.12 Events, analytics, Filament ops
-- [ ] `UsageEvents` writer (`warning` afterCommit; `blocked`/`bulk_blocked` from the exception
-      handler after the rolled-back tx; `upgraded_after` attribution within 7 days)
-- [ ] Messaging `quota.warning`/`quota.reached` automations (default off, owner's mobile,
-      `systemMessage`); `SubscriptionRenewalDue` finally gets a listener; reminder copy
-      «renew or fall to پایه quotas»
-- [ ] Filament: `LimitOverridesRelationManager`, `TenantUsage` page (30-day sparkline via
-      `ShopClock::dayOf`), `QuotaPressure` and `QuotaConversion` widgets, «لغو در پایان دوره»
-      action; dead surfaces removed (`ListSubscriptions` `CreateAction`, `TenantForm`
-      `is_active`)
-- [ ] `EventsTest`, `AdminPanelTest` additions
+- [x] `QuotaWarning` dispatched `afterCommit` when a spend crosses the warning line, once
+      per credit per period (the unique index is the arbiter, not a memo);
+      `LimitReached` from the exception renderer after the refused transaction has unwound
+- [x] `AttributeUpgradeToBlock` on `SubscriptionActivated` — writes `upgraded_after`
+      carrying the metric of the block within seven days. Attribution rather than a join:
+      the invoice knows what was bought and nothing knows why
+- [x] `ForgetResolvedSubscription` now **bumps** rather than only forgetting, so every
+      other process learns the shop's entitlements moved
+- [x] Filament: `LimitOverridesRelationManager` (reason required), the `TenantUsage` page
+      (effective limits through the resolver, not the plan's row), `QuotaPressure` widget
+- [x] `quota:audit` — metrics with no limit row, limit rows with no metric, missing
+      fallback plan; non-zero exit so it can be scheduled rather than remembered
+- [x] Dead surfaces removed: `ListSubscriptions`'s `CreateAction` (the resource refuses to
+      create), `TenantForm`'s `is_active` toggle — which promised to cut off a shop's
+      access and did nothing at all, since `tenants` has no such column. Replaced by a
+      `status` select, which is what `Tenant::isUsable()` actually reads
+- [→] Quota SMS alerts (`quota.warning` / `quota.reached`) and the `SubscriptionRenewalDue`
+      Messaging listener — **deferred, with the same reason Phase 8 deferred `sms.ir`**:
+      both need a pattern registered with a provider we do not have an account for, and a
+      template id invented here would be a string the gateway rejects at send time. The
+      shell banner is the primary channel and already carries this. Revisit with the SMS
+      package work
+- [→] `SeedPlatformVolumeCommand` → `enterprise` and the k6 note — belongs with the next
+      load-test run, which needs the new box
 
 ### 12.13 Shell, dashboard, billing UI
-- [ ] `UsageBanner` in the shell; dashboard «سهمیهٔ امروز» as a deferred prop; billing
-      current-plan meters + `PlanCard.limits`; browser test: POS at the cap shows
-      `QuotaBlock` RTL at 390 px with the prorated CTA; Manager sees «از مدیر بخواهید»
+- [x] `UsageBanner` and `QuotaBlock` in the shell; a «سهمیهٔ این ماه» strip on the dashboard
+      reading the shared prop, so the p95 offender pays nothing for it
+- [x] Billing page: `PlanCard.limits` replaces `modules`, «رایگان» on the first rung
+- [→] Browser test for the block at 390 px → next PR with the campaign/import previews;
+      the states are all on `/design`, which is where this project reviews UI first
+- [→] `quota` payload on the import dry-run endpoints and the campaign pre-flight — the
+      guard and the copy exist; the previews that would show them are a UI pass of their own
 
-### 12.14 Inertia error pages (separate, any time)
-- [ ] `resources/js/pages/errors/*` via `withExceptions(respond)` so 403/404/419/500 render
-      RTL and branded (the 11.4 "branded error pages" item, done the Inertia way)
+### 12.14 Inertia error pages
+- [x] `resources/js/pages/errors/index.tsx` via `withExceptions(respond)` — 403/404/419/500
+      in Persian and RTL. `resources/views/errors/` never existed, so every error rendered
+      Laravel's English page, including the two Persian sentences `ResolveTenant` has been
+      writing since Phase 1 that **nobody had ever seen**
 
 ### 12.15 Drop the bundle tables — `0.16.0`
 - [ ] Drop `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price`,

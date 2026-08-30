@@ -2199,3 +2199,141 @@ and neither must the end of a Gregorian month.
 to no row **throws**, rather than falling back to unlimited. The lenient reading would hand
 every lapsed shop everything — failing open, in the one layer whose whole job is to fail
 closed. `0.14.4`, no release; there is still no production box.
+
+## 1405/06/08 (2026-08-30) — 12.3: the meter, and three states nothing had ever written
+
+`usage_counters`, `tenant_limit_overrides` and `usage_events` exist, with
+`DatabaseQuotaGuard` and `LimitResolver` on top. No module calls the guard yet; the machine
+is complete and the call sites land next.
+
+**A spend is one statement.** `INSERT … SELECT … WHERE n <= limit ON CONFLICT DO UPDATE …
+WHERE used + EXCLUDED.used <= limit RETURNING used`. The shape it replaces — read, decide
+in PHP, write — is the double-spend bug: at the last unit two requests both read "one
+left", both say yes, and the shop gets two for one, silently, on its busiest day. Every
+placeholder in the bounded statement carries an explicit cast because Postgres cannot infer
+a parameter's type outside a `VALUES` column position and fails at prepare time without
+them; the unbounded statement uses `VALUES` and needs none.
+
+**The fork harness was written and then deleted.** Twenty children at the last unit, a PDO
+connection each, counting winners — and it went in the bin, because forking inside PHPUnit
+is fragile for reasons that have nothing to do with the code under test, and a concurrency
+test that hangs the build once a fortnight teaches everyone to re-run CI instead of reading
+it. `AtomicityTest` asserts the two properties that are both deterministic and the ones
+that actually matter: **one statement per spend** — a refactor into read-decide-write fails
+the test, and that refactor *is* the bug — and **the cap evaluated against committed
+state**, proved by making a decision from a stale read and watching the statement refuse
+it. Postgres's own `ON CONFLICT` re-evaluation under READ COMMITTED is documented behaviour
+we rely on rather than re-prove, and `DECISIONS-FOR-REVIEW.md` says so plainly rather than
+letting a green suite imply coverage it does not have.
+
+**Three states modelled since Phase 2 with nothing writing them.** `subscriptions:expire`
+is the first writer of `past_due`, `grace_ends_at` and `canceled`. Two consequences had
+been invisible the whole time: there was **no grace period** — `isUsable()` reads a column
+nobody set, so an active row stopped being usable the instant its period ended, which is
+the opposite of what its own docblock promises about Iranian gateway outages — and **MRR
+counted every shop that had ever paid**, for ever, because nothing ever left `active`. A
+zero-price subscription is exempt: it is not late, it is free.
+
+**Failing closed where it counts.** A fallback plan that resolves to no row throws. The
+lenient reading hands every lapsed shop unlimited everything and says nothing; in the test
+suite it would also let a file that forgot its subscription fixture pass unmetered, which
+is exactly how a create path that never calls `consume()` stays green for ever.
+
+`bin/check-quota-scoping` joins the lint job. These three tables carry RLS but not
+`BelongsToTenant` — the panel reads across shops and the Eloquent scope would return
+nothing inside `runAsPlatform()` — so every production query must carry its own
+`where('tenant_id')`, and the gate makes that mechanical rather than a matter of whether
+the reviewer remembered. It skips the suite on purpose: an isolation test queries unscoped
+precisely to prove RLS is the thing doing the work.
+
+## 1405/06/08 (2026-08-30) — 12.4 and 12.5: the flip
+
+Every module is open to every shop, `basic` is free, and `TrialPolicy` is gone. This is the
+release where the gate's decisions stop being a document.
+
+**Deleting a policy rather than inverting one.** The obvious move was to keep `TrialPolicy`
+and turn it inside out — trial gets *these* quotas now. The free rung made the whole class
+unnecessary: a shop evaluates the product by using it, indefinitely, so there is no trial to
+have a policy about. `BASELINE_PLAN_CODE`, the borrowed-limits list and the trial branches in
+`SubscriptionResolver::limit()` and the resolver's `$baseline` memo all went with it.
+`startTrial()` became `startOnFreePlan()`, and a new shop is now `active` on a zero-price
+plan with `current_period_end` null — which `isUsable()` already read as "usable" and
+`hasLivePeriod()` already read as "nothing to prorate against", so the first paid upgrade is
+charged in full without a special case being written for it.
+
+**The middleware kept its shape and changed its question.** `EnsureModuleEnabled` used to
+ask whether a shop's plan included a module. Thirteen route groups, the nav, the dashboard's
+widget list and three public-page tests consume that shape correctly for a *different*
+question — have we switched this on? — which is exactly what ADR 0011 has needed since
+Moadian shipped as an adapter with no provider. Deleting it would have been a twenty-file
+diff to arrive back where we started. What changed is the answer's source
+(`modules.is_enabled`, a panel toggle) and the copy: «این بخش موقتاً در دسترس نیست» instead
+of «در پلن فعلی فروشگاه شما فعال نیست».
+
+The test that guarded the old behaviour now guards the opposite, and says so at the top of
+the file — `PlanGatingTest` became `ModuleSwitchTest`, and its cases went from "Basic is
+refused Repairs" to "the free plan gets every module, and only a switch we flipped takes one
+away". Renaming rather than editing in place was deliberate: a file called PlanGating
+asserting that plans do not gate is a name that lies.
+
+**A Filament field name cannot contain a dot**, and every metric key has one. Discovered by
+reasoning rather than by a red build — `limits.sales.invoices` would have become nested
+state and every metric would have collided with its own module prefix. `PlanForm::fieldFor()`
+flattens to `quota_sales__invoices` and `EditsPlanLimits` translates back, in one place, so
+the form and the pages that fill it cannot disagree about what a field is called.
+
+**One dead number found on the way.** `RevenueOverview` counted "trials in progress" — a
+stat that could only ever read zero once the free plan took the trial's place, sitting on
+the one dashboard that is supposed to say how the business is doing. Replaced by the count
+of shops on the free rung, which is the same query shape and is the actual upgrade pool.
+
+`0.15.0`, BREAKING-prefixed: an existing plan row's meaning changes. Still no production box,
+so still no release.
+
+## 1405/06/08 (2026-08-30) — 12.6 to 12.14: metering everything, and four bugs it uncovered
+
+Every module now spends credits. The interesting part is not the call sites — those are a
+line each — it is that making previously-unreachable paths reachable found four defects,
+none of them in the quota code.
+
+**`runAsPlatform()` was not re-entrant, and RLS does not error.** Its `finally` forced the
+flag off, so a nested call — an event listener recording something inside a platform-context
+write — cleared it for the outer block still running. Postgres does not complain when a
+policy denies you; it returns nothing. So the symptom was `findOrFail` failing on a row that
+plainly existed, a hundred lines from the nested call that caused it. That took an hour to
+find and would have taken a day in production. The depth is counted now, and cleared once by
+the outermost caller — which is the discipline `runFor()` has had since Phase 1, and this
+never did.
+
+**Two resolver bugs, both silent.** `LimitResolver` read `subscriptions` without the
+platform flag, so called for an arbitrary tenant id — from a job, from the panel — it saw no
+subscription and metered a shop on the top rung at the free rung's credits. And
+`nextPlanFor()` walked the public plans until it met the current one, which never happens
+for a shop on a private plan: the customer most likely to have a negotiated price was the
+one told there was nowhere to upgrade to.
+
+**Proration could produce a price the product cannot say out loud.** `intdiv` truncated to
+the rial; `Money::toToman()` refuses to round money and throws. That was unreachable while
+every upgrade subtracted an unused credit that happened to round the total off — and became
+reachable the instant a plan was free, because then the amount due IS the raw portion. The
+billing page 500s. Fixed in `ProrationCalculator::portion()`, which now truncates to the
+toman: same direction as ADR 0006 (the remainder stays with the customer) and all three
+figures on the line now add up, which a total-only rounding would not have given.
+
+Three smaller ones on the way: a party and its contacts written as two unwrapped statements
+(a failure between them left a customer with no phone number), a blob written to disk before
+its row existed (orphaned files nothing references), and the POS quote number taken outside
+a transaction.
+
+**On testing.** PHP and Postgres now run on this laptop, which changed how this session
+worked: Pint and Larastan went from three-minute CI round trips to three seconds, and the
+last eight defects were found locally rather than by reading GitHub logs. The suite still
+has 17 failures here that CI does not — Persian `LIKE` terms producing invalid UTF-8, a
+local mbstring difference — so the branch was validated by *diffing* its failures against
+`main`'s on the same machine. Same 17, same tests. That is the honest way to use a local
+environment that is not CI: not as an oracle, but as a comparison.
+
+Deferred with reasons: the quota SMS alerts and the renewal-reminder listener both need a
+pattern registered with an SMS provider we have no account for. Inventing a template id
+would produce a string the gateway rejects at send time — the same reason Phase 8 deferred
+`sms.ir`, and the banner already carries this message.

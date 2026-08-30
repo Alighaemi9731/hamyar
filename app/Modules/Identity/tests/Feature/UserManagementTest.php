@@ -11,6 +11,18 @@ use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain()->create();
+
+    /*
+    | A paying plan, because this suite is about work the free rung does not include.
+    |
+    | Before DECISION GATE 6 a tenant with no subscription simply had no limits to hit; now
+    | it lands on the free rung, and the free rung has `two seats`. Subscribing here is
+    | the realistic fixture — a shop doing this work has bought the plan that allows it —
+    | and it has the useful side effect of running every assertion below against real
+    | credits rather than around them.
+    */
+    subscribe($this->tenant, 'pro');
+
     $this->url = appUrl();
 
     app(TenantProvisioner::class)->seedRoles($this->tenant);

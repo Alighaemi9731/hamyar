@@ -15,8 +15,10 @@ use App\Modules\CRM\Services\LedgerService;
 use App\Modules\CRM\Services\LoyaltyService;
 use App\Support\Digits;
 use App\Support\Money;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Timeline\TimelineEntry;
 use App\Support\Timeline\TimelineRegistry;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -99,15 +101,26 @@ final class PartyController extends Controller
         ]);
     }
 
-    public function store(PartyRequest $request): RedirectResponse
+    public function store(PartyRequest $request, QuotaGuard $quota, ConnectionInterface $connection): RedirectResponse
     {
         $this->authorize('create', Party::class);
 
-        $party = Party::query()->create($request->partyAttributes());
+        // The party and its contacts were two statements with nothing wrapping them, so a
+        // failure between them left a customer with no phone number. The credit needs a
+        // transaction anyway; both defects close with the same three lines.
+        /** @var Party $party */
+        $party = $connection->transaction(function () use ($request, $quota): Party {
+            $quota->consume('crm.parties');
 
-        foreach ($request->contacts() as $contact) {
-            $party->contacts()->create($contact);
-        }
+            /** @var Party $party */
+            $party = Party::query()->create($request->partyAttributes());
+
+            foreach ($request->contacts() as $contact) {
+                $party->contacts()->create($contact);
+            }
+
+            return $party;
+        });
 
         return redirect()
             ->route('crm.parties.show', $party)

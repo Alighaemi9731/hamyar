@@ -9,6 +9,7 @@ use App\Modules\CRM\Services\LedgerService;
 use App\Modules\Installments\Models\InstallmentPlan;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Support\Counters\CounterService;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
@@ -49,6 +50,7 @@ final class CreateInstallmentPlan
         private readonly LedgerService $ledger,
         private readonly CounterService $counters,
         private readonly TenantContext $context,
+        private readonly QuotaGuard $quota,
     ) {}
 
     public function fromInvoice(
@@ -76,6 +78,11 @@ final class CreateInstallmentPlan
             $invoice, $schedule, $count, $profitPercent, $firstDueAt,
             $intervalMonths, $guarantorPartyId, $notes, $actorId, $tenantId
         ): InstallmentPlan {
+            // The contract is the countable thing, not its rows: a twelve-month plan and
+            // a three-month one are one decision each, and metering rows would make the
+            // longer contract cost four times as much for the same act.
+            $this->quota->consume('installments.plans');
+
             $plan = InstallmentPlan::query()->create([
                 'branch_id' => $invoice->branch_id,
                 'sales_invoice_id' => $invoice->id,

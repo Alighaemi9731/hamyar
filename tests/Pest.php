@@ -21,8 +21,24 @@ use Tests\TestCase;
 |
 */
 
+/*
+| Every database-backed test starts with the plan catalogue synced.
+|
+| Not a convenience — a correction. In production a catalogue always exists: `DatabaseSeeder`
+| syncs it, and `PlanCatalogueSeeder` is idempotent and runs on every deploy. A database with
+| no plans in it is a state this application never sees outside a test, and Phase 12 made
+| that difference load-bearing: `LimitResolver` throws when the fallback plan is missing,
+| deliberately, because the lenient reading hands every lapsed shop unlimited everything.
+|
+| So the fixture that was unrealistic is the one that changed. What did NOT change is the
+| part that keeps the guard honest: a tenant with no *subscription* still resolves to the
+| free plan and is still metered at its credits, which is exactly what happens to a real
+| shop whose payment lapsed. Seeding a subscription by default would have been the shortcut
+| that lets a create path forget `consume()` and stay green for ever.
+*/
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => app(App\Modules\Platform\Services\PlanCatalogueSeeder::class)->sync())
     ->in('Feature', '../app/Modules');
 
 pest()->extend(TestCase::class)->in('Unit');
@@ -42,6 +58,7 @@ pest()->extend(TestCase::class)->in('Arch');
 */
 pest()->extend(BrowserTestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => app(App\Modules\Platform\Services\PlanCatalogueSeeder::class)->sync())
     ->in('Browser');
 
 /*
@@ -211,6 +228,123 @@ function actingForTenant(App\Modules\Platform\Models\Tenant $tenant): TestCase
 function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $callback): mixed
 {
     return app(App\Support\Tenancy\TenantContext::class)->runFor($tenant, $callback);
+}
+
+/**
+ * Turn metering off for one test that genuinely does more than a plan allows.
+ *
+ * ## Why this is opt-IN and never the default
+ *
+ * Every existing suite subscribes to `pro` and runs against its real credits, on purpose.
+ * That is what makes them prove the guard is wired: if a create path forgets to call
+ * `consume()`, nothing anywhere else in the suite would notice. Binding `NoQuota` by
+ * default in `subscribe()` was considered and rejected for exactly that reason — a
+ * default-off guard lets a metered action ship unmetered and stay green for ever.
+ *
+ * So this is for the handful of tests whose volume is the point: a fifty-invoice
+ * concurrency run, a seeded month of trading, a bulk import fixture. Reach for it when the
+ * test is about something else and the credit is in the way — never to make a red test
+ * green without reading why it went red.
+ */
+function withUnlimitedQuota(): void
+{
+    app()->instance(
+        App\Support\Quota\QuotaGuard::class,
+        new App\Support\Quota\NoQuota(app(App\Support\Quota\MetricRegistry::class))
+    );
+}
+
+/**
+ * Spend a credit as a shop, inside a transaction, and hand back the verdict.
+ *
+ * `runFor()` and `DB::transaction()` both return `mixed`, so without this every quota test
+ * would carry its own `@var` annotation to satisfy Larastan — and a suite that annotates
+ * its way out of type errors one line at a time is a suite where a real one hides.
+ */
+function spendQuota(
+    App\Modules\Platform\Models\Tenant $tenant,
+    string $metric,
+    int $units = 1,
+): App\Support\Quota\QuotaVerdict {
+    /** @var App\Support\Quota\QuotaVerdict $verdict */
+    $verdict = app(App\Support\Tenancy\TenantContext::class)->runFor(
+        $tenant,
+        static fn (): App\Support\Quota\QuotaVerdict => Illuminate\Support\Facades\DB::transaction(
+            static fn (): App\Support\Quota\QuotaVerdict => app(App\Support\Quota\QuotaGuard::class)
+                ->consume($metric, $units)
+        )
+    );
+
+    return $verdict;
+}
+
+/**
+ * How much of one credit a shop has spent, across every period.
+ */
+function quotaUsed(App\Modules\Platform\Models\Tenant $tenant, string $metric): int
+{
+    /** @var int|numeric-string $used */
+    $used = app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(
+        static fn (): mixed => App\Modules\Platform\Models\UsageCounter::query()
+            ->where('tenant_id', $tenant->getKey())
+            ->where('metric', $metric)
+            ->sum('used')
+    );
+
+    return (int) $used;
+}
+
+/**
+ * Does a counter row exist at all? Distinguishes "spent nothing" from "never touched",
+ * which is how a refusal that wrote nothing is told apart from one that wrote a zero.
+ */
+function quotaRowExists(App\Modules\Platform\Models\Tenant $tenant, string $metric): bool
+{
+    /** @var bool $exists */
+    $exists = app(App\Support\Tenancy\TenantContext::class)->runAsPlatform(
+        static fn (): bool => App\Modules\Platform\Models\UsageCounter::query()
+            ->where('tenant_id', $tenant->getKey())
+            ->where('metric', $metric)
+            ->exists()
+    );
+
+    return $exists;
+}
+
+/**
+ * Register the quota metrics the guard's own suites meter against.
+ *
+ * Deliberately not borrowed from a module: the guard's tests must break when the guard
+ * breaks, not when Sales renames something. Lives here rather than in a test file because
+ * a function defined in one test file does not exist for another that runs before it.
+ *
+ * Idempotent — the registry is a singleton for the whole process and refuses duplicates.
+ */
+function registerTestMetrics(): void
+{
+    $registry = app(App\Support\Quota\MetricRegistry::class);
+
+    if ($registry->has('quota.widgets')) {
+        return;
+    }
+
+    $registry->register(
+        new App\Support\Quota\Metric(
+            'quota.widgets', 'ویجت', App\Support\Quota\Window::Month, 'quota', unitFa: 'ویجت'
+        ),
+        new App\Support\Quota\Metric(
+            'quota.unlimited', 'بی‌کران', App\Support\Quota\Window::Month, 'quota'
+        ),
+        new App\Support\Quota\Metric(
+            'quota.seats', 'صندلی', App\Support\Quota\Window::Total, 'quota',
+            measure: static function (int $tenantId): int {
+                /** @var int|numeric-string $seats */
+                $seats = cache()->get("seats:{$tenantId}", 0);
+
+                return (int) $seats;
+            },
+        ),
+    );
 }
 
 /**

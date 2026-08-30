@@ -15,7 +15,10 @@ import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { type ReportPreset, ReportPresets } from '@/components/domain/report-presets';
+import { QuotaBlock } from '@/components/domain/quota-block';
 import { StatCard } from '@/components/domain/stat-card';
+import { UsageBanner } from '@/components/domain/usage-banner';
+import { UsageMeter } from '@/components/domain/usage-meter';
 import { STATUS_MAP, StatusBadge } from '@/components/domain/status-badge';
 import { type TimelineItem, Timeline } from '@/components/domain/timeline';
 import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
@@ -62,6 +65,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import { AppShell } from '@/layouts/app-shell';
+import type { UsageMeterState } from '@/types';
 
 /**
  * /design — the component gallery (dev-only route).
@@ -96,6 +100,7 @@ export default function DesignGallery() {
         <OverlaySection alt />
         <TableSection />
         <StatCardSection alt />
+        <QuotaSection />
         <BarChartSection />
         <ImeiSection alt />
         <DataTableSection />
@@ -833,6 +838,169 @@ function StateSection({ alt }: { alt?: boolean }) {
  * The row below is the review case that matters: `invertTrend` on the last card. A
  * rising overdue balance rendering green is worse than showing no trend at all.
  */
+/**
+ * The quota surfaces, reviewed together because they are read together: a shopkeeper who
+ * sees the block has been watching the meter go amber for a week.
+ *
+ * The state matrix is the point of having them here. The one that is easiest to get wrong
+ * is `reached` versus `blocked` — a credit that is exactly full has stopped nobody, and
+ * turning it red would tell a shop that spent precisely what it bought that something is
+ * wrong.
+ */
+function QuotaSection({ alt = false }: { alt?: boolean }) {
+  const meter = (over: Partial<UsageMeterState> = {}): UsageMeterState => ({
+    key: 'sales.invoices',
+    label: 'فاکتور فروش',
+    unit: 'فاکتور',
+    module: 'sales',
+    used: 42,
+    limit: 300,
+    window: 'month',
+    resets_at: '2026-09-22T20:30:00Z',
+    level: 'ok',
+    ...over,
+  });
+
+  return (
+    <Section
+      title="UsageMeter · UsageBanner · QuotaBlock"
+      note="سهمیهٔ ماهانه: نوار مصرف، نوار هشدار بالای صفحه، و صفحهٔ «سهمیه تمام شد» با دکمهٔ ارتقا. رنگ قرمز فقط وقتی است که سهمیه واقعاً جلوی کاری را گرفته باشد؛ سهمیهٔ پرشده اما بی‌مانع، کهربایی است."
+      alt={alt}
+    >
+      <Row label="عادی">
+        <UsageMeter meter={meter()} className="max-w-sm" />
+      </Row>
+
+      <Row label="نزدیک سقف">
+        <UsageMeter meter={meter({ used: 258, level: 'warning' })} className="max-w-sm" />
+      </Row>
+
+      <Row label="پر، ولی کسی را متوقف نکرده">
+        <UsageMeter meter={meter({ used: 300, level: 'reached' })} className="max-w-sm" />
+      </Row>
+
+      <Row label="متوقف‌کننده">
+        <UsageMeter meter={meter({ used: 300, level: 'blocked' })} className="max-w-sm" />
+      </Row>
+
+      <Row label="نامحدود">
+        <UsageMeter meter={meter({ limit: null, used: 1840 })} className="max-w-sm" />
+      </Row>
+
+      <Row label="ظرفیت کل (بدون تازه‌شدن)">
+        <UsageMeter
+          meter={meter({ key: 'identity.users', label: 'کاربر فعال', unit: 'کاربر', window: 'total', used: 2, limit: 2, level: 'reached', resets_at: null })}
+          className="max-w-sm"
+        />
+      </Row>
+
+      <Row label="نوار هشدار">
+        <UsageBanner
+          usage={{
+            plan: { code: 'basic', name: 'پایه', lapsed: false },
+            meters: [meter({ used: 258, level: 'warning' })],
+            attention: ['sales.invoices'],
+          }}
+        />
+      </Row>
+
+      <Row label="نوار — اشتراک تمام‌شده">
+        <UsageBanner
+          usage={{
+            plan: { code: 'basic', name: 'پایه', lapsed: true },
+            meters: [],
+            attention: [],
+          }}
+        />
+      </Row>
+
+      <Row label="سهمیه تمام شد — با اجازهٔ خرید">
+        <QuotaBlock
+          block={{
+            metric: 'sales.invoices',
+            label: 'فاکتور فروش',
+            message:
+              'سهمیهٔ ۳۰۰ فاکتور این ماه در پلن پایه تمام شد. پلن حرفه‌ای ماهی ۵٬۰۰۰ فاکتور دارد. سهمیهٔ پلن فعلی ۱ مهر تازه می‌شود.',
+            used: 300,
+            limit: 300,
+            requested: 1,
+            resets_at: '2026-09-22T20:30:00Z',
+            next_plan: {
+              code: 'pro',
+              name: 'حرفه‌ای',
+              limit: 5000,
+              price: { value: 5_900_000, formatted: '۵۹۰٬۰۰۰ تومان' },
+              due: { value: 2_400_000, formatted: '۲۴۰٬۰۰۰ تومان' },
+            },
+            can_upgrade: true,
+          }}
+        />
+      </Row>
+
+      <Row label="سهمیه تمام شد — بدون اجازهٔ خرید">
+        <QuotaBlock
+          block={{
+            metric: 'repairs.tickets',
+            label: 'قبض پذیرش تعمیر',
+            message: 'سهمیهٔ ۱۰۰ قبض پذیرش تعمیر این ماه در پلن پایه تمام شد.',
+            used: 100,
+            limit: 100,
+            requested: 1,
+            resets_at: '2026-09-22T20:30:00Z',
+            next_plan: {
+              code: 'pro',
+              name: 'حرفه‌ای',
+              limit: 1500,
+              price: { value: 5_900_000, formatted: '۵۹۰٬۰۰۰ تومان' },
+              due: { value: 5_900_000, formatted: '۵۹۰٬۰۰۰ تومان' },
+            },
+            can_upgrade: false,
+          }}
+        />
+      </Row>
+
+      <Row label="ورود گروهی — بیش از سهمیه">
+        <QuotaBlock
+          block={{
+            metric: 'catalog.products',
+            label: 'کالای جدید',
+            message:
+              'این عملیات ۴۰ کالا می‌خواهد و سهمیهٔ باقی‌ماندهٔ شما ۱۲ است. پلن حرفه‌ای ماهی ۲٬۰۰۰ کالا دارد.',
+            used: 188,
+            limit: 200,
+            requested: 40,
+            resets_at: '2026-09-22T20:30:00Z',
+            next_plan: {
+              code: 'pro',
+              name: 'حرفه‌ای',
+              limit: 2000,
+              price: { value: 5_900_000, formatted: '۵۹۰٬۰۰۰ تومان' },
+              due: { value: 2_400_000, formatted: '۲۴۰٬۰۰۰ تومان' },
+            },
+            can_upgrade: true,
+          }}
+        />
+      </Row>
+
+      <Row label="بالاترین پلن — جایی برای ارتقا نیست">
+        <QuotaBlock
+          block={{
+            metric: 'identity.users',
+            label: 'کاربر فعال',
+            message: 'ظرفیت ۲۵ کاربر این پلن پر شده است.',
+            used: 25,
+            limit: 25,
+            requested: 1,
+            resets_at: null,
+            next_plan: null,
+            can_upgrade: true,
+          }}
+        />
+      </Row>
+    </Section>
+  );
+}
+
 function StatCardSection({ alt = false }: { alt?: boolean }) {
   return (
     <Section

@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Providers;
 
 use App\Modules\Platform\Events\SubscriptionActivated;
+use App\Modules\Platform\Listeners\AttributeUpgradeToBlock;
 use App\Modules\Platform\Listeners\ForgetResolvedSubscription;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Policies\SubscriptionPolicy;
 use App\Modules\Platform\Services\Payments\FakeGateway;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
 use App\Modules\Platform\Services\Payments\ZarinpalGateway;
+use App\Modules\Platform\Services\Quota\DatabaseQuotaGuard;
+use App\Modules\Platform\Services\Quota\LimitResolver;
+use App\Modules\Platform\Services\Quota\UsageEvents;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Support\Modules\ModuleServiceProvider;
+use App\Support\Quota\QuotaGuard;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\Facades\Event;
@@ -49,6 +54,20 @@ final class PlatformServiceProvider extends ModuleServiceProvider
         | shops are served in one process.
         */
         $this->app->singleton(SubscriptionResolver::class);
+
+        /*
+        | The quota layer. `AppServiceProvider` has already bound `NoQuota` with `bindIf`,
+        | and this `singleton()` overrides it — the `PartyExposure` shape, deliberately
+        | asymmetric so provider discovery order cannot decide which one wins.
+        |
+        | Singletons for the same reason `SubscriptionResolver` is one: `LimitResolver`
+        | memoises limits per tenant id, and a fresh instance per resolve would make every
+        | `forget()` clear an empty cache while the instance the caller holds keeps
+        | answering. Keyed by tenant id throughout (ADR 0012).
+        */
+        $this->app->singleton(LimitResolver::class);
+        $this->app->singleton(UsageEvents::class);
+        $this->app->singleton(QuotaGuard::class, DatabaseQuotaGuard::class);
 
         // One shared gateway instance per request: FakeGateway carries state a test sets
         // up (`willFail()`) and then asserts on, which a fresh instance per resolve would
@@ -88,9 +107,16 @@ final class PlatformServiceProvider extends ModuleServiceProvider
         // or the request that just took the money keeps answering from the old plan.
         Event::listen(SubscriptionActivated::class, ForgetResolvedSubscription::class);
 
+        // The conversion signal. Written here rather than inferred later, because the
+        // link between "we stopped them" and "they paid" is only visible at this moment.
+        Event::listen(SubscriptionActivated::class, AttributeUpgradeToBlock::class);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \App\Modules\Platform\Console\Commands\TenantSyncPermissionsCommand::class,
+                \App\Modules\Platform\Console\Commands\ExpireSubscriptionsCommand::class,
+                \App\Modules\Platform\Console\Commands\PruneUsageCountersCommand::class,
+                \App\Modules\Platform\Console\Commands\QuotaAuditCommand::class,
             ]);
         }
     }

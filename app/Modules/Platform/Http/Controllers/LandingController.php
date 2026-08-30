@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Http\Controllers;
 
-use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Plan;
+use App\Support\Quota\MetricRegistry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 
@@ -36,20 +36,24 @@ final class LandingController
 
     public function __invoke(): View
     {
-        /** @var array{plans: \Illuminate\Support\Collection<int, Plan>, addons: \Illuminate\Support\Collection<int, Module>} $catalogue */
+        /** @var array{plans: \Illuminate\Support\Collection<int, Plan>} $catalogue */
         $catalogue = Cache::remember('landing.catalogue', self::CACHE_TTL, fn (): array => [
+            // Limits, not modules. Since DECISION GATE 6 the pricing rows show what a shop
+            // may DO each month rather than which parts of the product it may open —
+            // every module is open on every plan — and the add-on shelf below them was
+            // advertising something we no longer sell.
             'plans' => Plan::query()
                 ->where('is_public', true)
-                ->with('modules:id,code,name_fa')
+                ->with('limits:id,plan_id,key,value')
                 ->orderBy('position')
                 ->get(),
-            'addons' => Module::query()
-                ->where('is_addonable', true)
-                ->where('addon_price', '>', 0)
-                ->orderBy('addon_price')
-                ->get(['id', 'code', 'name_fa', 'addon_price']),
         ]);
 
-        return view('landing', $catalogue);
+        return view('landing', [
+            ...$catalogue,
+            // Not cached: it is an in-memory registry read, and caching it would mean a
+            // module shipping a new metric needed a cache flush to appear on the page.
+            'metrics' => app(MetricRegistry::class)->all(),
+        ]);
     }
 }

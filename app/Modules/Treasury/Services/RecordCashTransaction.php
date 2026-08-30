@@ -9,6 +9,7 @@ use App\Modules\CRM\Services\LedgerService;
 use App\Modules\Treasury\Enums\CashDirection;
 use App\Modules\Treasury\Models\CashTransaction;
 use App\Modules\Treasury\Models\TransactionCategory;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
@@ -51,6 +52,7 @@ final class RecordCashTransaction
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly LedgerService $ledger,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -80,6 +82,19 @@ final class RecordCashTransaction
                 $category, $account, $amount, $occurredAt, $partyId, $description,
                 $reference, $generatedKey, $recurringTemplateId, $rentalContractId, $actorId, $branchId
             ): CashTransaction {
+                /*
+                | Manual entries only.
+                |
+                | `generatedKey` is set by `GenerateRecurring`, which books rent and
+                | salaries — and can catch up several months in a single run after a
+                | scheduler outage. Metering that would refuse the shop's own standing
+                | costs for something it did not do, on the day it was least able to act
+                | on the refusal.
+                */
+                if ($generatedKey === null) {
+                    $this->quota->consume('treasury.cash_transactions');
+                }
+
                 $transaction = CashTransaction::query()->create([
                     'branch_id' => $branchId,
                     'transaction_category_id' => $category->id,

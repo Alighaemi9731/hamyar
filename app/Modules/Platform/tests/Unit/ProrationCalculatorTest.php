@@ -47,12 +47,23 @@ it('charges only the difference for the days that remain', function (): void {
     expect($result['period_days'])->toBe(30);
     expect($result['remaining_days'])->toBe(19);
 
-    // intdiv(2_900_000 × 19, 30) = 1_836_666
-    // intdiv(5_900_000 × 19, 30) = 3_736_666
-    expect($result['unused_credit'])->toBe(1_836_666);
-    expect($result['new_charge'])->toBe(3_736_666);
+    // intdiv(2_900_000 × 19, 30) = 1_836_666 → 1_836_660, truncated to a whole toman
+    // intdiv(5_900_000 × 19, 30) = 3_736_666 → 3_736_660
+    //
+    // The toman truncation arrived in Phase 12 and is not cosmetic: a rial figure that is
+    // not a whole toman is one `Money::toToman()` refuses to render — it throws rather
+    // than round money — so quoting it 500s the billing page. Unreachable while every
+    // upgrade subtracted an unused credit that happened to round it off; reachable the
+    // moment a plan was free and the amount due WAS the raw portion.
+    expect($result['unused_credit'])->toBe(1_836_660);
+    expect($result['new_charge'])->toBe(3_736_660);
     expect($result['amount_due'])->toBe(1_900_000);
     expect($result['amount_due'])->toBeRial();
+
+    // And every figure on the line is quotable, which is the property that was missing.
+    expect($result['unused_credit'] % 10)->toBe(0);
+    expect($result['new_charge'] % 10)->toBe(0);
+    expect($result['amount_due'] % 10)->toBe(0);
 });
 
 it('never moves the renewal date on upgrade', function (): void {

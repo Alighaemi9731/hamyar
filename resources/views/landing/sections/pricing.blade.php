@@ -20,7 +20,7 @@
 
     ## Prices come from the database
 
-    `$plans` and `$addons` are supplied by Platform\Http\Controllers\LandingController.
+    `$plans` and `$metrics` are supplied by Platform\Http\Controllers\LandingController.
     Roadmap 11.4 promises a price change at launch is "a panel edit, not a deploy", and
     a number typed into this file would break that promise on the one page a prospect
     actually reads. Every figure below is `money()` over a column.
@@ -36,8 +36,18 @@
     only the toggle goes inert, which is why it is a real `<button>` and not a checkbox
     pretending to be one.
 
-    @param \Illuminate\Support\Collection<int, \App\Modules\Platform\Models\Plan>   $plans
-    @param \Illuminate\Support\Collection<int, \App\Modules\Platform\Models\Module> $addons
+    ## What the rows show, since DECISION GATE 6
+
+    Not modules — every plan opens every module now. What a plan sells is **how much work
+    a shop may record in a Jalali month**, so each row lists its headline monthly credits.
+    That also makes the ladder shape truer than it was: the taller row genuinely contains
+    more, because it is more of the same thing rather than a longer list of names.
+
+    The add-on shelf that used to sit under the ladder is gone with the product it
+    advertised.
+
+    @param \Illuminate\Support\Collection<int, \App\Modules\Platform\Models\Plan> $plans
+    @param list<\App\Support\Quota\Metric>                                        $metrics
 --}}
 @php
     use App\Support\Digits;
@@ -51,8 +61,14 @@
     $yearFactor = 10;
     $monthsFree = Digits::toPersian((string) (12 - $yearFactor));
 
-    /** How many module chips a row shows before it starts counting the rest. */
-    $chipLimit = 8;
+    /**
+     * The credits a shopkeeper actually compares plans by. Anything else is true and
+     * makes the row a specification sheet rather than an argument.
+     */
+    $headline = ['sales.invoices', 'inventory.units', 'repairs.tickets', 'catalog.products', 'crm.parties', 'messaging.sms'];
+
+    $shown = collect($metrics)->filter(fn ($metric) => in_array($metric->key, $headline, true))
+        ->sortBy(fn ($metric) => array_search($metric->key, $headline, true));
 @endphp
 
 <section class="sec" id="pricing" aria-labelledby="tariff-title">
@@ -72,8 +88,9 @@
             <div>
                 <h2 class="tariff__title" id="tariff-title">قیمت همینی است که می‌بینید</h2>
                 <p class="tariff__lede">
-                    ۱۴ روز اول رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را
-                    بالا و پایین ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
+                    همهٔ امکانات در همهٔ پلن‌ها باز است؛ فقط سهمیهٔ ماهانه فرق می‌کند. پلن پایه
+                    رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را بالا و پایین
+                    ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
                 </p>
             </div>
 
@@ -96,11 +113,7 @@
              travels down the ladder in the direction he is about to read it. --}}
         <div class="tariff__list">
             @foreach ($plans as $plan)
-                @php
-                    $recommended = $plan->code === 'pro';
-                    $modules = $plan->modules->sortBy('name_fa');
-                    $overflow = $modules->count() - $chipLimit;
-                @endphp
+                @php($recommended = $plan->code === 'pro')
 
                 <article class="tariff__plan rise" data-recommended="{{ $recommended ? 'true' : 'false' }}">
                     <div class="tariff__id">
@@ -115,24 +128,32 @@
                     </div>
 
                     <div class="tariff__money">
-                        <p class="tariff__price nums"
-                           data-monthly="{{ money($plan->price, Money::UNIT_TOMAN, true) }}"
-                           data-yearly="{{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }}">{{ money($plan->price, Money::UNIT_TOMAN, true) }}</p>
+                        @if ($plan->price === 0)
+                            {{-- The free rung. No toggle attributes: twelve times nothing is
+                                 still nothing, and a «۰ تومان» with a yearly discount beside
+                                 it reads as a trick rather than an offer. --}}
+                            <p class="tariff__price">رایگان</p>
+                            <p class="tariff__unit">برای همیشه</p>
+                            <p class="tariff__year">بدون کارت بانکی — هر وقت خواستید ارتقا دهید</p>
+                        @else
+                            <p class="tariff__price nums"
+                               data-monthly="{{ money($plan->price, Money::UNIT_TOMAN, true) }}"
+                               data-yearly="{{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }}">{{ money($plan->price, Money::UNIT_TOMAN, true) }}</p>
 
-                        <p class="tariff__unit" data-unit
-                           data-unit-month="تومان / ماه"
-                           data-unit-year="تومان / سال">تومان / ماه</p>
+                            <p class="tariff__unit" data-unit
+                               data-unit-month="تومان / ماه"
+                               data-unit-year="تومان / سال">تومان / ماه</p>
 
-                        {{-- Both totals visible at once, whichever way the toggle is set.
-                             This line is deliberately NOT swapped by the script: it states
-                             the annual figure permanently, so a shopkeeper comparing plans
-                             never has to flip the control to find out what a year costs.
-                             When the toggle is on yearly it reads as confirmation of the
-                             number above it rather than as a second, different price. --}}
-                        <p class="tariff__year nums">
-                            معادل سالانه {{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }} تومان
-                            · {{ $monthsFree }} ماه رایگان
-                        </p>
+                            {{-- Both totals visible at once, whichever way the toggle is
+                                 set. Deliberately NOT swapped by the script: it states the
+                                 annual figure permanently, so a shopkeeper comparing plans
+                                 never has to flip the control to find out what a year
+                                 costs. --}}
+                            <p class="tariff__year nums">
+                                معادل سالانه {{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }} تومان
+                                · {{ $monthsFree }} ماه رایگان
+                            </p>
+                        @endif
                     </div>
 
                     <div class="tariff__go">
@@ -143,43 +164,23 @@
                     </div>
 
                     <div class="tariff__included">
-                        <p class="tariff__included__label">شامل:</p>
+                        <p class="tariff__included__label">سهمیهٔ ماهانه:</p>
                         <ul class="tariff__mods">
-                            @foreach ($modules->take($chipLimit) as $module)
-                                <li>{{ $module->name_fa }}</li>
+                            @foreach ($shown as $metric)
+                                @php($value = $plan->limit($metric->key))
+                                <li>
+                                    @if ($value === null)
+                                        <b>نامحدود</b> {{ $metric->labelFa }}
+                                    @else
+                                        <b class="nums">{{ Digits::toPersian(number_format($value)) }}</b> {{ $metric->labelFa }}
+                                    @endif
+                                </li>
                             @endforeach
-
-                            @if ($overflow > 0)
-                                <li data-more="true">و {{ Digits::toPersian((string) $overflow) }} ماژول دیگر</li>
-                            @endif
+                            <li data-more="true">و همهٔ ماژول‌های دیگر، بدون استثنا</li>
                         </ul>
                     </div>
                 </article>
             @endforeach
-        </div>
-
-        {{-- Add-ons as shelf price tags rather than a four-column grid of name/price
-             pairs. A shopkeeper reads a price tag without being taught how, and it keeps
-             the section's one repeated shape from being "another grid of cards". --}}
-        {{-- No `.rise`: one level per section, and this section spent it on the plan
-             rows. The add-on shelf is a footnote to the ladder above it and arrives with
-             the page, which is also the honest reading of it — it is not a fourth plan. --}}
-        <div class="tariff__addons">
-            <h3 class="tariff__addons__title">ماژول‌ها را جدا هم می‌فروشیم</h3>
-            <p class="tariff__addons__lede">
-                اگر فقط یک چیز از پلن‌تان کم بود، لازم نیست پلن بالاتر بخرید؛ همان یکی را
-                ماهانه اضافه کنید و هر وقت خواستید بردارید.
-            </p>
-
-            <ul class="tariff__tags">
-                @foreach ($addons as $addon)
-                    <li>
-                        <span class="tariff__tags__name">{{ $addon->name_fa }}</span>
-                        <b class="nums">{{ money((int) $addon->addon_price, Money::UNIT_TOMAN, true) }}</b>
-                        <span class="tariff__tags__unit">تومان / ماه</span>
-                    </li>
-                @endforeach
-            </ul>
         </div>
 
     </div>

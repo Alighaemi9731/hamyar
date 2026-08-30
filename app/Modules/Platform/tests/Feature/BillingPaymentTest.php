@@ -14,7 +14,7 @@ use App\Modules\Platform\Services\BillingService;
 use App\Modules\Platform\Services\Payments\FakeGateway;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
-use App\Modules\Platform\Services\SubscriptionResolver;
+use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Event;
@@ -125,13 +125,14 @@ it('charges the full price to renew an EXPIRED subscription', function (): void 
     expect($invoice->requiresPayment())->toBeTrue();
 });
 
-it('charges the full price when upgrading out of a trial', function (): void {
-    // A trial was free, so there is no unused value to credit against the new plan
-    // (ADR 0006). Prorating here would hand out a discount funded by nothing.
+it('charges the full price when upgrading off the FREE plan', function (): void {
+    // The free rung cost nothing, so there is no unused value to credit against the new
+    // plan (ADR 0006) — prorating here would hand out a discount funded by nothing. This
+    // used to be the trial's rule; the free plan inherited it at DECISION GATE 6, and
+    // `hasLivePeriod()` gets it right for free because a free subscription has no period.
     subscribe($this->tenant, 'basic', [
-        'status' => Subscription::STATUS_TRIALING,
-        'trial_ends_at' => now()->addDays(10),
-        'current_period_end' => now()->addDays(10),
+        'current_period_start' => now()->subMonths(6),
+        'current_period_end' => null,
     ]);
 
     $invoice = $this->billing->invoiceForPlan($this->tenant, $this->pro);
@@ -168,18 +169,28 @@ it('MOVES THE SHOP ONTO THE PLAN IT PAID FOR', function (): void {
 });
 
 it('unlocks the new plan for the rest of the request', function (): void {
-    // The other half: the resolver is a singleton memoising one subscription per tenant,
-    // so without ForgetResolvedSubscription the process that just took the money keeps
-    // answering from the plan the shop had before it paid.
+    // The resolver is a singleton memoising one subscription per tenant, so without
+    // `ForgetResolvedSubscription` the process that just took the money keeps answering
+    // from the plan the shop had before it paid.
+    //
+    // Written against `grants('repairs')` when it landed in 12.1, and rewritten here:
+    // DECISION GATE 6 opened every module to every plan, so module grants no longer
+    // change on upgrade. What changes is the CREDIT — which is the thing a shop is
+    // buying, and the thing that has to be live for the rest of the request.
     subscribe($this->tenant, 'basic');
+    app(LimitResolver::class)->forget();
 
-    app(TenantContext::class)->runFor($this->tenant, function (): void {
-        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeFalse();
+    $basic = Plan::query()->where('code', 'basic')->firstOrFail();
+
+    app(TenantContext::class)->runFor($this->tenant, function () use ($basic): void {
+        expect(app(LimitResolver::class)->for('sales.invoices'))
+            ->toBe($basic->limit('sales.invoices'));
 
         payFor($this->tenant, $this->pro);
 
         // No forget() here on purpose — the listener is what has to have done it.
-        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeTrue();
+        expect(app(LimitResolver::class)->for('sales.invoices'))
+            ->toBe($this->pro->limit('sales.invoices'));
     });
 });
 

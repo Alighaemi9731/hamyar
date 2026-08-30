@@ -79,6 +79,8 @@ final class Subscription extends Model
     }
 
     /**
+     * @deprecated DECISION GATE 6 — add-ons are retired as a product. Dropped in 0.16.0.
+     *
      * @return HasMany<SubscriptionAddon, $this>
      */
     public function addons(): HasMany
@@ -116,6 +118,11 @@ final class Subscription extends Model
 
     /**
      * Module codes this subscription grants: the plan's modules plus active add-ons.
+     *
+     * @deprecated DECISION GATE 6 — no plan bundles modules any more. Nothing reads this
+     *             from 0.15.0; it and `addons()`, `plan_module` and `subscription_addons`
+     *             are dropped in 0.16.0, one release later, so both versions can serve the
+     *             same database during a blue/green cutover (docs/VERSIONING.md).
      *
      * @return list<string>
      */

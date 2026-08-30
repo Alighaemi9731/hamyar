@@ -9,6 +9,7 @@ use App\Modules\Inventory\Enums\UnitStatus;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\StockTransfer;
 use App\Modules\Inventory\Models\StockTransferItem;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use RuntimeException;
@@ -32,6 +33,7 @@ final class TransferService
         private readonly ConnectionInterface $connection,
         private readonly StockLedger $stock,
         private readonly UnitStateMachine $units,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -48,6 +50,11 @@ final class TransferService
         /** @var StockTransfer $dispatched */
         $dispatched = $this->connection->transaction(function () use ($transfer, $at): StockTransfer {
             $transfer->load('items');
+
+            // Metered at dispatch, not at creation: a draft transfer is a shopkeeper
+            // thinking, and charging for that would make people avoid the screen. The
+            // stock only moves here.
+            $this->quota->consume('inventory.transfers');
 
             if ($transfer->items->isEmpty()) {
                 throw new RuntimeException("Transfer {$transfer->number} has no lines.");

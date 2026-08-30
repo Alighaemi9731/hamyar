@@ -143,10 +143,13 @@ it('refuses the lookup to a user without crm.view', function (): void {
         ->assertForbidden();
 });
 
-it('refuses the lookup to a shop with no usable subscription', function (): void {
-    // Golden rule 7: hiding the nav item is convenience, this is the enforcement. The
-    // gating layer fails closed — an unsubscribed shop gets nothing, not the core
-    // modules for free.
+it('still lets a shop with no usable subscription LOOK THINGS UP', function (): void {
+    // This asserted the opposite until DECISION GATE 6, and the reversal is the point of
+    // the whole plan model. A lapsed shop used to have every module 403 at it — so a
+    // salesperson with a customer at the counter could not find that customer's phone
+    // number, three days after a payment failed. Reads are never metered and never gated:
+    // the shop keeps its own data, and what it cannot do is record NEW work beyond the
+    // free rung's credits.
     $lapsed = Tenant::factory()->withDomain()->create();
 
     app(TenantProvisioner::class)->seedRoles($lapsed);
@@ -161,7 +164,7 @@ it('refuses the lookup to a shop with no usable subscription', function (): void
 
     $this->actingAs($owner)
         ->getJson(appUrl().'/crm/parties/search')
-        ->assertForbidden();
+        ->assertOk();
 });
 
 /* --------------------------------------------------------------- isolation -- */

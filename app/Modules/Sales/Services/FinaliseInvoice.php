@@ -20,6 +20,8 @@ use App\Modules\Sales\Models\InvoicePayment;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Models\SalesInvoiceItem;
 use App\Support\Counters\CounterService;
+use App\Support\Quota\QuotaExceeded;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Settings\CommissionSettings;
 use App\Support\Settings\ShopSettings;
 use App\Support\Tenancy\TenantContext;
@@ -77,13 +79,23 @@ final class FinaliseInvoice
         private readonly TenantContext $context,
         private readonly TradeInIntake $tradeIns,
         private readonly ShopSettings $settings,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
+     * @param  bool  $metered  false for an invoice the shop is not choosing to issue —
+     *                         a repair delivery, whose ticket was already counted at
+     *                         intake. Refusing a customer their own repaired phone
+     *                         because the sales credit is spent is a one-star review,
+     *                         and the loophole is worth at most a repair-shaped sale
+     *                         (DECISION GATE 6, item 5)
+     *
      * @throws UnitNoLongerAvailable when a handset on this invoice was sold underneath it
+     * @throws QuotaExceeded when the shop has no sales credit left this month — thrown
+     *                       inside the transaction, so nothing is half-issued
      * @throws RuntimeException on any other refusal — all of them before a number is taken
      */
-    public function finalise(SalesInvoice $invoice, ?int $actorId = null): SalesInvoice
+    public function finalise(SalesInvoice $invoice, ?int $actorId = null, bool $metered = true): SalesInvoice
     {
         $this->guardFinalisable($invoice);
 
@@ -91,7 +103,7 @@ final class FinaliseInvoice
         $at = CarbonImmutable::now();
 
         /** @var SalesInvoice $finalised */
-        $finalised = $this->connection->transaction(function () use ($invoice, $tenantId, $at, $actorId): SalesInvoice {
+        $finalised = $this->connection->transaction(function () use ($invoice, $tenantId, $at, $actorId, $metered): SalesInvoice {
             $invoice->load(['items', 'payments']);
 
             // 1 — Lock the handsets first. Everything else in this transaction is
@@ -107,6 +119,15 @@ final class FinaliseInvoice
             );
 
             $invoice->forceFill(['number' => $number])->save();
+
+            // 2b — The month's credit, after the locks and the number so the lock order
+            // is uniform everywhere (counters → usage_counters → domain rows) and the
+            // hold on the counter row is as short as it can be. A refusal here throws
+            // out of the transaction and takes the number with it — which is correct:
+            // a number issued for an invoice that does not exist is a gap at an audit.
+            if ($metered) {
+                $this->quota->consume('sales.invoices');
+            }
 
             // 3 — Cost snapshots, before any movement changes what the average is.
             $this->snapshotCosts($invoice, $lockedUnits);

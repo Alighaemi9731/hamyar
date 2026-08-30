@@ -3,17 +3,28 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\EnsureModuleEnabled;
+use App\Http\Middleware\EnsureQuotaAvailable;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolvePublicTenant;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Modules\Platform\Services\Quota\QuotaBlock;
+use App\Modules\Platform\Services\Quota\UsageEvents;
+use App\Support\Quota\QuotaExceeded;
 use App\Support\SensitiveInput;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -59,6 +70,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // Plan gating: `->middleware('module:repairs')`. Golden rule 7 — the nav
             // hides disabled modules, but THIS is what actually enforces it.
             'module' => EnsureModuleEnabled::class,
+
+            // A courtesy check before the work starts. `QuotaGuard::consume()` inside the
+            // creating transaction is the guarantee; this only spares the server work it
+            // is about to throw away. See EnsureQuotaAvailable's docblock for the three
+            // request paths it cannot see.
+            'quota' => EnsureQuotaAvailable::class,
         ]);
 
         // Explicit middleware ordering. Two of these placements are load-bearing and
@@ -89,6 +106,9 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureUserBelongsToTenant::class,
             // After the tenant is known, before anything that reads plan features.
             EnsureModuleEnabled::class,
+            // And after that: there is no point asking how much credit a shop has left
+            // for a module that is switched off.
+            EnsureQuotaAvailable::class,
             Illuminate\Routing\Middleware\ThrottleRequests::class,
             Illuminate\Routing\Middleware\ThrottleRequestsWithRedis::class,
             Illuminate\Contracts\Session\Middleware\AuthenticatesSessions::class,
@@ -128,4 +148,84 @@ return Application::configure(basePath: dirname(__DIR__))
         | for both. `SensitiveInputTest` asserts they stay wired together.
         */
         $exceptions->dontFlash(SensitiveInput::keys());
+
+        /*
+        | A shop that has spent a monthly credit.
+        |
+        | Rendered as an ERROR BAG plus a payload, never as a 4xx page, and the reason is
+        | what this application already does rather than what is conventional. There is no
+        | Inertia error page here: a 403 from a POST reaches the shopkeeper as Inertia's
+        | own English iframe modal, which is the worst possible answer for someone standing
+        | at a counter with a customer. Every domain failure in this codebase already
+        | arrives as `back()->withErrors([...])`, so this is the path the operator's eyes
+        | are already trained on.
+        |
+        | The payload rides in the session rather than in the bag because it is structured
+        | — the metric, the numbers, the next plan, the prorated price — and an error bag
+        | is a map of strings. `HandleInertiaRequests` shares it as its own prop and the
+        | shell renders it once, which matters: roughly twenty-five forms in this app
+        | render only the error keys they know about, so a bag entry alone would silently
+        | vanish on most of them.
+        |
+        | The event is recorded HERE, and not from inside `consume()`, because the refusal
+        | threw inside the caller's transaction and unwound it. An `afterCommit` callback
+        | registered in there is discarded by Laravel on rollback — so the most
+        | commercially interesting signal in the product would simply not exist. By the
+        | time this runs the transaction is gone and the connection is healthy.
+        */
+        /*
+        | The four errors a shopkeeper can actually meet, rendered in Persian and RTL.
+        |
+        | `resources/views/errors/` never existed, so until now every one of them rendered
+        | Laravel's stock English page — including the two Persian sentences `ResolveTenant`
+        | has been writing since Phase 1, which nobody had ever seen because `APP_DEBUG=false`
+        | withholds the message and there was no view to put it in.
+        |
+        | Inertia rather than Blade: the application is Inertia, and an error page that
+        | reloads into a different rendering stack loses the shell, the fonts and the
+        | direction. Only for real HTTP errors on non-JSON requests — an API client wants
+        | its JSON, and Inertia's own iframe modal is fine for a developer.
+        */
+        $exceptions->respond(function (SymfonyResponse $response, Throwable $exception, Request $request): SymfonyResponse {
+            $status = $response->getStatusCode();
+
+            if ($request->expectsJson() || ! in_array($status, [403, 404, 419, 500, 503], true)) {
+                return $response;
+            }
+
+            return Inertia::render('errors/index', [
+                'status' => $status,
+                // Only a message somebody wrote on purpose. An exception's own text is
+                // usually a class name and a file path, which tells a shopkeeper nothing
+                // and occasionally tells them something they should not see.
+                'message' => $exception instanceof HttpExceptionInterface ? $exception->getMessage() : null,
+            ])->toResponse($request)->setStatusCode($status);
+        });
+
+        $exceptions->render(function (QuotaExceeded $exception, Request $request): RedirectResponse|JsonResponse {
+            $payload = app(QuotaBlock::class)->for($exception->verdict, $request->user());
+
+            /** @var int|string|null $actorId */
+            $actorId = $request->user()?->getAuthIdentifier();
+
+            app(UsageEvents::class)->blocked(
+                app(TenantContext::class)->idOrFail(),
+                $exception->verdict,
+                $actorId === null ? null : (int) $actorId,
+            );
+
+            $wantsJson = $request->expectsJson() && $request->hasHeader('X-Inertia') === false;
+
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => $payload['message'],
+                    'errors' => ['quota' => [$payload['message']]],
+                    'quota' => $payload,
+                ], 422);
+            }
+
+            return back()
+                ->withErrors(['quota' => $payload['message']])
+                ->with('quota_block', $payload);
+        });
     })->create();

@@ -31,6 +31,11 @@ use App\Support\Tenancy\TenantContext;
  * concurrency; the row locks either hold or they do not.
  */
 beforeEach(function (): void {
+    // Fifty invoices in one test, deliberately — this suite is about the counter under
+    // contention, not about credits. Metered it would refuse the thirty-first on Pro and
+    // prove nothing about numbering, which is what it exists for.
+    withUnlimitedQuota();
+
     $this->tenant = Tenant::factory()->withDomain()->create();
 
     /** @var array{Warehouse, Party, Account} $fixtures */

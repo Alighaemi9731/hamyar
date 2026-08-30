@@ -7,8 +7,10 @@ namespace App\Modules\Files\Services;
 use App\Modules\Files\Models\Attachment as AttachmentRow;
 use App\Support\Files\Attachment;
 use App\Support\Files\AttachmentStore;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -54,7 +56,11 @@ final class FileStore implements AttachmentStore
         'application/pdf' => 'pdf',
     ];
 
-    public function __construct(private readonly TenantContext $context) {}
+    public function __construct(
+        private readonly TenantContext $context,
+        private readonly QuotaGuard $quota,
+        private readonly ConnectionInterface $connection,
+    ) {}
 
     public function attach(Model $owner, UploadedFile $file, string $collection, ?int $actorId = null): Attachment
     {
@@ -70,20 +76,48 @@ final class FileStore implements AttachmentStore
         // rather than across the platform.
         $path = sprintf('t/%d/%s/%s.%s', $tenantId, $this->safeCollection($collection), Str::ulid(), $extension);
 
-        $this->disk()->put($path, $file->getContent(), 'private');
+        $bytes = $file->getSize() ?: 0;
 
-        $row = AttachmentRow::query()->create([
-            'attachable_type' => $owner::class,
-            'attachable_id' => $owner->getKey(),
-            'collection' => $collection,
-            'disk' => $this->diskName(),
-            'path' => $path,
-            // Kept for display only. Never used to build the key above.
-            'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
-            'mime_type' => $mime,
-            'size_bytes' => $file->getSize() ?: 0,
-            'uploaded_by' => $actorId,
-        ]);
+        /*
+        | Both credits and the row, in one transaction — and the object written LAST.
+        |
+        | The old order put the blob on the disk before the row existed, so anything that
+        | failed after it left a file nothing referenced: invisible, uncountable, and
+        | still on the bill. Now a refused upload leaves nothing behind at all, and a
+        | storage failure rolls the row back with it.
+        |
+        | Two metrics because they cap different things: `files.attachments` is how many
+        | files a month, `files.storage_mb` is how much space in total. A shop can be
+        | inside one and against the other — a hundred small photos, or one enormous PDF.
+        */
+        /** @var AttachmentRow $row */
+        $row = $this->connection->transaction(function () use ($owner, $collection, $path, $file, $mime, $bytes, $actorId): AttachmentRow {
+            $this->quota->consume('files.attachments');
+
+            $megabytes = (int) ceil($bytes / 1_048_576);
+
+            if ($megabytes > 0) {
+                $this->quota->consume('files.storage_mb', $megabytes);
+            }
+
+            /** @var AttachmentRow $row */
+            $row = AttachmentRow::query()->create([
+                'attachable_type' => $owner::class,
+                'attachable_id' => $owner->getKey(),
+                'collection' => $collection,
+                'disk' => $this->diskName(),
+                'path' => $path,
+                // Kept for display only. Never used to build the key above.
+                'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
+                'mime_type' => $mime,
+                'size_bytes' => $bytes,
+                'uploaded_by' => $actorId,
+            ]);
+
+            $this->disk()->put($path, $file->getContent(), 'private');
+
+            return $row;
+        });
 
         return $this->toValue($row);
     }

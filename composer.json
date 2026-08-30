@@ -110,7 +110,8 @@
             "@php bin/check-savepoint-recovery",
             "@php bin/check-global-helpers",
             "@php bin/check-forgettable-singletons",
-            "@php bin/check-queued-tenancy"
+            "@php bin/check-queued-tenancy",
+            "@php bin/check-quota-scoping"
         ]
     },
     "scripts-descriptions": {

@@ -91,7 +91,7 @@
 
             <div class="pitch__actions">
                 <a href="{{ route('register') }}" class="btn btn--primary btn--lg">
-                    ۱۴ روز رایگان شروع کنید
+                    رایگان شروع کنید
                     @include('landing.icon', ['name' => 'arrow', 'size' => 16])
                 </a>
 

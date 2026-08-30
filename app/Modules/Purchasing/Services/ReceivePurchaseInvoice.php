@@ -16,6 +16,7 @@ use App\Modules\Purchasing\Models\LandedCost;
 use App\Modules\Purchasing\Models\PurchaseInvoice;
 use App\Modules\Purchasing\Models\PurchaseInvoiceItem;
 use App\Modules\Purchasing\Models\PurchaseUnitItem;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use RuntimeException;
@@ -41,6 +42,7 @@ final class ReceivePurchaseInvoice
         private readonly UnitStateMachine $units,
         private readonly LedgerService $ledger,
         private readonly LandedCostAllocator $allocator,
+        private readonly QuotaGuard $quota,
     ) {}
 
     public function receive(PurchaseInvoice $invoice, ?CarbonImmutable $at = null): PurchaseInvoice
@@ -61,6 +63,26 @@ final class ReceivePurchaseInvoice
 
             if ($invoice->items->isEmpty() && $invoice->unitItems->isEmpty()) {
                 throw new RuntimeException("Purchase invoice {$invoice->number} has no lines to receive.");
+            }
+
+            /*
+            | Both credits, once each, before anything is written.
+            |
+            | The receipt itself is one `purchasing.invoices`; the devices on it are `n`
+            | of `inventory.units`, reserved in a single statement rather than one per
+            | IMEI. A twenty-phone delivery would otherwise hold the counter row open
+            | across twenty round trips, and — worse — could be refused halfway, leaving
+            | ten phones received and ten not, on a document that says twenty.
+            |
+            | All-or-nothing is the honest shape for a delivery: the shop either took it
+            | in or did not.
+            */
+            $this->quota->consume('purchasing.invoices');
+
+            $devices = $invoice->unitItems->count();
+
+            if ($devices > 0) {
+                $this->quota->consume('inventory.units', $devices);
             }
 
             $this->allocateLandedCosts($invoice);
@@ -181,6 +203,8 @@ final class ReceivePurchaseInvoice
                 $unit,
                 reference: $invoice,
                 note: "دریافت با فاکتور خرید {$invoice->number}",
+                // Already reserved for the whole delivery in `receive()`.
+                metered: false,
             );
 
             $unitItem->update(['product_unit_id' => $unit->getKey()]);

@@ -7,12 +7,19 @@ namespace App\Http\Middleware;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Platform\Models\Announcement;
+use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Tenant;
+use App\Modules\Platform\Models\UsageCounter;
+use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Support\PlanCatalogue;
+use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\QuotaGuard;
+use App\Support\Quota\QuotaVerdict;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Throwable;
 
 /**
  * Props every Inertia page receives.
@@ -76,6 +83,29 @@ final class HandleInertiaRequests extends Middleware
             */
             'branch' => fn (): array => $this->isStaff($request) ? $this->branch() : [],
 
+            /*
+            | How much of each monthly credit this shop has left.
+            |
+            | Staff-only and lazy, like `features` and `branch`, and for the same reason:
+            | it is commercial information about the shop rather than about the invoice a
+            | customer is looking at. One indexed query for every meter on the page —
+            | keyed `(tenant_id, period_key)` and covering — which is the price of a
+            | shopkeeper never being surprised by a refusal.
+            */
+            'usage' => fn (): array => $this->isStaff($request) ? $this->usage() : [],
+
+            /*
+            | Set only on the request that follows a refusal.
+            |
+            | Its own prop rather than an error-bag key, because the shell renders it once
+            | for every form in the application. About twenty-five forms here render only
+            | the error keys they were written to expect, so a bag entry would silently
+            | vanish on most of them — and a submit button that does nothing, with a
+            | customer waiting, is the exact failure CLAUDE.md's "a home for errors that
+            | belong to no field" rule exists to prevent.
+            */
+            'quota_block' => fn (): ?array => $this->quotaBlock($request),
+
             'location' => $request->getPathInfo(),
         ];
     }
@@ -107,9 +137,13 @@ final class HandleInertiaRequests extends Middleware
     /**
      * `module:<code> => bool` for every sellable module.
      *
-     * Every module is listed explicitly, including the disabled ones, so the frontend
-     * can distinguish "not in your plan" (false) from "unknown key" (absent) — the
-     * first is an upsell, the second is a bug.
+     * Since DECISION GATE 6 these say whether WE have a module switched on platform-wide,
+     * not whether this shop bought it — no plan buys a module any more. A `false` here is
+     * therefore rare and temporary (ADR 0011's Moadian is the standing example), and the
+     * nav hides the item rather than offering an upsell for something nobody can buy.
+     *
+     * What a shop's PLAN decides now travels in the separate `usage` prop: how much of
+     * each thing it may still record this month.
      *
      * @return array<string, bool>
      */
@@ -119,15 +153,140 @@ final class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        $granted = app(SubscriptionResolver::class)->grantedModuleCodes();
+        $enabled = Module::enabledCodes();
 
         $features = [];
 
+        // Every module the application knows about, including the ones switched off, so
+        // the frontend can tell "off right now" (false) from "unknown key" (absent) —
+        // the first is a message, the second is a bug.
         foreach (PlanCatalogue::modules() as $module) {
-            $features['module:'.$module['code']] = in_array($module['code'], $granted, true);
+            $features['module:'.$module['code']] = in_array($module['code'], $enabled, true);
         }
 
         return $features;
+    }
+
+    /**
+     * Every counted metric's standing this month, shaped for the meters.
+     *
+     * `level` is computed here rather than in the browser so one rule decides it
+     * everywhere: amber at the configured warning ratio, red only once a refusal has
+     * actually happened. A meter that turns red merely for being full would shout at a
+     * shop that used exactly what it paid for and went home.
+     *
+     * @return array<string, mixed>
+     */
+    private function usage(): array
+    {
+        $context = app(TenantContext::class);
+
+        if (! $context->has()) {
+            return [];
+        }
+
+        $tenantId = $context->idOrFail();
+        $registry = app(MetricRegistry::class);
+        $resolver = app(LimitResolver::class);
+        $ratio = config()->float('hamyar.quota.warning_ratio', 0.8);
+
+        try {
+            $plan = $resolver->effectivePlanCode($tenantId);
+        } catch (Throwable $failure) {
+            // The meters are a convenience and this runs on every staff page, so a
+            // catalogue that cannot be resolved must not take the application down with
+            // it. Reported rather than swallowed: it is a misconfiguration, and the place
+            // to find out is the crash reporter, not a support ticket about a white page.
+            report($failure);
+
+            return [];
+        }
+
+        $blocked = $this->blockedMetrics($tenantId);
+
+        $meters = [];
+        $attention = [];
+
+        foreach (app(QuotaGuard::class)->snapshot() as $verdict) {
+            $metric = $registry->get($verdict->metric);
+            $level = $this->level($verdict, in_array($verdict->metric, $blocked, true), $ratio);
+
+            if ($level !== 'ok') {
+                $attention[] = $verdict->metric;
+            }
+
+            $meters[] = [
+                'key' => $verdict->metric,
+                'label' => $metric->labelFa,
+                'unit' => $metric->unitFa,
+                'module' => $metric->module,
+                'used' => $verdict->used,
+                'limit' => $verdict->limit,
+                'window' => $verdict->window->value,
+                'resets_at' => $verdict->resetsAt?->toIso8601String(),
+                'level' => $level,
+            ];
+        }
+
+        $subscription = app(SubscriptionResolver::class)->current();
+
+        return [
+            'plan' => [
+                'code' => $plan,
+                'name' => $subscription?->plan->name_fa ?? '',
+                // "Lapsed" is a real state a shopkeeper needs named: the shop still works,
+                // on the free plan's credits, and the banner says so with a renew link.
+                'lapsed' => $subscription === null || ! $subscription->isUsable(),
+            ],
+            'meters' => $meters,
+            'attention' => $attention,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function blockedMetrics(int $tenantId): array
+    {
+        /** @var list<string> $metrics */
+        $metrics = app(TenantContext::class)->runAsPlatform(
+            static fn (): array => UsageCounter::query()
+                ->where('tenant_id', $tenantId)
+                ->whereNotNull('blocked_at')
+                ->pluck('metric')
+                ->all()
+        );
+
+        return $metrics;
+    }
+
+    private function level(QuotaVerdict $verdict, bool $blocked, float $ratio): string
+    {
+        if ($blocked) {
+            return 'blocked';
+        }
+
+        $usage = $verdict->ratio();
+
+        return match (true) {
+            $usage === null => 'ok',
+            $usage >= 1.0 => 'reached',
+            $usage >= $ratio => 'warning',
+            default => 'ok',
+        };
+    }
+
+    /**
+     * The block payload left in the session by the refusal that just happened.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function quotaBlock(Request $request): ?array
+    {
+        /** @var array<string, mixed>|null $payload */
+        $payload = $request->session()->get('quota_block');
+
+        return $payload;
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\QuotaPressure;
 use App\Filament\Widgets\RevenueOverview;
 use App\Filament\Widgets\SubscriptionsByPlan;
 use App\Support\Tenancy\PlatformPanelContext;
@@ -66,6 +67,10 @@ final class AdminPanelProvider extends PanelProvider
             ->widgets([
                 RevenueOverview::class,
                 SubscriptionsByPlan::class,
+                // The pricing signal: which credit stops shops, and whether being
+                // stopped makes them pay. Nothing else in the panel can tell a limit
+                // that is earning its place from one that is losing us customers.
+                QuotaPressure::class,
             ])
             ->middleware([
                 EncryptCookies::class,

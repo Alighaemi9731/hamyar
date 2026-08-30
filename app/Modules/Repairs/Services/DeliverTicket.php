@@ -127,7 +127,11 @@ final class DeliverTicket
             // clamp and the account guard all come along for free.
             $this->drafts->write($invoice, $lines, $this->withPrepaid($ticket, $payments), $actorId);
 
-            $this->finaliser->finalise($invoice, $actorId);
+            // `metered: false` — the ticket was counted at intake, and a shop at its
+            // sales cap must still be able to hand a customer their own repaired phone
+            // (DECISION GATE 6, item 5). Counting this would charge one repair twice and
+            // put the refusal at the counter, in front of the customer waiting for it.
+            $this->finaliser->finalise($invoice, $actorId, metered: false);
 
             $ticket->forceFill([
                 'warranty_days' => max(0, $warrantyDays),

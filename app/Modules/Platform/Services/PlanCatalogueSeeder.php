@@ -8,7 +8,6 @@ use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\PlanLimit;
 use App\Modules\Platform\Support\PlanCatalogue;
-use App\Modules\Platform\Support\TrialPolicy;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -57,17 +56,17 @@ final class PlanCatalogueSeeder
         foreach (PlanCatalogue::modules() as $position => $definition) {
             $module = Module::query()->firstOrNew(['code' => $definition['code']]);
 
-            // Structural: the code decides these, always.
+            // Structural: the code decides these, always. No amount of panel editing can
+            // invent a module the application cannot serve.
             $module->name_fa = $definition['name_fa'];
             $module->is_core = $definition['is_core'];
-            $module->is_addonable = $definition['is_addonable'];
             $module->position = $position;
 
-            // Business: seed the opening price, then leave it to the panel.
+            // Operational, and ours: `is_enabled` is a platform kill-switch, not something
+            // a plan buys (Gate 6, item 8). Seeded on, then left to the panel — so
+            // switching a module off for everybody survives the next deploy.
             if (! $module->exists) {
-                $module->addon_price = $definition['addon_toman'] === null
-                    ? null
-                    : PlanCatalogue::rial($definition['addon_toman']);
+                $module->is_enabled = true;
             }
 
             $module->save();
@@ -87,19 +86,15 @@ final class PlanCatalogueSeeder
                 $plan->name_fa = $definition['name_fa'];
                 $plan->tagline_fa = $definition['tagline_fa'];
                 $plan->price = PlanCatalogue::rial($definition['price_toman']);
-                $plan->trial_days = TrialPolicy::DAYS;
+                // No trial: the free rung replaced it at Gate 6, so a shop evaluates the
+                // product by using it rather than by a countdown.
+                $plan->trial_days = 0;
                 $plan->is_public = true;
             }
 
             $plan->save();
 
-            // Membership is business data: an owner may run a promotion that moves
-            // تعمیرات into Basic. Re-syncing would undo it on the next deploy.
             if ($isNew) {
-                $plan->modules()->sync(
-                    Module::query()->whereIn('code', $definition['modules'])->pluck('id')->all()
-                );
-
                 foreach ($definition['limits'] as $key => $value) {
                     PlanLimit::query()->create([
                         'plan_id' => $plan->getKey(),

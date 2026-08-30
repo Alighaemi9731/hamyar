@@ -6,6 +6,7 @@ namespace App\Modules\Inventory\Services;
 
 use App\Modules\Inventory\Models\StockCount;
 use App\Modules\Inventory\Models\StockCountItem;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use RuntimeException;
@@ -26,6 +27,7 @@ final class StockCountService
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly StockLedger $stock,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -69,6 +71,12 @@ final class StockCountService
         /** @var int $written */
         $written = $this->connection->transaction(function () use ($count, $at): int {
             $count->load('items');
+
+            // Metered when the count is APPLIED — the moment it changes the books. An
+            // open count is a clipboard, and a shop should be able to walk the shelves
+            // without spending anything.
+            $this->quota->consume('inventory.stock_counts');
+
             $adjustments = 0;
 
             foreach ($count->items as $item) {

@@ -7,6 +7,130 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.15.1 - 2026-08-30
+
+**Every module now spends credits, and four real bugs surfaced doing it.** Phases 12.6
+through 12.14: the block experience, every remaining call site, the events, the operator
+tooling and the error pages. None of the four were in the quota code; all four were found
+because metering made previously-unreachable paths reachable.
+
+**`runAsPlatform()` was not re-entrant.** Its `finally` forced the flag OFF, so a nested
+call — an event listener recording something inside a platform-context write — cleared it
+for the outer block that was still running. RLS does not error when the flag is missing; it
+returns nothing. The symptom was a `findOrFail` on a row that plainly existed, a hundred
+lines from the nested call that caused it. The depth is now counted and cleared once, by
+the outermost caller — the same discipline `runFor()` has always had.
+
+**`LimitResolver` read `subscriptions` without the platform flag**, so called for an
+arbitrary tenant — from a job, from the panel — it saw no subscription, fell through to the
+fallback plan, and metered a shop on the top rung at the free rung's credits. Silently.
+
+**`nextPlanFor()` never offered an upgrade to a shop on a private plan.** It walked the
+public plans until it met the current one, and a plan with `is_public = false` — a
+grandfathered price, a negotiated deal — never appears in that list. The customer most
+likely to be on a private plan is the one paying us most.
+
+**Proration could produce a price the product cannot say.** `intdiv` truncated to the
+rial, and `Money::toToman()` refuses to round money — it throws. Unreachable while every
+upgrade subtracted an unused credit that happened to round the total off; reachable the
+moment a plan was free and the amount due WAS the raw portion, at which point the billing
+page 500s. Proration now truncates to a whole toman, keeping ADR 0006's direction (the
+remainder stays with the customer) and making all three figures on the line add up.
+
+Three more, found while metering: `PartyController@store` wrote a party and its contacts as
+two unwrapped statements, so a failure between them left a customer with no phone number;
+`FileStore::attach` put the blob on the disk before the row existed, leaving orphaned files
+nothing referenced; the POS quote path took its number outside a transaction, one
+concurrent pair of requests from two quotes sharing a number.
+
+**Being blocked is an error bag plus a payload the shell renders once**, never a 4xx page —
+this application has no Inertia error page, so a 403 from a POST reaches the shopkeeper as
+Inertia's English iframe modal. It also now HAS error pages: 403/404/419/500 in Persian and
+RTL, which finally makes visible the two Persian sentences `ResolveTenant` has been writing
+since Phase 1 and nobody had ever seen.
+
+Deferred with reasons on the roadmap: the quota SMS alerts and the renewal-reminder
+listener, because both need a pattern registered with an SMS provider we have no account
+for — the same reason Phase 8 deferred `sms.ir`.
+
+**No release** — still no production server.
+
+## 0.15.0 - 2026-08-30
+
+**BREAKING — every module is open to every shop, and the first rung is free.** The plan
+model the owner approved at DECISION GATE 6, in code. Prefixed BREAKING because an existing
+plan row's *meaning* changes: `plan_module` stops being read, `plan_limits` keys become
+metric keys, and a `trialing` subscription is migrated to `active` on the free plan.
+
+**What a plan sells is now quantity.** `basic` is free, permanently, with real monthly
+credits — 300 invoices, 200 IMEI units, 200 products, 100 repair tickets — and zero SMS,
+because SMS is the one credit that costs us cash per unit and a free rung that handed it out
+would be a free SMS service for anyone willing to re-register. `pro` is 5,000 invoices;
+`enterprise` is unlimited except the two things that cost per unit whatever we charge (25
+seats, 50 GB), which an override lifts for a particular shop.
+
+**`TrialPolicy` is deleted, not inverted.** The free rung replaced the 14-day trial: a shop
+evaluates the product by using it, for as long as it likes. That also gives a lapsed paid
+subscription somewhere coherent to land instead of a lock-out.
+
+**`EnsureModuleEnabled` survives with a different question.** It used to ask "does this
+shop's plan include Repairs?" and 403 if not — correct for a product where a plan bought
+modules, and wrong for one where it buys quantity: a shop three days late on payment found
+every screen 403ing and concluded the software was broken. It now asks "have WE switched
+this module on", reading `modules.is_enabled`, which is what ADR 0011 has needed for Moadian
+since it shipped without a provider. What fails closed is the quota layer, which can refuse
+a *create* without taking the product away.
+
+**The panel is where limits live.** `PlanForm` is built from the metric registry — one
+field per metric, grouped by owning module — so shipping a metered action in Sales makes it
+appear on the pricing screen without Platform being touched. Saving bumps every shop on the
+plan, so an edit applies on their next request rather than whenever each worker restarts.
+
+**The landing page sells credits.** Pricing rows list monthly quotas with «رایگان» on the
+first rung, the add-on shelf is gone with the product it advertised, the trial CTAs became
+«رایگان شروع کنید», and Terms §3 explains the credit model and says plainly that a lapsed
+subscription drops to the free plan rather than closing the shop.
+
+**No release** — still no production server.
+
+## 0.14.5 - 2026-08-30
+
+**The meter, and the lifecycle it depends on.** `usage_counters`, `tenant_limit_overrides`
+and `usage_events` now exist, along with `DatabaseQuotaGuard` and `LimitResolver`. Nothing
+calls the guard from a module yet — the call sites land module by module next — but the
+machine underneath is complete and tested.
+
+**A spend is one statement.** `INSERT … SELECT … WHERE n <= limit ON CONFLICT (tenant_id,
+metric, period_key) DO UPDATE SET used = used + EXCLUDED.used WHERE used + EXCLUDED.used <=
+limit RETURNING used`. The read-decide-write shape it replaces is the double-spend bug: at
+the last unit of a credit, two requests both read "one left", both decide yes, and the shop
+gets two for one — silently, on the busiest day, which is when it happens. Every
+placeholder in the bounded statement carries an explicit cast, because Postgres cannot
+infer a parameter's type outside a `VALUES` column position and fails at prepare time
+without them.
+
+**Three states that had been modelled since Phase 2 with nothing writing them.**
+`subscriptions:expire` is the first writer of `past_due`, `grace_ends_at` and `canceled`.
+Two consequences had been invisible: there was **no grace period at all** — `isUsable()`
+reads a column nobody set — and **MRR counted every shop that had ever paid**, for ever,
+because nothing ever left `active`. A free plan is exempt: a zero-price subscription is not
+late, it is free.
+
+**Failing closed where it matters.** A fallback plan that resolves to no row throws rather
+than assuming unlimited; in tests that also stops a suite which forgot its fixture from
+passing unmetered, which is how a create path that never calls `consume()` stays green for
+ever.
+
+`bin/check-quota-scoping` joins the lint job: these tables carry RLS but no
+`BelongsToTenant`, so nothing adds a tenant filter and an unscoped query inside
+`runAsPlatform()` returns every shop's rows — on a screen that reads "usage", that is one
+shop's numbers shown to another.
+
+`docs/DECISIONS-FOR-REVIEW.md` records the judgement calls made in this run, including why
+CI has no fork-based concurrency test and what stands in its place.
+
+**No release** — still no production server.
+
 ## 0.14.4 - 2026-08-30
 
 **The quota kernel — the shared contract eighteen modules will call, and nothing yet

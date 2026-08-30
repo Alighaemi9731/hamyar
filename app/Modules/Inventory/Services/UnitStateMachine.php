@@ -8,6 +8,7 @@ use App\Modules\Inventory\Enums\UnitStatus;
 use App\Modules\Inventory\Exceptions\IllegalUnitTransition;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\ProductUnitHistory;
+use App\Support\Quota\QuotaGuard;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,7 +27,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class UnitStateMachine
 {
-    public function __construct(private readonly ConnectionInterface $connection) {}
+    public function __construct(
+        private readonly ConnectionInterface $connection,
+        private readonly QuotaGuard $quota,
+    ) {}
 
     /**
      * Move a unit to a new status, recording why.
@@ -80,13 +84,31 @@ final class UnitStateMachine
      * Separate from `transition()` because there is no `from` status — the device did not
      * exist here before. Without this line, a unit's history starts mid-story and
      * "bought from whom" has no answer.
+     *
+     * ## This is also where a device is metered
+     *
+     * `inventory.units` counts devices ENTERING the shop, and this method is the one place
+     * that happens — a purchase receipt and a trade-in both come through here. Metering
+     * the purchase route instead would leave the trade-in as a loophole: a shop out of
+     * device credit could still take phones in over the counter, which is the same act
+     * with a different door.
+     *
+     * @param  bool  $metered  false when the caller has already reserved credit for a
+     *                         batch. `ReceivePurchaseInvoice` spends `n` once for a
+     *                         twenty-IMEI delivery rather than holding the counter row
+     *                         open across twenty round trips
      */
     public function recordAcquisition(
         ProductUnit $unit,
         ?Model $reference = null,
         ?string $note = null,
         ?int $actorId = null,
+        bool $metered = true,
     ): ProductUnitHistory {
+        if ($metered) {
+            $this->quota->consume('inventory.units');
+        }
+
         /** @var ProductUnitHistory $history */
         $history = ProductUnitHistory::query()->create([
             'product_unit_id' => $unit->getKey(),

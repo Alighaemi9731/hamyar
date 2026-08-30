@@ -6,6 +6,7 @@ namespace App\Modules\Platform\Services;
 
 use App\Modules\Platform\Models\Plan;
 use App\Modules\Platform\Models\Subscription;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 
 /**
@@ -100,8 +101,24 @@ final class ProrationCalculator
     }
 
     /**
-     * price × remaining ÷ period, truncated. Multiply first so the truncation happens
-     * once, at the end — dividing first would compound rounding error per term.
+     * price × remaining ÷ period, truncated to a whole TOMAN.
+     *
+     * Multiply first so the truncation happens once, at the end — dividing first would
+     * compound rounding error per term.
+     *
+     * ## Why whole toman and not whole rial
+     *
+     * `intdiv` alone lands on figures like ۳٬۹۳۳٬۳۳۳ ریال, which is not a whole toman and
+     * therefore not a number this product can say out loud: `Money::toToman()` refuses to
+     * round money and throws, so the billing page 500s rather than quote a price it cannot
+     * express. That was reachable the moment a plan was free — with no unused credit to
+     * subtract, the amount due IS the raw portion.
+     *
+     * Truncating to the toman keeps ADR 0006's direction (the remainder is left with the
+     * customer, never taken from them) and makes all three figures on the invoice line —
+     * credit, charge, total — whole toman that add up. A rounding that only applied to the
+     * total would produce a receipt whose lines do not sum, which is worse than the
+     * fraction it was hiding.
      */
     public function portion(int $price, int $remainingDays, int $periodDays): int
     {
@@ -109,7 +126,9 @@ final class ProrationCalculator
             return 0;
         }
 
-        return intdiv($price * min($remainingDays, $periodDays), $periodDays);
+        $rial = intdiv($price * min($remainingDays, $periodDays), $periodDays);
+
+        return intdiv($rial, Money::RIAL_PER_TOMAN) * Money::RIAL_PER_TOMAN;
     }
 
     /**

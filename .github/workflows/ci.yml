@@ -76,6 +76,13 @@ jobs:
       - name: Queued-job tenancy gate
         run: php bin/check-queued-tenancy
 
+      # 12.3. usage_counters, tenant_limit_overrides and usage_events are platform-owned:
+      # RLS protects them, but they carry no BelongsToTenant, so nothing adds a tenant
+      # filter for you. Inside runAsPlatform() an unscoped query returns every shop's rows
+      # — on a screen that reads "usage", that is one shop's numbers shown to another.
+      - name: Quota-table scoping gate
+        run: php bin/check-quota-scoping
+
       # 11.3. The production apex is not chosen yet, and the five places it surfaces —
       # printed receipts, repair-tracking QR codes, reseller price-list links, SMS
       # templates, emails — are the five nobody greps. A literal there works perfectly

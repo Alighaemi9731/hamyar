@@ -49,6 +49,14 @@ final class TenancyCheckCommand extends Command
         'subscription_invoices',
         'subscription_addons',
         'payment_attempts',
+
+        // Phase 12 (ADR 0018). The panel's usage page and the blocked-shops widget read
+        // these across every shop; the Eloquent scope would return nothing inside
+        // runAsPlatform(), so they carry RLS and an explicit `where tenant_id` on every
+        // query instead — enforced by `bin/check-quota-scoping`.
+        'usage_counters',
+        'tenant_limit_overrides',
+        'usage_events',
     ];
 
     /**

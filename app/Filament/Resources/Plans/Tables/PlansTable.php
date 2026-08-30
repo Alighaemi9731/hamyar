@@ -27,7 +27,7 @@ final class PlansTable
                     ->formatStateUsing(fn (int $state): string => Money::formatWithUnit($state))
                     ->sortable(),
 
-                TextColumn::make('modules_count')->counts('modules')->label('ماژول'),
+                TextColumn::make('limits_count')->counts('limits')->label('سهمیه'),
 
                 TextColumn::make('subscriptions')
                     ->label('مشترک فعال')

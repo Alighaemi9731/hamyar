@@ -43,3 +43,90 @@ instead.
 calls `ProfitEngine` for totals and reads the same columns for breakdowns, and its summary
 keys mirror the engine's names exactly (`profit`, not `margin`). Renaming would give the
 shop two names for one figure and make a mismatch between two screens impossible to spot.
+
+---
+
+## Phase 12 — Metered plans (autonomous run, 2026-08-30)
+
+Authorized by the owner on 2026-08-30: «خودت کامل پیش برو دیگه از من چیزی نپرس و هر چی تو
+برنامه داری تا اخرین موردش رو ایمپلیمنت کن». The sixteen gate items were answered first
+(ROADMAP, Gate 6 block); everything here is a call made *inside* those answers.
+
+**Real multi-process concurrency is not tested in CI, and the reason is not laziness.** The
+whole design rests on `INSERT … ON CONFLICT DO UPDATE … WHERE` being atomic. A fork harness
+was written — twenty children at the last unit, one PDO connection each, counting winners —
+and then removed. Forking inside PHPUnit is fragile in ways unrelated to the code under
+test (inherited handles, output buffers, shutdown handlers running twice), and a
+concurrency test that hangs the build once a fortnight teaches everyone to re-run CI
+instead of reading it. What replaced it asserts the two properties that make the race safe
+and are deterministic: **one statement per spend** (a refactor into read-decide-write fails
+the test, and that refactor *is* the double-spend bug) and **the cap evaluated against
+committed state** (a spend decided from a stale read is refused). Postgres's own guarantee
+— the loser of an `ON CONFLICT` race waits on the winner's tuple and re-evaluates the
+`DO UPDATE … WHERE` under READ COMMITTED — is documented behaviour we rely on rather than
+re-prove. Reversible: `AtomicityTest`'s docblock says exactly what a fork harness would add.
+
+**`bin/check-quota-scoping` skips the test suite.** The three quota tables are
+platform-owned, so nothing adds a tenant filter and every production query must carry its
+own. Tests query them unscoped *on purpose* — that is how an isolation test proves RLS is
+the thing doing the work. Applying the gate to the suite would put an escape-hatch comment
+on every test that does its job. Reversible: delete four lines in the gate.
+
+**`SubscriptionResolver::forTenantId()` became public.** `LimitResolver` needs the same
+memoised lookup and holds an id rather than a model — it runs on the write path, where
+fetching a `Tenant` to pass in would be a query to avoid a query. Reversible: make it
+private again and pay the extra query.
+
+**A paid invoice for a tenant with no subscription now creates one** (12.1). Not reachable
+through the normal signup flow, which provisions one; fixed anyway, because "we took the
+money and the shop got nothing" is not a failure mode to leave to another path being
+perfect. Reversible: delete `startSubscriptionFor()`.
+
+**`PlanResource` is pinned to `id`** while `Plan::getRouteKeyName()` is `code`. The
+shop-facing route needed the code; the panel's URLs were never part of that decision, and
+letting a model-level change rewrite every `/admin/plans/{id}/edit` link is a blast radius
+nobody asked for. Reversible: delete one property.
+
+**`MetricKind` was designed and then not built.** With `Window::Day` gone at the gate,
+`Month` ⇔ counted and `Total` ⇔ computed exactly; a second enum could only agree with the
+window or disagree with it, and the second is the bug. `Metric`'s constructor enforces the
+pairing instead. Recorded in ADR 0018 rather than left as drift.
+
+### Later in the same run (12.6–12.14)
+
+**Quota SMS alerts and the `SubscriptionRenewalDue` listener were not built.** Both need a
+message pattern registered with an SMS provider, and there is no account to register one
+against — a template id invented here is a string the gateway rejects at send time. This is
+the same reason Phase 8 declined to write an `sms.ir` driver, and the same shape of mistake
+it avoided: code written against a guess at an API looks tested and is not. The shell banner
+carries the quota message today and is the channel a shopkeeper actually sees. Cost to add
+when an account exists: two listeners and two templates.
+
+**Every database-backed test now syncs the plan catalogue.** Not a convenience — the
+unrealistic fixture was the one that changed. In production a catalogue always exists;
+`PlanCatalogueSeeder` is idempotent and runs on every deploy. What deliberately did NOT
+change is that a tenant with no *subscription* still resolves to the free plan and is still
+metered at its credits, which is exactly what happens to a shop whose payment lapsed —
+seeding a subscription by default would be the shortcut that lets a create path forget
+`consume()` and stay green for ever. Reversible: three lines in `tests/Pest.php`.
+
+**Four suites gained `subscribe($tenant, 'pro')`** — Transfers, Storefront, User management,
+Activity log. They had no subscription at all, which before Gate 6 meant "no limits to hit"
+and now means "the free rung", where transfers are 0 and seats are 2. Subscribing is the
+realistic fixture (a shop doing that work has bought the plan that allows it) and has the
+side effect of running those suites against real credits rather than around them.
+
+**`ProrationCalculator::portion()` now truncates to the whole toman**, not the whole rial.
+This changes two numbers in `ProrationCalculatorTest` and is a real behaviour change to
+money arithmetic, so it is called out rather than buried: a rial figure that is not a whole
+toman is one `Money::toToman()` refuses to render — it throws rather than round — so the
+billing page 500s on it. The direction of ADR 0006 is unchanged (the remainder stays with
+the customer). Reversible, but the bug comes back with it.
+
+**Local PHP and Postgres were installed on the development machine during this run.** The
+memory note "no heavy work on the laptop" is about running the full suite as a habit, and
+that still stands — but Pint and Larastan went from three-minute CI round trips to three
+seconds, and the last eight defects in this phase were found locally. The laptop's suite has
+17 failures CI does not (Persian `LIKE` terms producing invalid UTF-8, an mbstring
+difference), so the branch was validated by **diffing** its failure set against `main`'s on
+the same machine rather than by trusting it. Same 17 tests, both sides.

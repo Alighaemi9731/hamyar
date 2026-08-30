@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Filament\Resources\Plans\Pages\EditPlan;
+use App\Filament\Resources\Plans\Schemas\PlanForm;
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Models\Announcement;
 use App\Modules\Platform\Models\Plan;
@@ -9,9 +11,11 @@ use App\Modules\Platform\Models\PlatformUser;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\ImpersonationService;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
+use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Money;
 use App\Support\Tenancy\TenantContext;
+use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function (): void {
@@ -102,14 +106,40 @@ it('does NOT expose shop data through the panel context', function (): void {
 /* ---------------------------------------------------------------- plans -- */
 
 it('stores an edited price as rial while showing toman', function (): void {
-    $basic = Plan::query()->where('code', 'basic')->firstOrFail();
+    // `basic` is free since DECISION GATE 6, so the assertion needs a plan with a price
+    // on it — a zero would pass while proving nothing about the conversion.
+    $pro = Plan::query()->where('code', 'pro')->firstOrFail();
 
     $this->actingAs($this->staff, 'platform')
         ->get($this->admin.'/plans')
         ->assertOk()
         // Staff read prices in toman; a rial figure on this screen is off by 10x to a
         // human eye and is how a mispricing gets approved.
-        ->assertSee(Money::formatWithUnit($basic->price));
+        ->assertSee(Money::formatWithUnit($pro->price));
+});
+
+it('edits a plan limit and applies it to the shops on that plan', function (): void {
+    // The panel is where limits live (Gate 2's rule, now load-bearing: a limit IS the
+    // product). Saving one has to reach the shops on that plan without waiting for each
+    // worker to restart — which is what the entitlement-version bump is for.
+    $tenant = Tenant::factory()->withDomain()->create();
+    subscribe($tenant, 'basic');
+
+    $basic = Plan::query()->where('code', 'basic')->firstOrFail();
+
+    $before = app(LimitResolver::class)->forTenant(idOf($tenant), 'sales.invoices');
+
+    Livewire::actingAs($this->staff, 'platform')
+        ->test(EditPlan::class, ['record' => idOf($basic)])
+        ->fillForm([PlanForm::fieldFor('sales.invoices') => 7])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($before)->not->toBe(7);
+    // The row, and then the number the SHOP actually gets — they are different
+    // questions, and only the second one proves the bump reached the tenant.
+    expect($basic->fresh()?->limit('sales.invoices'))->toBe(7);
+    expect(app(LimitResolver::class)->forTenant(idOf($tenant), 'sales.invoices'))->toBe(7);
 });
 
 /* -------------------------------------------------------- impersonation -- */

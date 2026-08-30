@@ -9,6 +9,7 @@ use App\Modules\Messaging\Models\Message;
 use App\Modules\Messaging\Models\MessageOptOut;
 use App\Modules\Messaging\Support\SmsPayload;
 use App\Support\PhoneNumber;
+use App\Support\Quota\QuotaGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -53,6 +54,7 @@ final class SendSms
         private readonly SmsDriver $driver,
         private readonly SmsWallet $wallet,
         private readonly ConnectionInterface $connection,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -71,6 +73,7 @@ final class SendSms
         ?string $idempotencyKey = null,
         ?Model $reference = null,
         ?int $branchId = null,
+        bool $systemMessage = false,
     ): ?Message {
         $to = PhoneNumber::normalise($rawPhone);
 
@@ -115,6 +118,34 @@ final class SendSms
         }
 
         $cost = self::DEFAULT_SEGMENT_COST;
+
+        /*
+        | The monthly SMS credit — the one metric whose refusal NEVER throws.
+        |
+        | Almost every message here is sent by something the shopkeeper is not watching: a
+        | queued job, an automation on a repair status, the nightly reminder sweep. A job
+        | that threw on quota would retry, fail, and eventually alert — turning "you have
+        | used your messages" into an incident. So it is `record()`, which returns a verdict
+        | instead, and a refusal becomes a fifth suppression reason beside the four the shop
+        | can already read in its own message log.
+        |
+        | `systemMessage` messages skip both this and the wallet: a message telling somebody
+        | their credit is gone must not itself be refused for want of credit, and a password
+        | reset must never be a thing a plan can withhold. The platform pays for those,
+        | capped per shop per day (`hamyar.quota.system_sms_daily_cap`).
+        */
+        if (! $systemMessage) {
+            $verdict = $this->quota->record('messaging.sms');
+
+            if (! $verdict->allowed) {
+                $message->forceFill([
+                    'status' => Message::STATUS_SUPPRESSED,
+                    'error' => 'سهمیهٔ پیامک این ماه تمام شده است.',
+                ])->save();
+
+                return $message;
+            }
+        }
 
         if (! $this->wallet->charge($message, $cost)) {
             $message->forceFill([

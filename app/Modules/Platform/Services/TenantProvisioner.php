@@ -57,8 +57,12 @@ final class TenantProvisioner
             $tenant = Tenant::query()->create([
                 'name' => $input['name'],
                 'slug' => $input['subdomain'],
-                'status' => Tenant::STATUS_TRIALING,
-                'trial_ends_at' => now()->addDays(14),
+                // `tenants.status` is about whether WE have suspended a shop, not about
+                // what it pays — a suspended or archived tenant cannot log in at all
+                // (`ResolveTenant`). A new shop is simply active; its plan decides what it
+                // may do, and the free rung means that answer is never "nothing".
+                'status' => Tenant::STATUS_ACTIVE,
+                'trial_ends_at' => null,
                 'settings' => [
                     'currency_display' => config('app.currency_display', 'toman'),
                     'digits' => 'fa',
@@ -71,7 +75,7 @@ final class TenantProvisioner
                 'is_primary' => true,
             ]);
 
-            $this->startTrial($tenant);
+            $this->startOnFreePlan($tenant);
 
             // Everything below writes tenant-scoped rows, so RLS needs the context —
             // without it the inserts are rejected by the policy's WITH CHECK clause,
@@ -103,23 +107,36 @@ final class TenantProvisioner
     }
 
     /**
-     * Put a new shop on a 14-day trial of the mid-tier plan.
+     * Put a new shop on the free plan, permanently.
      *
-     * The trial deliberately grants the PRO plan rather than Basic: a shop evaluating
-     * us needs to see repairs and installments, which are the features that actually
-     * differentiate the product. Selling Basic to someone who never saw Repairs is
-     * how you lose the upsell and the customer.
+     * ## Why there is no trial any more
      *
-     * Falls back silently when the catalogue has not been synced yet — provisioning a
-     * shop must never fail because a seed is missing.
+     * There used to be: fourteen days of the Professional plan, so an evaluating shop
+     * would see تعمیرات and اقساط — the modules that differentiated the product. That was
+     * the right shape when a plan bought modules. Since DECISION GATE 6 every module is
+     * open and a plan buys **quantity**, so the thing to evaluate is the product itself,
+     * for as long as the shopkeeper wants, on credits sized for a small shop.
      *
-     * Runs inside `runAsPlatform()`: onboarding happens on the central domain, where
-     * there is no tenant context, and `subscriptions` is RLS-protected. The platform is
-     * the party writing this row, so it says so explicitly.
+     * The free plan is therefore not a trial with the timer removed — it is a rung, and a
+     * shop can stay on it for ever. That also gives a lapsed paid subscription somewhere
+     * coherent to land (`LimitResolver`'s fallback) instead of a lock-out.
+     *
+     * **No period.** A zero-price subscription has nothing to renew, so
+     * `current_period_end` stays null — which `Subscription::isUsable()` already reads as
+     * "usable" for an active row, and `BillingService::hasLivePeriod()` already reads as
+     * "nothing to prorate against", so the first paid plan is charged in full rather than
+     * discounted against a period that cost nothing.
+     *
+     * Falls back to the cheapest plan when no zero-price one exists, and returns null when
+     * the catalogue has not been synced at all — provisioning a shop must never fail
+     * because a seed is missing.
+     *
+     * Runs inside `runAsPlatform()`: onboarding happens on the central domain, where there
+     * is no tenant context, and `subscriptions` is RLS-protected.
      */
-    public function startTrial(Tenant $tenant): ?Subscription
+    public function startOnFreePlan(Tenant $tenant): ?Subscription
     {
-        $plan = Plan::query()->where('code', 'pro')->first()
+        $plan = Plan::query()->where('price', 0)->orderBy('position')->first()
             ?? Plan::query()->orderBy('price')->first();
 
         if (! $plan instanceof Plan) {
@@ -127,15 +144,14 @@ final class TenantProvisioner
         }
 
         $now = CarbonImmutable::now();
-        $trialEnds = $now->addDays($plan->trial_days);
 
         return $this->context->runAsPlatform(fn (): Subscription => Subscription::query()->create([
             'tenant_id' => $tenant->getKey(),
             'plan_id' => $plan->getKey(),
-            'status' => Subscription::STATUS_TRIALING,
-            'trial_ends_at' => $trialEnds,
+            'status' => Subscription::STATUS_ACTIVE,
             'current_period_start' => $now,
-            'current_period_end' => $trialEnds,
+            // Deliberately null. See the docblock: free has no period to end.
+            'current_period_end' => null,
         ]));
     }
 

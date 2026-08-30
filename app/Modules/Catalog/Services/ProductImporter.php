@@ -12,6 +12,7 @@ use App\Modules\Catalog\Models\ProductVariant;
 use App\Support\Digits;
 use App\Support\Money;
 use App\Support\PersianText;
+use App\Support\Quota\QuotaGuard;
 use App\Support\Spreadsheet\Encoding;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use Illuminate\Database\ConnectionInterface;
@@ -103,6 +104,7 @@ final class ProductImporter
         private readonly SpreadsheetReaders $readers,
         private readonly PriceResolver $prices,
         private readonly CategoryTree $categories,
+        private readonly QuotaGuard $quota,
     ) {}
 
     /**
@@ -158,9 +160,29 @@ final class ProductImporter
     public function import(string $path, string $extension, array $mapping, string $unit, string $type): array
     {
         /** @var array{rows: list<array<string, mixed>>, counts: array<string, int>} $result */
-        $result = $this->connection->transaction(
-            fn (): array => $this->walk($path, $extension, $mapping, $unit, $type, commit: true)
-        );
+        $result = $this->connection->transaction(function () use ($path, $extension, $mapping, $unit, $type): array {
+            $walked = $this->walk($path, $extension, $mapping, $unit, $type, commit: true);
+
+            /*
+            | The credit is spent AFTER the walk, and that is not an oversight.
+            |
+            | The create count only exists once the file has been read — `walk()` decides
+            | row by row whether a product is new — so there is no earlier moment at which
+            | `n` is known. Spending it here is still atomic and still all-or-nothing: the
+            | refusal throws, the transaction unwinds, and not one product is left behind.
+            |
+            | A half-imported spreadsheet would be far worse than a refused one. The
+            | operator can read a refusal; they cannot easily tell which two hundred of
+            | four hundred rows landed.
+            */
+            $created = $walked['counts'][self::OUTCOME_CREATE] ?? 0;
+
+            if ($created > 0) {
+                $this->quota->consume('catalog.products', $created);
+            }
+
+            return $walked;
+        });
 
         return $result;
     }

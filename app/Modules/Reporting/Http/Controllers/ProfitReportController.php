@@ -7,6 +7,7 @@ namespace App\Modules\Reporting\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Inventory\Services\BranchContext;
+use App\Modules\Reporting\Http\Concerns\MetersExports;
 use App\Modules\Reporting\Services\ProfitReports;
 use App\Modules\Reporting\Services\ReportPeriod;
 use App\Modules\Reporting\Services\SavedFilters;
@@ -42,6 +43,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 final class ProfitReportController extends Controller
 {
+    use MetersExports;
+
     private const CUTS = ['product', 'brand', 'imei'];
 
     public function index(Request $request, ProfitReports $reports, SavedFilters $presets): Response
@@ -106,6 +109,17 @@ final class ProfitReportController extends Controller
         }
 
         $name = sprintf('profit-%s-%s-%s.xlsx', $cut, $period->from->toDateString(), $period->to->toDateString());
+
+        /*
+        | The credit, after the workbook is built and before it is handed over.
+        |
+        | Counting first would charge for a report that then failed to render — a refusal
+        | the shop cannot see the cause of, on the one screen where they were trying to
+        | get something out of the system. `reporting.exports` is one credit for all seven
+        | reports: a shopkeeper thinks "I exported four things today", not "I exported two
+        | sales reports and two tax reports".
+        */
+        $this->meterExport();
 
         return Excel::download(new ArraySheet($headings, $sheet), $name);
     }
