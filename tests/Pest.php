@@ -21,8 +21,24 @@ use Tests\TestCase;
 |
 */
 
+/*
+| Every database-backed test starts with the plan catalogue synced.
+|
+| Not a convenience — a correction. In production a catalogue always exists: `DatabaseSeeder`
+| syncs it, and `PlanCatalogueSeeder` is idempotent and runs on every deploy. A database with
+| no plans in it is a state this application never sees outside a test, and Phase 12 made
+| that difference load-bearing: `LimitResolver` throws when the fallback plan is missing,
+| deliberately, because the lenient reading hands every lapsed shop unlimited everything.
+|
+| So the fixture that was unrealistic is the one that changed. What did NOT change is the
+| part that keeps the guard honest: a tenant with no *subscription* still resolves to the
+| free plan and is still metered at its credits, which is exactly what happens to a real
+| shop whose payment lapsed. Seeding a subscription by default would have been the shortcut
+| that lets a create path forget `consume()` and stay green for ever.
+*/
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => app(App\Modules\Platform\Services\PlanCatalogueSeeder::class)->sync())
     ->in('Feature', '../app/Modules');
 
 pest()->extend(TestCase::class)->in('Unit');
@@ -42,6 +58,7 @@ pest()->extend(TestCase::class)->in('Arch');
 */
 pest()->extend(BrowserTestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => app(App\Modules\Platform\Services\PlanCatalogueSeeder::class)->sync())
     ->in('Browser');
 
 /*

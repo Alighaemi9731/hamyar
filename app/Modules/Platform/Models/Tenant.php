@@ -65,6 +65,16 @@ final class Tenant extends Model
     }
 
     /**
+     * Limits negotiated for this shop, overriding its plan.
+     *
+     * @return HasMany<TenantLimitOverride, $this>
+     */
+    public function limitOverrides(): HasMany
+    {
+        return $this->hasMany(TenantLimitOverride::class);
+    }
+
+    /**
      * @return HasMany<Domain, $this>
      */
     public function primaryDomain(): HasMany

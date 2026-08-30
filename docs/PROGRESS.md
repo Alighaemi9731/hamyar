@@ -2289,3 +2289,51 @@ of shops on the free rung, which is the same query shape and is the actual upgra
 
 `0.15.0`, BREAKING-prefixed: an existing plan row's meaning changes. Still no production box,
 so still no release.
+
+## 1405/06/08 (2026-08-30) — 12.6 to 12.14: metering everything, and four bugs it uncovered
+
+Every module now spends credits. The interesting part is not the call sites — those are a
+line each — it is that making previously-unreachable paths reachable found four defects,
+none of them in the quota code.
+
+**`runAsPlatform()` was not re-entrant, and RLS does not error.** Its `finally` forced the
+flag off, so a nested call — an event listener recording something inside a platform-context
+write — cleared it for the outer block still running. Postgres does not complain when a
+policy denies you; it returns nothing. So the symptom was `findOrFail` failing on a row that
+plainly existed, a hundred lines from the nested call that caused it. That took an hour to
+find and would have taken a day in production. The depth is counted now, and cleared once by
+the outermost caller — which is the discipline `runFor()` has had since Phase 1, and this
+never did.
+
+**Two resolver bugs, both silent.** `LimitResolver` read `subscriptions` without the
+platform flag, so called for an arbitrary tenant id — from a job, from the panel — it saw no
+subscription and metered a shop on the top rung at the free rung's credits. And
+`nextPlanFor()` walked the public plans until it met the current one, which never happens
+for a shop on a private plan: the customer most likely to have a negotiated price was the
+one told there was nowhere to upgrade to.
+
+**Proration could produce a price the product cannot say out loud.** `intdiv` truncated to
+the rial; `Money::toToman()` refuses to round money and throws. That was unreachable while
+every upgrade subtracted an unused credit that happened to round the total off — and became
+reachable the instant a plan was free, because then the amount due IS the raw portion. The
+billing page 500s. Fixed in `ProrationCalculator::portion()`, which now truncates to the
+toman: same direction as ADR 0006 (the remainder stays with the customer) and all three
+figures on the line now add up, which a total-only rounding would not have given.
+
+Three smaller ones on the way: a party and its contacts written as two unwrapped statements
+(a failure between them left a customer with no phone number), a blob written to disk before
+its row existed (orphaned files nothing references), and the POS quote number taken outside
+a transaction.
+
+**On testing.** PHP and Postgres now run on this laptop, which changed how this session
+worked: Pint and Larastan went from three-minute CI round trips to three seconds, and the
+last eight defects were found locally rather than by reading GitHub logs. The suite still
+has 17 failures here that CI does not — Persian `LIKE` terms producing invalid UTF-8, a
+local mbstring difference — so the branch was validated by *diffing* its failures against
+`main`'s on the same machine. Same 17, same tests. That is the honest way to use a local
+environment that is not CI: not as an oracle, but as a comparison.
+
+Deferred with reasons: the quota SMS alerts and the renewal-reminder listener both need a
+pattern registered with an SMS provider we have no account for. Inventing a template id
+would produce a string the gateway rejects at send time — the same reason Phase 8 deferred
+`sms.ir`, and the banner already carries this message.

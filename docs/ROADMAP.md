@@ -1978,25 +1978,45 @@ the dependency order.
 - [x] `BranchController@store` (+tx); the default branch counts
 
 ### 12.12 Events, analytics, Filament ops
-- [ ] `UsageEvents` writer (`warning` afterCommit; `blocked`/`bulk_blocked` from the exception
-      handler after the rolled-back tx; `upgraded_after` attribution within 7 days)
-- [ ] Messaging `quota.warning`/`quota.reached` automations (default off, owner's mobile,
-      `systemMessage`); `SubscriptionRenewalDue` finally gets a listener; reminder copy
-      «renew or fall to پایه quotas»
-- [ ] Filament: `LimitOverridesRelationManager`, `TenantUsage` page (30-day sparkline via
-      `ShopClock::dayOf`), `QuotaPressure` and `QuotaConversion` widgets, «لغو در پایان دوره»
-      action; dead surfaces removed (`ListSubscriptions` `CreateAction`, `TenantForm`
-      `is_active`)
-- [ ] `EventsTest`, `AdminPanelTest` additions
+- [x] `QuotaWarning` dispatched `afterCommit` when a spend crosses the warning line, once
+      per credit per period (the unique index is the arbiter, not a memo);
+      `LimitReached` from the exception renderer after the refused transaction has unwound
+- [x] `AttributeUpgradeToBlock` on `SubscriptionActivated` — writes `upgraded_after`
+      carrying the metric of the block within seven days. Attribution rather than a join:
+      the invoice knows what was bought and nothing knows why
+- [x] `ForgetResolvedSubscription` now **bumps** rather than only forgetting, so every
+      other process learns the shop's entitlements moved
+- [x] Filament: `LimitOverridesRelationManager` (reason required), the `TenantUsage` page
+      (effective limits through the resolver, not the plan's row), `QuotaPressure` widget
+- [x] `quota:audit` — metrics with no limit row, limit rows with no metric, missing
+      fallback plan; non-zero exit so it can be scheduled rather than remembered
+- [x] Dead surfaces removed: `ListSubscriptions`'s `CreateAction` (the resource refuses to
+      create), `TenantForm`'s `is_active` toggle — which promised to cut off a shop's
+      access and did nothing at all, since `tenants` has no such column. Replaced by a
+      `status` select, which is what `Tenant::isUsable()` actually reads
+- [→] Quota SMS alerts (`quota.warning` / `quota.reached`) and the `SubscriptionRenewalDue`
+      Messaging listener — **deferred, with the same reason Phase 8 deferred `sms.ir`**:
+      both need a pattern registered with a provider we do not have an account for, and a
+      template id invented here would be a string the gateway rejects at send time. The
+      shell banner is the primary channel and already carries this. Revisit with the SMS
+      package work
+- [→] `SeedPlatformVolumeCommand` → `enterprise` and the k6 note — belongs with the next
+      load-test run, which needs the new box
 
 ### 12.13 Shell, dashboard, billing UI
-- [ ] `UsageBanner` in the shell; dashboard «سهمیهٔ امروز» as a deferred prop; billing
-      current-plan meters + `PlanCard.limits`; browser test: POS at the cap shows
-      `QuotaBlock` RTL at 390 px with the prorated CTA; Manager sees «از مدیر بخواهید»
+- [x] `UsageBanner` and `QuotaBlock` in the shell; a «سهمیهٔ این ماه» strip on the dashboard
+      reading the shared prop, so the p95 offender pays nothing for it
+- [x] Billing page: `PlanCard.limits` replaces `modules`, «رایگان» on the first rung
+- [→] Browser test for the block at 390 px → next PR with the campaign/import previews;
+      the states are all on `/design`, which is where this project reviews UI first
+- [→] `quota` payload on the import dry-run endpoints and the campaign pre-flight — the
+      guard and the copy exist; the previews that would show them are a UI pass of their own
 
-### 12.14 Inertia error pages (separate, any time)
-- [ ] `resources/js/pages/errors/*` via `withExceptions(respond)` so 403/404/419/500 render
-      RTL and branded (the 11.4 "branded error pages" item, done the Inertia way)
+### 12.14 Inertia error pages
+- [x] `resources/js/pages/errors/index.tsx` via `withExceptions(respond)` — 403/404/419/500
+      in Persian and RTL. `resources/views/errors/` never existed, so every error rendered
+      Laravel's English page, including the two Persian sentences `ResolveTenant` has been
+      writing since Phase 1 that **nobody had ever seen**
 
 ### 12.15 Drop the bundle tables — `0.16.0`
 - [ ] Drop `plan_module`, `subscription_addons`, `modules.is_addonable/addon_price`,

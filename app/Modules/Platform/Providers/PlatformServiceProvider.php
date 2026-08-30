@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Providers;
 
 use App\Modules\Platform\Events\SubscriptionActivated;
+use App\Modules\Platform\Listeners\AttributeUpgradeToBlock;
 use App\Modules\Platform\Listeners\ForgetResolvedSubscription;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Policies\SubscriptionPolicy;
@@ -106,11 +107,16 @@ final class PlatformServiceProvider extends ModuleServiceProvider
         // or the request that just took the money keeps answering from the old plan.
         Event::listen(SubscriptionActivated::class, ForgetResolvedSubscription::class);
 
+        // The conversion signal. Written here rather than inferred later, because the
+        // link between "we stopped them" and "they paid" is only visible at this moment.
+        Event::listen(SubscriptionActivated::class, AttributeUpgradeToBlock::class);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \App\Modules\Platform\Console\Commands\TenantSyncPermissionsCommand::class,
                 \App\Modules\Platform\Console\Commands\ExpireSubscriptionsCommand::class,
                 \App\Modules\Platform\Console\Commands\PruneUsageCountersCommand::class,
+                \App\Modules\Platform\Console\Commands\QuotaAuditCommand::class,
             ]);
         }
     }

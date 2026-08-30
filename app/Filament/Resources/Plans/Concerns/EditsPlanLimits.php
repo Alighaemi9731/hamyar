@@ -10,6 +10,7 @@ use App\Modules\Platform\Models\PlanLimit;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Support\Quota\MetricRegistry;
+use App\Support\Tenancy\TenantContext;
 
 /**
  * Moves plan limits between `plan_limits` rows and the form's flat fields.
@@ -142,12 +143,22 @@ trait EditsPlanLimits
 
         $resolver = app(LimitResolver::class);
 
+        /*
+        | `runAsPlatform()`, explicitly, rather than trusting the panel's middleware to
+        | have set the flag.
+        |
+        | `subscriptions` is RLS-protected: without the flag this query returns NOTHING —
+        | not an error — so the loop below would run zero times, no shop would be told its
+        | limits had changed, and the edit would appear to work while taking effect only
+        | whenever each worker happened to restart. Ambient context is not a dependency
+        | worth relying on for a write whose failure is silent.
+        */
         /** @var list<int> $tenantIds */
-        $tenantIds = Subscription::query()
+        $tenantIds = app(TenantContext::class)->runAsPlatform(static fn (): array => Subscription::query()
             ->where('plan_id', $planId)
             ->distinct()
             ->pluck('tenant_id')
-            ->all();
+            ->all());
 
         foreach ($tenantIds as $tenantId) {
             $resolver->bump($tenantId);

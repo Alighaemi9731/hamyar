@@ -22,6 +22,9 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -170,6 +173,35 @@ return Application::configure(basePath: dirname(__DIR__))
         | commercially interesting signal in the product would simply not exist. By the
         | time this runs the transaction is gone and the connection is healthy.
         */
+        /*
+        | The four errors a shopkeeper can actually meet, rendered in Persian and RTL.
+        |
+        | `resources/views/errors/` never existed, so until now every one of them rendered
+        | Laravel's stock English page — including the two Persian sentences `ResolveTenant`
+        | has been writing since Phase 1, which nobody had ever seen because `APP_DEBUG=false`
+        | withholds the message and there was no view to put it in.
+        |
+        | Inertia rather than Blade: the application is Inertia, and an error page that
+        | reloads into a different rendering stack loses the shell, the fonts and the
+        | direction. Only for real HTTP errors on non-JSON requests — an API client wants
+        | its JSON, and Inertia's own iframe modal is fine for a developer.
+        */
+        $exceptions->respond(function (SymfonyResponse $response, Throwable $exception, Request $request): SymfonyResponse {
+            $status = $response->getStatusCode();
+
+            if ($request->expectsJson() || ! in_array($status, [403, 404, 419, 500, 503], true)) {
+                return $response;
+            }
+
+            return Inertia::render('errors/index', [
+                'status' => $status,
+                // Only a message somebody wrote on purpose. An exception's own text is
+                // usually a class name and a file path, which tells a shopkeeper nothing
+                // and occasionally tells them something they should not see.
+                'message' => $exception instanceof HttpExceptionInterface ? $exception->getMessage() : null,
+            ])->toResponse($request)->setStatusCode($status);
+        });
+
         $exceptions->render(function (QuotaExceeded $exception, Request $request): RedirectResponse|JsonResponse {
             $payload = app(QuotaBlock::class)->for($exception->verdict, $request->user());
 

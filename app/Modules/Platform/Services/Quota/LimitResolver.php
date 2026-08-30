@@ -185,6 +185,17 @@ final class LimitResolver
         $this->putVersion($tenantId, $version);
 
         $this->forget($tenantId);
+
+        /*
+        | And the subscription memo with it.
+        |
+        | `SubscriptionResolver` hands back a Subscription with `plan.limits` already
+        | eager-loaded, so forgetting only THIS memo re-runs the resolution against a plan
+        | object whose limits were loaded before the edit — the numbers change in the
+        | database and the shop keeps getting the old ones for as long as the process
+        | lives. Two memos, one fact; both have to go.
+        */
+        $this->subscriptions->forget();
     }
 
     /**

@@ -6,6 +6,8 @@ namespace App\Filament\Resources\Tenants;
 
 use App\Filament\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Resources\Tenants\Pages\ListTenants;
+use App\Filament\Resources\Tenants\Pages\TenantUsage;
+use App\Filament\Resources\Tenants\RelationManagers\LimitOverridesRelationManager;
 use App\Filament\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Resources\Tenants\Tables\TenantsTable;
 use App\Modules\Platform\Models\Tenant;
@@ -47,7 +49,7 @@ final class TenantResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            LimitOverridesRelationManager::class,
         ];
     }
 
@@ -72,6 +74,10 @@ final class TenantResource extends Resource
         return [
             'index' => ListTenants::route('/'),
             'edit' => EditTenant::route('/{record}/edit'),
+            // The screen support opens when a shopkeeper asks why they cannot record
+            // something. The effective limit is not a column anywhere — plan, override
+            // and lapse decide it between them — so it has to be shown, not queried.
+            'usage' => TenantUsage::route('/{record}/usage'),
         ];
     }
 

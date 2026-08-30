@@ -136,6 +136,9 @@ it('edits a plan limit and applies it to the shops on that plan', function (): v
         ->assertHasNoFormErrors();
 
     expect($before)->not->toBe(7);
+    // The row, and then the number the SHOP actually gets — they are different
+    // questions, and only the second one proves the bump reached the tenant.
+    expect($basic->fresh()?->limit('sales.invoices'))->toBe(7);
     expect(app(LimitResolver::class)->forTenant(idOf($tenant), 'sales.invoices'))->toBe(7);
 });
 

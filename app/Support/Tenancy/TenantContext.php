@@ -44,6 +44,14 @@ final class TenantContext
 {
     private ?Tenant $tenant = null;
 
+    /**
+     * How many `runAsPlatform()` calls are currently on the stack.
+     *
+     * The flag is a session variable on one connection, so nesting has to be counted:
+     * see `runAsPlatform()` for what happens when it is not.
+     */
+    private int $platformDepth = 0;
+
     public function __construct(
         private readonly DatabaseManager $db,
         private readonly Dispatcher $events,
@@ -71,6 +79,23 @@ final class TenantContext
     public function forget(): void
     {
         $this->tenant = null;
+
+        /*
+        | The platform depth goes with it. `forget()` is the boundary between units of work
+        | — the end of a request, the end of a job, a test's `afterEach` — and a depth left
+        | standing from a throw would make the NEXT unit believe it was already inside a
+        | platform block and never set the flag at all.
+        |
+        | Only issued when the depth is actually standing. `forget()` runs at the end of
+        | every request, and an unconditional statement here would be the first thing to
+        | touch a connection whose transaction some earlier failure had already aborted —
+        | turning this into the reporter of other people's errors, several frames from
+        | where they happened.
+        */
+        if ($this->platformDepth > 0) {
+            $this->platformDepth = 0;
+            $this->setPlatformFlag(false);
+        }
 
         $this->applyToDatabase(null);
 
@@ -182,12 +207,38 @@ final class TenantContext
      */
     public function runAsPlatform(Closure $callback): mixed
     {
-        $this->setPlatformFlag(true);
+        /*
+        | Re-entrant, and it has to be.
+        |
+        | This used to force the flag OFF in its `finally`, which is correct exactly once:
+        | a nested `runAsPlatform()` — an event listener firing inside a platform-context
+        | write, say — would clear the flag for the OUTER block that was still running, and
+        | every query after it would be denied by RLS. Not with an error: RLS denies by
+        | returning nothing, so the symptom is a `findOrFail` on a row that plainly exists,
+        | a hundred lines away from the nested call that caused it.
+        |
+        | Found exactly that way, in Phase 12: an upgrade fired `SubscriptionActivated`,
+        | a listener recorded an event inside its own `runAsPlatform()`, and the invoice
+        | the caller was in the middle of settling vanished from its own transaction.
+        |
+        | So the depth is counted and the flag is cleared once, by the outermost caller.
+        | Same discipline as `runFor()`, which has always restored the previous tenant
+        | rather than clearing it.
+        */
+        $this->platformDepth++;
+
+        if ($this->platformDepth === 1) {
+            $this->setPlatformFlag(true);
+        }
 
         try {
             return $callback();
         } finally {
-            $this->setPlatformFlag(false);
+            $this->platformDepth--;
+
+            if ($this->platformDepth === 0) {
+                $this->setPlatformFlag(false);
+            }
         }
     }
 

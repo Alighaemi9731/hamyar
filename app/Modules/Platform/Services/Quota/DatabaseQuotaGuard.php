@@ -15,6 +15,7 @@ use App\Support\Quota\QuotaVerdict;
 use App\Support\Quota\Window;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Throwable;
 
@@ -160,7 +161,53 @@ final class DatabaseQuotaGuard implements QuotaGuard
             ));
         }
 
-        return $this->verdict($definition, (int) $row->used, $limit, $n, true, $tenantId, $periodKey);
+        $verdict = $this->verdict($definition, (int) $row->used, $limit, $n, true, $tenantId, $periodKey);
+
+        /*
+        | The 80 % line, announced once per credit per period.
+        |
+        | `afterCommit` because a warning that fires for a sale which then rolls back is a
+        | lie — and unlike the BLOCK event, a warning that dies with its transaction costs
+        | nothing: the next spend crosses the same line and announces it then. The block
+        | cannot use afterCommit for exactly the opposite reason (§8 of ADR 0018).
+        |
+        | The once-per-period part is enforced by a unique index inside `UsageEvents`, not
+        | by remembering here: two workers can cross the line in the same second, and a
+        | memo in PHP is wrong across processes.
+        */
+        if ($this->crossedWarning($verdict, $used = (int) $row->used, $n)) {
+            DB::afterCommit(fn () => $this->events()->warning($tenantId, $verdict));
+        }
+
+        return $verdict;
+    }
+
+    /**
+     * Did THIS spend take the shop across the warning line?
+     *
+     * "Across", not "above": a shop already past the line does not need telling again on
+     * every subsequent spend, and the index would refuse the row anyway — but checking
+     * here saves the write and the event on the common path.
+     */
+    private function crossedWarning(QuotaVerdict $verdict, int $used, int $n): bool
+    {
+        if ($verdict->limit === null || $verdict->limit === 0) {
+            return false;
+        }
+
+        $line = (int) ceil(config()->float('hamyar.quota.warning_ratio', 0.8) * $verdict->limit);
+
+        return $used >= $line && ($used - $n) < $line;
+    }
+
+    /**
+     * Resolved lazily rather than injected: `UsageEvents` needs `LimitResolver`, which
+     * needs this guard's collaborators, and constructor-injecting it would close a
+     * container loop that only exists on the warning path.
+     */
+    private function events(): UsageEvents
+    {
+        return app(UsageEvents::class);
     }
 
     public function record(string $metric, int $n = 1): QuotaVerdict

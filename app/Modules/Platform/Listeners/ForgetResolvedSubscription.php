@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Listeners;
 
 use App\Modules\Platform\Events\SubscriptionActivated;
+use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\SubscriptionResolver;
 
 /**
@@ -23,12 +24,24 @@ use App\Modules\Platform\Services\SubscriptionResolver;
  */
 final class ForgetResolvedSubscription
 {
-    public function __construct(private readonly SubscriptionResolver $resolver) {}
+    public function __construct(
+        private readonly SubscriptionResolver $resolver,
+        private readonly LimitResolver $limits,
+    ) {}
 
     public function handle(SubscriptionActivated $event): void
     {
-        unset($event);
-
         $this->resolver->forget();
+
+        /*
+        | The limits too, and by BUMPING rather than merely forgetting.
+        |
+        | Forgetting clears this process. Bumping moves `tenants.entitlement_version`, which
+        | is what tells every OTHER process — a Horizon worker that has already served this
+        | shop, the next web request on a different node — that what it remembers is stale.
+        | A shop that has just paid for a bigger plan and is still being refused by a worker
+        | is the worst possible minute to be eventually consistent in.
+        */
+        $this->limits->bump($event->subscription->tenant_id);
     }
 }

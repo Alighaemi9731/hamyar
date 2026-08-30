@@ -14,7 +14,7 @@ use App\Modules\Platform\Services\BillingService;
 use App\Modules\Platform\Services\Payments\FakeGateway;
 use App\Modules\Platform\Services\Payments\PaymentGateway;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
-use App\Modules\Platform\Services\SubscriptionResolver;
+use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Event;
@@ -169,18 +169,28 @@ it('MOVES THE SHOP ONTO THE PLAN IT PAID FOR', function (): void {
 });
 
 it('unlocks the new plan for the rest of the request', function (): void {
-    // The other half: the resolver is a singleton memoising one subscription per tenant,
-    // so without ForgetResolvedSubscription the process that just took the money keeps
-    // answering from the plan the shop had before it paid.
+    // The resolver is a singleton memoising one subscription per tenant, so without
+    // `ForgetResolvedSubscription` the process that just took the money keeps answering
+    // from the plan the shop had before it paid.
+    //
+    // Written against `grants('repairs')` when it landed in 12.1, and rewritten here:
+    // DECISION GATE 6 opened every module to every plan, so module grants no longer
+    // change on upgrade. What changes is the CREDIT — which is the thing a shop is
+    // buying, and the thing that has to be live for the rest of the request.
     subscribe($this->tenant, 'basic');
+    app(LimitResolver::class)->forget();
 
-    app(TenantContext::class)->runFor($this->tenant, function (): void {
-        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeFalse();
+    $basic = Plan::query()->where('code', 'basic')->firstOrFail();
+
+    app(TenantContext::class)->runFor($this->tenant, function () use ($basic): void {
+        expect(app(LimitResolver::class)->for('sales.invoices'))
+            ->toBe($basic->limit('sales.invoices'));
 
         payFor($this->tenant, $this->pro);
 
         // No forget() here on purpose — the listener is what has to have done it.
-        expect(app(SubscriptionResolver::class)->grants('repairs'))->toBeTrue();
+        expect(app(LimitResolver::class)->for('sales.invoices'))
+            ->toBe($this->pro->limit('sales.invoices'));
     });
 });
 

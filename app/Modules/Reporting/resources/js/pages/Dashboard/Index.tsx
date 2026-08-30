@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
@@ -18,13 +18,14 @@ import { BarChart } from '@/components/domain/bar-chart';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { UsageMeter } from '@/components/domain/usage-meter';
 import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
 import { useTenantSettings } from '@/hooks/use-tenant-settings';
 import { AppShell } from '@/layouts/app-shell';
 import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
-import type { MoneyValue } from '@/types';
+import type { MoneyValue, SharedProps } from '@/types';
 
 interface TodayWidget {
   revenue: MoneyValue;
@@ -181,6 +182,8 @@ export default function DashboardIndex({
         />
       ) : (
         <div className="space-y-6">
+          <UsageStrip />
+
           {/* The headline row: figures somebody acts on before lunch. */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {today ? (
@@ -487,5 +490,40 @@ function QuickActions({ can }: { can: Props['can'] }) {
         </Button>
       ))}
     </div>
+  );
+}
+
+/**
+ * This month's credits, in one quiet line above everything else.
+ *
+ * Reads the shared `usage` prop rather than asking the server for anything, so the
+ * dashboard — already this application's slowest page under load — pays nothing for it.
+ *
+ * Deliberately shows only what is worth looking at: the credits with usage on them, most
+ * spent first, and at most four. A shopkeeper opening the front page wants to know whether
+ * anything is about to stop them, not to read a specification of their plan.
+ */
+function UsageStrip() {
+  const { usage } = usePage<SharedProps>().props;
+
+  const meters = (usage?.meters ?? [])
+    .filter((meter) => meter.limit !== null && meter.used > 0)
+    .sort((a, b) => (b.used / (b.limit ?? 1)) - (a.used / (a.limit ?? 1)))
+    .slice(0, 4);
+
+  if (meters.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-card border border-border bg-surface px-5 py-4">
+      <h2 className="mb-3 text-sm font-medium text-muted-foreground">سهمیهٔ این ماه</h2>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {meters.map((meter) => (
+          <UsageMeter key={meter.key} meter={meter} compact />
+        ))}
+      </div>
+    </section>
   );
 }
