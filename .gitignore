@@ -52,3 +52,10 @@ Thumbs.db
 # Pest browser-test failure screenshots — diagnostic output, uploaded by CI as an
 # artifact rather than committed.
 /tests/Browser/Screenshots
+
+# `DirectionClassGateTest` writes a throwaway .tsx here to prove the RTL gate flags a
+# physical direction class, then deletes it. It exists for milliseconds — which is long
+# enough for a `git add -A` running beside the suite to catch it, and that is exactly how
+# it once reached a commit and turned the RTL gate red on a branch that was clean locally.
+# The gate then failed on CI for a violation the fixture is *supposed* to contain.
+/resources/js/__gate_fixture
