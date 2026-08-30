@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use Database\Seeders\TestCatalogueSeeder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -24,6 +25,17 @@ abstract class TestCase extends BaseTestCase
             $this->withoutVite();
         }
     }
+
+    /**
+     * Seed the plan catalogue once per process, via `migrate:fresh --seeder=…`.
+     *
+     * `RefreshDatabase` reads this **property** and passes it to the migration command, so
+     * it runs once, before any per-test transaction opens. The reasoning — including the two
+     * seams that look right and are not — lives in {@see TestCatalogueSeeder}.
+     *
+     * @var class-string<\Illuminate\Database\Seeder>
+     */
+    protected $seeder = TestCatalogueSeeder::class;
 
     /**
      * Sign a user in, the way the application actually signs one in.

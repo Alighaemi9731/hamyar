@@ -69,7 +69,8 @@
         "stan": "phpstan analyse --memory-limit=1G",
         "rtl": "@php bin/check-direction-classes",
         "tenancy": "@php artisan tenancy:check --ansi",
-        "test:pest": "pest",
+        "test:pest": "pest --parallel",
+        "test:serial": "pest",
         "test:isolation": [
             "@php artisan config:clear --ansi",
             "pest --group=isolation"

@@ -23,9 +23,18 @@ APP_DB_USER="${APP_DB_USER:-hamyar_app}"
 APP_DB_PASSWORD="${APP_DB_PASSWORD:-app-secret}"
 TEST_DB="${POSTGRES_DB}_test"
 
+# CREATEDB is the one attribute this LOCAL role has that production's does not.
+#
+# `pest --parallel` gives each worker its own `<db>_test_N` clone, and without CREATEDB
+# every worker dies with "permission denied to create database" — which is how the whole
+# suite ran serially for eighteen releases without anybody noticing it need not.
+#
+# It does not weaken what this role exists to prove. **NOBYPASSRLS is the guarantee**, and
+# it is untouched; CREATEDB only lets a role make databases on a throwaway dev container.
+# The production role in `deploy/` stays NOCREATEDB — nothing there runs a test suite.
 create_app_role() {
     psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-SQL
-        CREATE ROLE ${APP_DB_USER} LOGIN PASSWORD '${APP_DB_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+        CREATE ROLE ${APP_DB_USER} LOGIN PASSWORD '${APP_DB_PASSWORD}' NOSUPERUSER CREATEDB NOCREATEROLE NOBYPASSRLS;
 SQL
 }
 
