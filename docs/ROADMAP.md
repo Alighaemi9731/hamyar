@@ -741,10 +741,10 @@ converging on them later.
       building a bespoke reminder here would be building it twice
 
 ### 7.3 Cheques
-- [~] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced |
-      spent_to_third_party | returned — **every transition works and none can be started.**
-      `POST cheques/{cheque}/transition` exists; nothing creates the cheque it transitions.
-      A `Cheque` row is written in nine test files and zero production files
+- [x] Received/issued, full lifecycle: in_hand → deposited → cleared | bounced |
+      spent_to_third_party | returned. **The transitions shipped in Phase 7 and the door did
+      not** — a `Cheque` row was written in nine test files and zero production files until
+      `POST cheques` landed in `0.20.0` (12.16)
 - [x] Due-date reminders list (overdue derived from the date, issued side leads)
 - [x] Ledger posting matrix documented in `docs/specs/cheques.md` — **written before the
       code**, and pinned row-for-row by `ChequePostingMatrixTest` (R1–R13, I1–I7)
@@ -2107,7 +2107,12 @@ release about dropping bundle tables, and the owner should decide where it sits 
 new production server. It is written down here rather than fixed quietly because the
 dangerous version of this bug is the one nobody has said out loud.
 
-- [ ] `POST cheques` — register a received or issued cheque (`cheques.cheques`)
+- [x] `POST cheques` — register a received or issued cheque (`cheques.cheques`). Shipped
+      in `0.20.0`: `RegisterCheque` creates the row, spends the credit and posts the opening
+      ledger entry in **one** transaction, because a cheque without its posting is counted
+      by `ChequeExposure` while the ledger does not know it exists — two answers about the
+      same customer that disagree. Form is a disclosure on the cheques page, not a separate
+      route: the list is what a shop opens that screen for
 - [ ] `POST treasury/transactions` — record an expense or income (`treasury.cash_transactions`)
 - [ ] `POST treasury/accounts` — open a cash box, bank or POS terminal (unmetered; every
       other treasury screen assumes an account already exists)

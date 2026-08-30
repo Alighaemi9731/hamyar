@@ -339,6 +339,11 @@ revenue. The books close.
 
 ## Acceptance
 
+- **Registration is the only door, and it is one transaction.** `POST /cheques` →
+  `RegisterCheque` creates the row, spends the credit and posts R1 (received) or I1 (issued)
+  together. A cheque that exists without its opening posting is counted by `ChequeExposure`
+  toward a customer's credit while the ledger does not know it — the two answers a shop gets
+  about the same customer then disagree, which is worse than no cheque at all.
 - **Quota.** Registering a cheque spends one `cheques.cheques` credit, in the transaction
   that writes it. Every later event in the cheque's life — deposit, bounce, endorsement,
   settlement — is **free**: the credit buys the cheque, not each thing that happens to it,

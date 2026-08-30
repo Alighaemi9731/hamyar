@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Money } from '@/components/domain/money';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
+import { RegisterForm } from './RegisterForm';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
@@ -73,6 +74,10 @@ export default function ChequesIndex({ direction, overdue, due, totals, cheques,
             <Link href="/cheques?direction=issued">پرداختی</Link>
           </Button>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <RegisterForm direction={direction} accounts={accounts} errors={errors} />
       </div>
 
       {errors.cheque && (
