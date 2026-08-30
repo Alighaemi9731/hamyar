@@ -51,11 +51,6 @@ final class SmsWallet
         return is_numeric($sum) ? (int) $sum : 0;
     }
 
-    public function canAfford(int $cost): bool
-    {
-        return $cost <= 0 || $this->balance() >= $cost;
-    }
-
     public function topUp(int $amount, ?string $description = null, ?int $actorId = null): SmsCreditEntry
     {
         if ($amount <= 0) {

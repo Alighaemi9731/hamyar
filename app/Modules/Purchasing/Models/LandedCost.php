@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Purchasing\Models;
 
-use App\Modules\Purchasing\Services\LandedCostAllocator;
 use App\Support\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,10 +52,5 @@ final class LandedCost extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
-    }
-
-    public function isByValue(): bool
-    {
-        return $this->allocation === LandedCostAllocator::BY_VALUE;
     }
 }

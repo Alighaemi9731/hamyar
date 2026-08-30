@@ -6,7 +6,6 @@ namespace App\Modules\Treasury\Services;
 
 use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Services\LedgerService;
-use App\Modules\Treasury\Enums\CashDirection;
 use App\Modules\Treasury\Models\CashTransaction;
 use App\Modules\Treasury\Models\TransactionCategory;
 use App\Support\Quota\QuotaGuard;
@@ -171,13 +170,5 @@ final class RecordCashTransaction
         if ($amount % 10 !== 0) {
             throw new RuntimeException('مبلغ باید مضربی از ۱۰ ریال (یک تومان) باشد.');
         }
-    }
-
-    /**
-     * Convenience for the direction, when the caller has one but not a category.
-     */
-    public function directionOf(TransactionCategory $category): CashDirection
-    {
-        return $category->direction;
     }
 }

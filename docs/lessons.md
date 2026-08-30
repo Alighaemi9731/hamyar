@@ -310,6 +310,29 @@ counter is the thing with a number in it. Assert on what reaches the operator.**
 
 ---
 
+## Editing code with scripts
+
+### Never brace-match PHP with a regex
+
+Removing sixteen verified-dead methods with a Python regex that found the signature and then
+walked braces deleted **1,325 lines instead of ~120**: the whole `InvoiceStatus` enum
+including its three cases and `labelFa()`, 242 lines of `TenantProvisioner`, 171 of
+`AuditSubjects`. The bug was `(?:/\*\*.*?\*/)?` under `re.S` — `.*?` is lazy but `re.S`
+lets it start at the file's *first* docblock, so "the preceding docblock" became "everything
+from the top of the file".
+
+It ran clean. `php -l` passed on every file, because a gutted enum is still valid PHP. Only
+the `git diff --stat` line counts gave it away — "242 deletions for one method" is not a
+number a correct edit produces.
+
+Use `token_get_all()` instead: find `T_FUNCTION`, confirm the next `T_STRING` is the name,
+walk back over modifiers and at most one `T_DOC_COMMENT`, then count `{`/`}` as *tokens*
+rather than characters. Braces inside strings and comments are not tokens, which is the
+entire reason the regex could never have worked.
+
+**And read the diffstat before trusting a bulk edit.** Every file had passed a syntax check;
+the only signal that anything was wrong was the size of what disappeared.
+
 ## Testing
 
 ### `??` cannot tell null from missing

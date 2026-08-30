@@ -69,9 +69,4 @@ final class HamtaChecklistAnswer extends Model
     {
         return $this->belongsTo(User::class, 'actor_id');
     }
-
-    public function wasConfirmed(): bool
-    {
-        return $this->answer === self::ANSWER_CONFIRMED;
-    }
 }

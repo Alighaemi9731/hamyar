@@ -78,12 +78,4 @@ enum PaymentMethod: string
     {
         return $this->settlesImmediately();
     }
-
-    /**
-     * Whether the customer's balance moves.
-     */
-    public function postsToParty(): bool
-    {
-        return $this === self::Credit;
-    }
 }

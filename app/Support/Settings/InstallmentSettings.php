@@ -34,9 +34,4 @@ final readonly class InstallmentSettings
         /** The fee stops growing at this share of the row, however late it becomes. */
         public int $lateFeeCapPercent,
     ) {}
-
-    public function chargesLateFees(): bool
-    {
-        return $this->lateFeePercentPerMonth > 0;
-    }
 }
