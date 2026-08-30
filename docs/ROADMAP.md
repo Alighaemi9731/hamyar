@@ -1926,17 +1926,25 @@ the dependency order.
       the operator tooling; nothing meters yet, so nothing can refuse the load test today
 
 ### 12.6 Being blocked, meters, banner (gallery first)
-- [ ] `bootstrap/app.php` renders `QuotaExceeded` → `back()->withErrors(['quota'])` +
+- [x] `bootstrap/app.php` renders `QuotaExceeded` → `back()->withErrors(['quota'])` +
       `quota_block` (422 JSON off-Inertia); `quota_block` and `usage` shared props;
-      `types/index.d.ts`
-- [ ] `EnsureQuotaAvailable` middleware (`quota:<metric>[,<n>]`), not on the POS route;
-      test that every route key is registered
-- [ ] `UsageMeter`, `QuotaBlock`, `UsageBanner` on `/design` (ok / warning / reached /
+      `types/index.d.ts` — shipped in `0.15.0`, boxes ticked in `0.17.0` after checking the
+      code rather than the memory of having written it
+- [x] `EnsureQuotaAvailable` middleware (`quota:<metric>[,<n>]`), not on the POS route;
+      **test that every route key is registered** — `MiddlewarePrecheckTest` walks the real
+      route table, because `quota:sales.invoice` reads exactly like `quota:sales.invoices`
+      and a route gated on a typo looks gated in review and is not
+- [x] `UsageMeter`, `QuotaBlock`, `UsageBanner` on `/design` (ok / warning / reached /
       blocked / unlimited / total; can_upgrade / cannot / top rung / bulk / lapsed);
-      `QuotaBlock` rendered once in `app-shell.tsx`
-- [ ] `return_to` persisted on `payment_attempts`, validated as a same-host relative path,
-      honoured after `applyPayment`; `BillingController` `?upgrade=<code>`
-- [ ] `UsagePropTest`, `MiddlewarePrecheckTest`
+      `QuotaBlock` rendered once in `app-shell.tsx` — the top-rung state was the one missing
+- [x] `return_to` persisted on `payment_attempts`, validated as a same-host relative path,
+      honoured after `applyPayment` **and on the credit-covered path**; `BillingController`
+      `?upgrade=<code>` highlights the rung the block named. `ReturnPath` is an allow-list,
+      not a sanitiser: the value starts in a query string, survives a round trip through a
+      payment gateway and ends at `redirect()`, which is an open redirect on the one URL a
+      customer has been trained to trust. 22 unit cases, four of them driven end to end
+- [x] `UsagePropTest`, `MiddlewarePrecheckTest` — plus `UpgradeRoundTripTest`, which walks
+      DoD item 1 with a machine instead of a person
 - [ ] Separate task, not on the quota path: a shared `<FormErrors>` domain component and the
       ~25 forms that render only field-keyed errors (CLAUDE.md "a home for errors that
       belong to no field")
@@ -2098,9 +2106,13 @@ and are written down here so they are not rediscovered.
       a liability nobody remembers to clean up. Decide which it is, then make the code say so.
 
 ### Phase 12 — Definition of Done
-- [ ] A shop on the free plan runs its monthly `sales.invoices` credit out at the till, sees
+- [x] A shop on the free plan runs its monthly `sales.invoices` credit out at the till, sees
       `QuotaBlock` with the prorated price, pays in sandbox, lands back on the same form and
-      finalises the next invoice — with no counter reset
+      finalises the next invoice — with no counter reset. `UpgradeRoundTripTest` (0.17.0).
+      **The "lands back on the same form" clause was not built until then**: the callback
+      sent every shop to the billing receipt, so an operator blocked mid-sale paid, landed
+      on an invoice, and had to walk back to the till and retype a basket they had already
+      built with a customer waiting
 - [ ] A shop that never pays keeps working for ever on the free plan, and its credit refills
       at 00:00 Tehran on the 1st of the Jalali month
 - [ ] `ConcurrencyTest` green under the CI `NOBYPASSRLS` role

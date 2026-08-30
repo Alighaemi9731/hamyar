@@ -9,13 +9,15 @@ use App\Modules\Inventory\Services\BranchContext;
 use App\Modules\Platform\Models\Announcement;
 use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Tenant;
-use App\Modules\Platform\Models\UsageCounter;
+use App\Modules\Platform\Models\UsageEvent;
 use App\Modules\Platform\Services\Quota\LimitResolver;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Support\PlanCatalogue;
 use App\Support\Quota\MetricRegistry;
+use App\Support\Quota\PeriodClock;
 use App\Support\Quota\QuotaGuard;
 use App\Support\Quota\QuotaVerdict;
+use App\Support\Quota\Window;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -244,15 +246,40 @@ final class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * Which credits have actually refused this shop something, this period.
+     *
+     * ## Read from `usage_events`, not from `usage_counters.blocked_at`
+     *
+     * The stamp on the counter was the original source and it had a hole with the worst
+     * possible shape: `UsageEvents::blocked()` writes it with an UPDATE, and a shop refused
+     * on its **first** attempt has no counter row for that UPDATE to match. So a metric
+     * capped at zero — `messaging.sms` on the free rung, which is every free shop —
+     * could block somebody every day and never once turn red.
+     *
+     * That is exactly backwards from what the widget is for. The shops worth talking to
+     * are the ones hitting a wall they cannot pass, and those were the only ones invisible.
+     *
+     * `usage_events` has no such hole: a block writes a row there whether or not a counter
+     * exists. Same cost — one indexed read per page, which is what the counter query was
+     * — and it is the honest source, because "was this shop refused" is an event rather
+     * than a property of a counter that may not exist.
+     *
      * @return list<string>
      */
     private function blockedMetrics(int $tenantId): array
     {
+        $period = app(PeriodClock::class)->periodKey(Window::Month);
+
         /** @var list<string> $metrics */
         $metrics = app(TenantContext::class)->runAsPlatform(
-            static fn (): array => UsageCounter::query()
+            static fn (): array => UsageEvent::query()
                 ->where('tenant_id', $tenantId)
-                ->whereNotNull('blocked_at')
+                ->whereIn('kind', [UsageEvent::KIND_BLOCKED, UsageEvent::KIND_BULK_BLOCKED])
+                // This period only. A shop blocked in Mordad that has not been blocked
+                // since is not blocked; showing it red for ever would make the colour
+                // mean "has ever hit a limit", which no shop would act on twice.
+                ->where('period_key', $period)
+                ->distinct()
                 ->pluck('metric')
                 ->all()
         );

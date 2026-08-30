@@ -70,6 +70,10 @@ interface BillingProps {
   } | null;
   plans: PlanCard[];
   invoices: InvoiceRow[];
+  /** The plan a quota block sent this shop here to buy, if it named a real public one. */
+  highlight: string | null;
+  /** The screen to put them back on afterwards; already sanitised server-side. */
+  return_to: string | null;
 }
 
 /**
@@ -79,7 +83,7 @@ interface BillingProps {
  * `ProrationCalculator` that writes the invoice, so what the shop is quoted here and
  * what it is charged cannot disagree (ADR 0006).
  */
-export default function Billing({ subscription, plans, invoices }: BillingProps) {
+export default function Billing({ subscription, plans, invoices, highlight, return_to }: BillingProps) {
   const { flash } = usePage<SharedProps>().props;
 
   return (
@@ -146,9 +150,21 @@ export default function Billing({ subscription, plans, invoices }: BillingProps)
               key={plan.code}
               className={cn(
                 'flex flex-col rounded-card border bg-card p-6',
-                plan.is_current ? 'border-brand ring-1 ring-brand' : 'border-border',
+                plan.is_current && 'border-brand ring-1 ring-brand',
+                // The rung a quota block sent them here to buy. Marked more strongly than
+                // the current plan, because a shop arriving from a block is not comparing
+                // three cards — it has already been told which one clears the wall it hit,
+                // and the job of this page is to make that one button obvious.
+                !plan.is_current && plan.code === highlight && 'border-warning ring-2 ring-warning',
+                !plan.is_current && plan.code !== highlight && 'border-border',
               )}
             >
+              {!plan.is_current && plan.code === highlight ? (
+                <p className="mb-3 -mt-1 text-xs font-medium text-warning">
+                  این پلن سهمیهٔ لازم برای ادامهٔ کارتان را دارد
+                </p>
+              ) : null}
+
               <h3 className="text-lg font-semibold">{plan.name}</h3>
               {plan.tagline ? (
                 <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
@@ -199,7 +215,13 @@ export default function Billing({ subscription, plans, invoices }: BillingProps)
                         shop that ever pressed it. */}
                     <Button
                       className="w-full"
-                      onClick={() => router.post(`/billing/subscribe/${plan.code}`)}
+                      onClick={() =>
+                        router.post(`/billing/subscribe/${plan.code}`, {
+                          // Carried through from the block that sent them here, so the
+                          // round trip ends where it started rather than on a receipt.
+                          ...(return_to ? { return_to } : {}),
+                        })
+                      }
                     >
                       {plan.change?.kind === 'downgrade' ? 'تغییر به این پلن' : 'ارتقا به این پلن'}
                     </Button>

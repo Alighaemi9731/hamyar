@@ -2448,3 +2448,51 @@ thousands of invoices is precisely what the meter exists to refuse.
 
 Not deployed: there is no production server. `bin/release --deploy` and `bin/smoke` stay
 suspended until the owner provides the new box.
+
+---
+
+## 2026-08-30 — `0.17.0`: the upgrade round trip, and the shops the widget could not see
+
+Phase 12.6, whose boxes were never ticked. Checking the code rather than trusting the memory
+of having written it found that most of it was there and the piece that mattered most was
+not.
+
+**A shop that paid mid-sale did not get its sale back.** The DoD says a shop runs out of
+credit at the till, upgrades, and *lands back on the same form*. Every clause was true
+except the last: `billing/callback` sent everyone to the invoice receipt. An operator blocked
+mid-sale paid, landed on a receipt, and had to walk back to the till and retype a basket
+they had already built with a customer waiting — the upgrade worked, the sale did not
+happen, and the whole thing reads as the payment having failed. `payment_attempts.return_to`
+carries the screen now, on the attempt row rather than the session, because the customer may
+come back in a different browser — which is exactly why that route sits outside `auth` and
+`tenant` (ADR 0017).
+
+**`ReturnPath` is an allow-list, and writing it that way was not paranoia.** This value
+starts in a query string, survives a round trip through somebody else's website, and comes
+back to be handed to `redirect()` on `https://…/billing/callback` — a URL a customer has
+been trained to trust. Anything not obviously a path on our own site is discarded and the
+caller falls back to the receipt, so a bad value costs a convenience and never the payment.
+The case worth naming is `//evil.test`: it starts with a slash, passes a
+`str_starts_with('/')` check, and is a *host* to every browser.
+
+**A third bug, and the same shape as the last three: the counter was right, the telling was
+wrong.** `blocked_at` was stamped with an `UPDATE` on `usage_counters`, and a shop refused on
+its **first** attempt has no row for that update to match. The metric most often capped at
+zero is `messaging.sms` on the free rung — every shop that has never paid us — so a free
+shop could be refused daily and never turn red, on the widget whose entire job is to start
+the upgrade conversation. The shops most worth talking to were the only ones invisible.
+Reads `usage_events` now, which is written whether or not a counter exists, scoped to the
+current period so a block in Mordad does not still show red in Mehr.
+
+That is now **five** bugs in two releases where the quota arithmetic was correct and what a
+shop was *told* was wrong. It is worth naming as a pattern rather than a coincidence: this
+subsystem's tests all reach naturally for the counter, because the counter is the thing with
+a number in it. Nothing about a counter assertion can see a swallowed exception, a 500 on the
+second block, a seat that never came back, a month promised to a capacity that has none, or a
+red light that never lights. **Assert on what reaches the operator.**
+
+**On ticking boxes.** Four of the six items in 12.6 were done months ago and unticked, and
+one was never built at all — and from the roadmap alone the two were indistinguishable. An
+unticked box that is secretly done trains you to skim; the one time it is genuinely undone
+is the time you skim past it. Checked each against the code, ticked what was real, built what
+was not.

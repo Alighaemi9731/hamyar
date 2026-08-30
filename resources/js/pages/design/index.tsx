@@ -937,6 +937,25 @@ function QuotaSection({ alt = false }: { alt?: boolean }) {
         />
       </Row>
 
+      <Row label="سهمیه تمام شد — بالاترین پلن، جایی برای ارتقا نیست">
+        <QuotaBlock
+          block={{
+            metric: 'identity.users',
+            label: 'کاربر فعال',
+            // A standing capacity on the top rung: no month to wait for and no plan to
+            // move to, so the only sentence worth printing is the one action that works.
+            message:
+              'ظرفیت ۲۵ کاربر پلن نامحدود تکمیل است. با آزاد کردن یکی از کاربر‌های موجود هم جا باز می‌شود.',
+            used: 25,
+            limit: 25,
+            requested: 1,
+            resets_at: null,
+            next_plan: null,
+            can_upgrade: true,
+          }}
+        />
+      </Row>
+
       <Row label="سهمیه تمام شد — بدون اجازهٔ خرید">
         <QuotaBlock
           block={{
