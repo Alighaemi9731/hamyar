@@ -91,3 +91,42 @@ nobody asked for. Reversible: delete one property.
 `Month` ⇔ counted and `Total` ⇔ computed exactly; a second enum could only agree with the
 window or disagree with it, and the second is the bug. `Metric`'s constructor enforces the
 pairing instead. Recorded in ADR 0018 rather than left as drift.
+
+### Later in the same run (12.6–12.14)
+
+**Quota SMS alerts and the `SubscriptionRenewalDue` listener were not built.** Both need a
+message pattern registered with an SMS provider, and there is no account to register one
+against — a template id invented here is a string the gateway rejects at send time. This is
+the same reason Phase 8 declined to write an `sms.ir` driver, and the same shape of mistake
+it avoided: code written against a guess at an API looks tested and is not. The shell banner
+carries the quota message today and is the channel a shopkeeper actually sees. Cost to add
+when an account exists: two listeners and two templates.
+
+**Every database-backed test now syncs the plan catalogue.** Not a convenience — the
+unrealistic fixture was the one that changed. In production a catalogue always exists;
+`PlanCatalogueSeeder` is idempotent and runs on every deploy. What deliberately did NOT
+change is that a tenant with no *subscription* still resolves to the free plan and is still
+metered at its credits, which is exactly what happens to a shop whose payment lapsed —
+seeding a subscription by default would be the shortcut that lets a create path forget
+`consume()` and stay green for ever. Reversible: three lines in `tests/Pest.php`.
+
+**Four suites gained `subscribe($tenant, 'pro')`** — Transfers, Storefront, User management,
+Activity log. They had no subscription at all, which before Gate 6 meant "no limits to hit"
+and now means "the free rung", where transfers are 0 and seats are 2. Subscribing is the
+realistic fixture (a shop doing that work has bought the plan that allows it) and has the
+side effect of running those suites against real credits rather than around them.
+
+**`ProrationCalculator::portion()` now truncates to the whole toman**, not the whole rial.
+This changes two numbers in `ProrationCalculatorTest` and is a real behaviour change to
+money arithmetic, so it is called out rather than buried: a rial figure that is not a whole
+toman is one `Money::toToman()` refuses to render — it throws rather than round — so the
+billing page 500s on it. The direction of ADR 0006 is unchanged (the remainder stays with
+the customer). Reversible, but the bug comes back with it.
+
+**Local PHP and Postgres were installed on the development machine during this run.** The
+memory note "no heavy work on the laptop" is about running the full suite as a habit, and
+that still stands — but Pint and Larastan went from three-minute CI round trips to three
+seconds, and the last eight defects in this phase were found locally. The laptop's suite has
+17 failures CI does not (Persian `LIKE` terms producing invalid UTF-8, an mbstring
+difference), so the branch was validated by **diffing** its failure set against `main`'s on
+the same machine rather than by trusting it. Same 17 tests, both sides.
