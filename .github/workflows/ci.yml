@@ -410,6 +410,17 @@ jobs:
       - name: npm audit (production tree)
         run: npm audit --omit=dev --audit-level=high
 
+      # Formatting was the one frontend rule with a script and no gate, and it drifted:
+      # 25 files across 9 modules were unformatted when this step was added, none of them
+      # by anyone's decision. `npm run format` has existed since the design system did;
+      # `docs/design-system.md` has referenced a `format:check` that did not exist.
+      #
+      # It runs here rather than in `lint` because this is the job that already has
+      # `npm ci` — a second Node setup to check whitespace is not worth ninety seconds.
+      # Before TypeScript, because it is the faster of the two and fails on cheaper input.
+      - name: Prettier (check only)
+        run: npm run format:check
+
       - name: TypeScript
         run: npx tsc --noEmit
 
