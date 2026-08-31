@@ -48,10 +48,7 @@ export function QuotaBlock({ block, className }: QuotaBlockProps) {
   return (
     <div
       role="alert"
-      className={cn(
-        'mb-6 rounded-card border border-danger/40 bg-danger/5 p-4 text-sm',
-        className,
-      )}
+      className={cn('mb-6 rounded-card border border-danger/40 bg-danger/5 p-4 text-sm', className)}
     >
       <div className="flex items-start gap-3">
         <OctagonAlertIcon className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden />
@@ -103,15 +100,10 @@ export function QuotaBlock({ block, className }: QuotaBlockProps) {
             ) : null}
 
             {next ? null : (
-              <p className="text-muted-foreground">
-                برای افزایش ظرفیت با پشتیبانی تماس بگیرید.
-              </p>
+              <p className="text-muted-foreground">برای افزایش ظرفیت با پشتیبانی تماس بگیرید.</p>
             )}
 
-            <Link
-              href="/billing"
-              className="text-muted-foreground underline underline-offset-4"
-            >
+            <Link href="/billing" className="text-muted-foreground underline underline-offset-4">
               مشاهدهٔ سهمیه‌ها
             </Link>
           </div>

@@ -69,9 +69,24 @@ export default function MessagingIndex({ balance, status, counts, messages }: Pr
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Filter current={status} value="" label={`همه (${messages.total})`} />
-        <Filter current={status} value="sent" label={`ارسال‌شده (${counts.sent})`} icon={CheckCircle2Icon} />
-        <Filter current={status} value="suppressed" label={`ارسال‌نشده (${counts.suppressed})`} icon={BanIcon} />
-        <Filter current={status} value="failed" label={`ناموفق (${counts.failed})`} icon={XCircleIcon} />
+        <Filter
+          current={status}
+          value="sent"
+          label={`ارسال‌شده (${counts.sent})`}
+          icon={CheckCircle2Icon}
+        />
+        <Filter
+          current={status}
+          value="suppressed"
+          label={`ارسال‌نشده (${counts.suppressed})`}
+          icon={BanIcon}
+        />
+        <Filter
+          current={status}
+          value="failed"
+          label={`ناموفق (${counts.failed})`}
+          icon={XCircleIcon}
+        />
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-card border border-border">
@@ -103,10 +118,16 @@ export default function MessagingIndex({ balance, status, counts, messages }: Pr
                   </td>
                   <td className="p-3">
                     <span className={state.className}>{state.label}</span>
-                    {row.error && <span className="block text-2xs text-muted-foreground">{row.error}</span>}
+                    {row.error && (
+                      <span className="block text-2xs text-muted-foreground">{row.error}</span>
+                    )}
                   </td>
                   <td className="p-3 text-end tabular">
-                    {row.cost.value > 0 ? <Money rial={row.cost.value} /> : <span className="text-muted-foreground">—</span>}
+                    {row.cost.value > 0 ? (
+                      <Money rial={row.cost.value} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                 </tr>
               );

@@ -114,7 +114,10 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
       <h2 className="text-sm font-semibold">قطعات</h2>
 
       {error && (
-        <p role="alert" className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
@@ -153,7 +156,7 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
                         router.post(
                           `/repairs/tickets/${ticketId}/parts/${part.id}/consume`,
                           {},
-                          { preserveScroll: true },
+                          { preserveScroll: true }
                         )
                       }
                     >

@@ -69,8 +69,8 @@ export default function StorefrontIndex({
           <div>
             <h1 className="text-2xl font-bold">فروشگاه اینترنتی</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              یک صفحهٔ عمومی با قیمت‌های مصرف‌کننده، و لینک‌های لیست قیمت همکار که رمز و
-              تاریخ انقضا دارند.
+              یک صفحهٔ عمومی با قیمت‌های مصرف‌کننده، و لینک‌های لیست قیمت همکار که رمز و تاریخ انقضا
+              دارند.
             </p>
           </div>
 
@@ -136,7 +136,9 @@ export default function StorefrontIndex({
                             size="sm"
                             variant="outline"
                             onClick={() =>
-                              router.delete(`/storefront/links/${link.id}`, { preserveScroll: true })
+                              router.delete(`/storefront/links/${link.id}`, {
+                                preserveScroll: true,
+                              })
                             }
                           >
                             ابطال
@@ -162,12 +164,15 @@ function MintedBanner({ url }: { url: string }) {
     <div className="rounded-card border border-success/25 bg-success/5 p-4">
       <p className="font-semibold">لینک ساخته شد — همین حالا کپی‌اش کنید.</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        این نشانی فقط همین یک بار نمایش داده می‌شود. ما آن را رمزنگاری‌شده ذخیره می‌کنیم و
-        دیگر قابل بازیابی نیست؛ اگر گمش کردید، لینک تازه بسازید.
+        این نشانی فقط همین یک بار نمایش داده می‌شود. ما آن را رمزنگاری‌شده ذخیره می‌کنیم و دیگر قابل
+        بازیابی نیست؛ اگر گمش کردید، لینک تازه بسازید.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-control border bg-background p-2 text-xs" dir="ltr">
+        <code
+          className="min-w-0 flex-1 truncate rounded-control border bg-background p-2 text-xs"
+          dir="ltr"
+        >
           {url}
         </code>
         <Button
@@ -246,11 +251,21 @@ function SettingsForm({
         </Field>
 
         <Field label="نشانی کوتاه (slug)" id="slug">
-          <Input id="slug" value={data.slug} onChange={(e) => setData('slug', e.target.value)} dir="ltr" />
+          <Input
+            id="slug"
+            value={data.slug}
+            onChange={(e) => setData('slug', e.target.value)}
+            dir="ltr"
+          />
         </Field>
 
         <Field label="تلفن" id="phone">
-          <Input id="phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)} dir="ltr" />
+          <Input
+            id="phone"
+            value={data.phone}
+            onChange={(e) => setData('phone', e.target.value)}
+            dir="ltr"
+          />
         </Field>
 
         <Field label="واتس‌اپ" id="whatsapp">
@@ -271,12 +286,21 @@ function SettingsForm({
         </Field>
 
         <Field label="آدرس" id="address">
-          <Input id="address" value={data.address} onChange={(e) => setData('address', e.target.value)} />
+          <Input
+            id="address"
+            value={data.address}
+            onChange={(e) => setData('address', e.target.value)}
+          />
         </Field>
       </div>
 
       <Field label="دربارهٔ فروشگاه" id="about">
-        <Textarea id="about" value={data.about} onChange={(e) => setData('about', e.target.value)} rows={3} />
+        <Textarea
+          id="about"
+          value={data.about}
+          onChange={(e) => setData('about', e.target.value)}
+          rows={3}
+        />
       </Field>
 
       <label className="flex items-center gap-2 text-sm">
@@ -374,15 +398,7 @@ function MintForm({ levels }: { levels: Props['price_levels'] }) {
   );
 }
 
-function Field({
-  label,
-  id,
-  children,
-}: {
-  label: string;
-  id: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>

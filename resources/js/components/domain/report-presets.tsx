@@ -68,7 +68,7 @@ export function ReportPresets({ reportKey, presets, current, path }: ReportPrese
           setName('');
           setNaming(false);
         },
-      },
+      }
     );
   };
 

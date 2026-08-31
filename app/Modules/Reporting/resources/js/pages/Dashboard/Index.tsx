@@ -508,7 +508,7 @@ function UsageStrip() {
 
   const meters = (usage?.meters ?? [])
     .filter((meter) => meter.limit !== null && meter.used > 0)
-    .sort((a, b) => (b.used / (b.limit ?? 1)) - (a.used / (a.limit ?? 1)))
+    .sort((a, b) => b.used / (b.limit ?? 1) - a.used / (a.limit ?? 1))
     .slice(0, 4);
 
   if (meters.length === 0) {

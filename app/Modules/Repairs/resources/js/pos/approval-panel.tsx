@@ -70,7 +70,10 @@ export function ApprovalPanel({
       <h2 className="text-sm font-semibold">تأیید مشتری</h2>
 
       {error && (
-        <p role="alert" className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
@@ -109,7 +112,11 @@ export function ApprovalPanel({
                 window.setTimeout(() => setCopied(false), 2000);
               }}
             >
-              {copied ? <CheckIcon className="size-4" aria-hidden /> : <CopyIcon className="size-4" aria-hidden />}
+              {copied ? (
+                <CheckIcon className="size-4" aria-hidden />
+              ) : (
+                <CopyIcon className="size-4" aria-hidden />
+              )}
               {copied ? 'کپی شد' : 'کپی'}
             </Button>
           </div>
@@ -153,7 +160,9 @@ export function ApprovalPanel({
               className="space-y-2 border-t border-border pt-3"
               onSubmit={(event) => {
                 event.preventDefault();
-                phone.post(`/repairs/tickets/${ticketId}/approval/approve`, { preserveScroll: true });
+                phone.post(`/repairs/tickets/${ticketId}/approval/approve`, {
+                  preserveScroll: true,
+                });
               }}
             >
               <Label htmlFor="approval-note">تأیید تلفنی</Label>
@@ -173,7 +182,9 @@ export function ApprovalPanel({
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    phone.post(`/repairs/tickets/${ticketId}/approval/decline`, { preserveScroll: true })
+                    phone.post(`/repairs/tickets/${ticketId}/approval/decline`, {
+                      preserveScroll: true,
+                    })
                   }
                 >
                   <XIcon className="size-4" aria-hidden />

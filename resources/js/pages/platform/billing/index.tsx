@@ -83,7 +83,13 @@ interface BillingProps {
  * `ProrationCalculator` that writes the invoice, so what the shop is quoted here and
  * what it is charged cannot disagree (ADR 0006).
  */
-export default function Billing({ subscription, plans, invoices, highlight, return_to }: BillingProps) {
+export default function Billing({
+  subscription,
+  plans,
+  invoices,
+  highlight,
+  return_to,
+}: BillingProps) {
   const { flash } = usePage<SharedProps>().props;
 
   return (
@@ -124,7 +130,7 @@ export default function Billing({ subscription, plans, invoices, highlight, retu
                 {formatJalali(
                   subscription.is_trialing
                     ? subscription.trial_ends_at
-                    : subscription.current_period_end,
+                    : subscription.current_period_end
                 ) || '—'}
               </dd>
             </div>
@@ -156,7 +162,7 @@ export default function Billing({ subscription, plans, invoices, highlight, retu
                 // three cards — it has already been told which one clears the wall it hit,
                 // and the job of this page is to make that one button obvious.
                 !plan.is_current && plan.code === highlight && 'border-warning ring-2 ring-warning',
-                !plan.is_current && plan.code !== highlight && 'border-border',
+                !plan.is_current && plan.code !== highlight && 'border-border'
               )}
             >
               {!plan.is_current && plan.code === highlight ? (
@@ -234,8 +240,7 @@ export default function Billing({ subscription, plans, invoices, highlight, retu
                           <>از ابتدای دوره بعد اعمال می‌شود و امروز مبلغی دریافت نمی‌شود.</>
                         ) : (
                           <>
-                            پرداخت امروز:{' '}
-                            <Money rial={plan.change.amount_due.value} withUnit />
+                            پرداخت امروز: <Money rial={plan.change.amount_due.value} withUnit />
                           </>
                         )}
                       </p>

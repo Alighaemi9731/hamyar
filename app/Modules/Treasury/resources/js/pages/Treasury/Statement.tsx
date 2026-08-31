@@ -38,17 +38,25 @@ interface Props {
  * Ticking an entry asserts «این را با صورتحساب بانک دیدم». It moves no money, which is why
  * un-ticking is allowed: refusing would leave a false statement in place permanently.
  */
-export default function AccountStatementPage({ account, opening, closing, entries, errors }: Props) {
+export default function AccountStatementPage({
+  account,
+  opening,
+  closing,
+  entries,
+  errors,
+}: Props) {
   const [selected, setSelected] = useState<number[]>([]);
 
   const toggle = (id: number) =>
-    setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+    setSelected((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+    );
 
   const submit = (undo: boolean) =>
     router.post(
       `/treasury/accounts/${account.id}/reconcile`,
       { entry_ids: selected, undo },
-      { preserveScroll: true, onSuccess: () => setSelected([]) },
+      { preserveScroll: true, onSuccess: () => setSelected([]) }
     );
 
   return (
@@ -69,7 +77,10 @@ export default function AccountStatementPage({ account, opening, closing, entrie
       </div>
 
       {errors.reconcile && (
-        <p role="alert" className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {errors.reconcile}
         </p>
       )}

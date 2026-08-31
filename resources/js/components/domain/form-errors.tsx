@@ -105,7 +105,7 @@ export function FormErrors({ errors, handled = [], ignored = [], className }: Fo
       role="alert"
       className={cn(
         'rounded-card border border-danger/40 bg-danger/5 p-4 text-sm text-danger',
-        className,
+        className
       )}
     >
       <div className="flex items-start gap-3">

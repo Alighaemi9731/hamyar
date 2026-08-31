@@ -63,7 +63,10 @@ export default function CollectionDesk({ overdue, due, totals, accounts, errors 
       </div>
 
       {errors.collect && (
-        <p role="alert" className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {errors.collect}
         </p>
       )}
@@ -97,7 +100,13 @@ export default function CollectionDesk({ overdue, due, totals, accounts, errors 
   );
 }
 
-function CollectRow({ row, accounts }: { row: RowEntry; accounts: Array<{ id: number; name: string }> }) {
+function CollectRow({
+  row,
+  accounts,
+}: {
+  row: RowEntry;
+  accounts: Array<{ id: number; name: string }>;
+}) {
   const toman = useTenantSettings().currency_display === 'toman';
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(row.outstanding.value + row.late_fee.value);
@@ -116,7 +125,9 @@ function CollectRow({ row, accounts }: { row: RowEntry; accounts: Array<{ id: nu
           </p>
           <p className="text-2xs text-muted-foreground">
             سررسید {formatJalali(row.due_at)}
-            {row.days_late > 0 && <span className="ms-1 text-destructive">{row.days_late} روز تأخیر</span>}
+            {row.days_late > 0 && (
+              <span className="ms-1 text-destructive">{row.days_late} روز تأخیر</span>
+            )}
           </p>
         </div>
 
@@ -145,7 +156,7 @@ function CollectRow({ row, accounts }: { row: RowEntry; accounts: Array<{ id: nu
             router.post(
               `/installments/rows/${row.id}/collect`,
               { account_id: accountId, amount },
-              { preserveScroll: true, onFinish: () => setBusy(false) },
+              { preserveScroll: true, onFinish: () => setBusy(false) }
             );
           }}
         >

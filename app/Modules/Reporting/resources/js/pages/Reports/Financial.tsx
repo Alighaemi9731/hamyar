@@ -126,7 +126,7 @@ export default function FinancialReport({
       from: string | null;
       to: string | null;
       as_of: string | null;
-    }> = {},
+    }> = {}
   ) => {
     const merged = { cut, direction, from, to, as_of: date, ...next };
 
@@ -344,9 +344,8 @@ function AgingTable({
       )}
 
       <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-        سن بدهی با فرض «هر پرداخت، قدیمی‌ترین بدهی را تسویه می‌کند» محاسبه می‌شود. ستون
-        بستانکاری، پیش‌پرداختی است که هنوز به بدهی‌ای نخورده — از مانده کسر نشده تا دو رقم با
-        هم قاطی نشوند.
+        سن بدهی با فرض «هر پرداخت، قدیمی‌ترین بدهی را تسویه می‌کند» محاسبه می‌شود. ستون بستانکاری،
+        پیش‌پرداختی است که هنوز به بدهی‌ای نخورده — از مانده کسر نشده تا دو رقم با هم قاطی نشوند.
       </footer>
     </>
   );
@@ -377,16 +376,14 @@ function ChequeTable({
             <Num value={overdue.incoming_count} variant="table" /> فقره دریافتی به مبلغ{' '}
             <Money rial={overdue.incoming.value} digits="latin" /> و{' '}
             <Num value={overdue.outgoing_count} variant="table" /> فقره پرداختی به مبلغ{' '}
-            <Money rial={overdue.outgoing.value} digits="latin" /> — بیرون از این بازه، چون یک
-            چک سررسیدگذشته تاریخی در آینده ندارد که داخل بازه باشد.
+            <Money rial={overdue.outgoing.value} digits="latin" /> — بیرون از این بازه، چون یک چک
+            سررسیدگذشته تاریخی در آینده ندارد که داخل بازه باشد.
           </p>
         </div>
       ) : null}
 
       {rows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-black/60">
-          در این بازه چکی سررسید نمی‌شود.
-        </p>
+        <p className="py-12 text-center text-sm text-black/60">در این بازه چکی سررسید نمی‌شود.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm tabular-nums">
@@ -437,9 +434,8 @@ function ChequeTable({
       )}
 
       <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-        فقط چک‌های باز در خالص هر روز حساب می‌شوند. چکی که وصول شده پولش رسیده و دوباره
-        شمردنش یعنی نقدینگی‌ای که وجود ندارد؛ چک برگشتی هم جداگانه آمده چون کار دارد، نه
-        اینکه از تقویم حذف شود.
+        فقط چک‌های باز در خالص هر روز حساب می‌شوند. چکی که وصول شده پولش رسیده و دوباره شمردنش یعنی
+        نقدینگی‌ای که وجود ندارد؛ چک برگشتی هم جداگانه آمده چون کار دارد، نه اینکه از تقویم حذف شود.
       </footer>
     </>
   );
@@ -462,9 +458,7 @@ function InstallmentTable({
       </div>
 
       {rows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-black/60">
-          در این بازه قسطی سررسید نمی‌شود.
-        </p>
+        <p className="py-12 text-center text-sm text-black/60">در این بازه قسطی سررسید نمی‌شود.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm tabular-nums">
@@ -482,10 +476,7 @@ function InstallmentTable({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={`${row.plan_number}-${row.sequence}`}
-                  className="border-b last:border-0"
-                >
+                <tr key={`${row.plan_number}-${row.sequence}`} className="border-b last:border-0">
                   <td className="py-2">{row.plan_number}</td>
                   <td className="py-2">{row.party}</td>
                   <td className="py-2 text-end">
@@ -513,8 +504,8 @@ function InstallmentTable({
 
       <footer className="mt-6 border-t pt-3 text-xs text-black/60">
         وصولی هر قسط جمع پرداخت‌های ثبت‌شده روی همان قسط است، منهای مبلغ اضافه‌ای که به‌عنوان
-        بستانکاری روی حساب طرف نشسته. قسطی که تسویه شده معوق شمرده نمی‌شود، حتی اگر دیر
-        پرداخت شده باشد.
+        بستانکاری روی حساب طرف نشسته. قسطی که تسویه شده معوق شمرده نمی‌شود، حتی اگر دیر پرداخت شده
+        باشد.
       </footer>
     </>
   );

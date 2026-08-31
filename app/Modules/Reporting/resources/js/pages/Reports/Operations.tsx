@@ -162,7 +162,11 @@ export default function OperationsReport({
           <div className="mb-6 grid gap-4 text-sm sm:grid-cols-3">
             <Figure label="شارژ در بازه" value={wallet.topups} />
             <Figure label="مصرف در بازه" value={wallet.charges} />
-            <Figure label="ناموفق" count={totals.failed} tone={totals.failed > 0 ? 'danger' : undefined} />
+            <Figure
+              label="ناموفق"
+              count={totals.failed}
+              tone={totals.failed > 0 ? 'danger' : undefined}
+            />
           </div>
 
           {rows.length === 0 ? (
@@ -213,10 +217,10 @@ export default function OperationsReport({
           )}
 
           <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-            هزینه بر اساس «بخش» است نه تعداد پیامک: هر پیامک فارسی تا ۷۰ نویسه یک بخش حساب
-            می‌شود، پس یک کلمهٔ اضافه در یک قالب، هزینهٔ همهٔ ارسال‌های آن را دو برابر می‌کند.
-            «مسدود» یعنی گیرنده در فهرست انصراف بوده و پیامک عمداً ارسال نشده — این موفقیت
-            است، نه خطا. اعتبار کیف پول مربوط به همین لحظه است، نه پایان بازه.
+            هزینه بر اساس «بخش» است نه تعداد پیامک: هر پیامک فارسی تا ۷۰ نویسه یک بخش حساب می‌شود،
+            پس یک کلمهٔ اضافه در یک قالب، هزینهٔ همهٔ ارسال‌های آن را دو برابر می‌کند. «مسدود» یعنی
+            گیرنده در فهرست انصراف بوده و پیامک عمداً ارسال نشده — این موفقیت است، نه خطا. اعتبار
+            کیف پول مربوط به همین لحظه است، نه پایان بازه.
           </footer>
         </div>
       </PrintLayout.A4>

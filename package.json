@@ -6,6 +6,7 @@
         "build": "vite build",
         "dev": "vite",
         "format": "prettier --write resources/js app/Modules/*/resources/js",
+        "format:check": "prettier --check resources/js app/Modules/*/resources/js",
         "types": "tsc --noEmit"
     },
     "devDependencies": {
