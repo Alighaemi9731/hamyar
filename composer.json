@@ -111,7 +111,9 @@
             "@php bin/check-global-helpers",
             "@php bin/check-forgettable-singletons",
             "@php bin/check-queued-tenancy",
-            "@php bin/check-quota-scoping"
+            "@php bin/check-quota-scoping",
+            "@php bin/check-form-errors",
+            "@php bin/check-apex-domain"
         ]
     },
     "scripts-descriptions": {
