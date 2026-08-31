@@ -1690,8 +1690,20 @@ function PrintSection({ alt = false }: { alt?: boolean }) {
       title="PrintLayout"
       note="کاغذ همیشه سفید است، حتی وقتی برنامه در حالت تیره باز شده باشد. عرض‌ها واقعی‌اند: ۸۰ میلی‌متر، A5 و A4."
     >
+      {/*
+        Paper does not reflow. A sheet is 80mm, 148mm or 210mm wide because that is what
+        comes out of the printer, so on a 375px phone the A4 specimen is simply wider than
+        the viewport and no amount of `max-w-full` changes that without lying about the
+        size being demonstrated.
+
+        So the sheets scroll inside their own lane rather than pushing the page sideways —
+        the system's standing rule for content that cannot shrink. `min-w-0` on the tracks
+        is what makes it work: a grid track is `minmax(auto, max-content)` by default, and
+        without it the track floors at the label row's content width and the overflow moves
+        up to the document instead of being caught here.
+      */}
       <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
-        <div className="w-[80mm] max-w-full border border-border bg-white p-4 text-black">
+        <div className="w-[80mm] min-w-0 max-w-full overflow-x-auto border border-border bg-white p-4 text-black">
           <p className="text-center text-sm font-bold">فروشگاه موبایل نمونه</p>
           <p className="mt-1 text-center text-2xs">۸۰ میلی‌متر — رسید حرارتی</p>
           <div className="my-3 border-t border-dashed border-black/30" />
@@ -1712,7 +1724,7 @@ function PrintSection({ alt = false }: { alt?: boolean }) {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4 overflow-x-auto">
           <div className="w-[148mm] max-w-full border border-border bg-white p-6 text-black">
             <p className="text-sm font-bold">A5 — فاکتور نصف‌برگی</p>
             <p className="mt-1 text-2xs text-black/60">
