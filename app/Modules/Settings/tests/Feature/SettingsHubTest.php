@@ -32,12 +32,17 @@ beforeEach(function (): void {
     | production, reading one throws, and `/settings/two-factor` answered 500 in this suite
     | while returning 200 in a browser. The session guard loads the row; so does this now,
     | which is the point of a fixture.
+    |
+    | `refresh()` rather than `fresh()`: same reload, but it returns `static` instead of
+    | `static|null`, so the closure's return type holds at Larastan level 8.
     */
     $this->owner = inTenantContext($this->tenant, function (): User {
         $user = User::factory()->create();
         $user->assignRole('Owner');
 
-        return $user->fresh();
+        $user->refresh();
+
+        return $user;
     });
 });
 
@@ -68,16 +73,25 @@ it('links only to routes that actually answer', function (): void {
 });
 
 it('hides what a role may not open, and drops the group with it', function (): void {
+    /** @var User $cashier */
     $cashier = inTenantContext($this->tenant, function (): User {
         $user = User::factory()->create();
         $user->assignRole('Cashier');
+        $user->refresh();
 
-        return $user->fresh();
+        return $user;
     });
 
+    /** @var list<array{key: string, label: string, items: list<array{key: string, title: string, description: string, href: string}>}> $visible */
     $visible = inTenantContext($this->tenant, fn () => SettingsCatalogue::visibleTo($cashier));
 
-    $keys = collect($visible)->flatMap(fn (array $group) => collect($group['items'])->pluck('key'))->all();
+    $keys = [];
+
+    foreach ($visible as $group) {
+        foreach ($group['items'] as $item) {
+            $keys[] = $item['key'];
+        }
+    }
 
     // Own account, always. Somebody else's access, only with the permission.
     expect($keys)->toContain('two-factor', 'sessions')
