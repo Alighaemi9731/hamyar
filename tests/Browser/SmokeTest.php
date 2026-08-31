@@ -240,6 +240,18 @@ it('renders every main screen with no console error and no sideways scroll', fun
     'repairs' => '/repairs',
     'inventory' => '/inventory',
     'customers' => '/crm',
+    /*
+    | The till, and the screen this suite most needed and least had.
+    |
+    | It is the highest-traffic page in the product, and it shipped an action row that came
+    | to 411px inside a 375px viewport — the exact defect `AppShell`'s own comment warns
+    | about, re-created by a page that wrapped its buttons in a `flex` without `flex-wrap`.
+    | Nothing caught it because nothing here looked at `/sales/pos`.
+    |
+    | Deliberately absent from POPULATED_TABLES: the cart starts empty, and a till that
+    | opened with rows in it would be a different bug.
+    */
+    'pos' => '/sales/pos',
 ])->with([
     'mobile',
     'desktop',
