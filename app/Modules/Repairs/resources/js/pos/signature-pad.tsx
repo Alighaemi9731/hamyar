@@ -150,7 +150,7 @@ export function SignaturePad({ onChange, className }: SignaturePadProps) {
         )}
       </div>
 
-      <Button type="button" variant="ghost" size="sm" onClick={clear} disabled={!hasInk}>
+      <Button type="button" variant="ghost" onClick={clear} disabled={!hasInk}>
         <RotateCcwIcon className="size-4" aria-hidden />
         پاک کردن
       </Button>

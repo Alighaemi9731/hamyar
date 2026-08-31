@@ -151,7 +151,7 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
                   <>
                     <Button
                       type="button"
-                      size="sm"
+
                       variant="secondary"
                       onClick={() =>
                         router.post(
@@ -167,7 +167,7 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
 
                     <Button
                       type="button"
-                      size="sm"
+
                       variant="ghost"
                       aria-label={`آزاد کردن ${part.name}`}
                       onClick={() =>
@@ -301,13 +301,13 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
               <FormErrors errors={form.errors} handled={['quantity']} />
 
               <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={form.processing}>
+                <Button type="submit" disabled={form.processing}>
                   <PlusIcon className="size-4" aria-hidden />
                   رزرو قطعه
                 </Button>
                 <Button
                   type="button"
-                  size="sm"
+
                   variant="ghost"
                   onClick={() => {
                     setPicked(null);
