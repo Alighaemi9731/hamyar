@@ -22,7 +22,6 @@ app/Modules/Moadian/resources/js/pages/Moadian/Index.tsx
 app/Modules/Purchasing/resources/js/pages/Invoices/Edit.tsx
 app/Modules/Purchasing/resources/js/pages/Invoices/Index.tsx
 app/Modules/Repairs/resources/js/pages/Tickets/Board.tsx
-app/Modules/Repairs/resources/js/pages/Tickets/Intake.tsx
 app/Modules/Repairs/resources/js/pages/Tracking/Approve.tsx
 app/Modules/Repairs/resources/js/pos/approval-panel.tsx
 app/Modules/Sales/resources/js/pages/Quotes/Index.tsx
