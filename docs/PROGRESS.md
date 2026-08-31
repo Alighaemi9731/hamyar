@@ -2719,3 +2719,65 @@ what exists. A shared component that silently restyles the app is worse than two
 scales.
 
 Four PRs, all five checks green on each: `#70`, `#71`, `#72`, `#73`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 2: the shell, and three controls that did nothing
+
+Four PRs. The phase was planned as "AppShell & navigation" and was mostly a matter of making
+controls that already looked finished actually work.
+
+**Two nav items had 404'd for as long as they existed.** «تنظیمات» pointed at `/settings`,
+whose module routes file held nothing but a comment block; «اقساط» pointed at `/installments`,
+where the module registers `/collections` and `/plans/{plan}` and nothing at the root. Every
+user, on every page, had two sidebar items that failed.
+
+The settings screens all existed — users, two-factor, sessions, activity, branches, billing —
+scattered across four modules with no door. `SettingsCatalogue` follows `ReportCatalogue`:
+grouped the way a shopkeeper files them, a description under each title, no rows for things
+you cannot open, and permissions checked by *name* so the module does not import Inventory's
+`Branch` to ask about a string.
+
+The guard that would have caught it reads `navigation.ts` **from PHP** and walks every href.
+Parsing TypeScript in a test is ugly; the alternative is a second copy of the nav in PHP,
+which is a thing to keep in sync rather than a thing that checks. Verified by pointing «اقساط»
+back at the broken URL and watching it fail.
+
+**There was no logout.** `POST /logout` has existed since authentication did and nothing in
+the interface pointed at it — a shopkeeper could sign in and not sign out, on what is often a
+shared counter tablet. `UserMenu` also answers the question a shared device raises: which of
+the staff is signed in. Hence a letter, not a person glyph.
+
+**The search box had no `onClick`.** The most prominent control in the product, on every
+screen, was decoration — with a placeholder promising products and invoice numbers. It now
+opens a palette over the endpoints the pickers already use. The placeholder was *narrowed* to
+what it actually does: the only general product search renders a barcode per row for the label
+sheet, and nothing indexes invoice numbers. Promising two things it could not do is how the
+previous version got away with doing nothing.
+
+The browser found two defects reading would not have: it fired both endpoints on an empty
+term (31 rows and two requests just to press ⌘K), and Enter did not navigate because nothing
+was selected in that unstable list. Both fixed by gating remote search behind two characters.
+
+**Thirteen pages went around the shell's heading.** Five passed no `title` and hand-rolled an
+`<h1>` at 40px — the step reserved for a screen's headline figure — and eight rendered a second
+one. Both are the same missing slot. `PageHeader` is it, and `AppShell` now takes `title` **or**
+`header` as a discriminated union, so passing both is a compile error rather than a review
+note. Five pages migrated; two turned a «بازگشت» outline button into a real back link, which
+had been making "where I came from" compete with "what I can do here".
+
+**A guard I nearly ignored.** The gallery's three PageHeader specimens put three extra `<h1>`s
+on `/design` — the component built to enforce one heading per page breaking it on the surface
+that demonstrates it. `/design` is dev-only and it would have been easy to wave through;
+waving it through is the first step to ignoring the sweep. Fixed with a documented
+`headingLevel` escape hatch scoped to that one caller.
+
+**Also learned:** run `composer stan` locally before pushing PHP. Eleven Larastan errors came
+back from CI on a test file, all from `fresh()` returning `static|null` and `inTenantContext()`
+returning `mixed`.
+
+Two things recorded and deliberately not fixed: `/installments` still has no plans index (a
+page to build, not a nav entry to fix), and `/treasury/accounts/{id}` renders 16×16
+reconciliation checkboxes, which belongs with the touch-target sweep.
+
+Four PRs, all five checks green on each: `#75`, `#76`, `#77`, `#78`.
