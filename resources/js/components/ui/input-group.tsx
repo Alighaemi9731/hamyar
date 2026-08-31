@@ -69,7 +69,9 @@ const inputGroupButtonVariants = cva('flex items-center gap-2 text-sm shadow-non
       xs: "h-6 gap-1 rounded-[calc(var(--radius)-3px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5",
       sm: '',
       'icon-xs': 'size-6 rounded-[calc(var(--radius)-3px)] p-0 has-[>svg]:p-0',
-      'icon-sm': 'size-8 p-0 has-[>svg]:p-0',
+      // `size-7`, not `size-8`: `icon-sm` is 28px in `button.tsx` and was 32px here, so
+      // the same prop produced two different controls depending on which file you read.
+      'icon-sm': 'size-7 p-0 has-[>svg]:p-0',
     },
   },
   defaultVariants: {
@@ -113,7 +115,9 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<'input'>)
     <Input
       data-slot="input-group-control"
       className={cn(
-        'flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
+        // `h-full`: the control was 21px of text sitting inside a 44px group, so the
+        // group looked like the input and most of it was not. It is one box now.
+        'h-full flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
         className
       )}
       {...props}

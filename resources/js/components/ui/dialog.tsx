@@ -61,7 +61,9 @@ function DialogContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button variant="ghost" className="absolute top-2 end-2" size="icon-sm">
+            {/* `icon` (40px), matching Sheet. A dialog close was 28px — under the floor,
+                and the one control in a dialog somebody reaches for in a hurry. */}
+            <Button variant="ghost" className="absolute top-2 end-2" size="icon">
               <XIcon />
               <span className="sr-only">Close</span>
             </Button>

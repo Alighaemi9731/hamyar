@@ -118,14 +118,23 @@ export default function AccountStatementPage({
             {entries.data.map((entry) => (
               <tr key={entry.id} className="border-b border-border last:border-0">
                 {account.holds_money && (
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-primary"
-                      aria-label={`انتخاب ردیف ${entry.id}`}
-                      checked={selected.includes(entry.id)}
-                      onChange={() => toggle(entry.id)}
-                    />
+                  <td className="p-0">
+                    {/*
+                      The box stays 16px and the *target* becomes 40. A checkbox drawn at
+                      40px looks like a button; a checkbox you cannot hit with a thumb is
+                      the one control on this screen somebody taps forty times in a row
+                      while reconciling a bank statement. The label wraps the input, so the
+                      whole cell is the hit area and the box needs no `id`.
+                    */}
+                    <label className="flex min-h-10 cursor-pointer items-center justify-center px-3">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                        aria-label={`انتخاب ردیف ${entry.id}`}
+                        checked={selected.includes(entry.id)}
+                        onChange={() => toggle(entry.id)}
+                      />
+                    </label>
                   </td>
                 )}
                 <td className="p-3 whitespace-nowrap text-2xs">

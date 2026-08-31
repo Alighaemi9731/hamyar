@@ -136,7 +136,11 @@ export function DataTable<TRow>({
                     <button
                       type="button"
                       onClick={() => sort.onChange(column.key)}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      // `min-h-10` and negative inline margin: sorting a column was a
+                      // 21px target inside a header cell that is already 40px tall, so
+                      // the row had the height and the control did not use it. The
+                      // margin keeps the label optically aligned with the cells beneath.
+                      className="-mx-2 inline-flex min-h-10 items-center gap-1 rounded-control px-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
                       {column.header}
                       {sort.key === column.key ? (
