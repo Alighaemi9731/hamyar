@@ -2,9 +2,6 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
-  BarChart3Icon,
-  CreditCardIcon,
-  FileTextIcon,
   type LucideIcon,
   PackagePlusIcon,
   ReceiptIcon,
@@ -19,11 +16,8 @@ import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { UsageMeter } from '@/components/domain/usage-meter';
-import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
-import { useTenantSettings } from '@/hooks/use-tenant-settings';
 import { AppShell } from '@/layouts/app-shell';
-import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import type { MoneyValue, SharedProps } from '@/types';
 
@@ -145,19 +139,6 @@ export default function DashboardIndex({
   shows_profit: showsProfit,
   can,
 }: Props) {
-  /*
-   * `StatCard`'s hint is a string, so the digit style it would get from `<Num/>` has to
-   * be applied by hand. Doing it through the tenant setting rather than a hardcoded
-   * `fa-IR` locale matters: a shop set to Latin digits would otherwise get Persian ones
-   * in the hint and Latin in the figure directly above it.
-   */
-  const settings = useTenantSettings();
-  const count = (value: number): string => {
-    const grouped = value.toLocaleString('en-US');
-
-    return settings.digits === 'fa' ? toPersianDigits(grouped) : grouped;
-  };
-
   const nothingVisible =
     today === null &&
     repairs === null &&
@@ -181,68 +162,25 @@ export default function DashboardIndex({
           description="دسترسی‌های حساب شما شامل هیچ‌کدام از بخش‌های خلاصه نمی‌شود. اگر باید آمار فروش یا تعمیرات را ببینید، از مدیر فروشگاه بخواهید دسترسی‌تان را تغییر دهد."
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-14 sm:space-y-16">
           <UsageStrip />
 
-          {/* The headline row: figures somebody acts on before lunch. */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {today ? (
-              <StatCard
-                label="فروش امروز"
-                value={today.revenue.value}
-                isMoney
-                icon={ShoppingCartIcon}
-                hint={`${count(today.invoice_count)} فاکتور`}
-              />
-            ) : null}
-
-            {today?.profit ? (
-              <StatCard
-                label="سود امروز"
-                value={today.profit.value}
-                isMoney
-                icon={BarChart3Icon}
-                tone={today.profit.value >= 0 ? 'success' : 'danger'}
-                hint={`حاشیه ${count(today.margin_percent ?? 0)}٪`}
-              />
-            ) : null}
-
-            {installments ? (
-              <StatCard
-                label="اقساط عقب‌افتاده"
-                value={installments.total.value}
-                isMoney
-                icon={CreditCardIcon}
-                tone={installments.count > 0 ? 'danger' : 'neutral'}
-                hint={`${count(installments.count)} قسط`}
-              />
-            ) : null}
-
-            {cheques ? (
-              <StatCard
-                label="چک‌های سررسیدگذشته"
-                value={chequesOverdue}
-                isMoney
-                icon={FileTextIcon}
-                tone={chequesOverdue > 0 ? 'danger' : 'neutral'}
-                hint={`${count(cheques.issued.overdue_count)} پرداختی · ${count(cheques.received.overdue_count)} دریافتی`}
-              />
-            ) : null}
-          </div>
-
-          {trend && trend.length > 0 ? (
-            <Card
-              title="فروش ۳۰ روز گذشته"
-              href="/reporting/sales"
-              linkLabel={can.reports ? 'گزارش فروش' : undefined}
-            >
-              <BarChart
-                points={trend.map((point) => ({ label: point.jalali, value: point.revenue }))}
-                title={showsProfit ? 'درآمد روزانه (بدون مالیات)' : 'فروش روزانه'}
-                height={128}
-              />
-            </Card>
+          {today ? (
+            <TodayBand
+              today={today}
+              trend={trend}
+              showsProfit={showsProfit}
+              canSeeReports={can.reports}
+            />
           ) : null}
+
+          <Attention
+            cheques={cheques}
+            chequesOverdue={chequesOverdue}
+            installments={installments}
+            abandoned={abandoned}
+            lowStock={lowStock}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
             {repairs ? (
@@ -409,6 +347,275 @@ export default function DashboardIndex({
         </div>
       )}
     </AppShell>
+  );
+}
+
+/* ------------------------------------------------------------------ today -- */
+
+/**
+ * The one figure this screen exists to show, and the month it sits inside.
+ *
+ * ## Why the four tiles are gone
+ *
+ * The dashboard opened with today's sales, today's profit, overdue instalments and overdue
+ * cheques as four equal-weight `StatCard`s. Four numbers stated at the same size, in a row,
+ * comparing none of them — and two of the four were not about today at all, so "how did we
+ * do today" and "what is late" were interleaved and neither read first.
+ *
+ * Takings are the anchor because it is the question a shop opens this page to ask. Profit
+ * and the invoice count sit under it as facts *about* that figure rather than beside it as
+ * rivals, and the two overdue tiles moved to {@see Attention}, where being late is the
+ * thing they have in common.
+ *
+ * ## The chart is beside the figure, not below it
+ *
+ * A day's takings mean nothing alone — «۴۲ میلیون» is good or bad only against the month it
+ * sits in. They were two separate blocks with a card boundary between them, which made the
+ * comparison something the reader had to do rather than something the layout did.
+ *
+ * Split only from `xl`, for the reason the treasury summary records: at 1024 the sidebar
+ * appears in the same breakpoint, and a nine-digit toman figure at 40px needs about 300px
+ * of column.
+ */
+function TodayBand({
+  today,
+  trend,
+  showsProfit,
+  canSeeReports,
+}: {
+  today: TodayWidget;
+  trend: TrendPoint[] | null;
+  showsProfit: boolean;
+  canSeeReports: boolean;
+}) {
+  const hasTrend = trend !== null && trend.length > 0;
+
+  return (
+    <section className="reveal rounded-card border border-border bg-card p-6 shadow-low sm:p-8">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] xl:gap-12">
+        <div className="min-w-0">
+          <h2 className="text-sm text-muted-foreground">فروش امروز</h2>
+
+          <p className="mt-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
+            <Money rial={today.revenue.value} withUnit unitPlacement="block" />
+          </p>
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            {today.invoice_count === 0 ? (
+              'هنوز فاکتوری ثبت نشده است.'
+            ) : (
+              <>
+                در <Num value={today.invoice_count} /> فاکتور
+              </>
+            )}
+          </p>
+
+          {today.profit ? (
+            <div className="mt-5 border-t border-border pt-4">
+              <p className="text-xs text-muted-foreground">سود امروز</p>
+              <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
+                {/* `signed` so a loss reads as one. The margin beside it is what turns a
+                    number into a judgement — ۴۲ میلیون on ۵٪ is a different day from
+                    ۴۲ میلیون on ۳۰٪. */}
+                <Money
+                  rial={today.profit.value}
+                  withUnit
+                  signed
+                  className="text-lg font-semibold"
+                />
+                <span className="text-xs text-muted-foreground">
+                  حاشیه <Num value={today.margin_percent ?? 0} />٪
+                </span>
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {hasTrend ? (
+          <div className="min-w-0">
+            {/*
+              No heading above this. `BarChart` already renders its own label-and-total row
+              — the series name on one side, the thirty-day total on the other — and a
+              heading above it said almost the same words a second time, in the same size,
+              directly over the top of it.
+            */}
+            <BarChart
+              points={trend.map((point) => ({ label: point.jalali, value: point.revenue }))}
+              title={showsProfit ? 'درآمد ۳۰ روز گذشته' : 'فروش ۳۰ روز گذشته'}
+              height={128}
+            />
+
+            {canSeeReports && (
+              <Link
+                href="/reporting/sales"
+                className="mt-3 inline-block text-xs text-brand hover:underline"
+              >
+                گزارش فروش
+              </Link>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------- attention -- */
+
+interface AttentionRow {
+  key: string;
+  label: string;
+  /** A `ReactNode` so the numbers in it go through `<Num>` and follow the tenant's digit
+   *  setting, rather than through a local string helper that only this page has. */
+  detail: ReactNode;
+  amount: number | null;
+  href: string;
+}
+
+/**
+ * Everything that is late, in one place.
+ *
+ * ## Why it is one band and not four cards
+ *
+ * Overdue cheques, late instalments, abandoned devices and stock below its threshold were
+ * four separate boxes among nine, each of which had to be found before it could be read.
+ * They are the same question — *what is going wrong that I should act on* — and a shop
+ * opening this page before unlocking the door is asking exactly that.
+ *
+ * ## The order is fixed, and money is first
+ *
+ * Not sorted by amount, because two of the four have no amount: a device nobody collected
+ * and a line that ran out are counts. Ranking a count against a sum would be arithmetic
+ * dressed as priority. So the order is stated instead — money that is late outranks goods
+ * that are stuck, because money late is money that may never arrive, and a device on a
+ * shelf is still a device on a shelf.
+ *
+ * ## Nothing wrong is a real state
+ *
+ * A shop with nothing overdue gets told so, once, quietly. The alternative — hiding the
+ * band — makes "everything is fine" indistinguishable from "this section failed to load",
+ * which is the confusion the empty-state rule exists to prevent.
+ */
+function Attention({
+  cheques,
+  chequesOverdue,
+  installments,
+  abandoned,
+  lowStock,
+}: {
+  cheques: ChequesWidget | null;
+  chequesOverdue: number;
+  installments: InstallmentsWidget | null;
+  abandoned: AbandonedWidget | null;
+  lowStock: LowStockWidget | null;
+}) {
+  const overdueCheques =
+    cheques === null ? 0 : cheques.issued.overdue_count + cheques.received.overdue_count;
+
+  const rows: AttentionRow[] = [];
+
+  if (cheques !== null && overdueCheques > 0) {
+    rows.push({
+      key: 'cheques',
+      label: 'چک سررسیدگذشته',
+      detail: (
+        <>
+          <Num value={cheques.issued.overdue_count} /> پرداختی ·{' '}
+          <Num value={cheques.received.overdue_count} /> دریافتی
+        </>
+      ),
+      amount: chequesOverdue,
+      href: '/cheques',
+    });
+  }
+
+  if (installments !== null && installments.count > 0) {
+    rows.push({
+      key: 'installments',
+      label: 'قسط عقب‌افتاده',
+      detail: (
+        <>
+          <Num value={installments.count} /> قسط
+        </>
+      ),
+      amount: installments.total.value,
+      href: '/installments/collections',
+    });
+  }
+
+  if (abandoned !== null && abandoned.count > 0) {
+    rows.push({
+      key: 'abandoned',
+      label: 'دستگاه رسوبی',
+      detail: (
+        <>
+          <Num value={abandoned.count} /> دستگاه آماده تحویل، بدون مراجعه
+        </>
+      ),
+      amount: null,
+      href: '/repairs?status=abandoned',
+    });
+  }
+
+  // `lowStock.count` and not `lines.length`: the lines are a sample the card below shows,
+  // and counting them would report a smaller number than the truth.
+  if (lowStock !== null && lowStock.count > 0) {
+    rows.push({
+      key: 'low-stock',
+      label: 'کالای رو به اتمام',
+      detail: (
+        <>
+          <Num value={lowStock.count} /> قلم زیر حد سفارش
+        </>
+      ),
+      amount: null,
+      href: '/inventory/low-stock',
+    });
+  }
+
+  // Nothing to say, and no permission to say it about — the surrounding empty state
+  // already covers that case.
+  if (cheques === null && installments === null && abandoned === null && lowStock === null) {
+    return null;
+  }
+
+  return (
+    <section className="reveal reveal-delay-1">
+      <h2 className="mb-4 font-display text-lg font-bold tracking-tight">معطل شما</h2>
+
+      {rows.length === 0 ? (
+        <p className="rounded-card border border-dashed border-border bg-surface/50 px-6 py-8 text-center text-sm text-muted-foreground">
+          چیزی عقب نیفتاده است — نه چکی، نه قسطی، نه دستگاهی.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
+          {rows.map((row) => (
+            <li key={row.key}>
+              <Link
+                href={row.href}
+                className="flex min-h-[var(--density-row)] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3.5 transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{row.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{row.detail}</span>
+                </span>
+
+                {/* A count without a sum is not padded with a dash: three of these are
+                    money and two are not, and inventing an amount for a device on a shelf
+                    would be the ranking lie this list avoids. */}
+                {row.amount !== null && (
+                  <Money
+                    rial={row.amount}
+                    withUnit
+                    className="shrink-0 font-semibold text-danger"
+                  />
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
