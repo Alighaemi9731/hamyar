@@ -3035,3 +3035,45 @@ got the `lines` JSON shape wrong, hit a real domain invariant («Amount 1 rial i
 number of toman»), fixed the fixture rather than the code, and deleted the row afterwards.
 
 One PR, all five checks green: `#93`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 7 (POS): the screen nothing was watching
+
+One PR. The work I planned was alignment and touch targets; the thing that mattered was an
+overflow nobody had ever looked for.
+
+**The till scrolled sideways on a phone.** Its three actions sat in a `flex items-center
+gap-2` with no `flex-wrap` and came to 411px inside a 375px viewport. `AppShell` carries a
+comment about exactly this, written after the same defect on the products list — the shell's
+row wraps, so a group inside it that does not wrap runs off the edge — and the POS
+re-created it.
+
+Nothing caught it because **nothing was looking**. `/sales/pos` is the highest-traffic screen
+in the product and it was not in the browser suite, which Phase 0 recorded as a gap and did
+not close. It is in now, and the case was verified by reverting the fix and watching it fail:
+«[/sales/pos] scrolls sideways on mobile in light mode: 473px of content in a 375px
+viewport».
+
+That is the second time this phase-by-phase pattern has held: **the defect is never in the
+part being redesigned.** The billing overflow was in the pricing grid beside the table I had
+judged; this one was in the header above the cart I came to fix.
+
+The planned work landed too — three `h-9` fields raised to the floor (the ones somebody
+changes with a customer standing there), the cart's «جمع» column off `text-end`, and both
+money panels onto `MoneyLadder`. Measured: digits land on one axis per panel, where «۰» and
+«۱۰۰٬۰۰۰٬۰۰۰» had sat 73px apart on the panel a cashier reads while counting change.
+
+**A regression I made and caught in the same session:** laddering the totals cost «مبلغ قابل
+پرداخت» its «تومان», which is the one figure on that screen somebody says out loud. Restored
+with `unitPlacement="block"` — a nine-digit figure plus its unit will not fit a `9ch` track
+inline and does fit on its own line.
+
+**`data-density="compact"` was dropped from the plan.** It shortens `--density-row` to 36px,
+and the design system already says 36px rows are "for scanning, never for touch targets" —
+but these rows *contain* the 40px controls this change just raised. The plan item predates
+the floor decision and the two cannot both hold.
+
+Still open in Phase 7: Repairs intake, deliver, board and ticket detail, and Returns/Create.
+
+One PR, all five checks green: `#95`.
