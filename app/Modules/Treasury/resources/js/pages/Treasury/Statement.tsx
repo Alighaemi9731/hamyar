@@ -1,7 +1,9 @@
 import { Head, router } from '@inertiajs/react';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, ReceiptIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { type Column, DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
@@ -53,6 +55,83 @@ export default function AccountStatementPage({
       current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
     );
 
+  /*
+    Built inside the component because two columns close over selection state. `numeric`
+    on the three money columns is the point of the conversion: they were `text-end`, which
+    in RTL aligns the most-significant digits and leaves the units ragged — on a statement
+    read against a bank's.
+  */
+  const columns: Column<EntryRow>[] = [
+    ...(account.holds_money
+      ? [
+          {
+            key: 'select',
+            header: 'انتخاب',
+            // Held to its content width so the tick column does not steal space from
+            // the description, which is the only column that wants to grow.
+            className: 'w-px p-0',
+            cell: (row: EntryRow) => (
+              // The box stays 16px and the target is 40. A checkbox drawn at 40px reads
+              // as a button; one you cannot hit with a thumb is the control somebody
+              // taps forty times in a row against a bank statement.
+              <label className="flex min-h-10 cursor-pointer items-center justify-center px-3">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  aria-label={`انتخاب ردیف ${row.id}`}
+                  checked={selected.includes(row.id)}
+                  onChange={() => toggle(row.id)}
+                />
+              </label>
+            ),
+          } satisfies Column<EntryRow>,
+        ]
+      : []),
+    {
+      key: 'occurred_at',
+      header: 'تاریخ',
+      className: 'whitespace-nowrap',
+      cell: (row) => (
+        <span className="text-2xs">
+          {formatJalali(row.occurred_at)}
+          {row.reconciled && (
+            <span
+              className="ms-1 text-success"
+              title="مغایرت‌گیری‌شده"
+              aria-label="مغایرت‌گیری‌شده"
+            >
+              ✓
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'شرح',
+      cell: (row) => row.description ?? <span className="text-muted-foreground">—</span>,
+    },
+    {
+      key: 'debit',
+      header: 'بدهکار',
+      numeric: true,
+      cell: (row) => (row.debit.value > 0 ? <Money rial={row.debit.value} digits="latin" /> : null),
+    },
+    {
+      key: 'credit',
+      header: 'بستانکار',
+      numeric: true,
+      cell: (row) =>
+        row.credit.value > 0 ? <Money rial={row.credit.value} digits="latin" /> : null,
+    },
+    {
+      key: 'running',
+      header: 'مانده',
+      numeric: true,
+      cell: (row) => <Money rial={row.running.value} digits="latin" className="font-medium" />,
+    },
+  ];
+
   const submit = (undo: boolean) =>
     router.post(
       `/treasury/accounts/${account.id}/reconcile`,
@@ -102,67 +181,26 @@ export default function AccountStatementPage({
         </div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-card border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-2xs text-muted-foreground">
-              {account.holds_money && <th className="p-3" />}
-              <th className="p-3 text-start font-medium">تاریخ</th>
-              <th className="p-3 text-start font-medium">شرح</th>
-              <th className="p-3 text-end font-medium">بدهکار</th>
-              <th className="p-3 text-end font-medium">بستانکار</th>
-              <th className="p-3 text-end font-medium">مانده</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.data.map((entry) => (
-              <tr key={entry.id} className="border-b border-border last:border-0">
-                {account.holds_money && (
-                  <td className="p-0">
-                    {/*
-                      The box stays 16px and the *target* becomes 40. A checkbox drawn at
-                      40px looks like a button; a checkbox you cannot hit with a thumb is
-                      the one control on this screen somebody taps forty times in a row
-                      while reconciling a bank statement. The label wraps the input, so the
-                      whole cell is the hit area and the box needs no `id`.
-                    */}
-                    <label className="flex min-h-10 cursor-pointer items-center justify-center px-3">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
-                        aria-label={`انتخاب ردیف ${entry.id}`}
-                        checked={selected.includes(entry.id)}
-                        onChange={() => toggle(entry.id)}
-                      />
-                    </label>
-                  </td>
-                )}
-                <td className="p-3 whitespace-nowrap text-2xs">
-                  {formatJalali(entry.occurred_at)}
-                  {entry.reconciled && <span className="ms-1 text-success">✓</span>}
-                </td>
-                <td className="p-3">{entry.description}</td>
-                <td className="p-3 text-end tabular">
-                  {entry.debit.value > 0 && <Money rial={entry.debit.value} />}
-                </td>
-                <td className="p-3 text-end tabular">
-                  {entry.credit.value > 0 && <Money rial={entry.credit.value} />}
-                </td>
-                <td className="p-3 text-end font-medium tabular">
-                  <Money rial={entry.running.value} />
-                </td>
-              </tr>
-            ))}
-            {entries.data.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
-                  گردشی ثبت نشده است. مانده اولیه: <Money rial={opening.value} withUnit />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/*
+        Every money column was `text-end`, which in RTL is physical *left* — it aligns the
+        most-significant digits and leaves the units ragged, on a statement whose whole
+        purpose is reading a column of figures against a bank's. `DataTable`'s `numeric`
+        flag is that fix.
+      */}
+      <DataTable
+        className="mt-6"
+        columns={columns}
+        rows={entries.data}
+        rowKey={(row) => row.id}
+        caption={`گردش حساب ${account.name}`}
+        empty={
+          <EmptyState
+            icon={ReceiptIcon}
+            title="گردشی ثبت نشده است"
+            description="این حساب هنوز حرکتی نداشته است. مانده اولیه‌اش همان مانده‌ای است که بالا آمده."
+          />
+        }
+      />
 
       <Pagination links={entries.links} total={entries.total} className="mt-4" />
     </AppShell>

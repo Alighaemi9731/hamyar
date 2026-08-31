@@ -12,6 +12,7 @@ import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
+import { MoneyLadder, MoneyRow } from '@/components/domain/money-ladder';
 import { PageHeader } from '@/components/domain/page-header';
 import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
@@ -104,6 +105,7 @@ export default function DesignGallery() {
         <CardSection />
         <PageHeaderSection alt />
         <FilterBarSection />
+        <MoneyLadderSection alt />
         <FormSection />
         <OverlaySection alt />
         <TableSection />
@@ -844,6 +846,68 @@ function FilterBarSection({ alt }: { alt?: boolean }) {
             می‌کند.
           </li>
         </ul>
+      </Row>
+    </Section>
+  );
+}
+
+/**
+ * MoneyLadder — a column of money that actually lines up.
+ *
+ * Shown beside the thing it replaces, because the defect is invisible in isolation: a
+ * single `flex justify-between` row looks fine, and it is only the third and fourth rows
+ * that reveal each figure has found its own right edge.
+ */
+function MoneyLadderSection({ alt }: { alt?: boolean }) {
+  const rows: [string, number][] = [
+    ['جمع اقلام', 889_700_000],
+    ['تخفیف', -12_000_000],
+    ['مالیات', 79_293_000],
+    ['گرد کردن', 10],
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="MoneyLadder"
+      note="ستون مبلغ روی یک محور ثابت ۹ch. tabular-nums عرض ارقام را یکسان می‌کند اما لبهٔ مشترک نمی‌سازد؛ این کار را گرید می‌کند."
+    >
+      <Row label="نردبان">
+        <div className="w-full max-w-sm rounded-card border border-border p-4">
+          <MoneyLadder className="text-sm">
+            {rows.map(([label, rial]) => (
+              <MoneyRow key={label} label={label} rial={rial} />
+            ))}
+            <MoneyRow label="مبلغ کل" rial={956_993_010} divider tone="text-foreground" />
+          </MoneyLadder>
+        </div>
+      </Row>
+
+      {/* The comparison is the argument. Every figure below finds its own edge. */}
+      <Row label="آنچه جایگزین کرد">
+        <div className="w-full max-w-sm rounded-card border border-dashed border-danger/40 p-4">
+          <dl className="space-y-1.5 text-sm">
+            {rows.map(([label, rial]) => (
+              <div key={label} className="flex items-baseline justify-between gap-2">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="tabular">
+                  <Money rial={rial} digits="latin" />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-2xs text-danger">
+            چهار لبهٔ راست متفاوت — روی فاکتور واقعی ۹۹ پیکسل پراکندگی اندازه‌گیری شد.
+          </p>
+        </div>
+      </Row>
+
+      <Row label="نکته">
+        <p className="max-w-xl text-2xs text-muted-foreground">
+          روی پله‌ها <code className="ltr-value">withUnit</code> نگذارید: مسیر ثابت{' '}
+          <code className="ltr-value">9ch</code> است و «۸٬۶۶۸٬۰۰۰ تومان» ۹۸ پیکسل می‌شود — در ۳۷۵
+          پیکسل صفحه را ۱۳ پیکسل به پهلو می‌برد. واحد یک‌بار بیرون از نردبان گفته می‌شود.
+        </p>
       </Row>
     </Section>
   );

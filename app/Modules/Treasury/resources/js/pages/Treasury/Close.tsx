@@ -1,7 +1,10 @@
 import { Head, router } from '@inertiajs/react';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, WalletIcon } from 'lucide-react';
 
+import { type Column, DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
+import { MoneyLadder, MoneyRow } from '@/components/domain/money-ladder';
 import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
@@ -49,6 +52,50 @@ interface Props {
  * transaction behind them, like a bank fee on a transfer. Dropping them would make the
  * rows fail to sum to the total, which is how a shop stops believing a report.
  */
+/**
+ * `numeric` on every money column, which is what gives them a shared right edge in RTL.
+ * `secondary` on the two a phone can lose: opening balance and unreconciled are context,
+ * where the day's movement and its closing balance are the reason the screen exists.
+ */
+const accountColumns: Column<AccountRow>[] = [
+  {
+    key: 'name',
+    header: 'حساب',
+    cell: (row) => <span className="font-medium">{row.name}</span>,
+  },
+  {
+    key: 'opening',
+    header: 'مانده اول روز',
+    numeric: true,
+    secondary: true,
+    cell: (row) => <Money rial={row.opening.value} digits="latin" />,
+  },
+  {
+    key: 'movement',
+    header: 'گردش روز',
+    numeric: true,
+    cell: (row) => <Money rial={row.movement.value} digits="latin" signed />,
+  },
+  {
+    key: 'closing',
+    header: 'مانده پایان روز',
+    numeric: true,
+    cell: (row) => <Money rial={row.closing.value} digits="latin" className="font-medium" />,
+  },
+  {
+    key: 'unreconciled',
+    header: 'تأییدنشده',
+    numeric: true,
+    secondary: true,
+    cell: (row) =>
+      row.unreconciled.value === 0 ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <Money rial={row.unreconciled.value} digits="latin" className="text-warning" />
+      ),
+  },
+];
+
 export default function TreasuryClose({ date, accounts, totals, pnl }: Props) {
   return (
     <AppShell
@@ -67,56 +114,58 @@ export default function TreasuryClose({ date, accounts, totals, pnl }: Props) {
     >
       <Head title={`بستن روز ${formatJalali(date)}`} />
 
-      <section className="mt-6 space-y-2">
-        <h2 className="text-sm font-semibold">حساب‌ها</h2>
+      {/*
+        A `DataTable`, not a hand-rolled one — and the reason is the alignment, not the
+        consistency. Every numeric column here was `text-end`, which in RTL resolves to
+        physical *left*: it lines up the most-significant digits and leaves the units
+        ragged, which is the one thing a day-close table exists not to do. `DataTable`'s
+        `numeric` flag carries the fix and the paragraph explaining it.
 
-        <div className="overflow-x-auto rounded-card border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-2xs text-muted-foreground">
-                <th className="p-3 text-start font-medium">حساب</th>
-                <th className="p-3 text-end font-medium">مانده اول روز</th>
-                <th className="p-3 text-end font-medium">گردش روز</th>
-                <th className="p-3 text-end font-medium">مانده پایان روز</th>
-                <th className="p-3 text-end font-medium">تأییدنشده</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((row) => (
-                <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="p-3">{row.name}</td>
-                  <td className="p-3 text-end tabular">
-                    <Money rial={row.opening.value} />
-                  </td>
-                  <td className="p-3 text-end tabular">
-                    <Money rial={row.movement.value} />
-                  </td>
-                  <td className="p-3 text-end font-medium tabular">
-                    <Money rial={row.closing.value} />
-                  </td>
-                  <td className="p-3 text-end tabular text-2xs text-muted-foreground">
-                    <Money rial={row.unreconciled.value} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/50 font-semibold">
-                <td className="p-3">جمع</td>
-                <td className="p-3 text-end tabular">
-                  <Money rial={totals.opening.value} />
-                </td>
-                <td className="p-3 text-end tabular">
-                  <Money rial={totals.movement.value} />
-                </td>
-                <td className="p-3 text-end tabular">
-                  <Money rial={totals.closing.value} withUnit />
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
+        The totals row goes through `footer`, which renders per column, so «جمع» cannot
+        drift out from under the figures it totals when somebody reorders the headings.
+      */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-lg font-bold tracking-tight">حساب‌ها</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            مانده هر حساب در ابتدا و انتهای روز، و آنچه هنوز با صورت‌حساب تطبیق داده نشده.
+          </p>
         </div>
+
+        <DataTable
+          columns={accountColumns}
+          rows={accounts}
+          rowKey={(row) => row.id}
+          caption="مانده و گردش هر حساب در این روز"
+          footer={(column) => {
+            if (column.key === 'name') {
+              return 'جمع';
+            }
+
+            if (column.key === 'opening') {
+              return <Money rial={totals.opening.value} digits="latin" />;
+            }
+
+            if (column.key === 'movement') {
+              return <Money rial={totals.movement.value} digits="latin" />;
+            }
+
+            if (column.key === 'closing') {
+              return <Money rial={totals.closing.value} withUnit digits="latin" />;
+            }
+
+            // Unreconciled has no meaningful total: it is an exposure per account, and a
+            // sum of it would read as a figure the shop owes somebody.
+            return undefined;
+          }}
+          empty={
+            <EmptyState
+              icon={WalletIcon}
+              title="حسابی برای بستن نیست"
+              description="این روز هیچ حساب فعالی نداشته است."
+            />
+          }
+        />
       </section>
 
       <section className="mt-8 space-y-2">
@@ -125,66 +174,59 @@ export default function TreasuryClose({ date, accounts, totals, pnl }: Props) {
         </h2>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <dl className="space-y-2 rounded-card border border-border p-4 text-sm">
-            <Row label="فروش">
-              <Money rial={pnl.revenue.value} />
-            </Row>
-            <Row label="بهای تمام‌شده">
-              <Money rial={pnl.cost_of_goods.value} />
-            </Row>
-            <Row label="سود ناخالص" strong>
-              <Money rial={pnl.gross_margin.value} />
-            </Row>
-            <Row label="سایر درآمدها">
-              <Money rial={pnl.other_income.value} />
-            </Row>
-            <Row label="هزینه‌های عملیاتی">
-              <Money rial={pnl.operating_costs.value} />
-            </Row>
-            <div className="border-t border-border pt-2">
-              <Row label="سود خالص" strong>
-                <Money rial={pnl.net_profit.value} withUnit />
-              </Row>
-            </div>
-          </dl>
+          {/*
+            A ladder, not a stack of `flex justify-between` rows. Six figures that are
+            supposed to add up were each finding their own right edge — the defect measured
+            at 99px of scatter on the invoice summary — on the one screen in this product
+            whose entire job is arithmetic somebody checks by eye.
+          */}
+          <MoneyLadder className="rounded-card border border-border p-4 text-sm">
+            <MoneyRow label="فروش" rial={pnl.revenue.value} />
+            <MoneyRow label="بهای تمام‌شده" rial={pnl.cost_of_goods.value} />
+            <MoneyRow label="سود ناخالص" rial={pnl.gross_margin.value} tone="text-foreground" />
+            <MoneyRow label="سایر درآمدها" rial={pnl.other_income.value} />
+            <MoneyRow label="هزینه‌های عملیاتی" rial={pnl.operating_costs.value} />
+            {/* No `withUnit` on a rung. The track is a fixed `9ch`, and «۸٬۶۶۸٬۰۰۰ تومان»
+                is 98px of content in it — measured at 375, where it pushed the page 13px
+                sideways. The invoice ladder keeps its unit outside the track for the same
+                reason; a ladder is one currency read down a column, and repeating the unit
+                per rung is redundant as well as too wide. */}
+            <MoneyRow
+              label="سود خالص"
+              rial={pnl.net_profit.value}
+              divider
+              signed
+              tone="text-foreground"
+            />
+          </MoneyLadder>
 
-          <div className="space-y-2 rounded-card border border-border p-4">
-            <h3 className="text-sm font-semibold">تفکیک هزینه‌ها</h3>
+          {/*
+            A ladder too, and for two reasons beyond alignment.
+
+            It sat beside the profit-and-loss card rendering the *same* figures in a
+            different digit system — «۱۲٬۰۰۰» here against `12,000` there, one screen, two
+            systems, because this list used the tenant's prose setting and the ladder uses
+            the Latin tabular figures design-system rule 4 gives columns.
+
+            And `flex justify-between` gave each expense its own right edge, so a breakdown
+            that is supposed to sum to the «هزینه‌های عملیاتی» rung opposite could not be
+            read against it.
+          */}
+          <div className="rounded-card border border-border p-4">
+            <h3 className="mb-3 text-sm font-semibold">تفکیک هزینه‌ها</h3>
 
             {pnl.expense_breakdown.length === 0 ? (
               <p className="text-sm text-muted-foreground">هزینه‌ای در این دوره ثبت نشده است.</p>
             ) : (
-              <ul className="space-y-1 text-sm">
+              <MoneyLadder className="text-sm">
                 {pnl.expense_breakdown.map((row) => (
-                  <li key={row.category} className="flex items-baseline justify-between gap-2">
-                    <span>{row.category}</span>
-                    <span className="tabular">
-                      <Money rial={row.amount.value} />
-                    </span>
-                  </li>
+                  <MoneyRow key={row.category} label={row.category} rial={row.amount.value} />
                 ))}
-              </ul>
+              </MoneyLadder>
             )}
           </div>
         </div>
       </section>
     </AppShell>
-  );
-}
-
-function Row({
-  label,
-  children,
-  strong,
-}: {
-  label: string;
-  children: React.ReactNode;
-  strong?: boolean;
-}) {
-  return (
-    <div className={`flex items-baseline justify-between gap-2 ${strong ? 'font-semibold' : ''}`}>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="tabular">{children}</dd>
-    </div>
   );
 }
