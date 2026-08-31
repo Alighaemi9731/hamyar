@@ -6,7 +6,7 @@ import { Money } from '@/components/domain/money';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
-import { RegisterForm } from './RegisterForm';
+import { RegisterForm } from '../../cheques/register-form';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';

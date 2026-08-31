@@ -176,7 +176,7 @@ export default function DashboardIndex({
 
       {nothingVisible ? (
         <EmptyState
-          icon={BarChart3Icon}
+          variant="permission"
           title="چیزی برای نمایش روی این داشبورد نیست"
           description="دسترسی‌های حساب شما شامل هیچ‌کدام از بخش‌های خلاصه نمی‌شود. اگر باید آمار فروش یا تعمیرات را ببینید، از مدیر فروشگاه بخواهید دسترسی‌تان را تغییر دهد."
         />

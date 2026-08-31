@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 
-import { type InstallmentPlanPayload, ScheduleTable } from './schedule-table';
+import { type InstallmentPlanPayload, ScheduleTable } from '../../installments/schedule-table';
 
 interface Props {
   plan: InstallmentPlanPayload;

@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon, BarChart3Icon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { AppShell } from '@/layouts/app-shell';
@@ -36,7 +36,7 @@ export default function ReportsIndex({ groups }: Props) {
 
       {groups.length === 0 ? (
         <EmptyState
-          icon={BarChart3Icon}
+          variant="permission"
           title="گزارشی در دسترس شما نیست"
           description="دسترسی «مشاهده گزارش‌ها» به حساب شما داده نشده است. مدیر فروشگاه می‌تواند آن را از بخش نقش‌ها فعال کند."
         />
