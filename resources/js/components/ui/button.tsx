@@ -31,10 +31,19 @@ const buttonVariants = cva(
         sheet had to override every control it owns. When six places independently
         work around a default, the default is wrong.
 
-        So `default` is 40px and `lg` is 44px, and the genuinely dense steps stay
-        exactly where they were: `sm` (28px) and `xs` (24px) are how a toolbar, a table
-        row or a filter chip asks for less. Nothing was widened — the change is
-        vertical only, so no button grew into a neighbour.
+        So `default` is 40px and `lg` is 44px.
+
+        `sm` (28px) and `xs` (24px) still exist, and as of 2026-08-31 they are **not** a
+        licence to go under the floor. This comment used to name "a toolbar, a table row
+        or a filter chip" as cases that could ask for less, which contradicted
+        design-system rule 9 outright — and the contradiction was resolved in favour of
+        the floor, by the owner, after a scan found 35 controls sitting at 28px. Most were
+        status filter chips: often the only way to narrow a list, which makes them a
+        primary control on a phone rather than a decoration.
+
+        Use `default` for anything a person taps. `sm`/`xs` are for controls that are not
+        touch targets at all, and every remaining 28px caller is a migration waiting for
+        its page to be rebuilt — see `FilterBar`, which is where filter chips went.
       */
       size: {
         default:

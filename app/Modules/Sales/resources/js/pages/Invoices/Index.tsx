@@ -1,13 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { PlusIcon, SearchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { PlusIcon } from 'lucide-react';
 
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
 import { Money } from '@/components/domain/money';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -42,12 +41,12 @@ interface Props {
  * would send staff to a filing cabinet.
  */
 export default function InvoicesIndex({ invoices, filters, statuses, can }: Props) {
-  const [term, setTerm] = useState(filters.q);
-
   function visit(changes: Record<string, string | null>): void {
     router.get(
       '/sales',
-      { ...filters, ...changes },
+      // `withoutEmpty`, or clearing a filter leaves `/sales?q=&status=` in the address
+      // bar — the same list, and a worse URL to copy to somebody.
+      withoutEmpty({ ...filters, ...changes }),
       { preserveState: true, preserveScroll: true, replace: true }
     );
   }
@@ -78,50 +77,28 @@ export default function InvoicesIndex({ invoices, filters, statuses, can }: Prop
     >
       <Head title="فاکتورهای فروش" />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <form
-          className="relative min-w-64 flex-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            visit({ q: term });
-          }}
-        >
-          <SearchIcon
-            className="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            aria-label="جستجوی فاکتور"
-            className="ps-9"
-            placeholder="شماره فاکتور، نام مشتری یا IMEI…"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </form>
-
-        <div className="flex flex-wrap items-center gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={filters.status === null ? 'default' : 'outline'}
-            onClick={() => visit({ status: null })}
-          >
-            همه
-          </Button>
-
-          {statuses.map((status) => (
-            <Button
-              key={status.value}
-              type="button"
-              size="sm"
-              variant={filters.status === status.value ? 'default' : 'outline'}
-              onClick={() => visit({ status: status.value })}
-            >
-              {status.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* The debounce, the chip row and the reset all used to be written out here. The
+          chips were `size="sm"` — 28px — which is under the touch floor for what is often
+          the only way to narrow this list. */}
+      <FilterBar
+        className="mb-4"
+        search={{
+          value: filters.q,
+          label: 'جستجوی فاکتور',
+          placeholder: 'شماره فاکتور، نام مشتری یا IMEI…',
+        }}
+        groups={[
+          {
+            key: 'status',
+            label: 'وضعیت فاکتور',
+            value: filters.status,
+            options: statuses,
+          },
+        ]}
+        onChange={visit}
+        resultCount={invoices.total}
+        resultUnit="فاکتور"
+      />
 
       {invoices.rows.length === 0 ? (
         <EmptyState

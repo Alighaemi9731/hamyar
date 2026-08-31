@@ -240,6 +240,17 @@ contrast checker.
 9. **Accessibility floor.** Visible focus ring, AA contrast, touch targets ≥ 40px,
    `prefers-reduced-motion` honoured on every animation.
 
+   **40px means 40px.** `button.tsx` used to name filter chips, toolbars and table rows as
+   cases that could ask for `sm` (28px), which contradicted this line; the contradiction
+   was settled in favour of the floor on 2026-08-31 after a scan of twenty-three screens
+   found 35 controls under it. `sm` and `xs` remain in the ladder for controls that are not
+   touch targets; anything a person taps is `default` or larger. The exception WCAG 2.5.8
+   itself makes still holds: an inline link inside a block of text is not a target, and
+   giving every «گزارش فروش» a 40px box would wreck the prose around it.
+
+   The target and the control are not always the same box. A 16px checkbox with a 40px
+   label around it is correct — a checkbox drawn at 40px reads as a button.
+
 9b. **One theme authority: the `dark` class on `<html>`.** It is set before first paint by
    the inline script in `app.blade.php`, from `localStorage['hamyar.theme']` falling back to
    `prefers-color-scheme`, and flipped by `ThemeToggle`. React reads it through
