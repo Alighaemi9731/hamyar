@@ -3,6 +3,7 @@ import { AlertTriangleIcon, CalendarClockIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Money } from '@/components/domain/money';
+import { PageHeader } from '@/components/domain/page-header';
 import { MoneyField } from '@/components/domain/money-field';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -47,20 +48,24 @@ interface Props {
  */
 export default function CollectionDesk({ overdue, due, totals, accounts, errors }: Props) {
   return (
-    <AppShell>
+    <AppShell
+      header={
+        <PageHeader
+          title="میز وصول"
+          meta={
+            <p className="text-sm text-muted-foreground">
+              معوق: <Money rial={totals.overdue.value} withUnit />
+              {totals.fees.value > 0 && (
+                <>
+                  {' · '}جریمه: <Money rial={totals.fees.value} withUnit />
+                </>
+              )}
+            </p>
+          }
+        />
+      }
+    >
       <Head title="میز وصول اقساط" />
-
-      <div>
-        <h1 className="text-2xl font-bold">میز وصول</h1>
-        <p className="text-sm text-muted-foreground">
-          معوق: <Money rial={totals.overdue.value} withUnit />
-          {totals.fees.value > 0 && (
-            <>
-              {' · '}جریمه: <Money rial={totals.fees.value} withUnit />
-            </>
-          )}
-        </p>
-      </div>
 
       {errors.collect && (
         <p
