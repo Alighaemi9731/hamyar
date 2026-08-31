@@ -1,0 +1,239 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — form-error gate.
+ *
+ * ## The rule
+ *
+ * A component that submits — `useForm(...).post/put/patch/delete(...)`, or a bare
+ * `router.post(...)` — must also render `<FormErrors>`.
+ *
+ * ## The occurrence this exists for, nine times over
+ *
+ * From CLAUDE.md, written after the first one:
+ *
+ * > A validation failure on `accessories` or `lines` has nowhere to render beside an input,
+ * > so without a general error region the submit button silently does nothing — and the
+ * > operator, with a customer at the counter, presses it again and concludes the software
+ * > is broken.
+ *
+ * A form renders the keys somebody thought to place. The server refuses on a key nobody
+ * did: a `Rule::in` on a role, a `max:255` on a note, a service throwing
+ * `ValidationException::withMessages(['transfer' => …])`. The request 302s back, React
+ * re-renders identically, and **nothing anywhere on the screen changes**. There is no error
+ * state to debug, because from the operator's side there is no error — the button simply
+ * does not work.
+ *
+ * The `0.18.0` audit walked all 34 submitting components and found 24 orphan keys across 9
+ * files. Seven were retrofitted by hand and the ROADMAP recorded the rest. This gate is the
+ * part that stops the tenth: the rule has now been broken nine times, and remembering is
+ * demonstrably not working.
+ *
+ * ## What it deliberately does not check
+ *
+ * It does not compare rendered keys against the FormRequest's rules. That mapping runs from
+ * TypeScript to PHP through a route string, and a gate that guesses wrong is a gate people
+ * switch off. `<FormErrors>` already solves the general case correctly by taking the whole
+ * bag and hiding only what the form says it handles — so "does this component render it at
+ * all" is the question worth asking mechanically, and the right `handled` list is a
+ * question for review.
+ *
+ * A read-only `router.get()` is not a submission and is not matched.
+ *
+ * Escape hatch: `form-errors-allow` in a comment anywhere in the file, with a reason. The
+ * legitimate case is a component whose parent renders the region for it — the POS panels do
+ * this, because one refusal belongs to the screen rather than to the panel.
+ *
+ * ## The baseline, and why it shrinks
+ *
+ * This gate arrived against 37 components that already submitted without a region. Failing
+ * the build on all of them would have meant either a 37-file change nobody could review, or
+ * a gate switched off on day one — and a gate people switch off is worse than no gate,
+ * because it also teaches them the rule is optional.
+ *
+ * So `bin/.form-errors-baseline` lists what was already unprotected the day this landed.
+ * Anything not on that list fails immediately. **And a file that gains a region while still
+ * being listed also fails**, with an instruction to delete the line — a baseline that only
+ * ever grows is a list of things nobody will ever fix. The list is a ratchet, and the phase
+ * that rebuilds each page is what empties it.
+ */
+
+const SCAN_ROOTS = ['resources/js', 'app/Modules'];
+
+/** A submission through Inertia's form helper or its router. */
+const SUBMIT_PATTERN = '/\b(?:\w+)\s*\.\s*(?:post|put|patch|delete)\s*\(|\brouter\s*\.\s*(?:post|put|patch|delete)\s*\(/';
+
+/** The region that catches whatever the fields do not. */
+const REGION_PATTERN = '/<FormErrors\b/';
+
+/** Components that legitimately delegate their region to a parent. */
+const ALLOW_MARKER = 'form-errors-allow';
+
+/** What was already unprotected when this gate landed. Shrinks, never grows. */
+const BASELINE_FILE = 'bin/.form-errors-baseline';
+
+$root = dirname(__DIR__);
+
+/** @return list<string> */
+function tsxFilesIn(string $path): array
+{
+    if (! is_dir($path)) {
+        return [];
+    }
+
+    $found = [];
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'tsx') {
+            continue;
+        }
+
+        if (str_contains($file->getPathname(), '/node_modules/')) {
+            continue;
+        }
+
+        $found[] = $file->getPathname();
+    }
+
+    sort($found);
+
+    return $found;
+}
+
+$checked = 0;
+$failures = [];
+$fixed = [];
+
+/** @var list<string> $baseline */
+$baseline = [];
+
+$baselinePath = $root.'/'.BASELINE_FILE;
+
+if (is_file($baselinePath)) {
+    foreach (file($baselinePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        $line = trim($line);
+
+        if ($line !== '' && ! str_starts_with($line, '#')) {
+            $baseline[] = $line;
+        }
+    }
+}
+
+$seen = [];
+
+foreach (SCAN_ROOTS as $relative) {
+    foreach (tsxFilesIn($root.'/'.$relative) as $file) {
+        $source = file_get_contents($file);
+
+        if ($source === false) {
+            continue;
+        }
+
+        if (preg_match(SUBMIT_PATTERN, $source) !== 1) {
+            continue;
+        }
+
+        $checked++;
+
+        $relativePath = ltrim(str_replace($root, '', $file), DIRECTORY_SEPARATOR);
+        $isBaselined = in_array($relativePath, $baseline, true);
+
+        if ($isBaselined) {
+            $seen[] = $relativePath;
+        }
+
+        if (preg_match(REGION_PATTERN, $source) === 1) {
+            // Protected now. If it is still on the list, the list is stale.
+            if ($isBaselined) {
+                $fixed[] = $relativePath;
+            }
+
+            continue;
+        }
+
+        if (str_contains($source, ALLOW_MARKER)) {
+            continue;
+        }
+
+        if ($isBaselined) {
+            continue;
+        }
+
+        // Report the first submitting line, which is where a reader should start.
+        $lines = explode("\n", $source);
+        $at = 0;
+
+        foreach ($lines as $number => $line) {
+            if (preg_match(SUBMIT_PATTERN, $line) === 1) {
+                $at = $number + 1;
+
+                break;
+            }
+        }
+
+        $failures[] = $relativePath.':'.$at;
+    }
+}
+
+// A baselined path that no longer matches anything — the file moved or stopped submitting.
+$stale = array_values(array_diff($baseline, $seen));
+
+if ($failures === [] && $fixed === [] && $stale === []) {
+    $remaining = count($baseline);
+
+    echo "\n  Form-error gate: {$checked} submitting components checked, {$remaining} still on the baseline.\n\n";
+
+    exit(0);
+}
+
+if ($failures === [] && ($fixed !== [] || $stale !== [])) {
+    echo "\n  ✗ Form-error gate: the baseline is out of date.\n\n";
+
+    if ($fixed !== []) {
+        echo "    These now render <FormErrors> and are still listed as unprotected. Delete their\n";
+        echo "    lines from ".BASELINE_FILE." — a baseline that only grows is a list nobody empties.\n\n";
+
+        foreach ($fixed as $path) {
+            echo "      {$path}\n";
+        }
+
+        echo "\n";
+    }
+
+    if ($stale !== []) {
+        echo "    These are listed but no longer submit anything (moved, or rewritten). Delete them too:\n\n";
+
+        foreach ($stale as $path) {
+            echo "      {$path}\n";
+        }
+
+        echo "\n";
+    }
+
+    exit(1);
+}
+
+echo "\n  ✗ Form-error gate failed.\n\n";
+echo "    These components submit to the server and render no <FormErrors>. A refusal on a\n";
+echo "    key the form did not think to place comes back as a 302, the page re-renders\n";
+echo "    identically, and the button appears not to work:\n\n";
+
+foreach ($failures as $failure) {
+    echo "      {$failure}\n";
+}
+
+echo "\n    Add the region, telling it which keys already have a home:\n\n";
+echo "      <FormErrors errors={form.errors} handled={['name', 'mobile']} />\n\n";
+echo "    It takes the whole bag on purpose. A component told which keys to show needs\n";
+echo "    editing every time somebody adds a validation rule — and the keys nobody thought\n";
+echo "    of are exactly the ones that go missing.\n\n";
+echo "    If a parent renders the region for this component, say so on the line:\n\n";
+echo "      // form-errors-allow: Pos/Index renders one region for every panel.\n\n";
+
+exit(1);

@@ -94,6 +94,13 @@ jobs:
       - name: Apex-domain gate
         run: php bin/check-apex-domain
 
+      # The tenth occurrence of a rule broken nine times. A form that renders only the keys
+      # somebody thought to place answers a refusal on any other key with a 302 and no
+      # visible change — the button simply does not work. Ships with a baseline of what was
+      # already unprotected, so it fails on anything new and shrinks as pages are rebuilt.
+      - name: Form-error gate
+        run: php bin/check-form-errors
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)

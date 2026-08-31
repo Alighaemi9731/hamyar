@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { CheckIcon, LoaderCircleIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { MoneyField } from '@/components/domain/money-field';
 import { useTenantSettings } from '@/hooks/use-tenant-settings';
@@ -293,6 +294,11 @@ export function PartsPanel({ ticketId, parts, editable, error }: PartsPanelProps
                   {form.errors.quantity}
                 </p>
               )}
+
+              {/* `unit_price` is on the same FormRequest and had no field to sit under —
+                  a negative or non-integer price was refused silently, on the panel where
+                  a technician is pricing a part with a customer waiting. */}
+              <FormErrors errors={form.errors} handled={['quantity']} />
 
               <div className="flex gap-2">
                 <Button type="submit" size="sm" disabled={form.processing}>

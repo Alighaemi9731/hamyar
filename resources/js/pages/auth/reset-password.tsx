@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderIcon } from 'lucide-react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +36,17 @@ export default function ResetPassword({ token, identifier }: Props) {
             {form.errors.token}
           </p>
         )}
+
+        {/*
+          `identifier` is why this is here, and it needs no mistake by the operator to
+          happen: `PasswordResetController::update()` validates `token`, `identifier` and
+          `password`, and this form rendered two of the three. A reset link that loses its
+          `identifier` parameter — an SMS truncated at the `&`, a URL half-copied out of a
+          message — arrives with `identifier: ''`, renders normally, accepts a new password,
+          and does nothing at all on submit. Validation here is inline rather than in a
+          FormRequest, so nothing in any parent layout could show it either.
+        */}
+        <FormErrors errors={form.errors} handled={['token', 'password']} />
 
         <div className="space-y-1.5">
           <Label htmlFor="password">رمز عبور جدید</Label>

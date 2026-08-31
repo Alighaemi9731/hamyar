@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { EyeIcon, LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
@@ -243,6 +244,11 @@ export default function TicketShow({ ticket, transitions, can, errors }: Props) 
                   {move.errors.status}
                 </p>
               )}
+
+              {/* `note` is validated by both approval endpoints and rendered by neither.
+                  A note over 255 characters — a technician pasting a diagnosis — was
+                  refused with a 302 and no visible change. */}
+              <FormErrors errors={move.errors} handled={['status']} />
 
               <div className="space-y-2">
                 <Label htmlFor="move-note">یادداشت</Label>

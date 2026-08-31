@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { LoaderIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +61,11 @@ export default function TwoFactorChallenge() {
         )}
 
         {form.errors.code && <p className="text-2xs text-destructive">{form.errors.code}</p>}
+
+        {/* `recovery_code` is a real key on this endpoint — `required_without:code` — and in
+            recovery mode its refusal rendered as `code`'s message, naming an input that is
+            not on screen. */}
+        <FormErrors errors={form.errors} handled={['code']} />
 
         <Button type="submit" className="h-11 w-full text-base" disabled={form.processing}>
           {form.processing && <LoaderIcon className="size-4 animate-spin" />}

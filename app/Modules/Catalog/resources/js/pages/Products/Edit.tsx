@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowRightIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { HistoryLink } from '@/components/domain/history-link';
 import { Num } from '@/components/domain/num';
@@ -325,7 +326,17 @@ function MatrixForm({ productId, axes }: { productId: number; axes: Axis[] }) {
           />
         ))}
 
-        {form.errors.axes && <p className="text-sm text-danger">{form.errors.axes}</p>}
+        {/*
+          Was `{form.errors.axes && …}`, which matches the top-level key and nothing else.
+          `VariantMatrixRequest` also produces `axes.*.name`, `axes.*.values` and
+          `axes.*.values.*` — different keys, so an axis with a blank name or no values was
+          refused with nothing on screen.
+
+          The inline render is gone rather than kept alongside: `FormErrors` treats a key as
+          handled when the form handles it *or any prefix of it*, so listing `axes` in
+          `handled` would have hidden the nested ones too. One region owns the whole family.
+        */}
+        <FormErrors errors={form.errors} />
 
         <div className="flex flex-wrap items-center gap-3">
           <Button

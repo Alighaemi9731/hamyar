@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { UserPlusIcon, UsersIcon } from 'lucide-react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
@@ -66,6 +67,16 @@ export default function Users({ users, invitations, roles }: Props) {
       <Head title="کاربران فروشگاه" />
 
       <div className="max-w-3xl space-y-6">
+        {/*
+          `toggle` is a `useForm({})` driving two endpoints that refuse things — «نمی‌توانید
+          حساب خودتان را غیرفعال کنید» on `user`, and «فروشگاه باید حداقل یک مالک داشته
+          باشد» on `roles` — and it rendered no errors whatsoever. Both refusals came back
+          as a 302, the page re-rendered identically, and the row simply did not change.
+
+          It sits at page level rather than beside a row because the row it belongs to is
+          one of many and the message is about the shop, not about that user's name field.
+        */}
+        <FormErrors errors={toggle.errors} />
         <section className="overflow-hidden rounded-card border border-border bg-surface">
           {users.length === 0 ? (
             <EmptyState icon={UsersIcon} title="هنوز کاربری ثبت نشده" />
@@ -200,6 +211,10 @@ export default function Users({ users, invitations, roles }: Props) {
             </div>
 
             <div className="flex items-end">
+              {/* `email` and `role` are validated by `UserController::invite` and were not
+                  rendered anywhere. A role rejected by `Rule::in` is not a mistake anybody
+                  makes by hand — it is what a stale form posts after the catalogue changes. */}
+              <FormErrors errors={invite.errors} handled={['name', 'mobile']} />
               <Button type="submit" disabled={invite.processing}>
                 ارسال دعوت
               </Button>

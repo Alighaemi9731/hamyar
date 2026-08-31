@@ -1964,22 +1964,36 @@ Confirmed by the `0.18.0` audit; each was verified twice, once by the auditor an
 adversarial checker reading the FormRequest. Retrofit is `<FormErrors errors={errors}
 handled={[…keys the form places itself]} />` plus a feature test that drives the refusal.
 
-- [ ] **`auth/reset-password.tsx` → `identifier`.** The worst of them, because it needs no
+- [x] **`auth/reset-password.tsx` → `identifier`.** The worst of them, because it needs no
       mistake by the operator: a reset link that loses its `identifier` parameter — an SMS
       truncated at the `&`, a partly-copied URL — renders normally with `identifier: ''`,
       accepts a new password, and does nothing at all on submit. The page renders only
       `token` and `password`, and validation is inline in `PasswordResetController::update()`
       with no FormRequest. Nothing in any parent layout can show it
-- [ ] `settings/users.tsx` → `user`, `role`
-- [ ] `settings/two-factor.tsx` → `code`
-- [ ] `auth/two-factor-challenge.tsx` → `recovery_code` — renders `code`'s message instead,
+- [x] `settings/users.tsx` → `user`, `role` — and `roles` and `email` too; the audit
+      undercounted. `toggle` was a `useForm({})` rendering nothing at all, so «نمی‌توانید
+      حساب خودتان را غیرفعال کنید» and «فروشگاه باید حداقل یک مالک داشته باشد» were both
+      fully invisible
+- [x] `settings/two-factor.tsx` → `code` — **stale entry**: this page already rendered
+      `password` and `code`, which are the only two keys its three endpoints produce.
+      Verified against the controller rather than re-fixed
+- [x] `auth/two-factor-challenge.tsx` → `recovery_code` — renders `code`'s message instead,
       which names an input that is not on screen in recovery mode
-- [ ] `Repairs/Tickets/Show.tsx` → `note` (two endpoints)
-- [ ] `Repairs/pos/parts-panel.tsx` → `unit_price`
-- [ ] `Catalog/Products/Edit.tsx` → `axes.*.name`, `axes.*.values`, `axes.*.values.*`
-- [ ] Then a `bin/check-form-errors` gate, so the next form cannot ship without a home for
+- [x] `Repairs/Tickets/Show.tsx` → `note` (two endpoints)
+- [x] `Repairs/pos/parts-panel.tsx` → `unit_price`
+- [x] `Catalog/Products/Edit.tsx` → `axes.*.name`, `axes.*.values`, `axes.*.values.*` — the
+      page rendered `errors.axes`, which matches the top-level key and none of the nested
+      ones. The inline render is gone: `FormErrors` treats a key as handled when the form
+      handles any *prefix* of it, so listing `axes` would have hidden the nested ones too
+- [x] Then a `bin/check-form-errors` gate, so the next form cannot ship without a home for
       its errors — the same shape as the RTL and savepoint gates, and for the same reason:
-      this rule has now been broken 9 times and remembering is not working
+      this rule has now been broken 9 times and remembering is not working.
+      **Shipped 2026-08-31.** It found 37 submitting components with no region, not 9 —
+      the 0.18.0 audit counted *proven orphan keys*, this counts *missing protection*, and
+      the second number is the one that predicts the tenth occurrence. Ships with
+      `bin/.form-errors-baseline`: fails on anything new, and also fails when a listed file
+      gains a region, so the list shrinks and cannot rot. Emptying it belongs to the phases
+      that rebuild each page
 
 ### 12.7 Sales and Inventory call sites
 - [x] `FinaliseInvoice::finalise(…, bool $metered = true)`; `DeliverTicket` passes `false`
