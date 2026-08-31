@@ -26,6 +26,7 @@ import { type TimelineItem, Timeline } from '@/components/domain/timeline';
 import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -98,6 +99,7 @@ export default function DesignGallery() {
         <DateSection alt />
         <StatusSection />
         <ButtonSection alt />
+        <CardSection />
         <FormSection />
         <OverlaySection alt />
         <TableSection />
@@ -601,6 +603,87 @@ function PaperIslandCase() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Card — the surface 141 sites were hand-rolling.
+ *
+ * Shown as a grid of every combination that has a caller, because the argument for the
+ * component is not that a bordered box is hard to write: it is that the app contained
+ * twenty-five spellings of the same box, three grounds, five padding scales, and
+ * `border` beside `border border-border` — which are the same thing, since the base layer
+ * already paints every element's border with `--border`.
+ */
+function CardSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="Card"
+      note="سطح استاندارد: شعاع، حاشیهٔ مویی و فاصلهٔ داخلی یک‌جا. زمینه، فاصله، ارتفاع و حالت تعاملی از طریق variant انتخاب می‌شوند."
+    >
+      <Row label="زمینه">
+        <div className="grid w-full gap-3 sm:grid-cols-3">
+          <Card ground="card">
+            <span className="text-2xs">ground=&quot;card&quot;</span>
+          </Card>
+          <Card ground="surface">
+            <span className="text-2xs">ground=&quot;surface&quot;</span>
+          </Card>
+          <Card ground="none">
+            <span className="text-2xs">ground=&quot;none&quot;</span>
+          </Card>
+        </div>
+      </Row>
+
+      <Row label="فاصلهٔ داخلی">
+        <div className="grid w-full gap-3 sm:grid-cols-4">
+          {(['none', 'sm', 'md', 'lg'] as const).map((padding) => (
+            <Card key={padding} padding={padding}>
+              <span className="text-2xs">padding=&quot;{padding}&quot;</span>
+            </Card>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="ارتفاع">
+        <div className="grid w-full gap-3 rounded-card bg-surface-muted p-6 sm:grid-cols-2">
+          <Card>
+            <span className="text-2xs">پیش‌فرض — بدون سایه</span>
+          </Card>
+          <Card elevated>
+            <span className="text-2xs">elevated — shadow-low</span>
+          </Card>
+        </div>
+      </Row>
+
+      {/* The interactive state matrix is the reason this variant exists rather than being
+          left to each caller: hover, focus-visible and active are three separate
+          decisions, and a card that is a link needs all three or it reads as decoration.
+          Tab to it to see the focus ring — that is the state most often forgotten. */}
+      <Row label="تعاملی">
+        <div className="grid w-full gap-3 sm:grid-cols-2">
+          <Card asChild interactive elevated>
+            <a href="#card-demo">
+              <span className="text-2xs">کارتی که خودش پیوند است — هاور، فوکوس و فشردن</span>
+            </a>
+          </Card>
+          <Card asChild interactive>
+            <button type="button" className="text-start">
+              <span className="text-2xs">asChild روی دکمه</span>
+            </button>
+          </Card>
+        </div>
+      </Row>
+
+      <Row label="کجا استفاده نشود">
+        <p className="max-w-xl text-2xs text-muted-foreground">
+          هشدارهای رنگی (خطا، اخطار) کارت نیستند؛ آن‌ها اعلان‌اند و رنگ زمینه و حاشیه‌شان معنا دارد.
+          تا وقتی کامپوننت جدایی برایشان ساخته نشده، همان‌طور که هستند می‌مانند — افزودن prop رنگ به
+          این کامپوننت، آن را به دو کار وامی‌دارد.
+        </p>
+      </Row>
+    </Section>
   );
 }
 

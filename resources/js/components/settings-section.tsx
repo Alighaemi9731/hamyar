@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface SettingsSectionProps {
@@ -26,23 +27,30 @@ export function SettingsSection({
   children,
 }: SettingsSectionProps) {
   return (
-    <section
-      className={cn(
-        'overflow-hidden rounded-card border border-border bg-surface',
-        variant === 'padded' && 'p-6 sm:p-7',
-        className
-      )}
+    <Card
+      asChild
+      ground="surface"
+      // `flush` lists own their padding, so the card provides none and the header below
+      // pays for its own.
+      padding={variant === 'padded' ? 'lg' : 'none'}
+      className={cn('overflow-hidden', className)}
     >
-      {(title || description) && (
-        <div className={cn('space-y-1.5', variant === 'flush' && 'p-6 pb-0 sm:p-7 sm:pb-0')}>
-          {title && <h2 className="text-lg font-bold">{title}</h2>}
-          {description && (
-            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{description}</p>
-          )}
-        </div>
-      )}
+      <section>
+        {(title || description) && (
+          <div className={cn('space-y-1.5', variant === 'flush' && 'p-6 pb-0 sm:p-7 sm:pb-0')}>
+            {title && <h2 className="text-lg font-bold">{title}</h2>}
+            {description && (
+              <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+                {description}
+              </p>
+            )}
+          </div>
+        )}
 
-      <div className={cn((title || description) && variant === 'padded' && 'mt-6')}>{children}</div>
-    </section>
+        <div className={cn((title || description) && variant === 'padded' && 'mt-6')}>
+          {children}
+        </div>
+      </section>
+    </Card>
   );
 }
