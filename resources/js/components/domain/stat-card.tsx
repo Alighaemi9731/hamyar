@@ -3,6 +3,7 @@ import { TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type StatTone = 'neutral' | 'success' | 'warning' | 'danger';
@@ -79,51 +80,53 @@ export function StatCard({
   const TrendIcon = rising ? TrendingUpIcon : TrendingDownIcon;
 
   return (
-    <article className={cn('rounded-card border bg-card p-5', TONE_RING[tone], className)}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        {Icon ? <Icon className={cn('size-5 shrink-0', TONE_ICON[tone])} aria-hidden /> : null}
-      </div>
+    <Card asChild className={cn(TONE_RING[tone], className)}>
+      <article>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          {Icon ? <Icon className={cn('size-5 shrink-0', TONE_ICON[tone])} aria-hidden /> : null}
+        </div>
 
-      {/*
+        {/*
         Sized down from 2xl, with the unit stacked underneath. A nine-digit toman figure
         plus its unit needs ~270px and a quarter-width card at 1280 gives 158 — it
         overflowed and was overlapped by the neighbouring card until a browser check
         measured it. The pair has no break opportunity between them, so wrapping alone
         did not help; the unit has to leave the line.
       */}
-      <p className="mt-3 text-xl font-semibold tracking-tight">
-        {value === null ? (
-          <span className="text-muted-foreground" aria-label="تعیین نشده">
-            —
-          </span>
-        ) : isMoney ? (
-          <Money rial={value} withUnit unitPlacement="block" />
-        ) : (
-          <Num value={value} />
-        )}
-      </p>
-
-      {hint || hasTrend ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          {hasTrend ? (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1',
-                good ? 'text-success' : 'text-danger'
-              )}
-            >
-              <TrendIcon className="size-4" aria-hidden />
-              {/* bdi: a bare sign next to Persian text jumps to the wrong side. */}
-              <bdi className="tabular">
-                <Num value={Math.abs(trend ?? 0)} />٪
-              </bdi>
+        <p className="mt-3 text-xl font-semibold tracking-tight">
+          {value === null ? (
+            <span className="text-muted-foreground" aria-label="تعیین نشده">
+              —
             </span>
-          ) : null}
+          ) : isMoney ? (
+            <Money rial={value} withUnit unitPlacement="block" />
+          ) : (
+            <Num value={value} />
+          )}
+        </p>
 
-          {hint ? <span className="text-muted-foreground">{hint}</span> : null}
-        </div>
-      ) : null}
-    </article>
+        {hint || hasTrend ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            {hasTrend ? (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1',
+                  good ? 'text-success' : 'text-danger'
+                )}
+              >
+                <TrendIcon className="size-4" aria-hidden />
+                {/* bdi: a bare sign next to Persian text jumps to the wrong side. */}
+                <bdi className="tabular">
+                  <Num value={Math.abs(trend ?? 0)} />٪
+                </bdi>
+              </span>
+            ) : null}
+
+            {hint ? <span className="text-muted-foreground">{hint}</span> : null}
+          </div>
+        ) : null}
+      </article>
+    </Card>
   );
 }
