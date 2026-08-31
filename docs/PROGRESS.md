@@ -2781,3 +2781,62 @@ page to build, not a nav entry to fix), and `/treasury/accounts/{id}` renders 16
 reconciliation checkboxes, which belongs with the touch-target sweep.
 
 Four PRs, all five checks green on each: `#75`, `#76`, `#77`, `#78`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 3: the touch floor, and three components not built
+
+Three PRs, and a decision the owner had to make because the design system contradicted
+itself.
+
+**The floor was advisory in a second way.** Phase 0 raised `Button`, `Input` and `Select` to
+40px; a scan of twenty-three screens — every interactive element, plus the ones that exist
+only while a menu or dialog is open — found eight more kinds of control below it. Dropdown
+items at 29px, command-palette items at 33px and its input at 21px inside a 44px box, tabs
+triggers at 25px, the dialog close at 28px, `DataTable`'s sort control at 21px, and a report
+preset's delete at **14px** — a destructive action two millimetres from the one that applies
+the preset.
+
+Two of the fixes are worth remembering as a pattern: the treasury reconciliation checkbox
+stays 16px and gained a 40×63 label around it, because a checkbox drawn at 40px reads as a
+button; and `InputGroup`'s control now fills its box, because the thing that looked like the
+field was mostly not the field.
+
+**The contradiction.** Rule 9 said ≥40px. `button.tsx` said `sm` (28px) is what "a toolbar, a
+table row or a filter chip" asks for. Both written down, both cited, and 35 controls sitting
+at 28px — mostly status filter chips, which are often the only way to narrow a list. They
+clear WCAG 2.5.8 AA (24×24) and not this project's own floor. Put to the owner rather than
+resolved unilaterally: **40px wins, the carve-out is deleted**, and `sm`/`xs` survive only for
+controls nobody taps. Recorded in `docs/design-system.md`, the `hamyar-ui` skill and the
+ladder itself. Two exceptions stay explicit — inline links in prose (WCAG says so), and the
+target not needing to be the box.
+
+**`FilterBar`.** Twelve list pages had each written the same four things: a term in state, a
+300ms timer, a `visit()` spreading filters over a change, and a row of chips. Already
+drifting — some at 300ms, some at 250. It also carries the three each page had skipped: the
+filters collapse into a sheet below `md` with a count on the trigger, every chip has
+`aria-pressed`, and the result count is `aria-live="polite"`. `/sales` adopted it, which
+dropped the sweep's sub-40px findings from 16 to 8.
+
+`withoutEmpty()` ships beside it because Inertia serialises `null` as an empty parameter, so
+clearing a filter produced `/sales?q=&status=` — the same list and a worse URL to send
+somebody.
+
+**Two components the page resolver could serve.** `schedule-table.tsx` and
+`RegisterForm.tsx` are components, and they were inside `pages/`, which `lib/pages.ts` globs
+to build the page registry — both were emitted as page chunks. Nothing rendered them as
+pages; nothing had to, for a resolver that can name something to be a route somebody
+eventually writes.
+
+**`permission` is not `empty`.** Three screens had hand-written "your account does not have
+access". `EmptyState` treated it as `empty`, which is a different claim: *nothing is here*
+versus *there is something here and it is not yours*. Conflating them is how a shop concludes
+their data has gone missing.
+
+**Three planned extractions were not built, on evidence.** `ResponsiveTable`'s table-and-cards
+pair exists in one file. `MoneyLadder`'s grid exists in one file, twice. Four tables want a
+footer and none of them is a `DataTable` yet. The system's own rule is that a component is
+extracted when repetition exists, not when a plan predicted it would — and `--spacing-section`
+is still in `app.css`, defined and used by nothing, as the standing argument.
+
+Three PRs, all five checks green on each: `#80`, `#81`, `#82`.
