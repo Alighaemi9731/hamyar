@@ -133,7 +133,17 @@ export default function PartiesIndex({ parties, filters, kinds, can }: Props) {
                     balance > 0 ? 'text-warning' : 'text-muted-foreground'
                   )}
                 >
-                  {balance > 0 ? 'بدهکار' : 'بستانکار'}
+                  {/*
+                    The direction word is given a fixed lane so the figures beside it
+                    line up. `numeric` aligns the cell's outermost box, and this cell is
+                    a composite — so without this the *label* aligned and the number
+                    hung off its inside edge, 8px adrift between «بدهکار» and the wider
+                    «بستانکار». A money column that only sometimes aligns is the defect
+                    `tabular-nums` exists to prevent.
+                  */}
+                  <span className="w-14 shrink-0 text-start">
+                    {balance > 0 ? 'بدهکار' : 'بستانکار'}
+                  </span>
                   <Money rial={Math.abs(balance)} digits="latin" />
                 </span>
               );

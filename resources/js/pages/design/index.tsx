@@ -17,6 +17,7 @@ import { type PartyOption, PartyPicker } from '@/components/domain/party-picker'
 import { type ReportPreset, ReportPresets } from '@/components/domain/report-presets';
 import { FormErrors } from '@/components/domain/form-errors';
 import { QuotaBlock } from '@/components/domain/quota-block';
+import { ShareBar, sharePercent } from '@/components/domain/share-bar';
 import { StatCard } from '@/components/domain/stat-card';
 import { UsageBanner } from '@/components/domain/usage-banner';
 import { UsageMeter } from '@/components/domain/usage-meter';
@@ -101,6 +102,7 @@ export default function DesignGallery() {
         <OverlaySection alt />
         <TableSection />
         <StatCardSection alt />
+        <ShareBarSection />
         <QuotaSection />
         <FormErrorsSection alt />
         <BarChartSection />
@@ -857,10 +859,7 @@ function FormErrorsSection({ alt = false }: { alt?: boolean }) {
       alt={alt}
     >
       <Row label="یک خطا">
-        <FormErrors
-          errors={{ lines: 'حداقل یک قلم کالا لازم است.' }}
-          className="max-w-xl"
-        />
+        <FormErrors errors={{ lines: 'حداقل یک قلم کالا لازم است.' }} className="max-w-xl" />
       </Row>
 
       <Row label="چند خطا">
@@ -878,7 +877,10 @@ function FormErrorsSection({ alt = false }: { alt?: boolean }) {
         {/* The form renders `errors.lines` beside its table, so `lines.2.quantity` must
             not appear here as well: one problem shown twice reads as two problems. */}
         <FormErrors
-          errors={{ 'lines.2.quantity': 'تعداد باید بیشتر از صفر باشد.', imei: 'کد IMEI نامعتبر است.' }}
+          errors={{
+            'lines.2.quantity': 'تعداد باید بیشتر از صفر باشد.',
+            imei: 'کد IMEI نامعتبر است.',
+          }}
           handled={['lines']}
           className="max-w-xl"
         />
@@ -946,7 +948,16 @@ function QuotaSection({ alt = false }: { alt?: boolean }) {
 
       <Row label="ظرفیت کل (بدون تازه‌شدن)">
         <UsageMeter
-          meter={meter({ key: 'identity.users', label: 'کاربر فعال', unit: 'کاربر', window: 'total', used: 2, limit: 2, level: 'reached', resets_at: null })}
+          meter={meter({
+            key: 'identity.users',
+            label: 'کاربر فعال',
+            unit: 'کاربر',
+            window: 'total',
+            used: 2,
+            limit: 2,
+            level: 'reached',
+            resets_at: null,
+          })}
           className="max-w-sm"
         />
       </Row>
@@ -1118,6 +1129,83 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
         <StatCard label="سقف اعتبار" value={0} isMoney hint="سقف صفر: اعتباری ندارد" />
         <StatCard label="سقف اعتبار" value={null} hint="تعیین نشده" />
       </div>
+    </Section>
+  );
+}
+
+/**
+ * ShareBar — a slice against its whole.
+ *
+ * The states that matter are the degenerate ones. A whole of zero must render nothing
+ * rather than divide by zero; a negative slice (an overdrawn account) must clamp to an
+ * empty track rather than grow leftwards; and a slice too small to see must still not
+ * be labelled «۰٪» beside a visible sliver, which is why `sharePercent` floors at 1.
+ */
+function ShareBarSection({ alt = false }: { alt?: boolean }) {
+  const total = 712_490_000_0;
+
+  const slices: { label: string; value: number }[] = [
+    { label: 'بانک', value: 482_000_000_0 },
+    { label: 'صندوق', value: 71_840_000_0 },
+    { label: 'کارتخوان', value: 33_650_000_0 },
+    { label: 'سهم بسیار کوچک', value: 120_000 },
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="ShareBar"
+      note="نوار سهم: بزرگی را بدون خواندن عدد نشان می‌دهد. درصد همیشه کنارش نوشته می‌شود، پس خود نوار برای صفحه‌خوان پنهان است."
+    >
+      <div className="max-w-md space-y-4">
+        {slices.map((slice) => (
+          <div key={slice.label}>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span>{slice.label}</span>
+              <Money rial={slice.value} />
+            </div>
+            <ShareBar value={slice.value} total={total} className="mt-2" />
+            <p className="mt-1.5 text-2xs text-muted-foreground">
+              <Num value={sharePercent(slice.value, total)} />٪ از کل
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <Row label="تُن‌ها">
+        <div className="w-full max-w-md space-y-3">
+          <ShareBar value={70} total={100} tone="brand" />
+          <ShareBar value={70} total={100} tone="success" />
+          <ShareBar value={70} total={100} tone="warning" />
+          <ShareBar value={70} total={100} tone="danger" />
+          <ShareBar value={70} total={100} tone="neutral" />
+        </div>
+      </Row>
+
+      <Row label="حالت‌های مرزی">
+        <div className="w-full max-w-md space-y-3">
+          <div>
+            <p className="mb-1.5 text-2xs text-muted-foreground">پر (۱۰۰٪)</p>
+            <ShareBar value={100} total={100} />
+          </div>
+          <div>
+            <p className="mb-1.5 text-2xs text-muted-foreground">صفر — ریل خالی، نه نوار غایب</p>
+            <ShareBar value={0} total={100} />
+          </div>
+          <div>
+            <p className="mb-1.5 text-2xs text-muted-foreground">
+              منفی — به خالی محدود می‌شود، به چپ رشد نمی‌کند
+            </p>
+            <ShareBar value={-40} total={100} tone="danger" />
+          </div>
+          <div>
+            <p className="mb-1.5 text-2xs text-muted-foreground">
+              کلِ صفر — هیچ چیز رندر نمی‌شود (زیر این خط چیزی نیست)
+            </p>
+            <ShareBar value={40} total={0} />
+          </div>
+        </div>
+      </Row>
     </Section>
   );
 }

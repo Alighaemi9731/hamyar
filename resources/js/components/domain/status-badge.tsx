@@ -62,6 +62,18 @@ export const STATUS_MAP: Record<string, StatusDefinition> = {
   overdue: { label: 'معوق', tone: 'danger' },
   settled: { label: 'تسویه‌شده', tone: 'success' },
 
+  // --- treasury reconciliation ----------------------------------------------
+  // `warning` rather than `danger`: an unreconciled entry is money nobody has checked
+  // against a statement yet, not money that went wrong. Danger here would cry wolf on
+  // every shop that has not done its weekly tick-off.
+  //
+  // There is deliberately no `reconciled` counterpart. "Everything is checked" is the
+  // uninteresting default, and giving it an equally loud pill spent the palette on the
+  // absence of news — on a six-account page, three green badges drowned the one amber
+  // that mattered. The settled state is plain muted text with a tick; only the state
+  // that wants attention gets colour.
+  unreconciled: { label: 'مغایرت‌گیری‌نشده', tone: 'warning' },
+
   // --- subscriptions (platform) ---------------------------------------------
   pending: { label: 'در انتظار پرداخت', tone: 'warning' },
   failed: { label: 'ناموفق', tone: 'danger' },
