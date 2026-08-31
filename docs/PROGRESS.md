@@ -2840,3 +2840,56 @@ extracted when repetition exists, not when a plan predicted it would — and `--
 is still in `app.css`, defined and used by nothing, as the standing argument.
 
 Three PRs, all five checks green on each: `#80`, `#81`, `#82`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 4: the silent failures, and the gate that counts differently
+
+Two PRs. ROADMAP 12.6a is closed, and the gate it asked for is running.
+
+**Six forms retrofitted, one entry found stale, one worse than recorded.** The list was
+written for `0.18.0` and verified adversarially then; code moves. `settings/two-factor` had
+since gained both the keys its endpoints produce, so it is ticked as *verified* rather than
+re-fixed. `settings/users` was worse than listed: `toggle` is a `useForm({})` driving two
+endpoints that refuse things — «نمی‌توانید حساب خودتان را غیرفعال کنید» on `user` and «فروشگاه
+باید حداقل یک مالک داشته باشد» on `roles` — and rendered no errors whatsoever.
+
+`Catalog/Products/Edit` had a subtler shape: it rendered `errors.axes`, which matches the
+top-level key and none of the nested ones `VariantMatrixRequest` produces. The inline render
+had to go rather than stay alongside a `FormErrors`, because the component treats a key as
+handled when the form handles any *prefix* of it — listing `axes` would have hidden
+`axes.0.name` too.
+
+**`reset-password` was the one worth proving in a browser.** It needs no mistake by anybody: a
+reset link that loses its `identifier` renders normally, accepts a new password, and does
+nothing. Driven against the real form, it now answers «شمارهٔ موبایل را وارد کنید.» where it
+previously answered with silence.
+
+**The gate counts a different thing, and that is the point.** The `0.18.0` audit counted
+*proven orphan keys* and found 9 files. `bin/check-form-errors` counts *missing protection*
+and finds **37** — a form with no region is one validation rule away from being a form with an
+orphan, so the second number is the one that predicts the tenth occurrence.
+
+Failing the build on 37 would have meant a change nobody could review, or a gate switched off
+on day one — and a gate people switch off also teaches them the rule is optional. So it ships
+as a ratchet: `bin/.form-errors-baseline` lists what was already unprotected, anything not on
+it fails immediately, **and a listed file that gains a region also fails**, with an instruction
+to delete the line. A baseline that only grows is a list nobody empties. Both directions were
+verified by breaking them.
+
+`bin/check-apex-domain` joined `composer guards` in the same change — it had been running in
+CI and in no composer script since it was written, so `composer test` never ran it locally.
+Eight guards now.
+
+**Validation messages count in Persian.** Twenty messages in `lang/fa/validation.php`
+interpolate `:min`/`:max`/`:size` and Laravel substituted Latin digits into Persian prose — in
+the most frequent interaction the product has. The fix converts the substituted *parameters*
+of counting rules, not the finished message, because `hex_color`'s message carries `#1A2B3C`
+as an example of the format and «#۱A۲B۳C» is not a thing anybody can type. Tested in both
+directions.
+
+**A process note:** running `composer stan` locally before pushing PHP would have saved two CI
+round trips this phase — one on a test file's `fresh()` returning `static|null`, one on
+narrowing an inherited method's visibility.
+
+Two PRs, all five checks green on each: `#84`, `#85`.
