@@ -3113,6 +3113,19 @@ approved quote, a prepayment — turned up three defects that only exist with da
 Ticket detail's checklist was a `<table>` with no `<thead>`: three unlabelled cells per row,
 on the record that settles «صفحه از قبل شکسته بود» three weeks later.
 
+**My own regression test was flaky, and the reason is a real finding.** It asserted on
+`items.1.unit_refund.value`. `SalesInvoice::items()` is a plain `hasMany` with **no
+`orderBy`**, so the order lines come back in is whatever Postgres finds convenient — and
+rewriting a row, which the test's own `forceFill` does, is exactly what moves one. It
+passed locally and on its own PR, then failed in CI against the phone at 60,000,000 rial.
+The test now finds its line by quantity and never by index.
+
+The underlying looseness is left alone deliberately: **invoice line order is undefined
+across the whole Sales module**, so lines can appear in a different order between two views
+of the same invoice, print included. Adding `->orderBy('id')` would fix it in one line, and
+it would also change the line order of every invoice already printed. That is a product
+decision, not a redesign one — flagged for the owner, not taken.
+
 **A note worth keeping: `composer` is not installed on this laptop**, so `composer guards`
 had been exiting "command not found" with empty output, which reads exactly like a pass. The
 guards do run in CI on every PR, so nothing merged unchecked — but locally they must be run
