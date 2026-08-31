@@ -352,3 +352,31 @@ diagnosis. Give each its own `DB_DATABASE`.
 It has ~17 failures CI does not — Persian `LIKE` terms producing invalid UTF-8, a local
 mbstring difference. Never treat a local red as authoritative: diff against `main` on the same
 machine, or trust CI.
+
+### A security sentinel must not be able to occur by accident
+
+`PasscodeSecurityTest` proved the device unlock code never reaches a rendered page by
+grepping the whole Inertia payload for it. The sentinel was `'4517'`, a realistic four-digit
+PIN — and every page payload carries `auth.user.mobile`, eleven random digits from the
+factory. Measured over 200,000 samples, a generated mobile contains `4517` in **0.067% of
+runs**, before counting the tenant subdomain, the generated e-mail, and every other random
+digit in the props.
+
+So the file failed in CI with no leak, no code change, and nothing to find. It surfaced on a
+PR that touched three React files — which cannot reach `viewData('page')` at all — and the
+first instinct, in the moment, is to re-run it.
+
+That instinct is the actual damage. **A security assertion that cries wolf is worse than no
+security assertion**, because the learned response to a red run becomes "re-run it", and that
+is precisely how a genuine leak eventually gets waved through on the third amber. The cost is
+not the wasted CI minute; it is that the test stops being believed.
+
+The sentinel is now `'Qx7-4517-Lm2'` — still a plausible device password, since an
+alphanumeric screen lock is ordinary, and impossible to produce from random digits. It keeps
+the original digits so its history stays legible. Every assertion is otherwise unchanged, and
+the fix was verified the only way that counts: by planting a real leak in the controller and
+watching the test fail on it.
+
+The general rule: **a test that searches for a needle must use a needle that cannot grow in
+the haystack.** Anything short enough to be realistic is usually short enough to collide, so
+make the sentinel unmistakable and say why in the file.
