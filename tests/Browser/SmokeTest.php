@@ -192,6 +192,10 @@ it('renders every main screen with no console error and no sideways scroll', fun
     'audit log' => '/settings/activity',
     'products' => '/catalog',
     'users' => '/settings/users',
+    // The shop with no accounts yet, which is what this fixture is: the treasury
+    // screen's empty state is a rendered screen like any other, and it is the state
+    // every shop sees first.
+    'treasury' => '/treasury',
 ])->with([
     'mobile',
     'desktop',
