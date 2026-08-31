@@ -250,17 +250,45 @@ function TokensSection({ alt }: { alt?: boolean }) {
         </div>
       </Row>
 
-      <Row label="شکل و عمق">
+      <Row label="شکل">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex h-16 w-28 items-center justify-center rounded-pill border border-border bg-surface text-2xs">
             pill
           </div>
-          <div className="flex h-16 w-28 items-center justify-center rounded-card border border-border bg-surface text-2xs shadow-low">
+          <div className="flex h-16 w-28 items-center justify-center rounded-card border border-border bg-surface text-2xs">
             card 18px
           </div>
-          <div className="flex h-16 w-28 items-center justify-center rounded-control border border-border bg-surface text-2xs shadow-high">
+          <div className="flex h-16 w-28 items-center justify-center rounded-control border border-border bg-surface text-2xs">
             control 12px
           </div>
+          <div className="flex h-16 w-28 items-center justify-center rounded-inner border border-border bg-surface text-2xs">
+            inner 8px
+          </div>
+        </div>
+      </Row>
+
+      {/*
+        The elevation ramp, all three steps side by side, because the middle one was
+        missing and nobody could see that it was: dropdown, select and popover reached for
+        Tailwind's `shadow-md` and the sheet for `shadow-lg`, which is a second ramp with
+        different colour and spread running beside the tokens. Shown on the muted ground
+        rather than white — a shadow this soft is invisible against `--color-canvas`, which
+        is also why it is the last thing this system uses to signal depth.
+      */}
+      <Row label="عمق">
+        <div className="flex w-full flex-wrap items-end gap-4 rounded-card bg-surface-muted p-6">
+          <div className="flex h-16 w-32 items-center justify-center rounded-card bg-card text-2xs shadow-low">
+            low — کارت
+          </div>
+          <div className="flex h-16 w-32 items-center justify-center rounded-card bg-card text-2xs shadow-mid">
+            mid — منو
+          </div>
+          <div className="flex h-16 w-32 items-center justify-center rounded-card bg-card text-2xs shadow-high">
+            high — دیالوگ
+          </div>
+          <span className="self-center text-2xs text-muted-foreground">
+            عمق را اول اختلاف زمینه و فضای خالی می‌سازد؛ سایه آخرین ابزار است.
+          </span>
         </div>
       </Row>
 
@@ -295,6 +323,70 @@ function TokensSection({ alt }: { alt?: boolean }) {
             تنها واژگان حرکتی: محو + بالا آمدن. با prefers-reduced-motion غیرفعال می‌شود.
           </span>
         </div>
+      </Row>
+
+      {/*
+        The durations, as swatches that actually move.
+
+        They were three inlined numbers before — `duration-100` on four overlays,
+        `duration-200` on the sheet, `duration-500` on the share bar — so there was no
+        place to see them together and no way to notice they disagreed. Hovering is the
+        demo: the point of a duration token is how long it feels, which a hex-style swatch
+        cannot show.
+      */}
+      <Row label="مدت و منحنی">
+        <div className="flex w-full flex-wrap items-center gap-3">
+          {(
+            [
+              ['fast', 'duration-(--duration-fast)', '۱۰۰ms — لایه‌ای که باز می‌شود'],
+              ['base', 'duration-(--duration-base)', '۲۰۰ms — کشویی که مسافتی می‌رود'],
+              ['slow', 'duration-(--duration-slow)', '۵۰۰ms — مقداری که جابه‌جا می‌شود'],
+            ] as const
+          ).map(([name, duration, hint]) => (
+            <div
+              key={name}
+              className={cn(
+                'group flex h-16 w-40 cursor-default flex-col items-center justify-center rounded-card border border-border bg-surface text-2xs transition-colors ease-(--ease-out) hover:bg-accent',
+                duration
+              )}
+              title={hint}
+            >
+              <span className="font-medium">{name}</span>
+              <span className="text-muted-foreground">{hint}</span>
+            </div>
+          ))}
+          <span className="self-center text-2xs text-muted-foreground">
+            یک منحنی: <code className="ltr-value">--ease-out</code>. روی کارت‌ها بروید تا تفاوت را
+            ببینید.
+          </span>
+        </div>
+      </Row>
+
+      {/*
+        Named z-index, listed rather than demonstrated: the whole value of these tokens is
+        that the numbers are decided once and read in order, and a stack of coloured boxes
+        would show the order without showing the names anybody actually types.
+
+        Worth listing at all because the previous spelling — `--z-sticky` — was outside the
+        namespace Tailwind v4 builds `z-` utilities from, so `z-sticky` generated no rule
+        and the sticky header shipped with no stacking order at all.
+      */}
+      <Row label="ترتیب لایه‌ها">
+        <ul className="space-y-1 text-2xs">
+          {[
+            ['z-sticky', '۲۰', 'سربرگ و نوار کناری چسبان'],
+            ['z-drawer', '۴۰', 'کشوی منوی موبایل'],
+            ['z-overlay', '۵۰', 'دیالوگ و شیت و پرده‌شان'],
+            ['z-popover', '۶۰', 'منو، سلکت، پاپ‌اور، تولتیپ'],
+            ['z-toast', '۷۰', 'اعلان‌ها — همیشه بالاترین'],
+          ].map(([cls, value, use]) => (
+            <li key={cls} className="flex flex-wrap items-baseline gap-2">
+              <code className="ltr-value w-24 shrink-0">{cls}</code>
+              <span className="w-8 shrink-0 tabular text-muted-foreground">{value}</span>
+              <span className="text-muted-foreground">{use}</span>
+            </li>
+          ))}
+        </ul>
       </Row>
     </Section>
   );

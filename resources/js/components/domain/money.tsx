@@ -57,7 +57,13 @@ export function Money({
       className={cn(
         'tabular',
         stacked ? 'flex flex-col items-start' : 'whitespace-nowrap',
-        signed && rial < 0 && 'text-destructive',
+        // `danger`, not `destructive`. They resolve to the same value in every theme, so
+        // this changes no pixel — but `--destructive` is the *action* colour in this
+        // system (a delete button, a menu item that removes something, a validation
+        // refusal) and `--color-danger` is the *state* colour money and statuses use.
+        // `StatusBadge`, `StatCard` and the treasury account card all say `danger` for
+        // a figure in the red; this was the one place that said something else.
+        signed && rial < 0 && 'text-danger',
         signed && rial > 0 && 'text-success',
         className
       )}
