@@ -11,9 +11,7 @@ app/Modules/CRM/resources/js/pages/Parties/Show.tsx
 app/Modules/Catalog/resources/js/pages/Categories/Index.tsx
 app/Modules/Catalog/resources/js/pages/Import/Index.tsx
 app/Modules/Catalog/resources/js/pages/Prices/Index.tsx
-app/Modules/Cheques/resources/js/pages/Cheques/Index.tsx
 app/Modules/Hamta/resources/js/pages/Hamta/Checklist.tsx
-app/Modules/Installments/resources/js/pages/Collections/Index.tsx
 app/Modules/Installments/resources/js/pages/Plans/Create.tsx
 app/Modules/Inventory/resources/js/pages/Branches/Index.tsx
 app/Modules/Inventory/resources/js/pages/Counts/Index.tsx

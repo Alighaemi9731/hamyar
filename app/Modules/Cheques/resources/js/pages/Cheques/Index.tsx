@@ -1,14 +1,19 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangleIcon, CalendarClockIcon } from 'lucide-react';
+import { AlertTriangleIcon, CalendarClockIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { type Column, DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
+import { Num } from '@/components/domain/num';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
-import { RegisterForm } from '../../cheques/register-form';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
+
+import { RegisterForm } from '../../cheques/register-form';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
 
@@ -92,6 +97,15 @@ export default function ChequesIndex({
         <RegisterForm direction={direction} accounts={accounts} errors={errors} />
       </div>
 
+      {/*
+        `ChequeController::act()` validates seven keys — `action`, `account_id`, `party_id`,
+        `reason`, `fee`, `recovered`, `occurred_on` — and this page rendered one. A row
+        action refused on any of the other six came back as a 302 and the row did not move,
+        which on a screen whose buttons are «به بانک» and «برگشت خورد» is a shopkeeper
+        pressing a button and watching nothing happen to a cheque worth real money.
+      */}
+      <FormErrors errors={errors} handled={['cheque']} className="mt-4" />
+
       {errors.cheque && (
         <p
           role="alert"
@@ -141,100 +155,129 @@ function ChequeTable({
   onAct: (cheque: ChequeRow, action: string, extra?: Record<string, unknown>) => void;
   busy: number | null;
 }) {
-  if (rows.length === 0) {
-    return (
-      <p className="rounded-card border border-border p-6 text-center text-sm text-muted-foreground">
-        چکی نیست.
-      </p>
-    );
-  }
+  /*
+    Columns are built here because the action cell closes over `onAct` and `busy`.
+
+    `numeric` on the amount is the load-bearing change: it was `text-end`, which under
+    `dir="rtl"` is physical *left* — it lines the most-significant digits up and leaves the
+    units ragged, in a list a shop scans down looking for the cheque that matches a number
+    on a piece of paper.
+  */
+  const columns: Column<ChequeRow>[] = [
+    {
+      key: 'serial',
+      header: 'شماره',
+      cell: (row) => (
+        <span className="min-w-0">
+          {/* A serial is an identifier, not a quantity: LTR, monospaced, never grouped,
+              and never in Persian digits — it has to be readable back to a bank. */}
+          <Num value={row.serial} variant="ltr" />
+          <span className="mt-0.5 block truncate text-2xs text-muted-foreground">
+            {row.bank_name}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'party',
+      header: 'طرف حساب',
+      cell: (row) => row.party_name ?? <span className="text-muted-foreground">—</span>,
+    },
+    {
+      key: 'due_date',
+      header: 'سررسید',
+      secondary: true,
+      className: 'whitespace-nowrap',
+      cell: (row) => <span className="text-2xs">{formatJalali(row.due_date)}</span>,
+    },
+    {
+      key: 'amount',
+      header: 'مبلغ',
+      numeric: true,
+      cell: (row) => (
+        <span>
+          <Money rial={row.amount.value} digits="latin" />
+          {row.outstanding.value !== row.amount.value && (
+            <span className="mt-0.5 block text-2xs text-muted-foreground">
+              مانده <Money rial={row.outstanding.value} digits="latin" />
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'وضعیت',
+      cell: (row) => (
+        <span className="flex flex-wrap items-center gap-1">
+          <StatusBadge status={row.status} label={row.status_label} />
+          {row.attempt > 1 && (
+            <span className="text-2xs text-muted-foreground">نوبت {row.attempt}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'عملیات',
+      // Held to its content width, or the action column takes space from the party name,
+      // which is the column somebody actually reads.
+      className: 'w-px whitespace-nowrap',
+      cell: (row) => (
+        // `default` size, not `sm`. These are the controls that move a cheque through its
+        // life — deposit it, mark it cleared, record a bounce — and the 28px step stopped
+        // being available for anything a thumb lands on (2026-08-31).
+        <div className="flex flex-wrap gap-1.5">
+          {row.status === 'in_hand' && accounts.length > 0 && (
+            <Button
+              variant="secondary"
+              disabled={busy === row.id}
+              onClick={() => onAct(row, 'deposit', { account_id: accounts[0]!.id })}
+            >
+              به بانک
+            </Button>
+          )}
+          {(row.status === 'deposited' || row.status === 'in_hand') && (
+            <Button variant="ghost" disabled={busy === row.id} onClick={() => onAct(row, 'clear')}>
+              وصول شد
+            </Button>
+          )}
+          {row.status === 'deposited' && (
+            <Button
+              variant="ghost"
+              disabled={busy === row.id}
+              onClick={() => onAct(row, 'bounce', { reason: 'کسر موجودی' })}
+            >
+              برگشت خورد
+            </Button>
+          )}
+          {row.status === 'bounced' && accounts.length > 0 && (
+            <Button
+              variant="secondary"
+              disabled={busy === row.id}
+              onClick={() => onAct(row, 'deposit', { account_id: accounts[0]!.id })}
+            >
+              ارائه مجدد
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="overflow-x-auto rounded-card border border-border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-2xs text-muted-foreground">
-            <th className="p-3 text-start font-medium">شماره</th>
-            <th className="p-3 text-start font-medium">طرف حساب</th>
-            <th className="p-3 text-start font-medium">سررسید</th>
-            <th className="p-3 text-end font-medium">مبلغ</th>
-            <th className="p-3 text-start font-medium">وضعیت</th>
-            <th className="p-3 text-start font-medium">عملیات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-border last:border-0">
-              <td className="p-3">
-                <span className="tabular" dir="ltr">
-                  {row.serial}
-                </span>
-                <span className="ms-2 text-2xs text-muted-foreground">{row.bank_name}</span>
-              </td>
-              <td className="p-3">{row.party_name ?? '—'}</td>
-              <td className="p-3 whitespace-nowrap text-2xs">{formatJalali(row.due_date)}</td>
-              <td className="p-3 text-end tabular">
-                <Money rial={row.amount.value} />
-                {row.outstanding.value !== row.amount.value && (
-                  <span className="block text-2xs text-muted-foreground">
-                    مانده <Money rial={row.outstanding.value} />
-                  </span>
-                )}
-              </td>
-              <td className="p-3">
-                <StatusBadge status={row.status} label={row.status_label} />
-                {row.attempt > 1 && (
-                  <span className="ms-1 text-2xs text-muted-foreground">نوبت {row.attempt}</span>
-                )}
-              </td>
-              <td className="p-3">
-                <div className="flex flex-wrap gap-1">
-                  {row.status === 'in_hand' && accounts.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={busy === row.id}
-                      onClick={() => onAct(row, 'deposit', { account_id: accounts[0]!.id })}
-                    >
-                      به بانک
-                    </Button>
-                  )}
-                  {(row.status === 'deposited' || row.status === 'in_hand') && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === row.id}
-                      onClick={() => onAct(row, 'clear')}
-                    >
-                      وصول شد
-                    </Button>
-                  )}
-                  {row.status === 'deposited' && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === row.id}
-                      onClick={() => onAct(row, 'bounce', { reason: 'کسر موجودی' })}
-                    >
-                      برگشت خورد
-                    </Button>
-                  )}
-                  {row.status === 'bounced' && accounts.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={busy === row.id}
-                      onClick={() => onAct(row, 'deposit', { account_id: accounts[0]!.id })}
-                    >
-                      ارائه مجدد
-                    </Button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      rows={rows}
+      rowKey={(row) => row.id}
+      caption="فهرست چک‌ها با وضعیت و مبلغ هرکدام"
+      empty={
+        <EmptyState
+          icon={FileTextIcon}
+          title="چکی در این فهرست نیست"
+          description="چک‌ها هنگام ثبت فروش اقساطی یا از همین صفحه اضافه می‌شوند."
+        />
+      }
+    />
   );
 }
