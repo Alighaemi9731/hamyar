@@ -173,7 +173,15 @@ export default function TreasuryClose({ date, accounts, totals, pnl }: Props) {
   );
 }
 
-function Row({ label, children, strong }: { label: string; children: React.ReactNode; strong?: boolean }) {
+function Row({
+  label,
+  children,
+  strong,
+}: {
+  label: string;
+  children: React.ReactNode;
+  strong?: boolean;
+}) {
   return (
     <div className={`flex items-baseline justify-between gap-2 ${strong ? 'font-semibold' : ''}`}>
       <dt className="text-muted-foreground">{label}</dt>

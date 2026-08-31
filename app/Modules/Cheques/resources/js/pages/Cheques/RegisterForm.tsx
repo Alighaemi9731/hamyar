@@ -95,7 +95,7 @@ export function RegisterForm({ direction, accounts, errors }: RegisterFormProps)
           setText({ serial: '', sayad_id: '', bank_name: '', branch_name: '', account_holder: '' });
         },
         onFinish: () => setBusy(false),
-      },
+      }
     );
   };
 
@@ -110,16 +110,22 @@ export function RegisterForm({ direction, accounts, errors }: RegisterFormProps)
 
   return (
     <section className="mt-4 rounded-card border border-border bg-card p-5" aria-label="ثبت چک">
-      <h2 className="text-lg font-semibold">
-        ثبت چک {issued ? 'پرداختی' : 'دریافتی'}
-      </h2>
+      <h2 className="text-lg font-semibold">ثبت چک {issued ? 'پرداختی' : 'دریافتی'}</h2>
 
       {/* Every key the server can refuse on that has no input to sit under — a quota
           ceiling, a missing bank account, a posting that would not balance. Without this
           the submit button would silently do nothing (CLAUDE.md). */}
       <FormErrors
         errors={errors}
-        handled={['party_id', 'amount', 'serial', 'sayad_id', 'bank_name', 'due_date', 'account_id']}
+        handled={[
+          'party_id',
+          'amount',
+          'serial',
+          'sayad_id',
+          'bank_name',
+          'due_date',
+          'account_id',
+        ]}
         className="mt-4"
       />
 

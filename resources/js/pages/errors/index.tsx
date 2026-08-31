@@ -51,9 +51,7 @@ export default function ErrorPage({ status, message }: ErrorPageProps) {
             {message && message.trim() !== '' ? message : body}
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            {action}
-          </div>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">{action}</div>
 
           <p className="mt-8 text-xs text-muted-foreground tabular">کد خطا: {toFa(status)}</p>
         </div>

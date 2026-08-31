@@ -76,10 +76,7 @@ export default function HamtaPending({ units }: { units: Unit[] }) {
                     <td className="p-3">{unit.party ?? '—'}</td>
                     <td className="p-3 tabular-nums">{unit.acquired_at}</td>
                     <td className="p-3 text-end">
-                      <Link
-                        href={`/hamta/${unit.id}`}
-                        className="text-primary hover:underline"
-                      >
+                      <Link href={`/hamta/${unit.id}`} className="text-primary hover:underline">
                         چک‌لیست
                       </Link>
                     </td>
@@ -106,10 +103,10 @@ export function ApiNotice() {
     <div className="flex gap-3 rounded-card border border-warning/25 bg-warning/5 p-4 text-sm">
       <SmartphoneIcon className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
       <p className="text-pretty">
-        <strong className="font-semibold">سامانهٔ همتا رابط برنامه‌نویسی عمومی ندارد.</strong>{' '}
-        این صفحه‌ها فقط <em>ثبت و یادآوری</em> هستند — انتقال را خودتان با مشتری انجام
-        می‌دهید و نتیجه‌اش را اینجا وارد می‌کنید. همیار هیچ استعلامی از همتا نمی‌گیرد و
-        صحت شناسهٔ فعال‌سازی را بررسی نمی‌کند.
+        <strong className="font-semibold">سامانهٔ همتا رابط برنامه‌نویسی عمومی ندارد.</strong> این
+        صفحه‌ها فقط <em>ثبت و یادآوری</em> هستند — انتقال را خودتان با مشتری انجام می‌دهید و
+        نتیجه‌اش را اینجا وارد می‌کنید. همیار هیچ استعلامی از همتا نمی‌گیرد و صحت شناسهٔ فعال‌سازی
+        را بررسی نمی‌کند.
       </p>
     </div>
   );

@@ -54,9 +54,9 @@ export default function BranchesIndex({ branches, users, can_manage: canManage }
           <div>
             <h1 className="text-2xl font-bold">شعبه‌ها</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              هر شعبه شماره‌گذاری اسناد و سربرگ چاپ خودش را دارد. کارکنانی که به یک شعبه
-              اختصاص داده شوند فقط اطلاعات همان شعبه‌ها را می‌بینند؛ کسی که به هیچ شعبه‌ای
-              اختصاص داده نشده، همه شعب را می‌بیند.
+              هر شعبه شماره‌گذاری اسناد و سربرگ چاپ خودش را دارد. کارکنانی که به یک شعبه اختصاص داده
+              شوند فقط اطلاعات همان شعبه‌ها را می‌بینند؛ کسی که به هیچ شعبه‌ای اختصاص داده نشده، همه
+              شعب را می‌بیند.
             </p>
           </div>
 
@@ -79,12 +79,7 @@ export default function BranchesIndex({ branches, users, can_manage: canManage }
         ) : (
           <div className="space-y-4">
             {branches.map((branch) => (
-              <BranchCard
-                key={branch.id}
-                branch={branch}
-                users={users}
-                canManage={canManage}
-              />
+              <BranchCard key={branch.id} branch={branch} users={users} canManage={canManage} />
             ))}
           </div>
         )}
@@ -278,9 +273,7 @@ function BranchForm({ branch, onDone }: { branch?: Branch; onDone: () => void })
           />
           فعال
           {branch?.is_default ? (
-            <span className="text-xs text-muted-foreground">
-              (شعبهٔ پیش‌فرض همیشه فعال است)
-            </span>
+            <span className="text-xs text-muted-foreground">(شعبهٔ پیش‌فرض همیشه فعال است)</span>
           ) : null}
         </label>
 
@@ -321,7 +314,7 @@ function StaffForm({
 
   const toggle = (id: number) => {
     setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
     );
   };
 
@@ -329,21 +322,23 @@ function StaffForm({
     router.put(
       `/branches/${branch.id}/users`,
       { user_ids: selected },
-      { preserveScroll: true, onSuccess: onDone },
+      { preserveScroll: true, onSuccess: onDone }
     );
   };
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        کاربرانی که اینجا تیک بخورند به این شعبه محدود می‌شوند. اگر کاربری به هیچ شعبه‌ای
-        اختصاص نداشته باشد، همهٔ شعب را می‌بیند — پس برای فروشگاه تک‌شعبه‌ای نیازی به تیک
-        زدن نیست.
+        کاربرانی که اینجا تیک بخورند به این شعبه محدود می‌شوند. اگر کاربری به هیچ شعبه‌ای اختصاص
+        نداشته باشد، همهٔ شعب را می‌بیند — پس برای فروشگاه تک‌شعبه‌ای نیازی به تیک زدن نیست.
       </p>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
-          <label key={user.id} className="flex items-center gap-2 rounded-control border p-2 text-sm">
+          <label
+            key={user.id}
+            className="flex items-center gap-2 rounded-control border p-2 text-sm"
+          >
             <input
               type="checkbox"
               checked={selected.includes(user.id)}

@@ -62,7 +62,7 @@ export function BranchSwitcher({ branch }: { branch?: BranchState }) {
     router.post(
       '/branch/switch',
       { branch_id: branchId },
-      { preserveScroll: true, preserveState: false },
+      { preserveScroll: true, preserveState: false }
     );
   };
 

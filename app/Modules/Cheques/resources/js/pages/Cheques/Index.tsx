@@ -47,7 +47,15 @@ interface Props {
  * nobody has banked three weeks after its due date has no distinguishing status of its own
  * — it is exactly the one nobody is watching.
  */
-export default function ChequesIndex({ direction, overdue, due, totals, cheques, accounts, errors }: Props) {
+export default function ChequesIndex({
+  direction,
+  overdue,
+  due,
+  totals,
+  cheques,
+  accounts,
+  errors,
+}: Props) {
   const [busy, setBusy] = useState<number | null>(null);
 
   const act = (cheque: ChequeRow, action: string, extra: Record<string, unknown> = {}) => {
@@ -55,7 +63,7 @@ export default function ChequesIndex({ direction, overdue, due, totals, cheques,
     router.post(
       `/cheques/${cheque.id}/transition`,
       { action, ...extra },
-      { preserveScroll: true, onFinish: () => setBusy(null) },
+      { preserveScroll: true, onFinish: () => setBusy(null) }
     );
   };
 
@@ -81,7 +89,10 @@ export default function ChequesIndex({ direction, overdue, due, totals, cheques,
       </div>
 
       {errors.cheque && (
-        <p role="alert" className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mt-4 rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {errors.cheque}
         </p>
       )}
@@ -127,7 +138,11 @@ function ChequeTable({
   busy: number | null;
 }) {
   if (rows.length === 0) {
-    return <p className="rounded-card border border-border p-6 text-center text-sm text-muted-foreground">چکی نیست.</p>;
+    return (
+      <p className="rounded-card border border-border p-6 text-center text-sm text-muted-foreground">
+        چکی نیست.
+      </p>
+    );
   }
 
   return (
@@ -164,7 +179,9 @@ function ChequeTable({
               </td>
               <td className="p-3">
                 <StatusBadge status={row.status} label={row.status_label} />
-                {row.attempt > 1 && <span className="ms-1 text-2xs text-muted-foreground">نوبت {row.attempt}</span>}
+                {row.attempt > 1 && (
+                  <span className="ms-1 text-2xs text-muted-foreground">نوبت {row.attempt}</span>
+                )}
               </td>
               <td className="p-3">
                 <div className="flex flex-wrap gap-1">
@@ -179,7 +196,12 @@ function ChequeTable({
                     </Button>
                   )}
                   {(row.status === 'deposited' || row.status === 'in_hand') && (
-                    <Button size="sm" variant="ghost" disabled={busy === row.id} onClick={() => onAct(row, 'clear')}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy === row.id}
+                      onClick={() => onAct(row, 'clear')}
+                    >
                       وصول شد
                     </Button>
                   )}

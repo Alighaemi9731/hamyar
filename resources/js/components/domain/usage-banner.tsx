@@ -51,7 +51,7 @@ export function UsageBanner({ usage, className }: UsageBannerProps) {
         critical
           ? 'border-danger/25 bg-danger/10 text-danger'
           : 'border-warning/25 bg-warning/10 text-warning',
-        className,
+        className
       )}
     >
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -59,8 +59,8 @@ export function UsageBanner({ usage, className }: UsageBannerProps) {
       <p className="min-w-0 grow">
         {usage.plan.lapsed ? (
           <>
-            اشتراک شما به پایان رسیده و سقف‌های پلن رایگان اعمال می‌شود. داده‌هایتان سر جای
-            خودشان است.
+            اشتراک شما به پایان رسیده و سقف‌های پلن رایگان اعمال می‌شود. داده‌هایتان سر جای خودشان
+            است.
           </>
         ) : (
           <>{describe(blocked.length > 0 ? blocked : nearingLimit(usage))}</>
@@ -102,9 +102,7 @@ function describe(meters: { label: string; level: string; window: string }[]): s
   const monthly = first.window === 'month';
 
   if (others === 0) {
-    return monthly
-      ? `سهمیهٔ ${first.label} این ماه ${verb}.`
-      : `ظرفیت ${first.label} ${verb}.`;
+    return monthly ? `سهمیهٔ ${first.label} این ماه ${verb}.` : `ظرفیت ${first.label} ${verb}.`;
   }
 
   const mixed = meters.some((meter) => (meter.window === 'month') !== monthly);

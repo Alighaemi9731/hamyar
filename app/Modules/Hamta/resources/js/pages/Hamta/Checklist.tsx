@@ -129,7 +129,7 @@ function StepsForm({
         preserveScroll: true,
         onFinish: () => setSaving(false),
         onSuccess: () => setAnswers({}),
-      },
+      }
     );
   };
 
@@ -153,8 +153,7 @@ function StepsForm({
 
                   {step.answered_at ? (
                     <p className="text-xs text-muted-foreground">
-                      {step.answer === 'confirmed' ? 'ثبت شد' : 'انجام نشد'} ·{' '}
-                      {step.answered_at}
+                      {step.answer === 'confirmed' ? 'ثبت شد' : 'انجام نشد'} · {step.answered_at}
                       {step.actor ? ` · ${step.actor}` : ''}
                       {step.note ? ` · ${step.note}` : ''}
                     </p>
@@ -266,8 +265,8 @@ function TransferPanel({ unit, canManage }: { unit: Props['unit']; canManage: bo
               maxLength={64}
             />
             <p className="text-xs text-muted-foreground">
-              از روی پیامک تأیید مشتری. اختیاری است — اگر انتقال انجام شده ولی پیامک هنوز
-              نرسیده، بدون شناسه هم می‌توانید ثبت کنید.
+              از روی پیامک تأیید مشتری. اختیاری است — اگر انتقال انجام شده ولی پیامک هنوز نرسیده،
+              بدون شناسه هم می‌توانید ثبت کنید.
             </p>
           </div>
 

@@ -89,8 +89,18 @@ export default function MoadianIndex({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Count label="در صف" value={counts.pending} onClick={() => filter('pending')} />
           <Count label="پذیرفته‌شده" value={counts.accepted} onClick={() => filter('accepted')} />
-          <Count label="رد شده" value={counts.rejected} tone="danger" onClick={() => filter('rejected')} />
-          <Count label="ناموفق" value={counts.failed} tone="warning" onClick={() => filter('failed')} />
+          <Count
+            label="رد شده"
+            value={counts.rejected}
+            tone="danger"
+            onClick={() => filter('rejected')}
+          />
+          <Count
+            label="ناموفق"
+            value={counts.failed}
+            tone="warning"
+            onClick={() => filter('failed')}
+          />
         </div>
 
         {status ? (
@@ -133,7 +143,9 @@ export default function MoadianIndex({
                     </td>
                     <td className="p-3">{row.type === 'cancel' ? 'ابطال' : 'اصلی'}</td>
                     <td className="p-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[row.status]}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[row.status]}`}
+                      >
                         {STATUS_LABEL[row.status]}
                       </span>
                       {/* The reason, in Persian, next to the thing it happened to — the
@@ -189,14 +201,14 @@ function DisabledNotice({
 
       {!platformEnabled ? (
         <p className="mt-2 text-pretty">
-          این قابلیت <strong>به‌زودی</strong> فعال می‌شود. اتصال به یکی از شرکت‌های معتمد
-          مالیاتی هنوز انتخاب نشده است و تا آن زمان هیچ سندی ارسال نمی‌شود — نه از این
-          فروشگاه و نه از هیچ فروشگاه دیگری.
+          این قابلیت <strong>به‌زودی</strong> فعال می‌شود. اتصال به یکی از شرکت‌های معتمد مالیاتی
+          هنوز انتخاب نشده است و تا آن زمان هیچ سندی ارسال نمی‌شود — نه از این فروشگاه و نه از هیچ
+          فروشگاه دیگری.
         </p>
       ) : !shopEnabled ? (
         <p className="mt-2 text-pretty">
-          سکوی همیار آماده است، اما این فروشگاه هنوز اطلاعات مالیاتی‌اش را وارد نکرده و
-          کلید ارسال را روشن نکرده است.
+          سکوی همیار آماده است، اما این فروشگاه هنوز اطلاعات مالیاتی‌اش را وارد نکرده و کلید ارسال
+          را روشن نکرده است.
         </p>
       ) : null}
     </div>
