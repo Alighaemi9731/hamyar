@@ -150,12 +150,27 @@ export default function Billing({
           پلن‌ها
         </h2>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
+        {/*
+          Two up from `md`, three only from `xl` — and the jump is not where it looks like
+          it should be, for the reason the treasury summary records: **the sidebar appears
+          at `lg`**, so the content column is narrower at 1024 than at 768. Three tracks at
+          `lg` are 208px each, and «۱٬۱۹۰٬۰۰۰» at 40px is 271px, so the row overflowed the
+          page at the width that looked safest.
+
+          Measured: 768 → 340px per track, 1024 → 324px, 1280 → 293px. The figure fits at
+          all three.
+        */}
+        <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {plans.map((plan) => (
             <article
               key={plan.code}
               className={cn(
-                'flex flex-col rounded-card border bg-card p-6',
+                // `min-w-0` is load-bearing. A grid track is `minmax(auto, max-content)`
+                // by default, and `auto`'s floor is *min-content* — so a card whose
+                // contents will not compress below 328px made the track 376px wide inside
+                // a 375px viewport and pushed the whole page sideways. Measured at 375,
+                // 768 and 1280; the page overflowed at every width it was looked at.
+                'flex min-w-0 flex-col rounded-card border bg-card p-6',
                 plan.is_current && 'border-brand ring-1 ring-brand',
                 // The rung a quota block sent them here to buy. Marked more strongly than
                 // the current plan, because a shop arriving from a block is not comparing
@@ -176,16 +191,31 @@ export default function Billing({
                 <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
               ) : null}
 
-              <p className="mt-4 text-3xl font-semibold tracking-tight">
+              {/*
+                Two things were making this overflow its own column, and both were
+                measured rather than guessed: at 768 the price ran 326px inside a ~220px
+                track, pushing the page 100px sideways.
+
+                `text-3xl` is 56px — the hero step, which the type scale reserves for a
+                landing headline, not for one of three cards in a row. 40px is the step a
+                page's anchor figure takes, and this is that.
+
+                And `<Money>` is `whitespace-nowrap` on purpose: a nine-digit figure and
+                its unit have no break opportunity between them. `unitPlacement="block"`
+                is the documented answer — the component's own docblock names this exact
+                case, "a nine-digit figure plus its unit does not fit a quarter-width
+                card". «ماهانه» goes to its own line with it, being a qualifier rather
+                than part of the figure.
+              */}
+              <p className="mt-4 font-display text-2xl font-semibold tracking-tight">
                 {plan.price.value === 0 ? (
-                  <span>رایگان</span>
+                  'رایگان'
                 ) : (
-                  <>
-                    <Money rial={plan.price.value} withUnit />
-                    <span className="text-base font-normal text-muted-foreground"> / ماهانه</span>
-                  </>
+                  <Money rial={plan.price.value} withUnit unitPlacement="block" />
                 )}
               </p>
+
+              {plan.price.value > 0 && <p className="mt-1 text-sm text-muted-foreground">ماهانه</p>}
 
               {/* Monthly credits, not a module checklist: every module is open on every
                   plan, so a list of ticks would be identical on all three cards and tell
