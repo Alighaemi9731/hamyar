@@ -78,17 +78,18 @@ export function ReportPresets({ reportKey, presets, current, path }: ReportPrese
 
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
+      {/*
+        Both controls in each chip were under the floor: the preset itself overrode the
+        button to 32px, and the delete beside it was a bare `<button>` wrapping a 14px
+        glyph with no height at all — a destructive action at fourteen pixels, sitting two
+        millimetres from the one that applies the preset.
+      */}
       {presets.map((preset) => (
         <span
           key={preset.id}
-          className="inline-flex items-center gap-1 rounded-full border bg-surface-muted ps-1 pe-3 text-sm"
+          className="inline-flex items-center gap-0.5 rounded-full border bg-surface-muted pe-1 ps-1 text-sm"
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 rounded-full px-2"
-            onClick={() => apply(preset)}
-          >
+          <Button variant="ghost" className="rounded-full px-3" onClick={() => apply(preset)}>
             {preset.name}
           </Button>
 
@@ -96,7 +97,7 @@ export function ReportPresets({ reportKey, presets, current, path }: ReportPrese
             type="button"
             onClick={() => remove(preset)}
             aria-label={`حذف ${preset.name}`}
-            className="text-muted-foreground transition-colors hover:text-danger focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-danger focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <XIcon className="size-3.5" aria-hidden />
           </button>
