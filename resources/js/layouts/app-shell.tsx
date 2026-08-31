@@ -2,13 +2,14 @@ import { Link, usePage } from '@inertiajs/react';
 import { MenuIcon, SearchIcon, StoreIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 
 import { AnnouncementBanner } from '@/components/domain/announcement-banner';
 import { QuotaBlock } from '@/components/domain/quota-block';
 import { UsageBanner } from '@/components/domain/usage-banner';
 import { BranchSwitcher } from '@/components/domain/branch-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { NAVIGATION } from '@/lib/navigation';
@@ -144,6 +145,16 @@ export function AppShell({ title, actions, children }: AppShellProps) {
         </main>
       </div>
 
+      {/*
+        `@/components/ui/sonner`, not `sonner`.
+
+        This rendered sonner's own `Toaster` directly, which meant the project's wrapper —
+        the one carrying the lucide icons the rest of the app uses, the `--popover` /
+        `--border` / `--radius` token bindings, and the theme — had **no consumers at all**.
+        It was dead code that looked like the mechanism, so every toast in the product came
+        out with sonner's default icons, sonner's default surface, and `theme="system"`:
+        following the operating system rather than the switch in the header above it.
+      */}
       <Toaster dir="rtl" position="bottom-left" richColors closeButton className="no-print" />
     </div>
   );

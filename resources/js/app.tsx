@@ -22,6 +22,24 @@ void createInertiaApp({
     );
   },
   progress: {
-    color: '#0FA3A8', // --color-brand; the progress bar renders outside React.
+    /*
+      Read from the token rather than pinned to a hex.
+
+      This was `#0FA3A8` — a teal — with a comment claiming it was `--color-brand`. It has
+      not been: the brand is `#0066cc` (ADR 0008, and `#0071e3` was rejected for failing AA
+      on the grey ground). So every page navigation in the product drew a teal loading bar
+      across the top of a blue application, which is also the one raw hex the design system
+      forbids outright.
+
+      Inertia's progress bar renders outside React and takes a string, so it cannot use a
+      CSS variable directly — but it can be handed the computed value of one. Read once at
+      setup, after `app.css` is in the document, which is enough: the bar is chrome that
+      appears for a few hundred milliseconds, not a surface that has to restyle on a theme
+      switch. The fallback is the light-mode brand step, for the case where the stylesheet
+      has not parsed yet.
+    */
+    color:
+      getComputedStyle(document.documentElement).getPropertyValue('--color-brand').trim() ||
+      '#0066cc',
   },
 });
