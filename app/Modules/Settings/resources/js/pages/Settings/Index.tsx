@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon, SettingsIcon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { Card } from '@/components/ui/card';
@@ -47,7 +47,7 @@ export default function SettingsIndex({ groups }: Props) {
 
       {groups.length === 0 ? (
         <EmptyState
-          icon={SettingsIcon}
+          variant="permission"
           title="تنظیماتی در دسترس شما نیست"
           description="حساب شما به هیچ‌کدام از بخش‌های تنظیمات دسترسی ندارد. اگر باید کاربران یا اشتراک فروشگاه را ببینید، از مدیر فروشگاه بخواهید دسترسی‌تان را تغییر دهد."
         />

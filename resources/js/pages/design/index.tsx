@@ -1199,6 +1199,17 @@ function FormErrorsSection({ alt = false }: { alt?: boolean }) {
         <FormErrors errors={{ lines: 'حداقل یک قلم کالا لازم است.' }} className="max-w-xl" />
       </Row>
 
+      {/* A different screen state from `empty`, and conflating the two is how a shop
+          concludes their data has gone missing. Muted rather than red: being outside a
+          permission is an ordinary fact about a role, not a failure. */}
+      <Row label="بدون دسترسی">
+        <EmptyState
+          variant="permission"
+          title="گزارشی در دسترس شما نیست"
+          description="دسترسی «مشاهده گزارش‌ها» به حساب شما داده نشده است. مدیر فروشگاه می‌تواند آن را از بخش نقش‌ها فعال کند."
+        />
+      </Row>
+
       <Row label="چند خطا">
         <FormErrors
           errors={{
