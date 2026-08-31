@@ -105,7 +105,7 @@ export function ApprovalPanel({
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+
               onClick={() => {
                 navigator.clipboard?.writeText(approvalUrl);
                 setCopied(true);
@@ -149,7 +149,7 @@ export function ApprovalPanel({
                 {quote.errors.quoted_amount}
               </p>
             )}
-            <Button type="submit" size="sm" disabled={quote.processing}>
+            <Button type="submit" disabled={quote.processing}>
               <SendIcon className="size-4" aria-hidden />
               {quoted ? 'ارسال برآورد جدید' : 'درخواست تأیید مشتری'}
             </Button>
@@ -173,13 +173,13 @@ export function ApprovalPanel({
                 onChange={(event) => phone.setData('note', event.target.value)}
               />
               <div className="flex gap-2">
-                <Button type="submit" size="sm" variant="secondary" disabled={phone.processing}>
+                <Button type="submit" variant="secondary" disabled={phone.processing}>
                   <CheckIcon className="size-4" aria-hidden />
                   مشتری تأیید کرد
                 </Button>
                 <Button
                   type="button"
-                  size="sm"
+
                   variant="ghost"
                   onClick={() =>
                     phone.post(`/repairs/tickets/${ticketId}/approval/decline`, {
