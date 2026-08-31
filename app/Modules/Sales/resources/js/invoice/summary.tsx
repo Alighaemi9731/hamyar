@@ -1,38 +1,22 @@
 import type { ReactNode } from 'react';
 
 import { Money } from '@/components/domain/money';
+import { MoneyLadder } from '@/components/domain/money-ladder';
 import { Num } from '@/components/domain/num';
 import { cn } from '@/lib/utils';
 
 import type { InvoiceCommission, InvoiceProfit, InvoiceTotals } from './types';
 
 /**
- * Every money ladder on this page is one grid, not a stack of flex rows.
+ * The ladder itself now lives in `@/components/domain/money-ladder`, with the measurements
+ * that justify it — the 99px of scatter, the `9ch` track, the `ps-6` that keeps a rule
+ * continuous. It moved because the treasury day-close renders a profit-and-loss ladder with
+ * the same requirement, and a correct pattern reachable from one file is a pattern the next
+ * screen re-invents wrongly.
  *
- * `flex justify-between` pins each row's *label* and lets the figure float to whatever
- * width its digits need, so a column of amounts ends up with six different right edges —
- * measured at 1440, the figures scattered across 99px and «گرد کردن ۱» sat under the
- * leading 8 of 88,970,000. `tabular-nums` cannot rescue that: it equalises digit widths,
- * it does not give the numbers a shared edge to align on.
- *
- * A two-column grid gives them that edge. `text-start` inside the value cell is physical
- * right in RTL, which is where Latin numerals must align so their units digits line up.
- *
- * ## The track is fixed, not `max-content`
- *
- * `max-content` derives the track from the widest figure *in that grid*, so two cards in
- * one rail landed on axes 6px apart — and the axis moved when the data did (a shorter
- * ladder shifted it 2.25px). A fixed `9ch` track is the same in both cards and the same
- * for every invoice. `ch` is the width of a `0` in the current font, so it scales with the
- * type rather than being a magic pixel count.
- *
- * ## The gap is padding, not `gap-x`
- *
- * A column gap is unruled, so a `border-t` set on both cells drew as two segments with a
- * 24px notch between them. `ps-6` on the value cell puts the space *inside* a cell the
- * border crosses, and the rule runs continuously.
+ * `VALUE` stays here for the two rungs this card builds by hand — a profit figure whose
+ * tone depends on its sign, which `MoneyRow` deliberately does not model.
  */
-const LADDER = 'grid grid-cols-[1fr_9ch] items-baseline gap-y-1.5';
 const VALUE = 'ps-6 text-start tabular';
 
 /**
@@ -84,7 +68,7 @@ export function InvoiceSummary({ totals, isVoid }: { totals: InvoiceTotals; isVo
       </p>
 
       {/* ONE `<dl>` for the whole card: a second one would derive a second figure track. */}
-      <dl className={cn(LADDER, 'mt-5 border-t border-border pt-4 text-sm')}>
+      <MoneyLadder className="mt-5 border-t border-border pt-4 text-sm">
         {/* «بدون مالیات» is not pedantry. The line-item table's own foot sums that
             column, which is VAT-inclusive; this rung is the VAT-exclusive base the ladder
             builds from. Two different figures need two different names. */}
@@ -107,7 +91,7 @@ export function InvoiceSummary({ totals, isVoid }: { totals: InvoiceTotals; isVo
             tone={owing ? 'text-warning' : 'text-success'}
           />
         )}
-      </dl>
+      </MoneyLadder>
 
       {isVoid && (
         <p className="mt-3 text-2xs text-muted-foreground">
@@ -160,7 +144,7 @@ export function ProfitPanel({
         <span className="text-2xs text-muted-foreground">تومان</span>
       </div>
 
-      <dl className={cn(LADDER, isVoid && 'line-through decoration-1')}>
+      <MoneyLadder className={cn(isVoid && 'line-through decoration-1')}>
         <Row label="فروش (بدون مالیات)" money={profit.revenue} />
         <Row label="بهای تمام‌شده" money={profit.cost} />
 
@@ -191,7 +175,7 @@ export function ProfitPanel({
             </dd>
           </>
         )}
-      </dl>
+      </MoneyLadder>
     </section>
   );
 }

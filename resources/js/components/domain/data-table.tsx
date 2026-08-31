@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
+  TableFooter,
   TableCell,
   TableHead,
   TableHeader,
@@ -53,6 +54,18 @@ export interface DataTableProps<TRow> {
   loading?: boolean;
   /** Shown when there are no rows and no search term. */
   empty?: ReactNode;
+  /**
+   * A totals row, rendered per column so its figures sit under the ones they total.
+   *
+   * Returns the cell for a column, or `undefined` for a column that totals nothing —
+   * an «تأییدنشده» column with no meaningful sum gets an empty cell rather than a zero,
+   * because a zero there is a claim and a blank is not.
+   *
+   * Deliberately not `ReactNode`: a hand-built `<tr>` would have to repeat the column
+   * order, and the first time somebody reorders the columns the totals would silently
+   * line up under the wrong headings.
+   */
+  footer?: (column: Column<TRow>) => ReactNode;
   className?: string;
 }
 
@@ -83,6 +96,7 @@ export function DataTable<TRow>({
   onRowClick,
   loading = false,
   empty,
+  footer,
   className,
 }: DataTableProps<TRow>) {
   const searching = Boolean(search?.value.trim());
@@ -217,6 +231,28 @@ export function DataTable<TRow>({
               ))
             )}
           </TableBody>
+
+          {/* Only when there are rows: a totals row under an empty state is a sum of
+              nothing, presented as a fact. */}
+          {footer && rows.length > 0 && !loading && (
+            <TableFooter>
+              <TableRow>
+                {columns.map((column) => (
+                  <TableCell
+                    key={column.key}
+                    className={cn(
+                      'font-semibold',
+                      column.numeric && 'text-start tabular',
+                      column.secondary && 'hidden sm:table-cell',
+                      column.className
+                    )}
+                  >
+                    {footer(column)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
     </div>
