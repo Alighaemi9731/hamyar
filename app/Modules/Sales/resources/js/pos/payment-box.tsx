@@ -1,6 +1,7 @@
 import { PlusIcon, XIcon } from 'lucide-react';
 
 import { Money } from '@/components/domain/money';
+import { MoneyLadder } from '@/components/domain/money-ladder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -249,43 +250,58 @@ export function PaymentBox({
         })}
       </ul>
 
-      <dl className="space-y-1 rounded-control bg-muted/40 px-3 py-3 text-sm">
+      {/*
+        A ladder, for the same reason the totals above it are one: these were
+        `flex justify-between` rows, so «۰» and «۱۰۰٬۰۰۰٬۰۰۰» each found their own right
+        edge — measured 73px apart, on the panel a cashier reads while counting money back
+        into somebody's hand.
+
+        Figures are bare except the last, which carries its unit on its own line the way
+        the payable total does. Repeating «تومان» on every rung is what made them too wide
+        for a shared track in the first place, and the number somebody says out loud is the
+        one that needs it.
+      */}
+      <MoneyLadder className="rounded-control bg-muted/40 px-3 py-3 text-sm">
         {tradedIn > 0 && (
-          <div className="flex items-baseline justify-between">
+          <>
             <dt className="text-muted-foreground">بابت معاوضه</dt>
-            <dd data-testid="pos-traded-in">
-              <Money rial={tradedIn} digits="latin" withUnit />
+            <dd className="ps-6 text-start tabular" data-testid="pos-traded-in">
+              <Money rial={tradedIn} digits="latin" />
             </dd>
-          </div>
+          </>
         )}
 
-        <div className="flex items-baseline justify-between">
-          <dt className="text-muted-foreground">پرداخت‌شده</dt>
-          <dd data-testid="pos-settled">
-            <Money rial={settled} digits="latin" withUnit />
-          </dd>
-        </div>
+        <dt className="text-muted-foreground">پرداخت‌شده</dt>
+        <dd className="ps-6 text-start tabular" data-testid="pos-settled">
+          <Money rial={settled} digits="latin" />
+        </dd>
 
-        <div className="flex items-baseline justify-between">
-          <dt className={cn('text-muted-foreground', due > 0 && 'text-warning')}>
-            {due > 0 ? 'باقی‌مانده' : 'تسویه'}
-          </dt>
-          <dd data-testid="pos-due" className={cn(due > 0 && 'text-warning')}>
-            <Money rial={due} digits="latin" withUnit />
-          </dd>
-        </div>
+        <dt className={cn('text-muted-foreground', due > 0 && 'text-warning')}>
+          {due > 0 ? 'باقی‌مانده' : 'تسویه'}
+        </dt>
+        <dd
+          data-testid="pos-due"
+          className={cn('ps-6 text-start tabular', due > 0 && 'text-warning')}
+        >
+          <Money rial={due} digits="latin" withUnit={change <= 0} unitPlacement="block" />
+        </dd>
 
         {change > 0 && (
           // The number being counted back into somebody's hand. Given the most visual
           // weight on the panel on purpose.
-          <div className="flex items-baseline justify-between border-t border-border pt-2 text-lg font-semibold">
-            <dt>باقی‌مانده مشتری</dt>
-            <dd data-testid="pos-change" className="text-success">
-              <Money rial={change} digits="latin" withUnit />
+          <>
+            <dt className="mt-1 border-t border-border pt-2 text-base font-semibold text-foreground">
+              باقی‌مانده مشتری
+            </dt>
+            <dd
+              data-testid="pos-change"
+              className="mt-1 border-t border-border pt-2 ps-6 text-start text-base font-semibold tabular text-success"
+            >
+              <Money rial={change} digits="latin" withUnit unitPlacement="block" />
             </dd>
-          </div>
+          </>
         )}
-      </dl>
+      </MoneyLadder>
 
       {due > 0 && !hasParty && (
         <p className="rounded-control border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
+import { MoneyLadder, MoneyRow } from '@/components/domain/money-ladder';
 import { Num } from '@/components/domain/num';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { Button } from '@/components/ui/button';
@@ -289,7 +290,12 @@ export default function PosIndex({
     <AppShell
       title={invoice ? 'ادامه فاکتور پیش‌نویس' : 'فروش'}
       actions={
-        <div className="flex items-center gap-2">
+        // `flex-wrap`, which `AppShell`'s own comment already warns about and this page
+        // then re-created: the shell's row wraps, but a group inside it that does not
+        // wrap runs straight off the edge. Three buttons here came to 411px inside a
+        // 375px viewport and pushed the whole till sideways — on the screen a shop uses
+        // most, and the one the smoke suite does not cover.
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
@@ -379,7 +385,9 @@ export default function PosIndex({
                     <th scope="col" className="w-28 p-2 text-start font-medium">
                       تخفیف
                     </th>
-                    <th scope="col" className="w-32 p-2 text-end font-medium">
+                    {/* `text-start` — physical right in RTL, where Latin numerals must
+                        align so their units digits line up down the column. */}
+                    <th scope="col" className="w-32 p-2 text-start font-medium">
                       جمع
                     </th>
                     <th scope="col" className="w-12 p-2">
@@ -417,7 +425,9 @@ export default function PosIndex({
                               aria-label={`تعداد ${line.product_name}`}
                               dir="ltr"
                               inputMode="numeric"
-                              className="tabular h-9"
+                              // 40px, not 36. This is the field somebody changes with a
+                              // customer standing there — the floor applies hardest here.
+                              className="tabular"
                               value={String(line.quantity)}
                               onChange={(event) =>
                                 updateLine(line.key, {
@@ -436,7 +446,6 @@ export default function PosIndex({
                           <MoneyField
                             aria-label={`قیمت ${line.product_name}`}
                             toman={toman}
-                            className="h-9"
                             value={line.unit_price}
                             onChange={(rial) => updateLine(line.key, { unit_price: rial })}
                           />
@@ -446,13 +455,12 @@ export default function PosIndex({
                           <MoneyField
                             aria-label={`تخفیف ${line.product_name}`}
                             toman={toman}
-                            className="h-9"
                             value={line.discount_amount}
                             onChange={(rial) => updateLine(line.key, { discount_amount: rial })}
                           />
                         </td>
 
-                        <td className="p-2 text-end">
+                        <td className="p-2 text-start tabular">
                           <Money rial={computed?.line_total ?? 0} digits="latin" />
                           {line.on_hand !== null && line.quantity > line.on_hand && (
                             <span className="block text-2xs text-warning">بیش از موجودی انبار</span>
@@ -521,7 +529,11 @@ export default function PosIndex({
             </span>
           </label>
 
-          <dl className="space-y-1 rounded-card border border-border p-4 text-sm">
+          {/* One ladder for the whole block, total included: a second `<dl>` would derive a
+              second figure axis, and the payable amount is the rung every other one adds up
+              to. `withUnit` stays off the rungs — the fixed `9ch` track cannot hold a
+              nine-digit figure plus «تومان», which is 98px of content. */}
+          <MoneyLadder className="rounded-card border border-border p-4 text-sm">
             <Row label="جمع کالاها" rial={totals.subtotal} />
             {invoiceDiscount > 0 && <Row label="تخفیف فاکتور" rial={-invoiceDiscount} />}
             {totals.vat_amount > 0 && <Row label="مالیات" rial={totals.vat_amount} />}
@@ -530,13 +542,26 @@ export default function PosIndex({
               <Row label="گرد کردن" rial={totals.rounding_adjustment} />
             )}
 
-            <div className="flex items-baseline justify-between border-t border-border pt-2 text-lg font-semibold">
-              <dt>مبلغ قابل پرداخت</dt>
-              <dd data-testid="pos-total">
-                <Money rial={totals.total} digits="latin" withUnit />
-              </dd>
-            </div>
-          </dl>
+            <dt className="mt-1 border-t border-border pt-3 text-base font-semibold text-foreground">
+              مبلغ قابل پرداخت
+            </dt>
+            <dd
+              className="mt-1 border-t border-border pt-3 ps-6 text-start text-base font-semibold tabular"
+              data-testid="pos-total"
+            >
+              {/*
+                `unitPlacement="block"` rather than dropping the unit.
+
+                Laddering these totals cost the payable amount its «تومان» on the first
+                pass, which is the one figure on this screen a cashier says out loud to the
+                person in front of them — a bare number is the wrong thing to read back.
+                Inline it does not fit: the track is a fixed `9ch` and a nine-digit figure
+                plus its unit is 98px. On its own line it fits, which is exactly the case
+                `<Money>`'s docblock describes.
+              */}
+              <Money rial={totals.total} digits="latin" withUnit unitPlacement="block" />
+            </dd>
+          </MoneyLadder>
 
           {/* Sits with the payments, not the discounts: a trade-in is a tender. */}
           <TradeInBox
@@ -588,13 +613,12 @@ export default function PosIndex({
  * and a reader adds them downwards.
  */
 function Row({ label, rial }: { label: string; rial: number }) {
+  // `MoneyRow` renders the two grid cells; the ladder around it owns the axis. This was
+  // `flex justify-between`, which gives every figure its own right edge — the defect
+  // measured at 99px of scatter on the invoice summary, here on the totals a shopkeeper
+  // reads out loud to the person standing in front of them.
   return (
-    <div className="flex items-baseline justify-between">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn(rial < 0 && 'text-muted-foreground')}>
-        <Money rial={rial} digits="latin" />
-      </dd>
-    </div>
+    <MoneyRow label={label} rial={rial} tone={rial < 0 ? 'text-muted-foreground' : undefined} />
   );
 }
 
