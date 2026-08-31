@@ -2937,3 +2937,56 @@ something that looks like a load failure. Worth re-checking against a shop with 
 same-day traffic.
 
 One PR, all five checks green: `#87`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 6 (part): the financial family, and two deferrals that paid
+
+Two PRs. The family's four raw tables are gone and the two components Phase 3 declined to
+build got their second consumer one phase later, which is the outcome that argument was
+betting on.
+
+**The alignment was wrong on the screens that can least afford it.** The day-close, the
+account statement and the cheque list all set their money columns `text-end` — physical
+*left* under `dir="rtl"`, which lines up the most-significant digits and leaves the units
+ragged. A day-close is a shop reading a column against a bank's; a cheque list is a shop
+looking for the row that matches a number on a piece of paper. `DataTable`'s `numeric` flag
+carries the fix and the reasoning; these three were hand-rolled and never got it.
+
+**`DataTable.footer` and `MoneyLadder` were built here rather than in Phase 3**, and the
+reason is worth keeping: in Phase 3 each had exactly one candidate, and the system's rule is
+that extraction follows repetition rather than a plan. The day-close supplied the second of
+each — a totals row, and a profit-and-loss block that was `flex justify-between`, which is
+the 99px-of-scatter defect measured on the invoice summary, on the one screen whose entire
+job is arithmetic somebody checks by eye. `invoice/summary.tsx` moved onto the shared ladder
+in the same change, so it is an extraction and not a copy.
+
+`footer` renders **per column** rather than taking a `ReactNode`, so «جمع» cannot drift out
+from under the figures it totals when somebody reorders the headings. Unreconciled gets no
+total: a sum of per-account exposure would read as a figure the shop owes somebody.
+
+**Two things the browser found.** Putting `withUnit` on a ladder rung pushed the page 13px
+sideways at 375 — «۸٬۶۶۸٬۰۰۰ تومان» is 98px in a fixed `9ch` track, which is why the invoice
+ladder keeps its unit outside. And two cards side by side were counting in different digit
+systems: the P&L ladder rendered `12,000` while the expense breakdown beside it rendered
+«۱۲٬۰۰۰», because one used the tenant's prose setting and the other the Latin tabular figures
+rule 4 gives columns.
+
+**The last native `<select>` is gone.** `h-8`, under the floor, and rendering the platform's
+own dropdown — which on Android ignores the app's theme entirely: a white system list over a
+black page.
+
+**The gate caught me.** Adding error regions to Cheques and Collections made
+`bin/check-form-errors` fail — not on a new violation but on its other direction: two files
+gained a region while still listed as unprotected, and it refused the build until the lines
+were deleted. That is the half of the ratchet that stops a baseline becoming a list nobody
+empties, and it fired on my own work two phases after I wrote it. **37 → 35.**
+
+Cheques also rendered **one error key out of seven**: `ChequeController::act()` validates
+seven and the page placed `cheque`, so a row action refused on any of the others was a 302
+and a row that did not move — on a screen whose buttons are «به بانک» and «برگشت خورد».
+
+Still open in this family: billing index and receipt (the receipt bypasses `PrintLayout`),
+and the installment plan screens.
+
+Two PRs, all five checks green on each: `#89`, `#90`.
