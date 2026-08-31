@@ -1,8 +1,9 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { CheckIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Money } from '@/components/domain/money';
+import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
@@ -60,21 +61,24 @@ export default function AccountStatementPage({
     );
 
   return (
-    <AppShell>
+    <AppShell
+      header={
+        /* «بازگشت» was an outline button sitting beside the page's real actions, which
+           made "where I came from" compete with "what I can do here". As a back link it
+           reads as the former, above the title, where it belongs. */
+        <PageHeader
+          eyebrow="گردش حساب"
+          title={account.name}
+          back={{ href: '/treasury', label: 'خزانه‌داری' }}
+          meta={
+            <p className="text-sm text-muted-foreground">
+              مانده: <Money rial={closing.value} withUnit />
+            </p>
+          }
+        />
+      }
+    >
       <Head title={`گردش ${account.name}`} />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{account.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            مانده: <Money rial={closing.value} withUnit />
-          </p>
-        </div>
-
-        <Button variant="outline" asChild>
-          <Link href="/treasury">بازگشت</Link>
-        </Button>
-      </div>
 
       {errors.reconcile && (
         <p

@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { BanIcon, CheckCircle2Icon, WalletIcon, XCircleIcon } from 'lucide-react';
 
 import { Money } from '@/components/domain/money';
+import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
@@ -52,22 +53,25 @@ const STATUS: Record<string, { label: string; className: string }> = {
  */
 export default function MessagingIndex({ balance, status, counts, messages }: Props) {
   return (
-    <AppShell>
+    <AppShell
+      header={
+        <PageHeader
+          title="پیامک‌ها"
+          actions={
+            <div className="flex items-center gap-2 rounded-card border border-border px-3 py-2">
+              <WalletIcon className="size-4 text-muted-foreground" aria-hidden />
+              <span className="text-sm text-muted-foreground">اعتبار پیامک</span>
+              <span className="font-semibold">
+                <Money rial={balance.value} withUnit />
+              </span>
+            </div>
+          }
+        />
+      }
+    >
       <Head title="پیامک‌ها" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">پیامک‌ها</h1>
-
-        <div className="flex items-center gap-2 rounded-card border border-border px-3 py-2">
-          <WalletIcon className="size-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm text-muted-foreground">اعتبار پیامک</span>
-          <span className="font-semibold">
-            <Money rial={balance.value} withUnit />
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         <Filter current={status} value="" label={`همه (${messages.total})`} />
         <Filter
           current={status}

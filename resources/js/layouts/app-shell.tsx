@@ -18,12 +18,34 @@ import { NAVIGATION } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
 
-interface AppShellProps {
-  title?: string;
-  /** Actions rendered at the end of the page header row. */
-  actions?: ReactNode;
+/**
+ * `title` **or** `header`, never both — and the union is what enforces it.
+ *
+ * Thirteen pages currently render a second `<h1>` under the shell's, or skip `title` and
+ * hand-roll one. Both come from the same gap: a screen that needs an eyebrow, a
+ * description, a back link or a row of badges has nowhere to put them, so it builds its
+ * own header and the shell's becomes a duplicate.
+ *
+ * `<PageHeader>` is that slot. Written as a discriminated union so passing both is a
+ * compile error rather than a review comment — the one-heading-per-page rule is the sort
+ * that gets broken by people who never read the rule.
+ */
+type AppShellProps = {
   children: ReactNode;
-}
+} & (
+  | {
+      title?: string;
+      /** Actions rendered at the end of the page header row. */
+      actions?: ReactNode;
+      header?: never;
+    }
+  | {
+      /** A `<PageHeader>`. Owns the page's `<h1>`, so the shell renders none. */
+      header: ReactNode;
+      title?: never;
+      actions?: never;
+    }
+);
 
 /**
  * The tenant panel frame.
@@ -33,7 +55,7 @@ interface AppShellProps {
  * thumb land. Everything positional here is logical (border-s, ms-, start-), so the
  * same markup would mirror correctly if a Latin locale were ever added.
  */
-export function AppShell({ title, actions, children }: AppShellProps) {
+export function AppShell({ title, actions, header, children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
@@ -118,7 +140,11 @@ export function AppShell({ title, actions, children }: AppShellProps) {
           data-print-root
           className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14"
         >
-          {(title || actions) && (
+          {/* A page-supplied header owns the `<h1>`; the shell's own row is skipped
+              entirely rather than rendered empty. */}
+          {header}
+
+          {!header && (title || actions) && (
             <div className="no-print mb-10 flex flex-wrap items-center justify-between gap-4">
               {/*
                 The page title is chrome, not content, and its size has to leave room

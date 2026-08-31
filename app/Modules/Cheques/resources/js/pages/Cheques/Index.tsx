@@ -3,6 +3,7 @@ import { AlertTriangleIcon, CalendarClockIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Money } from '@/components/domain/money';
+import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { RegisterForm } from './RegisterForm';
@@ -68,23 +69,26 @@ export default function ChequesIndex({
   };
 
   return (
-    <AppShell>
+    <AppShell
+      header={
+        <PageHeader
+          title="چک‌ها"
+          actions={
+            <>
+              <Button variant={direction === 'received' ? 'default' : 'outline'} asChild>
+                <Link href="/cheques?direction=received">دریافتی</Link>
+              </Button>
+              <Button variant={direction === 'issued' ? 'default' : 'outline'} asChild>
+                <Link href="/cheques?direction=issued">پرداختی</Link>
+              </Button>
+            </>
+          }
+        />
+      }
+    >
       <Head title="چک‌ها" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">چک‌ها</h1>
-
-        <div className="flex gap-2">
-          <Button variant={direction === 'received' ? 'default' : 'outline'} asChild>
-            <Link href="/cheques?direction=received">دریافتی</Link>
-          </Button>
-          <Button variant={direction === 'issued' ? 'default' : 'outline'} asChild>
-            <Link href="/cheques?direction=issued">پرداختی</Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-4">
+      <div>
         <RegisterForm direction={direction} accounts={accounts} errors={errors} />
       </div>
 

@@ -11,6 +11,7 @@ import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
+import { PageHeader } from '@/components/domain/page-header';
 import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
@@ -100,6 +101,7 @@ export default function DesignGallery() {
         <StatusSection />
         <ButtonSection alt />
         <CardSection />
+        <PageHeaderSection alt />
         <FormSection />
         <OverlaySection alt />
         <TableSection />
@@ -681,6 +683,80 @@ function CardSection({ alt }: { alt?: boolean }) {
           هشدارهای رنگی (خطا، اخطار) کارت نیستند؛ آن‌ها اعلان‌اند و رنگ زمینه و حاشیه‌شان معنا دارد.
           تا وقتی کامپوننت جدایی برایشان ساخته نشده، همان‌طور که هستند می‌مانند — افزودن prop رنگ به
           این کامپوننت، آن را به دو کار وامی‌دارد.
+        </p>
+      </Row>
+    </Section>
+  );
+}
+
+/**
+ * PageHeader — the slot thirteen pages went around because it did not exist.
+ *
+ * Five passed `AppShell` no `title` at all and hand-rolled an `<h1>`; eight passed a title
+ * and rendered a second one. Both are the same missing thing: nowhere to put an eyebrow, a
+ * description, a back link or a row of badges, so a page builds its own header and the
+ * shell's becomes a duplicate.
+ *
+ * Rendered here in a bordered box rather than bare, because a page header's whole job is
+ * its relationship to the edges of the content column, and a specimen floating in a
+ * gallery row shows none of that.
+ */
+function PageHeaderSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="PageHeader"
+      note="عنوان صفحه، به‌علاوهٔ آنچه AppShell جا نداشت: پیش‌عنوان، توضیح، بازگشت و ردیف وضعیت. هر صفحه دقیقاً یک h1 — نوع AppShell این را اجبار می‌کند."
+    >
+      <Row label="کمینه">
+        <div className="w-full rounded-card border border-border p-6">
+          <PageHeader title="چک‌ها" headingLevel="h2" className="mb-0" />
+        </div>
+      </Row>
+
+      <Row label="با اقدام">
+        <div className="w-full rounded-card border border-border p-6">
+          <PageHeader
+            title="فروش و صندوق"
+            headingLevel="h2"
+            actions={
+              <>
+                <Button variant="outline">خروجی</Button>
+                <Button>فروش جدید</Button>
+              </>
+            }
+            className="mb-0"
+          />
+        </div>
+      </Row>
+
+      <Row label="کامل">
+        <div className="w-full rounded-card border border-border p-6">
+          <PageHeader
+            eyebrow="گردش حساب"
+            title="بانک ملت — جاری اصلی"
+            headingLevel="h2"
+            description="هر ورود و خروج پول این حساب، از قدیمی‌ترین به تازه‌ترین."
+            back={{ href: '#page-header-demo', label: 'خزانه‌داری' }}
+            meta={
+              <>
+                <StatusBadge status="active" />
+                <span className="text-sm text-muted-foreground">
+                  مانده: <Money rial={128_400_000} withUnit />
+                </span>
+              </>
+            }
+            actions={<Button variant="outline">مغایرت‌گیری</Button>}
+            className="mb-0"
+          />
+        </div>
+      </Row>
+
+      <Row label="قرارداد">
+        <p className="max-w-xl text-2xs text-muted-foreground">
+          <code className="ltr-value">AppShell</code> یا <code className="ltr-value">title</code>{' '}
+          می‌گیرد یا <code className="ltr-value">header</code> — نه هر دو. این یک union است، پس دادن
+          همزمانشان خطای کامپایل می‌دهد، نه یادداشت در بازبینی کد.
         </p>
       </Row>
     </Section>

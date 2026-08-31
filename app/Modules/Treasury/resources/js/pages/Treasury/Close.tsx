@@ -1,8 +1,8 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { CalendarIcon } from 'lucide-react';
 
 import { Money } from '@/components/domain/money';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -51,22 +51,21 @@ interface Props {
  */
 export default function TreasuryClose({ date, accounts, totals, pnl }: Props) {
   return (
-    <AppShell>
+    <AppShell
+      header={
+        <PageHeader
+          title="بستن روز"
+          back={{ href: '/treasury', label: 'خزانه‌داری' }}
+          meta={
+            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+              <CalendarIcon className="size-4" aria-hidden />
+              {formatJalali(date)}
+            </p>
+          }
+        />
+      }
+    >
       <Head title={`بستن روز ${formatJalali(date)}`} />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">بستن روز</h1>
-          <p className="flex items-center gap-1 text-sm text-muted-foreground">
-            <CalendarIcon className="size-4" aria-hidden />
-            {formatJalali(date)}
-          </p>
-        </div>
-
-        <Button variant="outline" asChild>
-          <Link href="/treasury">بازگشت به خزانه</Link>
-        </Button>
-      </div>
 
       <section className="mt-6 space-y-2">
         <h2 className="text-sm font-semibold">حساب‌ها</h2>
