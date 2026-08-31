@@ -7,7 +7,14 @@
     resources/js/components/ui/* (design-system rule 2).
 --}}
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="rtl" class="@if(request()->cookie('theme') === 'dark') dark @endif">
+{{--
+    No theme class is rendered here. Nothing in this application has ever written a
+    `theme` cookie, so the `@if(request()->cookie('theme') === 'dark')` that used to sit
+    on this tag could never be true — it was dead code that read like the mechanism, next
+    to the script below that actually is it. The theme is decided client-side, from
+    localStorage, before first paint.
+--}}
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="rtl">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,9 +22,22 @@
 
     <title inertia>{{ config('app.name', 'سامانه همیار') }}</title>
 
-    {{-- Matches the light/dark ground so a theme switch does not flash white. --}}
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F9FB">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A1420">
+    {{--
+        The browser chrome, painted to match the page ground.
+
+        These were `#F7F9FB` and `#0A1420`, which are not colours this design system has:
+        they are leftovers from a palette that predates ADR 0008. `--color-canvas` is
+        `#ffffff` and the dark `--background` is `#000000`, so on a phone the address bar
+        sat a visible step away from the page it was framing — a near-white bar above a
+        white page, and a navy bar above a black one.
+
+        Kept as literals deliberately: `<meta>` takes no `var()`, and the alternative is
+        inlining the stylesheet's values from PHP, which is a second source of truth for
+        the same two colours. If the ground changes, these change with it — the comment
+        beside the tokens in `app.css` says so.
+    --}}
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 
     {{--
         Applies the stored theme before first paint. Without this the page renders

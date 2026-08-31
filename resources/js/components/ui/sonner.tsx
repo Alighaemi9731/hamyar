@@ -1,19 +1,29 @@
-import { useTheme } from 'next-themes';
-import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import {
   CircleCheckIcon,
   InfoIcon,
-  TriangleAlertIcon,
-  OctagonXIcon,
   Loader2Icon,
+  OctagonXIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
+import { Toaster as Sonner, type ToasterProps } from 'sonner';
+
+import { useTheme } from '@/hooks/use-theme';
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme();
+  /*
+    The app's theme, not the operating system's.
+
+    This read `useTheme()` from `next-themes` with no `ThemeProvider` mounted anywhere,
+    which returns an object with no `theme` key — so the `= 'system'` default won every
+    render, and sonner treats `'system'` as "read `prefers-color-scheme`". On a light-OS
+    phone with Hamyar switched to dark, the page went black and the toasts stayed white.
+    See `use-theme.ts` for why the cure is one authority rather than a second provider.
+  */
+  const theme = useTheme();
 
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

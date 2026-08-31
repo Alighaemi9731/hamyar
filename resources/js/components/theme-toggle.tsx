@@ -1,43 +1,28 @@
 import { MoonIcon, SunIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-
-const STORAGE_KEY = 'hamyar.theme';
+import { setTheme, useTheme } from '@/hooks/use-theme';
 
 /**
  * Light/dark switch.
  *
- * The initial class is applied by an inline script in app.blade.php before first
- * paint; this component only keeps React's idea of the theme in sync with the DOM
- * so the icon is right. Re-deriving it here would cause a flash on every page load.
+ * The initial class is applied by an inline script in `app.blade.php` before first paint;
+ * this component only flips it. Re-deriving the theme here would cause a flash on every
+ * page load.
+ *
+ * It reads through `useTheme()` rather than keeping its own `useState` copy, because it was
+ * not the only thing that needed to know: the toaster does too, and a private copy is why
+ * the two disagreed. One authority — the class on `<html>` — and everything reads it.
  */
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'));
-  }, []);
-
-  function toggle() {
-    const next = !dark;
-
-    document.documentElement.classList.toggle('dark', next);
-
-    try {
-      localStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light');
-    } catch {
-      // Private browsing: the theme just will not persist across reloads.
-    }
-
-    setDark(next);
-  }
+  const theme = useTheme();
+  const dark = theme === 'dark';
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={toggle}
+      onClick={() => setTheme(dark ? 'light' : 'dark')}
       aria-label={dark ? 'حالت روشن' : 'حالت تیره'}
       title={dark ? 'حالت روشن' : 'حالت تیره'}
     >
