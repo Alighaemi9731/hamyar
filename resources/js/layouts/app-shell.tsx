@@ -8,6 +8,7 @@ import { AnnouncementBanner } from '@/components/domain/announcement-banner';
 import { QuotaBlock } from '@/components/domain/quota-block';
 import { UsageBanner } from '@/components/domain/usage-banner';
 import { BranchSwitcher } from '@/components/domain/branch-switcher';
+import { UserMenu } from '@/components/domain/user-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ export function AppShell({ title, actions, children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
-  const { flash, features, tenant, location, branch, usage, quota_block: quotaBlock } = props;
+  const { auth, flash, features, tenant, location, branch, usage, quota_block: quotaBlock } = props;
 
   // Flash messages arrive as props on the next visit; surfacing them as toasts keeps
   // every module from having to render its own alert bar.
@@ -48,6 +49,21 @@ export function AppShell({ title, actions, children }: AppShellProps) {
 
   return (
     <div className="flex min-h-dvh bg-background">
+      {/*
+        First focusable thing in the document, and invisible until it is focused.
+
+        Every screen puts eighteen navigation links between the top of the page and the
+        content, and a keyboard user had to walk all of them on every visit. The landing
+        page has had one of these since it shipped; the application a shopkeeper uses all
+        day did not.
+      */}
+      <a
+        href="#main"
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:start-3 focus-visible:z-toast focus-visible:inline-flex focus-visible:min-h-10 focus-visible:items-center focus-visible:rounded-pill focus-visible:bg-primary focus-visible:px-4 focus-visible:text-sm focus-visible:text-primary-foreground"
+      >
+        پرش به محتوا
+      </a>
+
       {/* Chrome, not content: `no-print` keeps the sidebar, topbar and toasts off
           paper, so a print layout inside the shell prints only its sheet. */}
       <aside className="glass no-print sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
@@ -90,10 +106,17 @@ export function AppShell({ title, actions, children }: AppShellProps) {
             {/* Renders nothing for a single-branch shop, which is almost every shop. */}
             <BranchSwitcher branch={branch} />
             <ThemeToggle />
+            {/*
+              The way out. `POST /logout` has existed since authentication did and nothing
+              in the interface has ever pointed at it — a shopkeeper could sign in and could
+              not sign out, on what is often a shared counter device.
+            */}
+            {auth.user && <UserMenu user={auth.user} />}
           </div>
         </header>
 
         <main
+          id="main"
           data-print-root
           className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14"
         >
