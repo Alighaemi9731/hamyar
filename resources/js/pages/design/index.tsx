@@ -7,6 +7,7 @@ import { BarChart } from '@/components/domain/bar-chart';
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar } from '@/components/domain/filter-bar';
 import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
@@ -102,6 +103,7 @@ export default function DesignGallery() {
         <ButtonSection alt />
         <CardSection />
         <PageHeaderSection alt />
+        <FilterBarSection />
         <FormSection />
         <OverlaySection alt />
         <TableSection />
@@ -758,6 +760,90 @@ function PageHeaderSection({ alt }: { alt?: boolean }) {
           می‌گیرد یا <code className="ltr-value">header</code> — نه هر دو. این یک union است، پس دادن
           همزمانشان خطای کامپایل می‌دهد، نه یادداشت در بازبینی کد.
         </p>
+      </Row>
+    </Section>
+  );
+}
+
+/**
+ * FilterBar — the search-and-chips row twelve list pages each wrote for themselves.
+ *
+ * Driven by local state here rather than by Inertia, so the gallery can show the filtered
+ * and unfiltered states without a database behind it — the same reason the pickers take a
+ * `search` function rather than a URL.
+ */
+function FilterBarSection({ alt }: { alt?: boolean }) {
+  const [filters, setFilters] = useState<{ q: string; status: string | null }>({
+    q: '',
+    status: null,
+  });
+
+  const rows = filters.status === null ? 42 : filters.status === 'final' ? 31 : 11;
+
+  return (
+    <Section
+      alt={alt}
+      title="FilterBar"
+      note="جستجوی تأخیردار، چیپ‌های وضعیت، پاک‌کردن و شمارش نتیجه — یک‌جا. زیر md فیلترها به یک شیت می‌روند."
+    >
+      <Row label="پیش‌فرض">
+        <div className="w-full">
+          <FilterBar
+            search={{
+              value: filters.q,
+              label: 'جستجوی فاکتور',
+              placeholder: 'شماره فاکتور، نام مشتری یا IMEI…',
+            }}
+            groups={[
+              {
+                key: 'status',
+                label: 'وضعیت فاکتور',
+                value: filters.status,
+                options: [
+                  { value: 'draft', label: 'پیش‌نویس' },
+                  { value: 'final', label: 'نهایی' },
+                  { value: 'void', label: 'ابطال‌شده' },
+                ],
+              },
+            ]}
+            onChange={(changes) =>
+              setFilters((current) => ({
+                q: changes.q !== undefined ? (changes.q ?? '') : current.q,
+                status: changes.status !== undefined ? changes.status : current.status,
+              }))
+            }
+            resultCount={rows}
+            resultUnit="فاکتور"
+          />
+        </div>
+      </Row>
+
+      <Row label="فقط جستجو">
+        <div className="w-full">
+          <FilterBar
+            search={{ value: '', label: 'جستجوی کالا', placeholder: 'نام یا بارکد کالا…' }}
+            onChange={() => {}}
+          />
+        </div>
+      </Row>
+
+      <Row label="نکته‌ها">
+        <ul className="max-w-xl list-disc space-y-1 pe-4 text-2xs text-muted-foreground">
+          <li>چیپ‌ها ۴۰ پیکسل‌اند، نه ۲۸. فیلتر وضعیت اغلب تنها راه باریک‌کردن فهرست است.</li>
+          <li>
+            هر چیپ <code className="ltr-value">aria-pressed</code> دارد؛ رنگ به‌تنهایی وضعیت را
+            نمی‌گوید.
+          </li>
+          <li>
+            شمارش نتیجه <code className="ltr-value">aria-live=&quot;polite&quot;</code> است — تغییر
+            فهرست باید شنیده شود، نه فقط دیده.
+          </li>
+          <li>
+            <code className="ltr-value">withoutEmpty()</code> را در visit صفحه استفاده کنید، وگرنه
+            پاک‌کردن فیلتر آدرس را به <code className="ltr-value">?q=&amp;status=</code> تبدیل
+            می‌کند.
+          </li>
+        </ul>
       </Row>
     </Section>
   );

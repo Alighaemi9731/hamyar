@@ -71,6 +71,9 @@ hover surface.
    primary action is the only `brand`-filled button per view; Enter submits in POS
    screens. Compact density token on POS/table-heavy screens.
 8. Accessibility floor: visible focus ring, AA contrast, touch targets ≥ 40px,
+   **40px means 40px** — `sm`/`xs` are not a licence to go under it (settled 2026-08-31).
+   Use them only for controls nobody taps. Inline links in prose are exempt, per WCAG
+   2.5.8. A 16px checkbox inside a 40px label is correct: the target need not be the box.
    `prefers-reduced-motion` respected on every animation. Every token pair in the
    system has a measured contrast ratio — do not introduce one that has not been
    checked.
