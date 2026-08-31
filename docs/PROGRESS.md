@@ -2990,3 +2990,48 @@ Still open in this family: billing index and receipt (the receipt bypasses `Prin
 and the installment plan screens.
 
 Two PRs, all five checks green on each: `#89`, `#90`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 6 (rest): billing, and a page I judged by reading
+
+One PR, and the clearest reminder yet that reading a file is not looking at a screen.
+
+**The receipt was the last printable surface outside `PrintLayout`.** It hand-rolled
+`print:hidden` and a bare `window.print()`, so it had no `@page` — it printed on whatever
+paper the browser defaulted to — and no light island. `app.css` restores every semantic token
+to its `-on-light` step inside `[data-paper]` because a sheet is white paper inside a
+possibly-dark document; without it, a shop working in dark mode got a receipt whose
+«تسویه‌شده» badge was `#4CC47F` on white — 2.2:1, effectively invisible — on the one page they
+keep as proof of payment. Measured after, in both themes: sheet `rgb(255,255,255)`, badge
+`rgb(15,123,63)`.
+
+**I said the billing index was sound, from reading it.** The table *was* sound: its money
+column has no alignment class, which under `dir="rtl"` resolves to `start` — physical right —
+so the units already line up. The pricing grid beside it overflowed the page at every width
+looked at: 392px in 375, 868 in 768, 1305 in 1280.
+
+Three compounding causes, none visible in the source without measuring:
+
+1. No `min-w-0` on the cards. A grid track is `minmax(auto, max-content)` and `auto`'s floor
+   is *min-content*, so a card that would not compress below 328px made its track 376px wide
+   inside a 375px viewport.
+2. The price was `text-3xl` — 56px, the hero step, on one of three cards in a row.
+   «۱٬۱۹۰٬۰۰۰ تومان» came to 326px in a 218px track.
+3. The grid went three-up at `md`.
+
+**The third is the trap the treasury summary already wrote down, and it has now bitten
+twice:** the sidebar appears at `lg`, so the content column is *narrower* at 1024 than at 768.
+Three tracks at `lg` are 208px. The rule that generalises — **a multi-column band inside the
+shell splits at `xl`, not `lg`** — is worth treating as a standing rule rather than a note on
+one component.
+
+**The lesson to keep:** a page that reads correctly can still be broken, and the only way to
+know is to put a number on it. Every phase so far has found something this way; this is the
+first where I had already announced the opposite.
+
+Also fabricated a subscription invoice to view the receipt at all — the demo tenant has none —
+got the `lines` JSON shape wrong, hit a real domain invariant («Amount 1 rial is not a whole
+number of toman»), fixed the fixture rather than the code, and deleted the row afterwards.
+
+One PR, all five checks green: `#93`.
