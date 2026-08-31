@@ -2893,3 +2893,47 @@ round trips this phase — one on a test file's `fresh()` returning `static|null
 narrowing an inherited method's visibility.
 
 Two PRs, all five checks green on each: `#84`, `#85`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 5: the dashboard, under a hard constraint
+
+One PR, and the only phase so far with a number it was not allowed to move.
+
+`/dashboard` already fails its performance budget **at zero concurrency** — 1.3s warm against
+a 1000ms threshold (`docs/load-tests/2026-08-20.md`, §7). So the redesign was allowed no new
+queries and no new client work, and the honest proof of that is the diff: one `.tsx` file,
+zero PHP. The query guard (`< 60`) and the 300ms report-latency budget both still pass.
+
+It ended up *removing* client work. The page carried a local `count()` helper converting
+digits by hand because `StatCard`'s hint is a string; with the tiles gone every number goes
+through `<Num>`, which reads the tenant's digit setting itself, so the helper,
+`useTenantSettings` and `toPersianDigits` all left the file.
+
+**The composition problem.** Nine boxes, all the same size: four `StatCard`s, a chart, and
+five more cards. Two of the four tiles were not about today at all, so "how did we do today"
+and "what is late" were interleaved and neither read first.
+
+Now two bands. Takings are the anchor — one figure at 40px, with the invoice count and
+today's profit under it as facts *about* it rather than beside it as rivals — and the
+thirty-day chart sits in the same band, because a day's takings only mean something against
+the month they sit in. Then everything late in one ranked list.
+
+That list is **ordered, not sorted**. Two of its four rows have no amount: an uncollected
+device and an out-of-stock line are counts, and ranking a count against a sum is arithmetic
+dressed as priority. The order is stated instead — money late outranks goods stuck, because
+money late may never arrive.
+
+**Two defects the browser found and reading would not have.** The chart had two titles: the
+heading above it and `BarChart`'s own readout row said almost the same words, at the same
+size, one directly over the other. And the anchor was losing to the chart — at
+`minmax(0,20rem)` the figure sat in a narrow column of whitespace while the thirty-day total
+read as the louder number.
+
+**One thing worth watching:** on a day with no sales the anchor is a lone «۰», which reads
+thin. It is honest, the supporting line says «هنوز فاکتوری ثبت نشده است», and the design
+system's own position is that zero keeps full ink weight rather than being muted into
+something that looks like a load failure. Worth re-checking against a shop with real
+same-day traffic.
+
+One PR, all five checks green: `#87`.
