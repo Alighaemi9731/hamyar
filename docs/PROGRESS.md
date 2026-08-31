@@ -3077,3 +3077,64 @@ the floor decision and the two cannot both hold.
 Still open in Phase 7: Repairs intake, deliver, board and ticket detail, and Returns/Create.
 
 One PR, all five checks green: `#95`.
+
+## 1404-06-10 (2026-09-01) — Returns, and the two repairs screens with money on them
+
+**The return form 500'd on ordinary data (`#97`).** `/sales/invoices/{id}/returns/create`
+divided a line's total by its quantity in rial and handed the result to `Money::toArray()`,
+which refuses a figure that is not a whole toman rather than silently rounding money. A
+line of two at 10,652,010 rial — a perfectly ordinary discounted line — divides to
+5,326,005, and the whole screen died. Every existing test missed it because every fixture
+divided cleanly; the new one does not, and it was proved by reverting the fix and watching
+it fail with the exact production exception.
+
+The per-unit share **ceils**. ADR 0009's amendment sets the direction and I had it backwards
+in my own question first: rounding goes the way that does not flatter the party doing it, so
+VAT floors because the shop charges it and a refund ceils because the shop pays it. Ceiling
+alone would over-refund a whole line, so a whole line is priced at its exact `line_total`
+and only a partial return uses the rounded unit.
+
+**The two repairs money screens (`#98`).** The demo tenant had **zero repair tickets**, so
+`/repairs` had only ever been seen empty and `/repairs/tickets/{id}/deliver` had never been
+rendered at all. Seeding one through the app's own services — intake, a consumed part, an
+approved quote, a prepayment — turned up three defects that only exist with data:
+
+- **`approved_amount` was on the wire and rendered nowhere.** The entire quote-approval
+  flow exists so a shop does not bill past what the customer agreed to, and Deliver is
+  where the bill is decided. The check was living in somebody's memory. It now names the
+  figure and warns when the bill passes it — a warning, not a block, because a customer can
+  approve more by phone and a block would strand a repaired device behind a screen.
+- **The submit button sat 144px to the side of its own form.** `fixed inset-x-0` centres on
+  the viewport; the form centres in the content column beside a 288px sidebar. Measured, not
+  guessed. `sticky` inside the form aligns by construction.
+- **The settlement never showed the sum of the bill, nor the payments being entered** — so
+  typing a payment made the amount due drop with no row accounting for it.
+
+Ticket detail's checklist was a `<table>` with no `<thead>`: three unlabelled cells per row,
+on the record that settles «صفحه از قبل شکسته بود» three weeks later.
+
+**My own regression test was flaky, and the reason is a real finding.** It asserted on
+`items.1.unit_refund.value`. `SalesInvoice::items()` is a plain `hasMany` with **no
+`orderBy`**, so the order lines come back in is whatever Postgres finds convenient — and
+rewriting a row, which the test's own `forceFill` does, is exactly what moves one. It
+passed locally and on its own PR, then failed in CI against the phone at 60,000,000 rial.
+The test now finds its line by quantity and never by index.
+
+The underlying looseness is left alone deliberately: **invoice line order is undefined
+across the whole Sales module**, so lines can appear in a different order between two views
+of the same invoice, print included. Adding `->orderBy('id')` would fix it in one line, and
+it would also change the line order of every invoice already printed. That is a product
+decision, not a redesign one — flagged for the owner, not taken.
+
+**A note worth keeping: `composer` is not installed on this laptop**, so `composer guards`
+had been exiting "command not found" with empty output, which reads exactly like a pass. The
+guards do run in CI on every PR, so nothing merged unchecked — but locally they must be run
+as `php bin/<guard>`.
+
+The recurring lesson, a fourth time: **read is not the same as looked at**, and the defect is
+never in the part being redesigned. I came to Deliver for its money rows and found the
+primary action in the wrong place and the approved figure missing entirely.
+
+Still open in Phase 7: Repairs board, index and intake — the second repairs PR.
+
+Two PRs, all five checks green: `#97`, `#98`.

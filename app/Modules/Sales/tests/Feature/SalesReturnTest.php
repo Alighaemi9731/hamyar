@@ -341,14 +341,37 @@ it('opens the return form for a line whose per-unit share is not a whole toman',
     $this->actingAs($this->owner)
         ->get($this->url.'/sales/invoices/'.$invoice->id.'/returns/create')
         ->assertSuccessful()
-        ->assertInertia(fn ($page) => $page
+        ->assertInertia(function ($page): void {
+            /*
+            | Found by quantity, never by index.
+            |
+            | `SalesInvoice::items()` is a plain `hasMany` with no `orderBy`, so the order
+            | rows come back in is whatever Postgres finds convenient — and rewriting a row,
+            | which the `forceFill` above does, is exactly the thing that moves it. This
+            | assertion was written as `items.1` and passed locally and on its own PR before
+            | failing in CI against the phone at 60,000,000 rial.
+            */
+            /** @var list<array<string, mixed>> $items */
+            $items = propsOf($page)['items'];
+
+            $line = null;
+
+            foreach ($items as $item) {
+                if (($item['quantity'] ?? null) === 2) {
+                    $line = $item;
+                }
+            }
+
+            expect($line)->not->toBeNull();
+
+            /** @var array{unit_refund: array{value: int}, line_total: array{value: int}} $line */
             // Rounded **up** to a whole toman. ADR 0009's amendment fixes the direction: a
             // refund is the shop paying, so rounding down would flatter the shop.
-            ->where('items.1.unit_refund.value', 5_326_010)
-            // The exact figure stays on the wire, because a whole line coming back is
-            // refunded to the rial rather than as quantity x a rounded unit.
-            ->where('items.1.line_total.value', 10_652_010)
-        );
+            expect($line['unit_refund']['value'])->toBe(5_326_010)
+                // The exact figure stays on the wire, because a whole line coming back is
+                // refunded to the rial rather than as quantity x a rounded unit.
+                ->and($line['line_total']['value'])->toBe(10_652_010);
+        });
 });
 
 it('records a return through the form and shows it on the invoice', function (): void {
