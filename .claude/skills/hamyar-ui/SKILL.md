@@ -28,8 +28,9 @@ the structuring, pill actions, hairline borders, very soft shadows.
 | label | #FFD84D | price tags only — tiny highlights, never a fill |
 
 Defined once in `resources/css/app.css` under `@theme`. Radius: pill for actions,
-18px cards, 12px controls. Two soft shadows. Dark mode via CSS vars — never a
-per-component color override.
+18px cards, 12px controls. Three soft shadows — `low` (resting card), `mid` (menu,
+select, popover), `high` (dialog, sheet); never Tailwind's `shadow-md`/`shadow-lg`.
+Dark mode via CSS vars — never a per-component color override.
 
 **Colour carries meaning, not decoration.** Blue = "you can act on this". The semantic
 three = money/work state. Everything else is neutral. There is no second accent; do
@@ -58,8 +59,10 @@ hover surface.
 5. Money is rendered ONLY via `<Money/>` (IRR integer in, formatted out). Dates ONLY
    via Jalali components/helpers. Statuses ONLY via `<StatusBadge/>` (single
    status→color map — never map colors ad hoc in a page).
-6. Layout primitives carry the frame — `AppShell`, `AuthLayout`, `SettingsSection`.
-   Never hand-roll an auth frame or card padding in a page; extend the primitive.
+6. Layout primitives carry the frame — `AppShell`, `AuthLayout`, `SettingsSection`,
+   all built on `<Card>` (`components/ui/card.tsx`), which owns radius, hairline and
+   padding. Never hand-roll an auth frame or card padding in a page; extend the
+   primitive. Toned callouts are notices, not cards — `Card` has no `tone` prop.
    Domain components live in `resources/js/components/domain/` and must be used
    instead of rebuilding: Money, Num, JDatePicker, JDateRange, IMEIInput,
    PartyPicker, UnitPicker, StatusBadge, StatCard, DataTable, EmptyState,
@@ -91,8 +94,16 @@ hover surface.
   device — cutting it undoes the language.
 - Sticky chrome uses the `.glass` class (frosted, `backdrop-filter`). Confined to nav
   and sidebar; it costs GPU on mid-range Android.
-- Motion vocabulary is exactly `.reveal` (fade + rise, 0.5s, 12px) plus
-  `.reveal-delay-1..3`. Nothing else.
+- Motion vocabulary is exactly `.reveal` (fade + rise, 12px) plus `.reveal-delay-1..3`.
+  Nothing else. Durations and easing are tokens — `duration-(--duration-fast|base|slow)`
+  and `ease-(--ease-out)`; never inline a number.
+- z-index comes from `--z-index-*` (`z-sticky`, `z-overlay`, `z-popover`, …). The
+  namespace matters: Tailwind v4 builds `z-` utilities from `--z-index-*`, and the
+  earlier `--z-*` spelling generated no CSS at all while looking correct in the token
+  block. **A defined token is not evidence of a generated class — grep the built CSS.**
+- One theme authority: the `dark` class on `<html>`, set pre-paint in `app.blade.php` and
+  read through `hooks/use-theme.ts`. Never add a theme provider, and never let a component
+  keep its own copy of the theme.
 
 ## Formatting
 

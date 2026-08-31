@@ -137,8 +137,21 @@ contrast checker.
 - Cards 18px (`--radius-card`), controls 12px (`--radius-control`), chips 8px.
 - **Hairline borders** at 8% alpha — a crease, not a rule. That is what keeps a dense
   table from looking like a spreadsheet.
-- Two very soft, near-colourless shadows. Elevation comes from ground contrast and
-  whitespace first; shadow is the last resort.
+- **Three** very soft, near-colourless shadows: `--shadow-low` (a card resting on the
+  page), `--shadow-mid` (a surface that opened over it and will close again — menu,
+  select, popover), `--shadow-high` (a surface that has taken the page — dialog, sheet).
+  Elevation comes from ground contrast and whitespace first; shadow is the last resort.
+- The overlays used **neither** until 2026-08-31: dropdown, select and popover reached for
+  Tailwind's `shadow-md`, the sheet for `shadow-lg`, each bolting on a
+  `ring-1 ring-foreground/10` for an edge. That is a second ramp with different colour and
+  spread running beside the tokens. `--shadow-mid` is the step that was missing, and the
+  rings went with it — the popover's own ground contrast defines its edge, which is what
+  this list says depth should come from.
+- **Surfaces use `<Card>`** (`components/ui/card.tsx`), not hand-rolled classes.
+  `rounded-card` was being spelled twenty-five different ways across 141 sites — three
+  grounds, five padding scales, and `border` beside `border border-border`, which are the
+  same thing. Toned callouts are **not** cards: a notice's colour is its meaning, and a
+  `tone` prop would make `Card` do two jobs.
 
 ### Space and layout
 
@@ -148,7 +161,13 @@ contrast checker.
   undoes the rest.
 - `--density-row` is 44px by default and 36px under `data-density="compact"`, which POS
   and table-heavy screens set. 36px rows are for scanning, never for touch targets.
-- Named z-index tokens (`--z-sticky` … `--z-toast`). Never inline a magic number.
+- Named z-index tokens, and the namespace is load-bearing: **`--z-index-sticky` …
+  `--z-index-toast`**, because Tailwind v4 builds its `z-` utilities from `--z-index-*`.
+  They were declared as `--z-sticky` until 2026-08-31, which generated no CSS at all — so
+  `app-shell.tsx` asked for `z-sticky` on the sticky header from the day it was written and
+  got a class that did not exist, shipping a header with `z-index: auto`. Nothing errors
+  when a utility is absent. **A defined token is not evidence of a generated class; grep the
+  built stylesheet.** Never inline a magic number.
 
 ### Chrome and motion
 
@@ -156,8 +175,14 @@ contrast checker.
   over a translucent ground. The `saturate()` is load-bearing; without it the blur reads
   grey and dead. Confined to the two persistent surfaces, because `backdrop-filter`
   costs GPU on the mid-range Android our users actually carry.
-- `.reveal` — fade + rise, 0.5s, 12px of travel, with `.reveal-delay-1..3` for
-  stagger. That is the entire motion vocabulary. `prefers-reduced-motion` disables it.
+- `.reveal` — fade + rise, 12px of travel, with `.reveal-delay-1..3` for stagger. That is
+  the entire motion vocabulary. `prefers-reduced-motion` disables it.
+- Duration and easing are tokens: `--duration-fast` (100ms, a layer appearing),
+  `--duration-base` (200ms, something that slides a distance), `--duration-slow` (500ms, a
+  value moving to a new position) and one curve, `--ease-out`. Use them as
+  `duration-(--duration-fast)` / `ease-(--ease-out)` rather than inlining a number — the
+  curve used to live inside `@keyframes reveal-rise` where nothing could reach it, and the
+  three durations were written into five components separately.
 
 ## 2. Hard rules
 
@@ -197,8 +222,9 @@ contrast checker.
 6. **Layout primitives** carry the frame so pages never re-invent spacing:
    `AppShell` (frosted sticky nav + sidebar, 1110px column), `AuthLayout` (every
    unauthenticated screen — login, onboarding, reset, 2FA challenge, invitation) and
-   `SettingsSection` (one settings card). A page that hand-rolls its own auth frame or
-   card padding is how the system drifts back to per-page styling; consolidate instead.
+   `SettingsSection` (one settings card) — all three built on `Card`, which owns the
+   radius, hairline and padding scale. A page that hand-rolls its own auth frame or card
+   padding is how the system drifts back to per-page styling; consolidate instead.
 
 7. **Domain components** live in `resources/js/components/domain/` and are used rather
    than rebuilt:
@@ -213,6 +239,15 @@ contrast checker.
 
 9. **Accessibility floor.** Visible focus ring, AA contrast, touch targets ≥ 40px,
    `prefers-reduced-motion` honoured on every animation.
+
+9b. **One theme authority: the `dark` class on `<html>`.** It is set before first paint by
+   the inline script in `app.blade.php`, from `localStorage['hamyar.theme']` falling back to
+   `prefers-color-scheme`, and flipped by `ThemeToggle`. React reads it through
+   `hooks/use-theme.ts` and never keeps its own copy. Do not add a theme provider: a second
+   authority races the pre-paint script that exists precisely to win that race. The cost of
+   getting this wrong was real — sonner was mounted straight from the library rather than
+   through `components/ui/sonner.tsx`, so it defaulted to `theme="system"` and every toast
+   followed the operating system instead of the switch in the header.
 
 10. **Empty states are a screen state, not a fallback.** Say what is missing and give
    the next action. «موردی یافت نشد» tells a shop owner nothing.
