@@ -19,7 +19,21 @@ export interface Column<TRow> {
   header: string;
   /** Cell renderer. Return a domain component — never a hand-formatted number. */
   cell: (row: TRow) => ReactNode;
-  /** Right-align in visual terms is `text-end`; used for money and counts. */
+  /**
+   * A column of figures — money, counts — aligned on its units digit.
+   *
+   * **`text-start`, not `text-end`, and that is not a typo.** Latin numerals are an
+   * LTR run whose units digit sits at its *physical right*, so a column of them only
+   * reads as a column when their right edges line up. In an RTL table `text-end`
+   * resolves to physical **left**, which lines up the most-significant digits instead
+   * and leaves the units ragged — measured at 37px of spread across three figures on
+   * the treasury headings table, which is precisely what `tabular-nums` exists to
+   * prevent. `text-start` is physical right here, and the same three figures align to
+   * 0px.
+   *
+   * The original comment on this flag read "right-align in visual terms is `text-end`"
+   * — the intent was always physical right; only the resolution was wrong under `dir="rtl"`.
+   */
   numeric?: boolean;
   sortable?: boolean;
   /** Hidden below `sm`. Use for columns that are context rather than identity. */
@@ -101,8 +115,12 @@ export function DataTable<TRow>({
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
+                  // Every header here labels a column. Without it a screen reader reads
+                  // a grid of unlabelled numbers (WCAG 1.3.1) — inference usually saves
+                  // it, but "usually" is not the accessibility floor this system sets.
+                  scope="col"
                   className={cn(
-                    column.numeric && 'text-end',
+                    column.numeric && 'text-start',
                     column.secondary && 'hidden sm:table-cell',
                     column.className
                   )}
@@ -183,7 +201,7 @@ export function DataTable<TRow>({
                     <TableCell
                       key={column.key}
                       className={cn(
-                        column.numeric && 'text-end tabular',
+                        column.numeric && 'text-start tabular',
                         column.secondary && 'hidden sm:table-cell',
                         column.className
                       )}

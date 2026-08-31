@@ -20,18 +20,36 @@ const buttonVariants = cva(
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',
       },
+      /*
+        The ladder is anchored on the accessibility floor, not below it.
+        (design-system rule 9: touch targets ≥ 40px; ADR 0008 measured its reference
+        CTA at 44px.)
+
+        `default` shipped at `h-8` — 32px — which every touch-critical surface then had
+        to opt out of by hand: the shell's own search button sets `h-10`, four auth
+        submits set `h-11`, the branch switcher sets `h-10`, and the treasury transfer
+        sheet had to override every control it owns. When six places independently
+        work around a default, the default is wrong.
+
+        So `default` is 40px and `lg` is 44px, and the genuinely dense steps stay
+        exactly where they were: `sm` (28px) and `xs` (24px) are how a toolbar, a table
+        row or a filter chip asks for less. Nothing was widened — the change is
+        vertical only, so no button grew into a neighbour.
+      */
       size: {
         default:
-          'h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2',
+          'h-10 gap-1.5 px-2.5 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2',
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: 'h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2',
-        icon: 'size-8',
+        lg: 'h-11 gap-1.5 px-2.5 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2',
+        // Icon buttons are square, so the floor sets both axes. The glyph inside stays
+        // `size-4` — the target grows, the icon does not.
+        icon: 'size-10',
         'icon-xs':
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
         'icon-sm':
           'size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg',
-        'icon-lg': 'size-9',
+        'icon-lg': 'size-11',
       },
     },
     defaultVariants: {

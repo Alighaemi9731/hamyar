@@ -13,6 +13,16 @@ interface MoneyFieldProps {
   /** True when the shop displays toman — almost always. */
   toman: boolean;
   'aria-label'?: string;
+  /**
+   * Marks the field as rejected, exactly like any other input.
+   *
+   * Without this the one field carrying a *numeric* refusal — «مبلغ نباید کمتر از ۱
+   * باشد» — was the only control on its form with no red border, while the selects
+   * beside it lit up correctly. A field that states an error and looks fine is the
+   * silent-failure bug in miniature.
+   */
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
   id?: string;
   placeholder?: string;
   className?: string;
@@ -62,6 +72,8 @@ export function MoneyField({
   placeholder,
   className,
   'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: MoneyFieldProps) {
   const factor = toman ? RIAL_PER_TOMAN : 1;
 
@@ -88,6 +100,8 @@ export function MoneyField({
       inputMode="numeric"
       autoComplete="off"
       aria-label={ariaLabel}
+      aria-invalid={ariaInvalid}
+      aria-describedby={ariaDescribedBy}
       placeholder={placeholder}
       className={cn('tabular', className)}
       value={draft}

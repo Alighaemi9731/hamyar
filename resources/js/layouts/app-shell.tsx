@@ -66,7 +66,10 @@ export function AppShell({ title, actions, children }: AppShellProps) {
                 from the same side the desktop sidebar occupies. */}
             <SheetContent side="right" dir="rtl" className="w-72 p-0">
               <SheetTitle className="sr-only">منوی اصلی</SheetTitle>
-              <ShopBadge name={tenant?.name ?? 'سامانه همیار'} subdomain={tenant?.subdomain ?? null} />
+              <ShopBadge
+                name={tenant?.name ?? 'سامانه همیار'}
+                subdomain={tenant?.subdomain ?? null}
+              />
               <SidebarNav currentPath={location} features={features} />
             </SheetContent>
           </Sheet>
@@ -95,7 +98,26 @@ export function AppShell({ title, actions, children }: AppShellProps) {
         >
           {(title || actions) && (
             <div className="no-print mb-10 flex flex-wrap items-center justify-between gap-4">
-              {title && <h1 className="text-2xl font-bold">{title}</h1>}
+              {/*
+                The page title is chrome, not content, and its size has to leave room
+                above it for the figure a screen actually exists to show.
+
+                It used to be `text-2xl` — 40px, the same step a treasury total or a
+                dashboard headline wants. A page label and the shop's entire liquidity
+                rendered identically at every width from 640 up, and on a phone the
+                label won outright: 40px against 28px. No page could establish its own
+                anchor without shouting past the shell.
+
+                21px on a phone / 28px from `sm` keeps a clear step over 17px body while
+                leaving `text-2xl` (40px) and `text-3xl` (56px) free for the one figure
+                a page wants read first. Tracking tightens as the size grows, per ADR
+                0008.
+              */}
+              {title && (
+                <h1 className="font-display text-lg font-bold tracking-tight sm:text-xl">
+                  {title}
+                </h1>
+              )}
               {/*
                 `flex-wrap` is not cosmetic. The outer row wraps, so a long title moves
                 the action group to its own line — and then the group itself, which did
