@@ -88,11 +88,57 @@ it('reaches every authenticated settings screen after a real login', function (s
 
     $this->get($this->url.$path)->assertOk();
 })->with([
+    '/settings',
     '/settings/users',
     '/settings/sessions',
     '/settings/two-factor',
     '/settings/activity',
 ]);
+
+/*
+| Every destination the sidebar offers, read from the sidebar itself.
+|
+| Two nav items shipped pointing at routes that do not exist. «تنظیمات» aimed at
+| `/settings`, whose module routes file held nothing but a comment block, and «اقساط» at
+| `/installments`, where the module registers `/installments/collections` and
+| `/installments/plans/{plan}` and nothing at the root. Both 404'd for every user on every
+| page, for as long as they have been in the list.
+|
+| Nothing could have caught that from PHP, because the list lives in TypeScript — so this
+| reads the TypeScript. Parsing a source file in a test is ugly and it is still the right
+| trade: the alternative is a second copy of the nav in PHP, which is a thing to keep in
+| sync rather than a thing that checks. The regex only has to survive an array of string
+| literals, and if it ever matches nothing the count assertion fails loudly rather than
+| passing on an empty set.
+|
+| A redirect counts as answering. Some destinations bounce a shop that has no branches
+| yet, and this test is about "the link goes somewhere", not about what is on the page.
+*/
+it('offers no sidebar link that 404s', function (): void {
+    $source = file_get_contents(base_path('resources/js/lib/navigation.ts'));
+
+    expect($source)->toBeString();
+
+    preg_match_all("/href:\s*'([^']+)'/", (string) $source, $matches);
+
+    $hrefs = array_values(array_unique($matches[1]));
+
+    // The list is 18 items today. A floor rather than an equality so adding a nav item
+    // does not fail this test — but a regex that silently stops matching does.
+    expect($hrefs)->toHaveCount(count($hrefs))
+        ->and(count($hrefs))->toBeGreaterThanOrEqual(15, 'The nav parse matched almost nothing; the regex has drifted from navigation.ts.');
+
+    logInThroughTheForm($this->url);
+
+    foreach ($hrefs as $href) {
+        $status = $this->get($this->url.$href)->status();
+
+        expect($status)->toBeIn(
+            [200, 302],
+            "The sidebar links to {$href}, which answered {$status}."
+        );
+    }
+});
 
 it('resolves a route-model-bound tenant route after a real login', function (): void {
     // The other half of the ordering bug: SubstituteBindings queries the scoped model

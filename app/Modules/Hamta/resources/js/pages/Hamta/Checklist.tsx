@@ -60,7 +60,8 @@ export default function HamtaChecklist({ unit, steps, can_manage: canManage }: P
       <div className="space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">چک‌لیست انتقال همتا</h1>
+            {/* `AppShell` already titles this screen «چک‌لیست همتا»; a second heading
+                saying almost the same thing is a duplicate, not a hierarchy. */}
             <p className="mt-1 text-sm text-muted-foreground">
               {unit.product} · {unit.condition} ·{' '}
               <span className="font-mono tabular-nums" dir="ltr">
