@@ -2,12 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\CRM\Models\Account;
+use App\Modules\CRM\Models\Party;
 use App\Modules\Identity\Models\User;
+use App\Modules\Inventory\Enums\UnitStatus;
+use App\Modules\Inventory\Models\ProductUnit;
+use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Platform\Models\Domain;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Modules\Repairs\Models\RepairTicket;
 use App\Support\Tenancy\TenantContext;
 
 /**
@@ -45,6 +53,14 @@ use App\Support\Tenancy\TenantContext;
  */
 pest()->group('browser');
 
+/**
+ * Paths whose screens render a `<table>` that the fixture fills.
+ *
+ * Kept as a list rather than inferred, because "did this page render rows" is only a
+ * meaningful question for a page that has a table at all — see the witness assertion.
+ */
+const POPULATED_TABLES = ['/catalog', '/crm', '/inventory', '/sales'];
+
 beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();
 
@@ -67,6 +83,8 @@ beforeEach(function (): void {
 
         return $user;
     });
+
+    seedShopData($this->tenant, $this->owner);
 });
 
 it('renders every main screen with no console error and no sideways scroll', function (string $path, string $device, string $theme): void {
@@ -133,6 +151,8 @@ it('renders every main screen with no console error and no sideways scroll', fun
                         overflows: el.scrollWidth > el.clientWidth + 1,
                         scrollWidth: el.scrollWidth,
                         clientWidth: el.clientWidth,
+                        // The witness for the fixture. See the assertion below.
+                        rows: document.querySelectorAll('tbody tr').length,
                     }));
 
                     return;
@@ -152,12 +172,35 @@ it('renders every main screen with no console error and no sideways scroll', fun
     /** @var string $json */
     $json = $result;
 
-    /** @var array{mounted: bool, dark: bool, overflows: bool, scrollWidth: int, clientWidth: int} $measured */
+    /** @var array{mounted: bool, dark: bool, overflows: bool, scrollWidth: int, clientWidth: int, rows: int} $measured */
     $measured = json_decode($json, true);
 
     // Asserted before the overflow check, and first: an unmounted page cannot overflow,
     // so without this every assertion below is true for the wrong reason.
     expect($measured['mounted'])->toBeTrue("[{$path}] never mounted on {$device}; nothing below this line means anything.");
+
+    /*
+    | The witness for the fixture, and the same lesson this file has now learned twice.
+    |
+    | `seedShopData()` posts a real sale and creates real rows, and nothing here would
+    | notice if it quietly stopped. A failed POS post, a factory that drifts from its
+    | schema, a route that starts filtering by a column the fixture leaves null — each
+    | leaves every screen rendering its empty state, every assertion below passing, and
+    | the suite reporting that nine populated screens are fine when it measured nine
+    | empty ones. That is exactly the shape of the mount bug and the theme bug this file
+    | already carries scars from: green, on the states least able to break.
+    |
+    | So the paths that are known to render a `<table>` must actually have rows in it.
+    | `/repairs` is deliberately absent — its list is hand-rolled `<div>`s, not a table,
+    | so a row count would assert nothing there and quietly pass for the wrong reason.
+    */
+    if (in_array($path, POPULATED_TABLES, true)) {
+        expect($measured['rows'])->toBeGreaterThan(
+            0,
+            "[{$path}] rendered a table with no rows on {$device}; the fixture is not "
+            .'populating this screen, so the measurements below are of an empty state.',
+        );
+    }
 
     /*
     | The witness for the theme half of the matrix, and it is the same lesson this file
@@ -192,10 +235,11 @@ it('renders every main screen with no console error and no sideways scroll', fun
     'audit log' => '/settings/activity',
     'products' => '/catalog',
     'users' => '/settings/users',
-    // The shop with no accounts yet, which is what this fixture is: the treasury
-    // screen's empty state is a rendered screen like any other, and it is the state
-    // every shop sees first.
     'treasury' => '/treasury',
+    'sales' => '/sales',
+    'repairs' => '/repairs',
+    'inventory' => '/inventory',
+    'customers' => '/crm',
 ])->with([
     'mobile',
     'desktop',
@@ -203,3 +247,122 @@ it('renders every main screen with no console error and no sideways scroll', fun
     'light',
     'dark',
 ]);
+
+/**
+ * A shop with a day's work in it.
+ *
+ * ## Why the fixture stopped being empty
+ *
+ * Every case in this file used to run against a shop with no rows, so what it actually
+ * proved was that a handful of *empty* screens do not scroll sideways. Empty screens are
+ * not where sideways scroll comes from. A table overflows once it has columns with content
+ * in them; a toolbar overflows once its filters carry counts; a money column can only
+ * misalign when there are two figures to misalign. The suite was green on precisely the
+ * states least able to break, which is the same shape of defect as the mount check this
+ * file already learned about the hard way — green without witness.
+ *
+ * So the shop is given the smallest set of rows that makes every screen render its real
+ * layout: a catalogue with variants, serialized handsets in a warehouse, customers and a
+ * supplier, a finalised sale, and a device on the bench.
+ *
+ * ## The sale is posted, not fabricated
+ *
+ * There is no `SalesInvoice::factory()`, and that is not a gap to work around. An invoice
+ * is a counter row, a set of stock movements, ledger entries and a quota consumption,
+ * written in one transaction. A hand-built header is a row no screen in this product would
+ * ever show, so a layout measured against it is measured against fiction. Posting the real
+ * form is both more honest and less code — the same reasoning `printableInvoice()` in
+ * `InvoicePrintLayoutTest` is built on.
+ *
+ * ## It stays small on purpose
+ *
+ * Two products, four units, three parties, one sale, one ticket. Enough that every list
+ * renders rows and every total has something to total; not so much that the fixture
+ * becomes a seeder nobody can reason about, or that the suite pays for rows no assertion
+ * looks at.
+ */
+function seedShopData(Tenant $tenant, User $owner): void
+{
+    /** @var array{Warehouse, Account, ProductUnit, Party} $fixtures */
+    $fixtures = app(TenantContext::class)->runFor($tenant, function (): array {
+        $warehouse = Warehouse::factory()->create([
+            'name' => 'انبار مرکزی',
+            'is_sellable' => true,
+            'is_default' => true,
+        ]);
+
+        // A sale needs all three: somewhere the money lands, and the two headings the
+        // ledger posts against.
+        $cash = Account::factory()->create([
+            'name' => 'صندوق فروشگاه',
+            'type' => Account::TYPE_CASH,
+            'is_default' => true,
+        ]);
+        Account::factory()->create(['name' => 'فروش کالا', 'type' => Account::TYPE_SALES]);
+        Account::factory()->create(['name' => 'موجودی کالا', 'type' => Account::TYPE_INVENTORY]);
+        Account::factory()->create(['name' => 'حساب بانکی', 'type' => Account::TYPE_BANK]);
+
+        // A long Persian handset name, because a short one never reveals a column that
+        // cannot hold its contents — which is the class of defect this suite exists for.
+        $phone = Product::factory()->serialized()->create([
+            'name' => 'گوشی موبایل سامسونگ گلکسی S23 اولترا ظرفیت ۵۱۲ گیگابایت',
+        ]);
+
+        $variant = ProductVariant::factory()->for($phone)->create();
+
+        ProductUnit::factory()->count(3)->for($variant, 'variant')->create([
+            'warehouse_id' => $warehouse->id,
+            'status' => UnitStatus::InStock,
+        ]);
+
+        // The one that gets sold, so the sale below has something to move.
+        $sellable = ProductUnit::factory()->for($variant, 'variant')->create([
+            'warehouse_id' => $warehouse->id,
+            'status' => UnitStatus::InStock,
+            'cost' => 38_000_000,
+        ]);
+
+        // A non-serialized line too: the catalogue and stock screens render the two
+        // types differently, and only one of them was ever on screen.
+        Product::factory()->create(['name' => 'کابل شارژ تایپ‌سی']);
+
+        $customer = Party::factory()->create(['name' => 'رضا کریمی', 'kind' => 'customer']);
+        Party::factory()->create(['name' => 'مریم احمدی', 'kind' => 'customer']);
+        Party::factory()->supplier()->create(['name' => 'پخش موبایل ایران']);
+
+        RepairTicket::factory()->create([
+            'branch_id' => $warehouse->branch_id,
+            'device_brand' => 'اپل',
+            'device_model' => 'آیفون ۱۳ پرو',
+            'reported_issue' => 'شکستگی گلس و روشن نشدن صفحه',
+        ]);
+
+        return [$warehouse, $cash, $sellable, $customer];
+    });
+
+    [$warehouse, $cash, $unit, $customer] = $fixtures;
+
+    test()->actingAs($owner)->post('http://127.0.0.1/sales/pos', [
+        'branch_id' => $warehouse->branch_id,
+        'party_id' => $customer->id,
+        'salesperson_id' => null,
+        'unit' => 'rial',
+        'action' => 'finalise',
+        'vat_applied' => true,
+        'discount_amount' => 0,
+        'shipping_amount' => 0,
+        'notes' => null,
+        'lines' => [[
+            'unit_id' => $unit->id,
+            'variant_id' => null,
+            'quantity' => 1,
+            'unit_price' => 52_000_000,
+            'discount_amount' => 0,
+        ]],
+        'payments' => [[
+            'method' => 'cash',
+            'amount' => 56_680_000,
+            'account_id' => $cash->id,
+        ]],
+    ])->assertSessionHasNoErrors();
+}
