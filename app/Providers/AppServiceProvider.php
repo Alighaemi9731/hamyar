@@ -15,11 +15,13 @@ use App\Support\Spreadsheet\CsvReader;
 use App\Support\Spreadsheet\SpreadsheetReaders;
 use App\Support\Spreadsheet\XlsxReader;
 use App\Support\Timeline\TimelineRegistry;
+use App\Support\Validation\PersianDigitsValidator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -97,6 +99,26 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDates();
         $this->configurePasswords();
         $this->configureUrls();
+        $this->configureValidation();
+    }
+
+    /**
+     * Persian messages count in Persian digits.
+     *
+     * `lang/fa/validation.php` interpolates `:min`, `:max` and `:size` into Persian prose,
+     * and Laravel substitutes whatever the rule was given — so «نباید بیشتر از 255 حرف
+     * باشد» reached shopkeepers with Latin digits in the middle of it, in the most
+     * frequent interaction the product has.
+     *
+     * See {@see PersianDigitsValidator} for why this converts the parameters rather than
+     * the finished message: the `hex_color` message contains `#1A2B3C` as an example, and
+     * «#۱A۲B۳C» is not something anybody can type.
+     */
+    private function configureValidation(): void
+    {
+        ValidatorFacade::resolver(
+            static fn ($translator, array $data, array $rules, array $messages, array $attributes): PersianDigitsValidator => new PersianDigitsValidator($translator, $data, $rules, $messages, $attributes)
+        );
     }
 
     /**
