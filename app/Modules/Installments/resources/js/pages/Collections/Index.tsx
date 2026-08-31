@@ -4,9 +4,17 @@ import { useState } from 'react';
 
 import { Money } from '@/components/domain/money';
 import { PageHeader } from '@/components/domain/page-header';
+import { FormErrors } from '@/components/domain/form-errors';
 import { MoneyField } from '@/components/domain/money-field';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useTenantSettings } from '@/hooks/use-tenant-settings';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
@@ -66,6 +74,14 @@ export default function CollectionDesk({ overdue, due, totals, accounts, errors 
       }
     >
       <Head title="میز وصول اقساط" />
+
+      {/*
+        At page level, because the collect form lives inside a per-row component that never
+        receives the error bag — so `account_id` and `amount` refusals came back as a 302
+        and the row simply did not change. `collect` keeps its own placement below; this
+        catches the keys nobody placed.
+      */}
+      <FormErrors errors={errors} handled={['collect']} className="mt-4" />
 
       {errors.collect && (
         <p
@@ -172,18 +188,26 @@ function CollectRow({
 
           <div className="space-y-1">
             <Label htmlFor={`account-${row.id}`}>به حساب</Label>
-            <select
-              id={`account-${row.id}`}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5"
-              value={accountId}
-              onChange={(event) => setAccountId(Number(event.target.value))}
+            {/*
+              The last native `<select>` in the application. It was `h-8` — 28px, under the
+              touch floor — and it rendered the platform's own dropdown, which on Android
+              ignores the app's theme entirely: a white system list over a black page.
+            */}
+            <Select
+              value={String(accountId)}
+              onValueChange={(value) => setAccountId(Number(value))}
             >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id={`account-${row.id}`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={String(account.id)}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-end">
