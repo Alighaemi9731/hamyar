@@ -316,6 +316,41 @@ it('void puts everything back and keeps the number', function (): void {
 
 /* ------------------------------------------------------------------ http -- */
 
+/*
+| A line whose per-unit share is not a whole number of toman.
+|
+| `/returns/create` answered **500** for any invoice holding one. The screen divided
+| `line_total` by `quantity` in rial and handed the result to `Money::toArray()`, which
+| refuses a figure that is not a whole toman rather than silently rounding it — so a line
+| of two at 10,652,010 rial, an ordinary discounted line and a perfectly valid one, took
+| the whole screen down.
+|
+| Every other test here missed it because every fixture divided cleanly. This one does not,
+| which is the only reason it exists.
+*/
+it('opens the return form for a line whose per-unit share is not a whole toman', function (): void {
+    [$invoice] = soldBasket();
+
+    ($this->inTenant)(function () use ($invoice): void {
+        $charger = $invoice->items()->where('quantity', 4)->firstOrFail();
+
+        // 10,652,010 / 2 = 5,326,005 rial — nine-tenths of a toman, and unrenderable.
+        $charger->forceFill(['quantity' => 2, 'line_total' => 10_652_010])->save();
+    });
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/sales/invoices/'.$invoice->id.'/returns/create')
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page
+            // Rounded **up** to a whole toman. ADR 0009's amendment fixes the direction: a
+            // refund is the shop paying, so rounding down would flatter the shop.
+            ->where('items.1.unit_refund.value', 5_326_010)
+            // The exact figure stays on the wire, because a whole line coming back is
+            // refunded to the rial rather than as quantity x a rounded unit.
+            ->where('items.1.line_total.value', 10_652_010)
+        );
+});
+
 it('records a return through the form and shows it on the invoice', function (): void {
     [$invoice] = soldBasket();
 

@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { RotateCcwIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Button } from '@/components/ui/button';
@@ -75,10 +76,29 @@ export default function ReturnCreate({ invoice, items, grades }: Props) {
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  /*
+    A whole line coming back refunds its exact total; a partial one is priced per unit.
+
+    `unit_refund` is rounded up to a whole toman on the server, because a rial-precise
+    per-unit share is not a figure that can be shown or paid (ADR 0009). Multiplying that
+    rounded number by the full quantity would therefore refund slightly *more* than the
+    customer was charged — 10 rial on a line of two. So the full-line case does not use it:
+    it uses `line_total`, which is exact.
+
+    "Whole line" means every unit of it, with none returned before. A line that has already
+    had one unit back is priced per unit for the rest, where the rounding is in the
+    customer's favour by at most nine rial and the shop is the party that should absorb it.
+  */
   const refund = items.reduce((sum, item) => {
     const draft = drafts[item.id];
 
-    return sum + (draft ? draft.quantity * item.unit_refund.value : 0);
+    if (!draft || draft.quantity === 0) {
+      return sum;
+    }
+
+    const wholeLine = item.returned_quantity === 0 && draft.quantity === item.quantity;
+
+    return sum + (wholeLine ? item.line_total.value : draft.quantity * item.unit_refund.value);
   }, 0);
 
   const [reason, setReason] = useState('');
@@ -125,15 +145,6 @@ export default function ReturnCreate({ invoice, items, grades }: Props) {
       <Head title="برگشت از فروش" />
 
       <form onSubmit={submit} className="space-y-6">
-        {errors.lines && (
-          <p
-            role="alert"
-            className="rounded-control border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
-          >
-            {errors.lines}
-          </p>
-        )}
-
         <p className="text-sm text-muted-foreground">
           فاکتور <span className="tabular">{invoice.number}</span> —{' '}
           {formatJalali(invoice.issued_at)}
@@ -251,6 +262,14 @@ export default function ReturnCreate({ invoice, items, grades }: Props) {
             <Money rial={refund} digits="latin" withUnit />
           </span>
         </div>
+
+        {/*
+          Above the button rather than at the head of the form: this form is as long as the
+          invoice, and a refusal announced off-screen is a refusal nobody sees. Nothing here
+          is rendered beside a field — `quantity` is capped rather than validated on the
+          client — so the region takes the whole bag with no `handled` list.
+        */}
+        <FormErrors errors={errors} />
 
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={nothingSelected || processing}>

@@ -65,9 +65,34 @@ final class SalesReturnController extends Controller
                     // What the form may actually offer. Zero means this line is done.
                     'returnable_quantity' => max(0, $item->quantity - $returned),
                     'line_total' => Money::toArray($item->line_total),
-                    // Per-unit, so the form can propose a refund for a partial quantity
-                    // without the page re-deriving the division.
-                    'unit_refund' => Money::toArray(intdiv($item->line_total, max(1, $item->quantity))),
+                    /*
+                     * Per-unit, so the form can propose a refund for a partial quantity
+                     * without the page re-deriving the division.
+                     *
+                     * ## Why this ceils, and why it used to crash
+                     *
+                     * It was a bare `intdiv($item->line_total, $item->quantity)`. A line of
+                     * two at 10,652,010 rial — a whole number of toman, an ordinary
+                     * discounted line — divides to 5,326,005, which is nine-tenths of a
+                     * toman. `Money::toArray()` refuses to render that rather than silently
+                     * round it, so **this screen answered 500 for any invoice holding such a
+                     * line**. The existing tests missed it because their fixtures divide
+                     * cleanly.
+                     *
+                     * `ceilToToman`, not floor. ADR 0009's amendment states the direction
+                     * once for the whole family: a rounding of a derived figure goes the way
+                     * that does not flatter the party doing the rounding. VAT floors because
+                     * the shop is charging it; a refund is the shop *paying*, so rounding it
+                     * down would flatter the shop by up to nine rial a unit. It rounds up.
+                     *
+                     * The over-payment that ceiling implies never reaches a whole-line
+                     * return: the form uses `line_total` when a line comes back complete,
+                     * so the exact figure is refunded to the rial and this per-unit number
+                     * is only ever used for a genuine partial return.
+                     */
+                    'unit_refund' => Money::toArray(
+                        Money::ceilToToman(intdiv($item->line_total, max(1, $item->quantity)))
+                    ),
                 ];
             })->all(),
             'grades' => $this->gradeOptions(),
