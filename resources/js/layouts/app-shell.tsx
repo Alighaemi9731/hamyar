@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { MenuIcon, SearchIcon, StoreIcon } from 'lucide-react';
+import { MenuIcon, StoreIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { AnnouncementBanner } from '@/components/domain/announcement-banner';
 import { QuotaBlock } from '@/components/domain/quota-block';
 import { UsageBanner } from '@/components/domain/usage-banner';
 import { BranchSwitcher } from '@/components/domain/branch-switcher';
+import { CommandPalette } from '@/components/domain/command-palette';
 import { UserMenu } from '@/components/domain/user-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Toaster } from '@/components/ui/sonner';
@@ -91,16 +92,13 @@ export function AppShell({ title, actions, children }: AppShellProps) {
             </SheetContent>
           </Sheet>
 
-          {/* `min-w-0 shrink` overrides the base Button's `shrink-0`: without it the
-              search field refuses to compress below its text width and pushes the
-              theme toggle a hair past the viewport edge at 390px. */}
-          <Button
-            variant="outline"
-            className="h-10 min-w-0 max-w-md shrink flex-1 justify-start gap-2 text-muted-foreground"
-          >
-            <SearchIcon className="size-4 shrink-0" />
-            <span className="truncate text-sm">جستجوی کالا، مشتری، IMEI یا شماره قبض…</span>
-          </Button>
+          {/*
+            This was a `<Button>` with a magnifier, a placeholder and no `onClick` — the
+            most prominent control in the product, on every screen, doing nothing. It now
+            opens a palette; see `command-palette.tsx` for what it searches and why the
+            placeholder is narrower than the one it replaces.
+          */}
+          <CommandPalette features={features} />
 
           <div className="ms-auto flex items-center gap-1">
             {/* Renders nothing for a single-branch shop, which is almost every shop. */}
