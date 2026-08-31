@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   ReceiptIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   ShoppingCartIcon,
   SmartphoneIcon,
   StoreIcon,
@@ -78,6 +79,12 @@ export const NAVIGATION: NavSection[] = [
         feature: 'module:inventory',
       },
       { label: 'خرید', href: '/purchasing', icon: TruckIcon, feature: 'module:purchasing' },
+      /*
+        Three working screens — the pending queue, a per-device checklist, and the guide —
+        reachable only by typing the URL. No `feature` key, because the routes carry no
+        `module:hamta` gate either; adding one here would hide a screen that works.
+      */
+      { label: 'همتا', href: '/hamta', icon: ShieldCheckIcon },
     ],
   },
   {
@@ -86,8 +93,18 @@ export const NAVIGATION: NavSection[] = [
       { label: 'خزانه‌داری', href: '/treasury', icon: BanknoteIcon, feature: 'module:treasury' },
       { label: 'چک‌ها', href: '/cheques', icon: FileTextIcon, feature: 'module:cheques' },
       {
+        /*
+          `/installments` does not exist and never has — the module routes
+          `/installments/collections` and `/installments/plans/{plan}`, and nothing at its
+          root. This item has 404'd since it was added.
+
+          Repointed at the collections desk rather than given an index, because the desk is
+          the screen a shop actually opens: «کدوم قسط‌ها سررسید شده؟» is the daily question,
+          and a plans list would be a second screen answering a rarer one. A plans index is
+          a real gap, but it is a page to build, not a nav entry to fix.
+        */
         label: 'اقساط',
-        href: '/installments',
+        href: '/installments/collections',
         icon: CreditCardIcon,
         feature: 'module:installments',
       },

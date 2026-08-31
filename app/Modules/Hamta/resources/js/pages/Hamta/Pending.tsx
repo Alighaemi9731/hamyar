@@ -30,9 +30,12 @@ export default function HamtaPending({ units }: { units: Unit[] }) {
       <Head title="انتقال‌های همتا" />
 
       <div className="space-y-6">
+        {/* No `<h1>` here: `AppShell` renders one from `title`, and this said the same
+            words at 40px directly beneath it — two page headings in the document outline
+            and, since the shell's own title was demoted to 28px, the louder of the two
+            was the duplicate. The description survives; the heading was the redundancy. */}
         <header>
-          <h1 className="text-2xl font-bold">انتقال‌های همتا</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          <p className="max-w-3xl text-sm text-muted-foreground">
             دستگاه‌های دست‌دومی که انتقال مالکیتشان در سامانهٔ همتا هنوز ثبت نشده است.
             <Link href="/hamta/guide" className="ms-1 text-primary hover:underline">
               راهنمای انتقال

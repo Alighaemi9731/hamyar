@@ -19,7 +19,13 @@ export default function HamtaGuide() {
 
       <div className="max-w-3xl space-y-8">
         <header>
-          <h1 className="text-2xl font-bold">همتا چیست و چرا مهم است؟</h1>
+          {/* Demoted rather than dropped: unlike the other two Hamta screens this asks a
+              real question the shell's «راهنمای همتا» does not, so it is the article's
+              lede and belongs in the outline — one level below the page title, not
+              beside it at 40px. */}
+          <h2 className="font-display text-lg font-bold tracking-tight">
+            همتا چیست و چرا مهم است؟
+          </h2>
           <p className="mt-2 text-muted-foreground text-pretty">
             سامانهٔ همتا، رجیستری ملی گوشی‌های موبایل است. هر گوشی به نام یک نفر ثبت شده و وقتی
             دستگاه دست‌دوم جابه‌جا می‌شود، مالکیتش هم باید منتقل شود.
