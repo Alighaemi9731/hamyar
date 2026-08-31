@@ -24,10 +24,29 @@ use Spatie\Activitylog\Models\Activity;
  * accident. An accessor added for convenience, a resource that spreads the model, a
  * `Log::info($ticket)` while debugging: any one of them re-opens the hole silently.
  *
- * The literal code used throughout is `4517`. Every assertion below hunts for that
- * string in a place it must never appear.
+ * The literal code used throughout is the constant below. Every assertion here hunts for
+ * that string in a place it must never appear.
+ *
+ * ## Why the sentinel is not a four-digit PIN
+ *
+ * It was `'4517'`, and these assertions grep an entire rendered payload for it. Every
+ * Inertia page carries `auth.user.mobile` — eleven random digits from the factory — which
+ * contains `4517` in **0.067% of runs** (measured over 200,000 samples), before counting
+ * the tenant subdomain, the generated e-mail and every other random digit in the props.
+ * So this file failed in CI roughly one run in a few hundred, with no leak, no code change
+ * and nothing to find.
+ *
+ * A security test that cries wolf is worse than no security test, because the learned
+ * response to a red run becomes "re-run it" — and that is exactly how a real leak
+ * eventually gets waved through. It happened here on a PR touching three React files,
+ * which cannot reach `viewData('page')` at all.
+ *
+ * A device password is not always a PIN; an alphanumeric screen lock is ordinary. So the
+ * sentinel is one, and it keeps the original digits so its history is legible. No amount
+ * of random digits can produce it by accident. Every assertion is otherwise unchanged and
+ * still scans every prop.
  */
-const SECRET = '4517';
+const SECRET = 'Qx7-4517-Lm2';
 
 beforeEach(function (): void {
     app(PlanCatalogueSeeder::class)->sync();

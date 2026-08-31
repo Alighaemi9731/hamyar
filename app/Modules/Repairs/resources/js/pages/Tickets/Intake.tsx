@@ -2,9 +2,11 @@ import { Head, router } from '@inertiajs/react';
 import { CameraIcon, CheckCheckIcon, XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -168,26 +170,20 @@ export default function TicketIntake({
           full-width version of it would be a different screen to learn. */}
       <form onSubmit={submit} className="mx-auto max-w-xl space-y-6 pb-24">
         {/*
-          Every error, not just the ones with a field to sit next to. A form that
-          redirects back and silently changes nothing is the worst possible outcome with
-          a customer standing at the counter — the operator presses the button again,
-          harder, and concludes the software is broken. That is exactly what a missing
-          `accessories` key did here until a browser pass caught it.
+          Every error, not just the ones with a field to sit next to. A form that redirects
+          back and silently changes nothing is the worst possible outcome with a customer
+          standing at the counter — the operator presses the button again, harder, and
+          concludes the software is broken. That is exactly what a missing `accessories`
+          key did here until a browser pass caught it.
+
+          This was a hand-rolled copy of `<FormErrors>` that got the general case right and
+          one detail wrong: it printed every key, `quota` included, while `AppShell` was
+          already rendering that one through `<QuotaBlock>` with an upgrade button. A shop
+          that hit its monthly ticket limit therefore read the refusal twice, the second
+          time as a bare sentence with nothing to do about it. The shared component ignores
+          `quota` for exactly this reason.
         */}
-        {Object.keys(errors).length > 0 && (
-          <div
-            role="alert"
-            data-testid="intake-errors"
-            className="space-y-1 rounded-card border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
-          >
-            <p className="font-medium">پذیرش ثبت نشد:</p>
-            <ul className="list-inside list-disc">
-              {Object.entries(errors).map(([field, message]) => (
-                <li key={field}>{message}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <FormErrors errors={errors} handled={['device_model', 'reported_issue']} />
         <Section title="مشتری">
           <PartyPicker id="intake-party" value={party} onChange={setParty} kind="customer" />
           <p className="text-2xs text-muted-foreground">
@@ -257,7 +253,6 @@ export default function TicketIntake({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() =>
                 setAnswers(
                   Object.fromEntries(checklist.map((item) => [item.item_key, item.options[0]!]))
@@ -520,13 +515,15 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 rounded-card border border-border p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
+    <Card asChild>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">{title}</h2>
+          {aside}
+        </div>
+        {children}
+      </section>
+    </Card>
   );
 }
 

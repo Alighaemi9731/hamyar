@@ -1,9 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { PlusIcon } from 'lucide-react';
+import { MoveHorizontalIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Num } from '@/components/domain/num';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
@@ -58,6 +65,19 @@ interface Props {
  * Columns render at most `limit` cards and say so when there are more. A shop with three
  * hundred queued tickets has a problem no amount of DOM will fix, and a board that
  * silently shows the first fifty lies about the size of the queue.
+ *
+ * ## Dragging is not the only way to move a card, because dragging is a mouse
+ *
+ * HTML5 drag-and-drop does not fire on touch, and `draggable` has no keyboard equivalent
+ * at all. So on the tablet at the bench — the device this board is most likely to be read
+ * on — and for anybody working by keyboard, the board's entire purpose was unreachable:
+ * every card was a link to somewhere else and nothing on the screen could move one.
+ *
+ * Each card now carries a menu of the moves that column allows. It is fed by exactly the
+ * same `allows` array the drop targets use and filtered to the columns on screen, so the
+ * two paths cannot disagree and neither can reach a status the board does not show —
+ * `delivered` in particular, which belongs to the delivery form because it writes an
+ * invoice.
  */
 export default function TicketsBoard({ columns, tickets, counts, limit, filters, can }: Props) {
   const [dragging, setDragging] = useState<Card | null>(null);
@@ -81,8 +101,8 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            size="sm"
             variant={filters.mine ? 'default' : 'outline'}
+            aria-pressed={filters.mine}
             onClick={() =>
               router.get('/repairs/board', { mine: !filters.mine }, { preserveState: true })
             }
@@ -119,6 +139,10 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
               (columns.find((c) => c.value === dragging.status)?.allows ?? []).includes(
                 column.value
               );
+
+            // The same `allows` the drop targets read, narrowed to columns that are on the
+            // board. A move the board cannot show is a move the board must not offer.
+            const moves = columns.filter((target) => column.allows.includes(target.value));
 
             return (
               <section
@@ -157,7 +181,13 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
 
                 <ul className="space-y-2">
                   {cards.map((card) => (
-                    <li key={card.id}>
+                    <li
+                      key={card.id}
+                      className={cn(
+                        'relative rounded-control border border-border bg-background',
+                        dragging?.id === card.id && 'opacity-50'
+                      )}
+                    >
                       <Link
                         href={`/repairs/tickets/${card.id}`}
                         draggable={can.update}
@@ -167,9 +197,10 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
                           setOver(null);
                         }}
                         className={cn(
-                          'block rounded-control border border-border bg-background p-2.5 hover:bg-muted/40',
-                          can.update && 'cursor-grab active:cursor-grabbing',
-                          dragging?.id === card.id && 'opacity-50'
+                          // `pe-12` reserves the lane the move button sits in, so a long
+                          // device name runs under it instead of behind it.
+                          'block rounded-control p-2.5 hover:bg-muted/40',
+                          can.update && 'cursor-grab active:cursor-grabbing pe-12'
                         )}
                       >
                         <span className="flex flex-wrap items-baseline gap-x-2">
@@ -208,6 +239,37 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
                           </span>
                         )}
                       </Link>
+
+                      {can.update && moves.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              // Absolutely placed rather than inside the link, because a
+                              // button nested in an anchor is not valid and the click would
+                              // navigate before the menu could open.
+                              className="absolute inset-block-start-1 inset-inline-end-1"
+                              aria-label={`جابه‌جایی ${card.code}`}
+                            >
+                              <MoveHorizontalIcon aria-hidden />
+                            </Button>
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>انتقال به</DropdownMenuLabel>
+                            {moves.map((target) => (
+                              <DropdownMenuItem
+                                key={target.value}
+                                onSelect={() => move(card, target.value)}
+                              >
+                                {target.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </li>
                   ))}
 
