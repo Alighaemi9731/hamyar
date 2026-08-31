@@ -131,6 +131,15 @@
      Very soft and nearly colourless. Elevation is communicated by ground
      contrast and whitespace first, shadow last. */
   --shadow-low: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.04);
+  /* The step the overlays were missing. Before this the system had two levels and the
+     overlays used neither — dropdown, select and popover reached for Tailwind's
+     `shadow-md`, the sheet for `shadow-lg`, each with a `ring-1 ring-foreground/10`
+     bolted on. That is a second elevation ramp with different colour, different spread
+     and no dark-mode thinking, running beside the one the tokens describe.
+
+     `low` is a card resting on the page, `mid` is a surface that opened over it and will
+     close again, `high` is a surface that has taken the page. */
+  --shadow-mid: 0 2px 6px rgb(0 0 0 / 0.05), 0 8px 20px rgb(0 0 0 / 0.06);
   --shadow-high: 0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px rgb(0 0 0 / 0.08);
 
   /* --- layout --------------------------------------------------------------
@@ -141,12 +150,38 @@
   --spacing-section: 9rem; /* 144px */
   --spacing-section-sm: 5.5rem; /* 88px — mobile */
 
-  /* --- named z-index ------------------------------------------------------- */
-  --z-sticky: 20;
-  --z-drawer: 40;
-  --z-overlay: 50;
-  --z-popover: 60;
-  --z-toast: 70;
+  /* --- motion --------------------------------------------------------------
+     One curve and three durations, because the vocabulary is deliberately small
+     (design-system: fade and rise, nothing else).
+
+     These existed already, just not as tokens: the curve was written once inside
+     `@keyframes reveal-rise` where nothing else could reach it, and the durations were
+     inlined per component — `duration-100` on four overlays, `duration-200` on the
+     sheet, `duration-500` on the share bar. Same numbers, five places to change them.
+
+     `fast` is a surface appearing over the page; `base` is one that slides a distance;
+     `slow` is a value animating to a new position, where the eye needs to follow it
+     rather than just notice it arrived. The reduced-motion block below still overrides
+     all three to 0.01ms. */
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 500ms;
+  --ease-out: cubic-bezier(0.28, 0.11, 0.32, 1);
+
+  /* --- named z-index -------------------------------------------------------
+     `--z-index-*`, not `--z-*`. Tailwind v4 builds the `z-` utilities from the
+     `--z-index-*` namespace, so the previous spelling generated **no CSS at all** — and
+     `app-shell.tsx` has been asking for `z-sticky` on the sticky header ever since it was
+     written, getting a class that does not exist and a header with no stacking order.
+     Nothing errors when a utility is absent; the rule simply is not there.
+
+     Caught by grepping the built stylesheet for the class rather than by trusting that a
+     defined token implies a generated utility. */
+  --z-index-sticky: 20;
+  --z-index-drawer: 40;
+  --z-index-overlay: 50;
+  --z-index-popover: 60;
+  --z-index-toast: 70;
 }
 
 /* ==========================================================================
@@ -511,7 +546,7 @@
   }
 
   .reveal {
-    animation: reveal-rise 0.5s cubic-bezier(0.28, 0.11, 0.32, 1) both;
+    animation: reveal-rise var(--duration-slow) var(--ease-out) both;
   }
 
   .reveal-delay-1 {
