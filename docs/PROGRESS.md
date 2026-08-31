@@ -2665,3 +2665,57 @@ overflow-hunting script that looks for elements past the right edge finds nothin
 a clean page while the document is 225px too wide.
 
 Five PRs, all five checks green on each: `#64`, `#65`, `#66`, `#67`, `#68`.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 1: complete the design system, and find what it never compiled
+
+Four PRs. The plan called this "design-system completion" and expected additive token work.
+Most of it turned out to be finding things that had never worked.
+
+**The toast surface was wired to nothing.** `app-shell.tsx` imported `Toaster` from `sonner`
+rather than from `@/components/ui/sonner`, so the project's own wrapper — lucide icons, the
+`--popover`/`--border`/`--radius` bindings, the theme — had **zero consumers anywhere**. Dead
+code that read like the mechanism, sitting beside the raw component that actually rendered.
+And the raw one defaults to `theme="system"`, so every toast followed the operating system.
+The wrapper would not have saved it either: it called `useTheme()` from `next-themes` with no
+provider mounted, which returns an object with no `theme` key, so its `= 'system'` default won
+every render and arrived in the same place.
+
+The cure is one authority, not a second provider. `next-themes` is gone; `hooks/use-theme.ts`
+observes the `dark` class on `<html>` — the thing the pre-paint script already sets — with a
+`MutationObserver`, so whoever changes it is seen. Verified across the full OS × app matrix,
+including both crossed cases, which are the only two that could ever have shown the bug.
+
+**`z-sticky` has never generated a rule.** Tailwind v4 builds `z-` utilities from the
+`--z-index-*` namespace; the tokens were declared `--z-sticky`. So the sticky header has
+shipped with `z-index: auto` since the day it was written. Found by grepping the built
+stylesheet for each class after `shadow-mid` compiled and the `z-` ones did not — the general
+rule, now in both documents: **a defined token is not evidence of a generated class.**
+
+**The overlays ran a second elevation ramp** — Tailwind's `shadow-md`/`shadow-lg` plus a
+`ring-1` for an edge, beside the token ramp that describes two steps. `--shadow-mid` is the
+missing one. The rings went with it, checked at pixel level in both themes.
+
+**`Card` landed with consumers, deliberately.** 141 sites, twenty-five spellings of the same
+box. `SettingsSection`, `StatCard` and the treasury `AccountCard` migrated in the same change
+— which is what proved the API, and what stops it becoming another `--spacing-section`
+(defined in this file, used by nothing, and the argument against every speculative token).
+Verified to move no pixel: 23 card surfaces across four pages, measured before and after.
+
+**Three plan items were dropped after reading the code.** The plan wanted
+`--color-money-positive/negative/neutral` to resolve "four contradictory sign conventions".
+They are not contradictory — they answer three different questions, and `Timeline` maps a
+positive amount to `warning` because a positive amount is a *debit*. A single sign-to-colour
+token would have made it wrong. Only the naming drift was real (`Money` said `destructive`
+where everything else says `danger`). Rhythm and type-scale tokens were dropped for the
+`--spacing-section` reason. Font preload was deferred to the performance phase, where an LCP
+measurement can say which of 24 hashed faces are worth preloading.
+
+**A judgement worth recording.** `Card`'s `lg` padding was briefly `sm:p-8`, collapsing a 4px
+split. `SettingsSection` is `sm:p-7` with nine consumers, so "removing drift" meant repainting
+nine pages in a phase whose whole point is that pages are not being touched. Reverted to match
+what exists. A shared component that silently restyles the app is worse than two padding
+scales.
+
+Four PRs, all five checks green on each: `#70`, `#71`, `#72`, `#73`.
