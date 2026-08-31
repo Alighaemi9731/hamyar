@@ -2608,3 +2608,60 @@ production the same day, and that feedback loop is itself most of its speed.
 was never the PR, it was the 13-minute wait inside it — now largely gone. And the one real
 asymmetry is that invoice_system is single-tenant: here a scoping mistake leaks one shop's
 data to another, and a mandatory gate before `main` buys something there that it does not.
+
+---
+
+## 2026-08-31 — UI redesign, Phase 0: land the work, then build something that can see it
+
+The redesign programme's first phase. Two things had to happen before any new screen work:
+the existing redesign had to stop living on one laptop, and the browser suite had to become
+capable of noticing a regression.
+
+**The working tree held 14 modified files and 7 untracked paths, all uncommitted** — the
+treasury and invoice redesigns, plus shared-primitive changes affecting all 75 pages. Split
+into three reviewable PRs rather than one: `#64` the shared layer (the 40px interaction floor,
+the RTL numeric-column fix, the opaque sheet, `<ShareBar>`), `#65` treasury, `#66` the invoice
+document. Shared primitives shipped alone and first, because everything else consumes them.
+
+**The dependency graph did not match the plan.** The plan put `CRM/Parties/Index.tsx` with the
+invoice PR and `share-bar.tsx` with treasury; both actually belong to the primitives PR — the
+Parties change exists because of the `DataTable` alignment fix, and `/design` imports ShareBar.
+Splitting by file list rather than by dependency would have produced two PRs that did not
+compile on their own. Worth checking imports before drawing PR boundaries, not after.
+
+**The smoke suite was testing empty screens.** Every case ran against a tenant with no rows, so
+nine screens rendered empty states and nine empty states passed — green on precisely the states
+least able to break, which is the third time this file has learned that shape (mount, then
+theme, now fixture). It now seeds a real shop: a catalogue with variants, four handsets, three
+parties, a ticket, four accounts, and a sale **posted through the POS** rather than fabricated,
+because an invoice is a counter row plus movements plus ledger entries plus a quota consumption
+and a hand-built header is a row no screen would ever show. Four paths added; 20 cases → 36.
+
+And it carries a witness: the paths known to render a table must actually have rows in it,
+verified by disabling the seed and watching it fail rather than by assuming. `/repairs` is
+excluded on purpose — its list is hand-rolled `<div>`s, so a row count there would assert
+nothing and pass for the wrong reason.
+
+**Formatting was the one frontend rule with a script and no gate**, and 25 files across 9
+modules had drifted with nobody deciding they should. `docs/design-system.md` §3 had been
+documenting a `format:check` script that did not exist. Both fixed in `#68`. The reformat was
+proved cosmetic rather than assumed: 14 affected screens rendered before and after, `innerText`
+normalised the way JSX normalises whitespace, compared — 14 of 14 byte-identical.
+
+**Browser QA found one real defect and cleared everything else.** A 56-case sweep (7 paths ×
+4 viewports × 2 themes) against the local stack: no console errors anywhere, one `<h1>` per
+page, theme witness correct in all 56, and no overflow except `/design`, which scrolled 600px
+in a 375px viewport because the PrintLayout paper specimens cannot reflow — an A4 sheet is
+210mm because that is what leaves the printer. They now scroll in their own lane. The `min-w-0`
+is the load-bearing half; without it the overflow just moves up to the document.
+
+Two findings recorded and deliberately not fixed: the `/sales` status chips are 28px, which is
+the dense step the button ladder reserves for chips, and `/sales/invoices/{id}/print/a4`
+overflows by 11px at 375 — pre-existing, on a page no Phase-0 PR touched, and print has its own
+phase. `TabsList` at 25px is the same class and goes with the touch-floor sweep.
+
+**A note on RTL debugging:** horizontal overflow in this app escapes to the *left*. An
+overflow-hunting script that looks for elements past the right edge finds nothing and reports
+a clean page while the document is 225px too wide.
+
+Five PRs, all five checks green on each: `#64`, `#65`, `#66`, `#67`, `#68`.
