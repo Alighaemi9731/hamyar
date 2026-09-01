@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reporting\Services;
 
 use App\Modules\Inventory\Enums\MovementType;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -152,9 +153,23 @@ final class InventoryReports
                 'label' => $this->stringOf($values['label'] ?? '') ?: 'بدون عنوان',
                 'kind' => 'serialized',
                 'quantity' => $quantity,
-                // Shown for comparability with the standard rows; the exact per-device
-                // figure lives on the passport, and this is the group's average.
-                'unit_cost' => $quantity > 0 ? intdiv($value, $quantity) : 0,
+                /*
+                | Shown for comparability with the standard rows; the exact per-device
+                | figure lives on the passport, and this is the group's average.
+                |
+                | Raised to a whole toman, and that is not cosmetic: three handsets whose
+                | costs total ten million toman average 33,333,333.33 — a figure `Money`
+                | refuses to render, so the whole report answered **500**. The standard
+                | rows have ceiled since `averageCostExpression()` was written; this path
+                | divided and hoped, which held only while every group happened to divide
+                | evenly.
+                |
+                | Ceiling rather than flooring, in the same direction and for the same
+                | reason as the standard expression: the two sit in one table under one
+                | heading, and a shop that finds them rounded opposite ways has no way to
+                | tell which is wrong. `value` beside it stays the exact sum.
+                */
+                'unit_cost' => $quantity > 0 ? Money::ceilToToman(intdiv($value, $quantity)) : 0,
                 'value' => $value,
             ];
         }

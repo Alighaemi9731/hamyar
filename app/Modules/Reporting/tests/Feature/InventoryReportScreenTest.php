@@ -138,6 +138,71 @@ it('values both registers, not just the one with movements', function (): void {
         );
 });
 
+/*
+| A serialized group whose cost does not divide evenly by its count.
+|
+| `/reporting/inventory?cut=valuation` answered **500** for it. The serialized rows divided
+| the group's total by its quantity and handed the result to `Money::toArray()`, which
+| refuses a figure that is not a whole toman — so three handsets totalling ten million
+| toman, averaging 33,333,333.33, took the whole report down.
+|
+| Every fixture in this file divided evenly, which is why nothing caught it. This one does
+| not, which is the only reason it exists.
+*/
+it('values a serialized group whose cost does not divide evenly by its count', function (): void {
+    app(TenantContext::class)->runFor($this->tenant, function (): void {
+        /** @var Warehouse $warehouse */
+        $warehouse = Warehouse::query()->firstOrFail();
+
+        $odd = ProductVariant::factory()
+            ->for(Product::factory()->serialized()->create(['name' => 'گوشی تقسیم‌ناپذیر']))
+            ->create();
+
+        // 100,000,000 rial over three devices: 33,333,333 — not a whole toman.
+        foreach (['359000000000017', '359000000000025', '359000000000033'] as $imei) {
+            ProductUnit::query()->create([
+                'product_variant_id' => $odd->id,
+                'warehouse_id' => $warehouse->id,
+                'imei1' => $imei,
+                'status' => 'in_stock',
+                'condition' => 'new',
+                'cost' => 33_333_340,
+                'acquired_at' => CarbonImmutable::now()->subDays(5),
+            ]);
+        }
+
+        // 100,000,020 total, which still leaves 33,333,340 — so nudge one device down by
+        // a single toman to make the group indivisible.
+        ProductUnit::query()->where('product_variant_id', $odd->id)->limit(1)->update(['cost' => 33_333_330]);
+    });
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/inventory?cut=valuation')
+        ->assertOk()
+        ->assertInertia(function ($page): void {
+            /** @var list<array<string, mixed>> $rows */
+            $rows = propsOf($page)['rows'];
+
+            $line = null;
+
+            foreach ($rows as $row) {
+                if (($row['label'] ?? null) === 'گوشی تقسیم‌ناپذیر') {
+                    $line = $row;
+                }
+            }
+
+            expect($line)->not->toBeNull();
+
+            /** @var array{unit_cost: array{value: int}, value: array{value: int}} $line */
+            // 100,000,010 / 3 = 33,333,336.67 -> 33,333,340, raised the same way the
+            // standard rows are so the two agree under one heading.
+            expect($line['unit_cost']['value'] % 10)->toBe(0)
+                ->and($line['unit_cost']['value'])->toBe(33_333_340)
+                // The group's total stays exact; only the derived average is rounded.
+                ->and($line['value']['value'])->toBe(100_000_010);
+        });
+});
+
 it('values standard goods at the quantity-weighted average, not a mean of prices', function (): void {
     /*
     | 10 at 50,000,000 plus 2 at 90,000,000 is 680,000,000 over 12 units = 56,666,666.67,
