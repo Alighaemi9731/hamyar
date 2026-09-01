@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
@@ -197,6 +198,11 @@ function Summary({
 
   return (
     <section className="rounded-card border border-border bg-card p-6 sm:p-8">
+      {/* Receiving posts stock into the warehouse; a refusal here — a spent quota, a line
+          without a cost, a closed period — arrived as a redirect that re-rendered an
+          identical page. */}
+      <FormErrors errors={receive.errors} className="mb-6" />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <dl className="grid flex-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
           <Fact label="تأمین‌کننده">
@@ -521,6 +527,10 @@ function ImeiIntake({ invoiceId }: { invoiceId: number }) {
             not rendered at all — leaving it there as a disabled brand-filled button
             puts the eye on the one thing that will not work (design-system rule 7).
           */}
+          {/* Three keys have a home beside their input above; everything else the server
+              can refuse on had none. */}
+          <FormErrors errors={commit.errors} handled={['imeis', 'product_variant_id', 'amount']} />
+
           <div className="flex flex-wrap items-center gap-3">
             {result.clean ? (
               <Button type="button" disabled={commit.processing} onClick={() => submit(false)}>
@@ -699,6 +709,10 @@ function StandardLineForm({ invoiceId }: { invoiceId: number }) {
           />
         </div>
 
+        {/* Nothing on this form has a field for a refusal to sit beside, and 878 lines of
+            editor rendered no error region at all. */}
+        <FormErrors errors={form.errors} />
+
         <Button type="submit" disabled={form.processing || variant === null}>
           افزودن
         </Button>
@@ -831,6 +845,8 @@ function LandedCosts({
             />
           </div>
 
+          <FormErrors errors={form.errors} />
+
           <Button type="submit" disabled={form.processing || !hasLines || amount.trim() === ''}>
             افزودن
           </Button>
@@ -859,20 +875,52 @@ function RemoveLine({
   kind: string;
   lineId: number;
 }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="حذف ردیف"
-      className="group"
-      onClick={() =>
-        router.delete(`/purchasing/invoices/${invoiceId}/lines/${kind}/${lineId}`, {
-          preserveScroll: true,
-        })
-      }
-    >
-      <Trash2Icon className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
-    </Button>
+    <>
+      <FormErrors errors={errors} />
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="حذف ردیف"
+        className="group"
+        onClick={() => setConfirming(true)}
+      >
+        <Trash2Icon className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
+      </Button>
+
+      {/*
+        This deleted on a single click and handled no refusal. A purchase line carries a
+        quantity and a cost that the stock ledger and every margin after it are computed
+        from, so removing one is not a tidy-up — and on a received invoice the server may
+        well refuse, which arrived as a redirect that changed nothing on screen.
+      */}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="حذف ردیف فاکتور خرید"
+        description="این ردیف و بهای آن از فاکتور برداشته می‌شود و مبلغ کل دوباره محاسبه می‌گردد. اگر فاکتور رسید خورده باشد، حذف انجام نمی‌شود."
+        confirmLabel="حذف ردیف"
+        processing={busy}
+        onConfirm={() => {
+          setBusy(true);
+          setErrors({});
+
+          router.delete(`/purchasing/invoices/${invoiceId}/lines/${kind}/${lineId}`, {
+            preserveScroll: true,
+            onError: (received) => setErrors(received as Record<string, string>),
+            onFinish: () => {
+              setBusy(false);
+              setConfirming(false);
+            },
+          });
+        }}
+      />
+    </>
   );
 }
