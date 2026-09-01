@@ -116,7 +116,6 @@ export default function SalesReport({
                 <Button
                   key={entry.key}
                   variant={entry.key === cut ? 'default' : 'outline'}
-                  size="sm"
                   onClick={() => apply({ cut: entry.key })}
                 >
                   {entry.label}
@@ -161,7 +160,11 @@ export default function SalesReport({
       >
         <div className="p-8 print:p-0">
           <header className="mb-6 border-b pb-4">
-            <h1 className="text-lg font-bold">گزارش فروش</h1>
+            {/* The document's heading, not the page's — `AppShell` already renders an
+                `<h1>` above the paper, and this repeated it, so every report shipped
+                two page headings. On paper the outline does not exist and the
+                rendering is unchanged; on screen a reader now gets one. */}
+            <h2 className="text-lg font-bold">گزارش فروش</h2>
             <p className="mt-1 text-sm text-black/60">
               {active?.label} · از {period.from_jalali} تا {period.to_jalali}
             </p>
