@@ -3186,3 +3186,55 @@ both themes: no overflow, one `<h1>`, no control under 40px, no console errors �
 across six screens.
 
 Two PRs, all five checks green: `#100`, and the sentinel fix inside it.
+
+## 1404-06-11 (2026-09-01) — Phase 8: the register family
+
+**The registers were empty, and an empty table hides everything.** One invoice, no quotes,
+five products. Before judging any of these screens I seeded twelve invoices of deliberately
+mixed magnitude and three quotes through the real `InvoiceTotals`/`FinaliseInvoice` path,
+thirty parties, and long real Persian product names — the sixty-character kind a shop
+actually types.
+
+With that data the wide sweep came back **104 cases and one finding**, which says Phases
+0–3 did their job. But neither money defect below is visible on a one-row table, and both
+were sitting on the busiest screens in the product.
+
+**The money columns were aligned on the wrong edge (`#102`).** The sales book set
+`text-end` on «مبلغ» and «باقی‌مانده». In RTL that resolves to physical **left**: it lines
+up the most-significant digits of a Latin numeral and leaves the units ragged. Measured
+across twelve rows at 1440 — **28px of spread and four distinct right edges on the total,
+61px and four on the outstanding**. After `DataTable`'s `numeric`: one edge, 0px. Same
+defect and same fix on the SMS cost column.
+
+**Three actions could fail with nothing on screen**, each on something that matters:
+converting a quote into an invoice (`ValidationException::withMessages(['quote' => …])`, a
+key with no field), resending a document to سازمان امور مالیاتی, and toggling or deleting a
+follow-up. All three came back as redirects that re-rendered an identical page. Each was
+proved by planting the refusal and watching the message appear where nothing appeared
+before. Baseline 32 to 29.
+
+**The follow-up desk deleted a reminder on one click.** No confirmation, on an irreversible
+action whose button sits one row from «انجام شد», both icon-only. Six other pages already
+use `ConfirmDialog`; the desk was the outlier.
+
+**The Hamta list is capped at 200 rows and said nothing** — «تمام شد» and «تا اینجا نشان
+دادیم» looked identical on the screen whose job is proving a compliance backlog is clear.
+
+Two things I declined to make consistent, both for the same reason — the abstraction would
+have made the screen worse:
+
+- **Moadian keeps its own status labels.** `StatusBadge`'s map is one flat key space shared
+  by every module, where `rejected` means «مرجوع بدون تعمیر» and `pending` means «در انتظار
+  پرداخت». Adopting it would print the wrong Persian on a tax screen.
+- **The follow-up desk stays a list, not a `DataTable`.** A follow-up is a task, not a
+  record: one line of subject, a date read as "late or not", two actions. Five columns
+  would spread what is really one sentence and two buttons.
+
+**A correction to my own tooling, and to earlier claims.** The SMS filter chips were 28px
+and my sweep had never seen them: they are `Button asChild`, which renders an `<a>`, and the
+selector only matched `button` elements. **Anchor-buttons had never been measured anywhere
+in this programme.** The selector now includes `[data-slot="button"]`; re-running it over
+every screen already reported clean found Messaging to be the only one affected, so the
+earlier results stand — but they were narrower than I said they were.
+
+Two PRs, all five checks green: `#102`, `#103`.
