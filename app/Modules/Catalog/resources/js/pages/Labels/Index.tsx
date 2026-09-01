@@ -117,8 +117,17 @@ export default function LabelsIndex({ levels }: Props) {
     >
       <Head title="چاپ برچسب" />
 
+      {/*
+        `min-w-0` on both tracks, and it is load-bearing.
+
+        A grid item's minimum width is `auto`, which resolves to its *min-content* width —
+        so a column holding an unbreakable row (a price with `whitespace-nowrap`, a button
+        that is `shrink-0`, and a `gap-3` between them) refuses to shrink below that sum.
+        Measured at 375: the picker section held itself at 539px and pushed the page to
+        555px, escaping to the physical left as RTL overflow does.
+      */}
       <div className="no-print mb-8 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
-        <section className="space-y-4 rounded-card border border-border bg-surface p-6">
+        <section className="min-w-0 space-y-4 rounded-card border border-border bg-surface p-6">
           <div className="relative max-w-md">
             <SearchIcon
               className="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-muted-foreground"
@@ -146,7 +155,9 @@ export default function LabelsIndex({ levels }: Props) {
           {status === 'ready' && results.length > 0 && (
             <ul className="divide-y divide-border">
               {results.map((variant) => (
-                <li key={variant.id} className="flex min-h-12 items-center gap-3 py-2">
+                // `flex-wrap`, so the price and the button drop to a second line on a
+                // phone instead of holding the row open.
+                <li key={variant.id} className="flex min-h-12 flex-wrap items-center gap-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">
                       {variant.product_name}
@@ -164,7 +175,7 @@ export default function LabelsIndex({ levels }: Props) {
 
                   {variant.price && <Money rial={variant.price.value} digits="latin" />}
 
-                  <Button type="button" variant="outline" size="sm" onClick={() => add(variant)}>
+                  <Button type="button" variant="outline" onClick={() => add(variant)}>
                     افزودن
                   </Button>
                 </li>
@@ -173,7 +184,7 @@ export default function LabelsIndex({ levels }: Props) {
           )}
         </section>
 
-        <aside className="space-y-5 rounded-card border border-border bg-surface p-6">
+        <aside className="min-w-0 space-y-5 rounded-card border border-border bg-surface p-6">
           <div className="space-y-1.5">
             <Label htmlFor="label-level">سطح قیمت</Label>
             <Select value={levelId} onValueChange={setLevelId}>

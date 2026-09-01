@@ -12,7 +12,6 @@ app/Modules/Catalog/resources/js/pages/Import/Index.tsx
 app/Modules/Catalog/resources/js/pages/Prices/Index.tsx
 app/Modules/Hamta/resources/js/pages/Hamta/Checklist.tsx
 app/Modules/Installments/resources/js/pages/Plans/Create.tsx
-app/Modules/Inventory/resources/js/pages/Branches/Index.tsx
 app/Modules/Inventory/resources/js/pages/Counts/Index.tsx
 app/Modules/Inventory/resources/js/pages/Counts/Show.tsx
 app/Modules/Inventory/resources/js/pages/Transfers/Index.tsx
