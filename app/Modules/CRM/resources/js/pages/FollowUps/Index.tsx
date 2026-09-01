@@ -1,7 +1,11 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { BellIcon, CheckIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
 
+import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FormErrors } from '@/components/domain/form-errors';
+import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
@@ -30,10 +34,33 @@ interface Props {
  * The screen the feature exists for: a reminder that only appears on one customer's
  * page is a reminder nobody sees. The question staff actually ask is "who am I
  * supposed to call today", which is a list across parties, soonest first.
+ *
+ * ## Still a list, not a table
+ *
+ * The register family is `DataTable` everywhere else and this stays a list on purpose. A
+ * follow-up is a task, not a record: it has one line of subject, a due date that is read
+ * as "late or not" rather than compared, and a pair of actions per row. The strike-through
+ * on a completed item and the «سررسید گذشته» marker are the whole information design, and
+ * a table would spread five columns over what is really one sentence and two buttons.
+ *
+ * ## Deleting asked nothing
+ *
+ * The bin icon called `remove.delete()` on a single click. A follow-up is somebody's note
+ * to ring a customer back, it is not recoverable from this screen, and the button sits
+ * directly beside «انجام شد» — one row apart, both icon-only. `ConfirmDialog` is what six
+ * other pages already use for this, including this list's own sibling in Catalog.
+ *
+ * ## Both actions could fail silently
+ *
+ * `toggle.put` and `remove.delete` rendered no error region. A refusal on either — a
+ * follow-up already closed by a colleague, a permission that changed — came back as a
+ * redirect that re-rendered an identical row.
  */
 export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props) {
   const toggle = useForm({});
   const remove = useForm({});
+
+  const [confirming, setConfirming] = useState<FollowUpRow | null>(null);
 
   function visit(changes: Record<string, boolean>): void {
     router.get(
@@ -45,25 +72,33 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
 
   return (
     <AppShell
-      title={filters.done ? 'میز پیگیری — انجام‌شده' : 'میز پیگیری'}
-      actions={
-        <>
-          <Button
-            variant={filters.mine ? 'default' : 'outline'}
-            onClick={() => visit({ mine: !filters.mine })}
-          >
-            فقط موارد من
-          </Button>
-          {/* The label names where the button GOES, not where you are — a toggle
+      header={
+        <PageHeader
+          title={filters.done ? 'میز پیگیری — انجام‌شده' : 'میز پیگیری'}
+          description="کسانی که قرار است امروز با آن‌ها تماس بگیرید، نزدیک‌ترین سررسید اول."
+          actions={
+            <>
+              <Button
+                variant={filters.mine ? 'default' : 'outline'}
+                onClick={() => visit({ mine: !filters.mine })}
+              >
+                فقط موارد من
+              </Button>
+              {/* The label names where the button GOES, not where you are — a toggle
               labelled with its current state reads as an action and sends people the
               wrong way. Which list you are on is carried by the heading below. */}
-          <Button variant="outline" onClick={() => visit({ done: !filters.done })}>
-            {filters.done ? 'نمایش بازها' : 'نمایش انجام‌شده‌ها'}
-          </Button>
-        </>
+              <Button variant="outline" onClick={() => visit({ done: !filters.done })}>
+                {filters.done ? 'نمایش بازها' : 'نمایش انجام‌شده‌ها'}
+              </Button>
+            </>
+          }
+        />
       }
     >
       <Head title="میز پیگیری" />
+
+      {/* Neither a toggle nor a delete has a field for its refusal to sit beside. */}
+      <FormErrors errors={{ ...toggle.errors, ...remove.errors }} className="mb-6" />
 
       {followUps.rows.length === 0 ? (
         <EmptyState
@@ -130,9 +165,7 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
                   aria-label="حذف پیگیری"
                   className="group"
                   disabled={remove.processing}
-                  onClick={() =>
-                    remove.delete(`/crm/follow-ups/${followUp.id}`, { preserveScroll: true })
-                  }
+                  onClick={() => setConfirming(followUp)}
                 >
                   <Trash2Icon className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
                 </Button>
@@ -143,6 +176,23 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
       )}
 
       <Pagination className="mt-6" links={followUps.links} total={followUps.total} unit="پیگیری" />
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={confirming ? `حذف «${confirming.title}»` : ''}
+        description="این یادآوری برای همیشه پاک می‌شود. اگر فقط انجام شده، به‌جای حذف آن را «انجام شد» بزنید تا سابقه‌اش بماند."
+        confirmLabel="حذف پیگیری"
+        processing={remove.processing}
+        onConfirm={() => {
+          if (!confirming) return;
+
+          remove.delete(`/crm/follow-ups/${confirming.id}`, {
+            preserveScroll: true,
+            onFinish: () => setConfirming(null),
+          });
+        }}
+      />
     </AppShell>
   );
 }

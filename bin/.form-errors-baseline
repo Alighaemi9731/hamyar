@@ -4,7 +4,6 @@
 #
 # Emptying it is the job of the phase that rebuilds each page. Do not add to it.
 
-app/Modules/CRM/resources/js/pages/FollowUps/Index.tsx
 app/Modules/CRM/resources/js/pages/Import/Index.tsx
 app/Modules/CRM/resources/js/pages/Parties/Edit.tsx
 app/Modules/CRM/resources/js/pages/Parties/Show.tsx
