@@ -1,9 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { InboxIcon } from 'lucide-react';
+import { useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { Pagination, type PaginationLink } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/domain/data-table';
+import { FormErrors } from '@/components/domain/form-errors';
+import { Num } from '@/components/domain/num';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 
 interface Submission {
@@ -55,6 +60,23 @@ const STATUS_TONE: Record<Submission['status'], string> = {
  * A shop that turned theirs on still submits nothing while the deployment-wide flag is off,
  * and «چرا کار نمی‌کند؟» needs an answer that tells those apart. Collapsing them into one
  * "disabled" state sends the shop to change a setting that was never the problem.
+ *
+ * ## «ارسال دوباره» could fail with nothing on screen
+ *
+ * It posted and handled no refusal — no `onError`, no error region. A resend to the tax
+ * authority can be declined for a dozen reasons, and every one of them came back as a
+ * redirect that re-rendered an identical page. The shop pressed the button, watched
+ * nothing change, and had no way to tell "sent again" from "refused again" on the one
+ * screen whose entire subject is whether the tax office received something.
+ *
+ * ## The status labels stay local, deliberately
+ *
+ * `StatusBadge` would be the obvious component here and it would be wrong. Its map is a
+ * single flat key space shared by every module: `rejected` there means «مرجوع بدون تعمیر»,
+ * a repairs outcome, and `pending` means «در انتظار پرداخت». Both keys exist here with
+ * entirely different meanings — «رد شده» by the tax authority, and «در صف». Adopting the
+ * shared component would print the wrong Persian on a tax screen, which is worse than
+ * having two maps.
  */
 export default function MoadianIndex({
   enabled,
@@ -65,6 +87,24 @@ export default function MoadianIndex({
   submissions,
   can_manage: canManage,
 }: Props) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [resending, setResending] = useState<number | null>(null);
+
+  function resend(id: number): void {
+    setResending(id);
+    setErrors({});
+
+    router.post(
+      `/moadian/${id}/resend`,
+      {},
+      {
+        preserveScroll: true,
+        onError: (received) => setErrors(received as Record<string, string>),
+        onFinish: () => setResending(null),
+      }
+    );
+  }
+
   const filter = (next: string | null) => {
     router.get('/moadian', next ? { status: next } : {}, {
       preserveState: true,
@@ -73,16 +113,19 @@ export default function MoadianIndex({
   };
 
   return (
-    <AppShell title="سامانه مودیان">
+    <AppShell
+      header={
+        <PageHeader
+          title="سامانه مودیان"
+          description="وضعیت ارسال صورتحساب‌های الکترونیکی به سازمان امور مالیاتی."
+        />
+      }
+    >
       <Head title="سامانه مودیان" />
 
       <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold">سامانه مودیان</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            وضعیت ارسال صورتحساب‌های الکترونیکی به سازمان امور مالیاتی.
-          </p>
-        </header>
+        {/* A refused resend belongs to the document, not to any input. */}
+        <FormErrors errors={errors} />
 
         {!enabled && <DisabledNotice platformEnabled={platformEnabled} shopEnabled={shopEnabled} />}
 
@@ -104,7 +147,7 @@ export default function MoadianIndex({
         </div>
 
         {status ? (
-          <Button variant="ghost" size="sm" onClick={() => filter(null)}>
+          <Button variant="ghost" onClick={() => filter(null)}>
             نمایش همه
           </Button>
         ) : null}
@@ -116,70 +159,83 @@ export default function MoadianIndex({
             description="با نهایی شدن هر فاکتور، سند الکترونیکی آن به‌صورت خودکار در صف ارسال قرار می‌گیرد."
           />
         ) : (
-          <div className="overflow-x-auto rounded-card border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-surface-muted text-muted-foreground">
-                  <th className="p-3 text-start font-medium">فاکتور</th>
-                  <th className="p-3 text-start font-medium">نوع</th>
-                  <th className="p-3 text-start font-medium">وضعیت</th>
-                  <th className="p-3 text-start font-medium">شناسه مالیاتی</th>
-                  <th className="p-3 text-start font-medium">تلاش</th>
-                  <th className="p-3 text-start font-medium">تاریخ</th>
-                  <th className="p-3 text-start font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.data.map((row) => (
-                  <tr key={row.id} className="border-b last:border-0 align-top">
-                    <td className="p-3">
-                      {row.invoice_url ? (
-                        <Link href={row.invoice_url} className="text-primary hover:underline">
-                          {row.invoice_number ?? '—'}
-                        </Link>
-                      ) : (
-                        (row.invoice_number ?? '—')
-                      )}
-                    </td>
-                    <td className="p-3">{row.type === 'cancel' ? 'ابطال' : 'اصلی'}</td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[row.status]}`}
-                      >
-                        {STATUS_LABEL[row.status]}
-                      </span>
-                      {/* The reason, in Persian, next to the thing it happened to — the
-                          spec's point about silent failure being the worst outcome. */}
-                      {row.error_message ? (
-                        <p className="mt-1 max-w-md text-xs text-danger text-pretty">
-                          {row.error_message}
-                          {row.error_code ? ` (${row.error_code})` : ''}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="p-3 font-mono text-xs tabular-nums" dir="ltr">
-                      {row.tax_id ?? '—'}
-                    </td>
-                    <td className="p-3 tabular-nums">{row.attempts}</td>
-                    <td className="p-3 tabular-nums">{row.sent_at}</td>
-                    <td className="p-3 text-end">
-                      {canManage && row.status !== 'accepted' ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            router.post(`/moadian/${row.id}/resend`, {}, { preserveScroll: true })
-                          }
-                        >
-                          ارسال دوباره
-                        </Button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="اسناد ارسال‌شده به سامانه مودیان، تازه‌ترین اول."
+            rows={submissions.data}
+            rowKey={(row) => row.id}
+            columns={[
+              {
+                key: 'invoice',
+                header: 'فاکتور',
+                cell: (row) =>
+                  row.invoice_url ? (
+                    <Link href={row.invoice_url} className="text-primary hover:underline">
+                      <Num value={row.invoice_number ?? '—'} variant="ltr" />
+                    </Link>
+                  ) : (
+                    <Num value={row.invoice_number ?? '—'} variant="ltr" />
+                  ),
+              },
+              {
+                key: 'type',
+                header: 'نوع',
+                cell: (row) => (row.type === 'cancel' ? 'ابطال' : 'اصلی'),
+                secondary: true,
+              },
+              {
+                key: 'status',
+                header: 'وضعیت',
+                cell: (row) => (
+                  <>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[row.status]}`}>
+                      {STATUS_LABEL[row.status]}
+                    </span>
+                    {/* The reason, in Persian, next to the thing it happened to — the
+                        spec's point about silent failure being the worst outcome. */}
+                    {row.error_message ? (
+                      <p className="mt-1 max-w-md text-xs text-pretty text-danger">
+                        {row.error_message}
+                        {row.error_code ? ` (${row.error_code})` : ''}
+                      </p>
+                    ) : null}
+                  </>
+                ),
+              },
+              {
+                key: 'tax_id',
+                header: 'شناسه مالیاتی',
+                cell: (row) => <Num value={row.tax_id ?? '—'} variant="ltr" />,
+                secondary: true,
+              },
+              {
+                key: 'attempts',
+                header: 'تلاش',
+                numeric: true,
+                cell: (row) => <Num value={row.attempts} />,
+                secondary: true,
+              },
+              {
+                key: 'sent_at',
+                header: 'تاریخ',
+                cell: (row) => row.sent_at,
+                secondary: true,
+              },
+              {
+                key: 'resend',
+                header: '',
+                cell: (row) =>
+                  canManage && row.status !== 'accepted' ? (
+                    <Button
+                      variant="outline"
+                      disabled={resending === row.id}
+                      onClick={() => resend(row.id)}
+                    >
+                      ارسال دوباره
+                    </Button>
+                  ) : null,
+              },
+            ]}
+          />
         )}
 
         <Pagination links={submissions.links} total={submissions.total} unit="سند" />
