@@ -99,7 +99,7 @@ treasury, SMS, reports. Persian (fa-IR), RTL, Jalali calendar, currency = IRR in
 - **`main` is protected** — a PR plus all five checks. `enforce_admins` is deliberately off.
   If protection is ever removed or the repo goes private, say so here (see lessons).
 
-**Eight guards run in CI and encode rules people kept breaking.** Run `composer guards`
+**Nine guards run in CI and encode rules people kept breaking.** Run `composer guards`
 locally. Each refuses a shape, and each exists because that shape shipped at least once:
 
 | guard | refuses |
@@ -111,6 +111,7 @@ locally. Each refuses a shape, and each exists because that shape shipped at lea
 | `check-queued-tenancy` | a job neither tenant-aware nor declared platform-wide |
 | `check-quota-scoping` | an unscoped query on a platform-owned quota table |
 | `check-apex-domain` | a hardcoded hostname |
+| `check-rtl-arrows` | `ArrowLeft/RightIcon` mirrored by `rtl:rotate-180` |
 | `check-form-errors` | a component that submits and renders no `<FormErrors>` |
 
 Rules the guards cannot catch, each with its story in `docs/lessons.md`:

@@ -116,7 +116,7 @@ export default function PricesIndex({ levels, variants, filters, categories, bra
       actions={
         <Button variant="outline" asChild>
           <Link href="/catalog">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت به کالاها
           </Link>
         </Button>

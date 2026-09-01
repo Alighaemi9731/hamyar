@@ -203,7 +203,7 @@ export default function ProductImportIndex({ fields, ignoredFields, types, exten
       actions={
         <Button variant="outline" asChild>
           <Link href="/catalog">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت
           </Link>
         </Button>

@@ -101,6 +101,9 @@ jobs:
       - name: Form-error gate
         run: php bin/check-form-errors
 
+      - name: Directional arrows are not mirrored
+        run: php bin/check-rtl-arrows
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)

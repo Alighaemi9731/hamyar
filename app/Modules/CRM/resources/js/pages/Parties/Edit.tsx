@@ -126,7 +126,7 @@ export default function PartyEdit({ party, contacts, kinds, price_levels: priceL
       actions={
         <Button variant="outline" asChild>
           <Link href={party ? `/crm/parties/${party.id}` : '/crm'}>
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت
           </Link>
         </Button>

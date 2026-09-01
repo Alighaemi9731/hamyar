@@ -169,7 +169,7 @@ export default function ActivityLog({ activities, filters, subjects, actors, rec
         record ? (
           <Button variant="outline" asChild>
             <Link href="/settings/activity">
-              <ArrowRightIcon className="size-4 rtl:rotate-180" aria-hidden />
+              <ArrowRightIcon className="size-4" aria-hidden />
               همه‌ی فعالیت‌ها
             </Link>
           </Button>

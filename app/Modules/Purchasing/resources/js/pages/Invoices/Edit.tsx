@@ -139,7 +139,7 @@ export default function InvoiceEdit({
         <>
           <Button variant="outline" asChild>
             <Link href="/purchasing">
-              <ArrowRightIcon className="size-4 rtl:rotate-180" />
+              <ArrowRightIcon className="size-4" />
               بازگشت
             </Link>
           </Button>

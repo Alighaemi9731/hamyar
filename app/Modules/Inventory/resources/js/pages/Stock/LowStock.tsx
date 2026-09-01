@@ -93,7 +93,7 @@ export default function LowStock({ rows, filters, warehouses }: Props) {
       actions={
         <Button variant="outline" asChild>
           <Link href="/inventory">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت به انبار
           </Link>
         </Button>

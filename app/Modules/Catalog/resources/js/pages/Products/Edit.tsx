@@ -90,7 +90,7 @@ export default function ProductEdit({
 
           <Button variant="outline" asChild>
             <Link href="/catalog">
-              <ArrowRightIcon className="size-4 rtl:rotate-180" />
+              <ArrowRightIcon className="size-4" />
               بازگشت به فهرست
             </Link>
           </Button>
