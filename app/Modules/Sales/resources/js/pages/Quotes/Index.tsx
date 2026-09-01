@@ -1,12 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeftRightIcon, PlusIcon, SearchIcon } from 'lucide-react';
+import { ArrowLeftRightIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
+import { Num } from '@/components/domain/num';
+import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -34,64 +38,94 @@ interface Props {
  * moves nothing; all it carries is a price, and in this market a price from five weeks
  * ago is not a price any more. So every row says how old it is, and the default view is
  * the ones still open.
+ *
+ * ## Converting could fail with nothing on screen
+ *
+ * «تبدیل به فاکتور» posted and handled no refusal at all — no `onError`, no error region.
+ * The server can decline: the quota for invoices can be spent, the quote can already have
+ * been converted by somebody else at the other counter, the stock can be gone. Every one
+ * of those came back as a redirect that re-rendered an identical page, so the button
+ * simply did not work — the exact failure `<FormErrors>` exists to end, on a button that
+ * creates a financial document.
+ *
+ * ## The total was aligned on the wrong edge
+ *
+ * `text-end` in an RTL table is physical **left**, which lines up the most-significant
+ * digits of a Latin numeral and leaves the units ragged. `DataTable`'s `numeric` is
+ * physical right; see the flag's own docblock for the measurements.
  */
 export default function QuotesIndex({ quotes, filters, can }: Props) {
-  const [term, setTerm] = useState(filters.q);
+  const [converting, setConverting] = useState<number | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   function visit(changes: Record<string, string | boolean | null>): void {
-    router.get(
-      '/sales/quotes',
-      { ...filters, ...changes },
-      { preserveState: true, preserveScroll: true, replace: true }
+    router.get('/sales/quotes', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
+  }
+
+  function convert(id: number): void {
+    setConverting(id);
+    setErrors({});
+
+    router.post(
+      `/sales/quotes/${id}/convert`,
+      {},
+      {
+        preserveScroll: true,
+        onError: (received) => setErrors(received as Record<string, string>),
+        onFinish: () => setConverting(null),
+      }
     );
   }
 
   return (
     <AppShell
-      title="پیش‌فاکتورها"
-      actions={
-        can.create && (
-          <Button asChild>
-            <Link href="/sales/pos">
-              <PlusIcon className="size-4" aria-hidden />
-              پیش‌فاکتور جدید
-            </Link>
-          </Button>
-        )
+      header={
+        <PageHeader
+          title="پیش‌فاکتورها"
+          description="قیمتی که به مشتری داده‌اید — تا وقتی تبدیل نشود، چیزی رزرو یا کم نمی‌شود."
+          actions={
+            can.create && (
+              <Button asChild>
+                <Link href="/sales/pos">
+                  <PlusIcon aria-hidden />
+                  پیش‌فاکتور جدید
+                </Link>
+              </Button>
+            )
+          }
+        />
       }
     >
       <Head title="پیش‌فاکتورها" />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <form
-          className="relative min-w-64 flex-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            visit({ q: term });
-          }}
-        >
-          <SearchIcon
-            className="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            aria-label="جستجوی پیش‌فاکتور"
-            className="ps-9"
-            placeholder="شماره پیش‌فاکتور یا نام مشتری…"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </form>
+      {/* Nothing here has a field to sit beside — a refusal to convert is about the
+          document, not about an input. */}
+      <FormErrors errors={errors} className="mb-6" />
 
+      <FilterBar
+        className="mb-6"
+        search={{
+          value: filters.q,
+          label: 'جستجوی پیش‌فاکتور',
+          placeholder: 'شماره پیش‌فاکتور یا نام مشتری…',
+        }}
+        onChange={visit}
+        resultCount={quotes.total}
+        resultUnit="پیش‌فاکتور"
+      >
         <Button
           type="button"
-          size="sm"
           variant={filters.open ? 'default' : 'outline'}
+          aria-pressed={filters.open}
           onClick={() => visit({ open: !filters.open })}
         >
           فقط تبدیل‌نشده‌ها
         </Button>
-      </div>
+      </FilterBar>
 
       {quotes.rows.length === 0 ? (
         <EmptyState
@@ -111,74 +145,69 @@ export default function QuotesIndex({ quotes, filters, can }: Props) {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-card border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-2xs text-muted-foreground">
-              <tr>
-                <th scope="col" className="p-3 text-start font-medium">
-                  شماره
-                </th>
-                <th scope="col" className="p-3 text-start font-medium">
-                  تاریخ
-                </th>
-                <th scope="col" className="p-3 text-start font-medium">
-                  مشتری
-                </th>
-                <th scope="col" className="p-3 text-end font-medium">
-                  مبلغ
-                </th>
-                <th scope="col" className="p-3 text-start font-medium">
-                  وضعیت
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {quotes.rows.map((quote) => (
-                <tr key={quote.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="p-3">
-                    <Link
-                      href={`/sales/invoices/${quote.id}`}
-                      className="tabular font-medium text-primary hover:underline"
-                    >
-                      {quote.number}
-                    </Link>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{formatJalali(quote.created_at)}</td>
-                  <td className="p-3">{quote.party_name ?? 'مشتری گذری'}</td>
-                  <td className="p-3 text-end">
-                    <Money rial={quote.total.value} digits="latin" />
-                  </td>
-                  <td className="p-3">
-                    {quote.converted_to ? (
-                      <Link
-                        href={`/sales/invoices/${quote.converted_to.id}`}
-                        className="text-2xs text-muted-foreground hover:underline"
-                      >
-                        {/* Both documents survive conversion, so the row says which
-                            invoice this became rather than just "done". */}
-                        تبدیل شد به {quote.converted_to.number}
-                      </Link>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => router.post(`/sales/quotes/${quote.id}/convert`)}
-                      >
-                        <ArrowLeftRightIcon className="size-4" aria-hidden />
-                        تبدیل به فاکتور
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          caption="پیش‌فاکتورهای صادرشده، تازه‌ترین اول."
+          rows={quotes.rows}
+          rowKey={(row) => row.id}
+          columns={[
+            {
+              key: 'number',
+              header: 'شماره',
+              cell: (row) => (
+                <Link
+                  href={`/sales/invoices/${row.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  <Num value={row.number ?? '—'} variant="ltr" />
+                </Link>
+              ),
+            },
+            {
+              key: 'created_at',
+              header: 'تاریخ',
+              cell: (row) => formatJalali(row.created_at),
+            },
+            {
+              key: 'party',
+              header: 'مشتری',
+              cell: (row) => row.party_name ?? 'مشتری گذری',
+            },
+            {
+              key: 'total',
+              header: 'مبلغ',
+              numeric: true,
+              cell: (row) => <Money rial={row.total.value} digits="latin" />,
+            },
+            {
+              key: 'converted',
+              header: 'وضعیت',
+              cell: (row) =>
+                row.converted_to ? (
+                  <Link
+                    href={`/sales/invoices/${row.converted_to.id}`}
+                    className="text-2xs text-muted-foreground hover:underline"
+                  >
+                    {/* Both documents survive conversion, so the row says which invoice
+                        this became rather than just "done". */}
+                    تبدیل شد به {row.converted_to.number}
+                  </Link>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={converting === row.id}
+                    onClick={() => convert(row.id)}
+                  >
+                    <ArrowLeftRightIcon aria-hidden />
+                    تبدیل به فاکتور
+                  </Button>
+                ),
+            },
+          ]}
+        />
       )}
 
-      <Pagination links={quotes.links} total={quotes.total} unit="پیش‌فاکتور" className="mt-4" />
+      <Pagination links={quotes.links} total={quotes.total} unit="پیش‌فاکتور" className="mt-6" />
     </AppShell>
   );
 }

@@ -24,7 +24,6 @@ app/Modules/Purchasing/resources/js/pages/Invoices/Index.tsx
 app/Modules/Repairs/resources/js/pages/Tickets/Board.tsx
 app/Modules/Repairs/resources/js/pages/Tracking/Approve.tsx
 app/Modules/Repairs/resources/js/pos/approval-panel.tsx
-app/Modules/Sales/resources/js/pages/Quotes/Index.tsx
 app/Modules/Storefront/resources/js/pages/Storefront/Index.tsx
 app/Modules/Treasury/resources/js/pages/Treasury/Statement.tsx
 resources/js/components/domain/branch-switcher.tsx
