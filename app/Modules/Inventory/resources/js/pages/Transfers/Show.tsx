@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowRightIcon, PackageCheckIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { PackageCheckIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
@@ -11,6 +11,7 @@ import { SettingsSection } from '@/components/settings-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { toLatinDigits } from '@/lib/digits';
 import { formError } from '@/lib/forms';
@@ -59,14 +60,12 @@ interface Props {
 export default function TransferShow({ transfer, lines, can }: Props) {
   return (
     <AppShell
-      title={`حواله ${transfer.number}`}
-      actions={
-        <Button variant="outline" asChild>
-          <Link href="/inventory/transfers">
-            <ArrowRightIcon className="size-4" />
-            بازگشت
-          </Link>
-        </Button>
+      header={
+        <PageHeader
+          eyebrow="حوالهٔ انبار"
+          title={transfer.number}
+          back={{ href: '/inventory/transfers', label: 'همه حواله‌ها' }}
+        />
       }
     >
       <Head title={`حواله ${transfer.number}`} />
@@ -152,7 +151,9 @@ function AddLine({ transferId, warehouseId }: { transferId: number; warehouseId:
         <p className="mb-4 text-sm text-danger">{formError(form.errors, 'line')}</p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* `xl`, not `lg`: the shell's sidebar appears at `lg`, so a split there gives each
+          column less room than the single column had at 768. */}
+      <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-2">
           <Label>اسکن دستگاه</Label>
           <UnitPicker

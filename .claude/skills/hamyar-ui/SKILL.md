@@ -97,7 +97,9 @@ hover surface.
   device — cutting it undoes the language.
 - Multi-column bands inside `AppShell` split at `xl`, not `lg`. The sidebar appears at
   `lg`, so the content column is narrower at 1024 than at 768 — a row that fits at `md` can
-  overflow at the width that looks safest. Measured twice (treasury summary, billing plans).
+  overflow at the width that looks safest. Measured three times: treasury summary, billing
+  plans, and the unit passport's timeline, which ran 704px at 768 and 328px at 1024. The
+  first two overflow; the third just collapses, which is quieter and worse.
 - Sticky chrome uses the `.glass` class (frosted, `backdrop-filter`). Confined to nav
   and sidebar; it costs GPU on mid-range Android.
 - Motion vocabulary is exactly `.reveal` (fade + rise, 12px) plus `.reveal-delay-1..3`.

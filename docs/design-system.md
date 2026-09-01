@@ -159,9 +159,12 @@ contrast checker.
 - **A multi-column band inside the shell splits at `xl`, not `lg`.** The sidebar appears
   at `lg`, so the content column is *narrower* at 1024 than at 768 — 736px against 768px
   before padding. A row that fits at `md` can overflow at `lg`, which is the width it
-  looks safest at. Measured twice: the treasury summary's total needed ~300px and got 247,
-  and the billing plan cards needed 271 and got 208. If a band must split earlier, check
-  the narrowest column against its widest figure at 1024, not at 1280.
+  looks safest at. Measured three times: the treasury summary's total needed ~300px and got
+  247, the billing plan cards needed 271 and got 208, and the unit passport's timeline ran
+  704px at 768 and **328px at 1024** — the same content, more than halved by moving to a
+  wider screen. The first two overflow; the third simply collapses, which is quieter and
+  worse, because nothing looks broken. If a band must split earlier, check the narrowest
+  column against its widest figure at 1024, not at 1280.
 - **Section rhythm 144px** (`--spacing-section`), 88px on mobile — 1.5× the previous
   value. Generous whitespace is the single biggest carrier of this language; cutting it
   undoes the rest.

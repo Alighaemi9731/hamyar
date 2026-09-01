@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowRightIcon, CheckCheckIcon, EyeOffIcon, ListPlusIcon } from 'lucide-react';
+import { CheckCheckIcon, EyeOffIcon, ListPlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/components/domain/confirm-dialog';
@@ -10,6 +10,7 @@ import { SettingsSection } from '@/components/settings-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { toLatinDigits } from '@/lib/digits';
 import { formError } from '@/lib/forms';
@@ -75,14 +76,12 @@ export default function CountShow({ count, lines, can }: Props) {
 
   return (
     <AppShell
-      title={`انبارگردانی ${count.number}`}
-      actions={
-        <Button variant="outline" asChild>
-          <Link href="/inventory/counts">
-            <ArrowRightIcon className="size-4" />
-            بازگشت
-          </Link>
-        </Button>
+      header={
+        <PageHeader
+          eyebrow="انبارگردانی"
+          title={count.number}
+          back={{ href: '/inventory/counts', label: 'همه انبارگردانی‌ها' }}
+        />
       }
     >
       <Head title={`انبارگردانی ${count.number}`} />
