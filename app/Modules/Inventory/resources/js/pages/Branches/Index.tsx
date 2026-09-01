@@ -3,9 +3,13 @@ import { BuildingIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
+import { FormErrors } from '@/components/domain/form-errors';
+import { Num } from '@/components/domain/num';
+import { PageHeader } from '@/components/domain/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import { AppShell } from '@/layouts/app-shell';
 
 interface Branch {
@@ -46,28 +50,25 @@ export default function BranchesIndex({ branches, users, can_manage: canManage }
   const [creating, setCreating] = useState(false);
 
   return (
-    <AppShell title="شعبه‌ها">
+    <AppShell
+      header={
+        <PageHeader
+          title="شعبه‌ها"
+          description="هر شعبه شماره‌گذاری اسناد و سربرگ چاپ خودش را دارد. کارکنانی که به یک شعبه اختصاص داده شوند فقط اطلاعات همان شعبه‌ها را می‌بینند؛ کسی که به هیچ شعبه‌ای اختصاص داده نشده، همه شعب را می‌بیند."
+          actions={
+            canManage ? (
+              <Button onClick={() => setCreating((open) => !open)}>
+                <PlusIcon aria-hidden />
+                شعبه جدید
+              </Button>
+            ) : null
+          }
+        />
+      }
+    >
       <Head title="شعبه‌ها" />
 
       <div className="space-y-8">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">شعبه‌ها</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              هر شعبه شماره‌گذاری اسناد و سربرگ چاپ خودش را دارد. کارکنانی که به یک شعبه اختصاص داده
-              شوند فقط اطلاعات همان شعبه‌ها را می‌بینند؛ کسی که به هیچ شعبه‌ای اختصاص داده نشده، همه
-              شعب را می‌بیند.
-            </p>
-          </div>
-
-          {canManage ? (
-            <Button onClick={() => setCreating((open) => !open)}>
-              <PlusIcon className="size-4" aria-hidden />
-              شعبه جدید
-            </Button>
-          ) : null}
-        </header>
-
         {creating ? <BranchForm onDone={() => setCreating(false)} /> : null}
 
         {branches.length === 0 ? (
@@ -101,80 +102,97 @@ function BranchCard({
   const [staffing, setStaffing] = useState(false);
 
   return (
-    <section className="rounded-card border p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="flex flex-wrap items-center gap-2 font-semibold">
-            {branch.name}
-            <span className="rounded-full border px-2 py-0.5 font-mono text-xs" dir="ltr">
-              {branch.code}
-            </span>
-            {branch.is_default ? (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                پیش‌فرض
+    <Card asChild padding="lg">
+      <section>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="flex flex-wrap items-center gap-2 font-semibold">
+              {branch.name}
+              <span className="rounded-full border border-border px-2 py-0.5 text-xs">
+                <Num value={branch.code} variant="ltr" />
               </span>
-            ) : null}
-            {branch.is_active ? null : (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                غیرفعال
-              </span>
-            )}
-          </h2>
+              {branch.is_default ? (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                  پیش‌فرض
+                </span>
+              ) : null}
+              {branch.is_active ? null : (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  غیرفعال
+                </span>
+              )}
+            </h2>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            {branch.address || 'بدون آدرس'}
-            {branch.phone ? (
-              <>
-                {' · '}
-                <span dir="ltr">{branch.phone}</span>
-              </>
-            ) : null}
-          </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {branch.address || 'بدون آدرس'}
+              {branch.phone ? (
+                <>
+                  {' · '}
+                  <span dir="ltr">{branch.phone}</span>
+                </>
+              ) : null}
+            </p>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            {branch.warehouses.length > 0
-              ? `انبارها: ${branch.warehouses.map((w) => w.name).join('، ')}`
-              : 'بدون انبار'}
-          </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {branch.warehouses.length > 0
+                ? `انبارها: ${branch.warehouses.map((w) => w.name).join('، ')}`
+                : 'بدون انبار'}
+            </p>
 
-          <p className="mt-1 text-sm">
-            {branch.user_ids.length === 0 ? (
-              <span className="text-muted-foreground">
-                کسی به این شعبه اختصاص داده نشده — یعنی همهٔ کاربران آن را می‌بینند.
-              </span>
-            ) : (
-              <>
-                <UsersIcon className="inline size-4 align-text-bottom" aria-hidden />{' '}
-                {branch.user_ids.length} کارمند اختصاصی
-              </>
-            )}
-          </p>
+            <p className="mt-1 text-sm">
+              {branch.user_ids.length === 0 ? (
+                <span className="text-muted-foreground">
+                  کسی به این شعبه اختصاص داده نشده — یعنی همهٔ کاربران آن را می‌بینند.
+                </span>
+              ) : (
+                <>
+                  <UsersIcon className="inline size-4 align-text-bottom" aria-hidden />{' '}
+                  {/* Persian prose counts in Persian — design-system rule 4. This was a bare
+                    Latin numeral in the middle of a Persian sentence. */}
+                  <Num value={branch.user_ids.length} variant="prose" /> کارمند اختصاصی
+                </>
+              )}
+            </p>
+          </div>
+
+          {canManage ? (
+            <div className="flex shrink-0 gap-2">
+              {/*
+              Not `size="sm"`. These were 28px, and with twenty branches on screen that is
+              forty controls under the floor on one page — the two things anybody comes to
+              this screen to press.
+            */}
+              <Button
+                variant="outline"
+                aria-expanded={editing}
+                onClick={() => setEditing((v) => !v)}
+              >
+                ویرایش
+              </Button>
+              <Button
+                variant="outline"
+                aria-expanded={staffing}
+                onClick={() => setStaffing((v) => !v)}
+              >
+                کارکنان
+              </Button>
+            </div>
+          ) : null}
         </div>
 
-        {canManage ? (
-          <div className="flex shrink-0 gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
-              ویرایش
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setStaffing((v) => !v)}>
-              کارکنان
-            </Button>
+        {editing ? (
+          <div className="mt-5 border-t pt-5">
+            <BranchForm branch={branch} onDone={() => setEditing(false)} />
           </div>
         ) : null}
-      </div>
 
-      {editing ? (
-        <div className="mt-5 border-t pt-5">
-          <BranchForm branch={branch} onDone={() => setEditing(false)} />
-        </div>
-      ) : null}
-
-      {staffing ? (
-        <div className="mt-5 border-t pt-5">
-          <StaffForm branch={branch} users={users} onDone={() => setStaffing(false)} />
-        </div>
-      ) : null}
-    </section>
+        {staffing ? (
+          <div className="mt-5 border-t border-border pt-5">
+            <StaffForm branch={branch} users={users} onDone={() => setStaffing(false)} />
+          </div>
+        ) : null}
+      </section>
+    </Card>
   );
 }
 
@@ -203,17 +221,10 @@ function BranchForm({ branch, onDone }: { branch?: Branch; onDone: () => void })
   return (
     <form onSubmit={submit} className="space-y-4">
       {/* Every key of the error bag, not only the ones with an input beside them — a
-          failure that renders nowhere makes the submit button look broken. */}
-      {Object.keys(errors).length > 0 ? (
-        <div
-          role="alert"
-          className="rounded-control border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
-        >
-          {Object.values(errors).map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+          failure that renders nowhere makes the submit button look broken. This was a
+          hand-rolled copy of the shared region that also printed `quota`, which the shell
+          already renders through `<QuotaBlock>` with an upgrade button. */}
+      <FormErrors errors={errors} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
@@ -311,6 +322,8 @@ function StaffForm({
   onDone: () => void;
 }) {
   const [selected, setSelected] = useState<number[]>(branch.user_ids);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const toggle = (id: number) => {
     setSelected((current) =>
@@ -318,16 +331,34 @@ function StaffForm({
     );
   };
 
+  /*
+  | This posted with no `onError` and no region at all.
+  |
+  | It decides which staff can see which branch's data — a refusal here is a permission
+  | change that did not happen, and it came back as a redirect that re-rendered an
+  | identical set of ticked boxes. The operator saw their own ticks, assumed it saved, and
+  | the person they meant to restrict kept seeing everything.
+  */
   const save = () => {
+    setSaving(true);
+    setErrors({});
+
     router.put(
       `/branches/${branch.id}/users`,
       { user_ids: selected },
-      { preserveScroll: true, onSuccess: onDone }
+      {
+        preserveScroll: true,
+        onSuccess: onDone,
+        onError: (received) => setErrors(received as Record<string, string>),
+        onFinish: () => setSaving(false),
+      }
     );
   };
 
   return (
     <div className="space-y-4">
+      <FormErrors errors={errors} />
+
       <p className="text-sm text-muted-foreground">
         کاربرانی که اینجا تیک بخورند به این شعبه محدود می‌شوند. اگر کاربری به هیچ شعبه‌ای اختصاص
         نداشته باشد، همهٔ شعب را می‌بیند — پس برای فروشگاه تک‌شعبه‌ای نیازی به تیک زدن نیست.
@@ -343,15 +374,17 @@ function StaffForm({
               type="checkbox"
               checked={selected.includes(user.id)}
               onChange={() => toggle(user.id)}
-              className="size-4"
+              className="size-4 accent-primary"
             />
             {user.name}
           </label>
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <Button onClick={save}>ذخیره</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={save} disabled={saving}>
+          ذخیره
+        </Button>
         <Button variant="ghost" onClick={onDone}>
           انصراف
         </Button>
