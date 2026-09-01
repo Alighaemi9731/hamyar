@@ -8,6 +8,7 @@ import { HistoryLink } from '@/components/domain/history-link';
 import { Num } from '@/components/domain/num';
 import { SettingsSection } from '@/components/settings-section';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -262,15 +263,11 @@ function DetailsForm({
           />
         </Field>
 
-        <label className="flex min-h-11 items-center gap-3">
-          <input
-            type="checkbox"
-            className="size-4 accent-primary"
-            checked={form.data.is_active}
-            onChange={(event) => form.setData('is_active', event.target.checked)}
-          />
-          <span className="text-sm">این کالا فعال است و در فروش دیده می‌شود</span>
-        </label>
+        <Checkbox
+          checked={form.data.is_active}
+          onCheckedChange={(checked) => form.setData('is_active', checked === true)}
+          label="این کالا فعال است و در فروش دیده می‌شود"
+        />
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={form.processing}>

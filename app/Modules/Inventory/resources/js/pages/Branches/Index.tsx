@@ -7,6 +7,7 @@ import { FormErrors } from '@/components/domain/form-errors';
 import { Num } from '@/components/domain/num';
 import { PageHeader } from '@/components/domain/page-header';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -274,30 +275,20 @@ function BranchForm({ branch, onDone }: { branch?: Branch; onDone: () => void })
       </div>
 
       <div className="flex flex-wrap gap-6">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={data.is_active}
-            disabled={branch?.is_default}
-            onChange={(e) => setData('is_active', e.target.checked)}
-            className="size-4"
-          />
-          فعال
-          {branch?.is_default ? (
-            <span className="text-xs text-muted-foreground">(شعبهٔ پیش‌فرض همیشه فعال است)</span>
-          ) : null}
-        </label>
+        <Checkbox
+          checked={data.is_active}
+          disabled={branch?.is_default}
+          onCheckedChange={(checked) => setData('is_active', checked === true)}
+          label="فعال"
+          description={branch?.is_default ? 'شعبهٔ پیش‌فرض همیشه فعال است.' : undefined}
+        />
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={data.is_default}
-            disabled={branch?.is_default}
-            onChange={(e) => setData('is_default', e.target.checked)}
-            className="size-4"
-          />
-          شعبهٔ پیش‌فرض
-        </label>
+        <Checkbox
+          checked={data.is_default}
+          disabled={branch?.is_default}
+          onCheckedChange={(checked) => setData('is_default', checked === true)}
+          label="شعبهٔ پیش‌فرض"
+        />
       </div>
 
       <div className="flex gap-2">
@@ -366,18 +357,15 @@ function StaffForm({
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
-          <label
-            key={user.id}
-            className="flex items-center gap-2 rounded-control border p-2 text-sm"
-          >
-            <input
-              type="checkbox"
+          // Not a `<label>` any more: `Checkbox` renders its own, and a label inside a
+          // label is invalid and makes the click target ambiguous.
+          <div key={user.id} className="rounded-control border border-border px-2">
+            <Checkbox
               checked={selected.includes(user.id)}
-              onChange={() => toggle(user.id)}
-              className="size-4 accent-primary"
+              onCheckedChange={() => toggle(user.id)}
+              label={user.name}
             />
-            {user.name}
-          </label>
+          </div>
         ))}
       </div>
 
