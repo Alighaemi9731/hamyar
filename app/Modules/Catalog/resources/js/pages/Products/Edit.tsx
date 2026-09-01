@@ -397,18 +397,25 @@ function AxisRow({
           {axis.values.map((value) => (
             <span
               key={value}
-              className="inline-flex items-center gap-1 rounded-pill bg-muted px-2.5 py-1 text-xs"
+              className="inline-flex min-h-10 items-center gap-0.5 rounded-pill bg-muted ps-3 pe-1 text-xs"
             >
               {value}
+              {/*
+                A bare icon button shrink-wraps to its glyph: this was **12x12px**, the
+                smallest target in the product and under a third of the floor, on a control
+                that silently drops a variant axis value. The chip is now tall enough to
+                hold a real one, and the X is 40x40 inside it — the mark stays `size-3.5`,
+                only the area around it grew.
+              */}
               <button
                 type="button"
                 aria-label={`حذف ${value}`}
                 onClick={() =>
                   onChange({ ...axis, values: axis.values.filter((v) => v !== value) })
                 }
-                className="text-muted-foreground hover:text-foreground"
+                className="flex size-10 shrink-0 items-center justify-center rounded-pill text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                <XIcon className="size-3" />
+                <XIcon className="size-3.5" aria-hidden />
               </button>
             </span>
           ))}
