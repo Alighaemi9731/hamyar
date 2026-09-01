@@ -70,7 +70,10 @@ export function BranchSwitcher({ branch }: { branch?: BranchState }) {
     /* `dir="rtl"` on the Root for menu primitives — see the design system's rule 2. */
     <DropdownMenu dir="rtl">
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-10 gap-2">
+        {/* No `size="sm"` with an `h-10` override beside it: the override existed
+            because `sm` is 28px and this is a primary nav control. The default is 40px,
+            so the size prop was saying the opposite of what the class enforced. */}
+        <Button variant="outline" className="gap-2">
           <BuildingIcon className="size-4 shrink-0" aria-hidden />
           <span className="max-w-32 truncate">{active ? active.name : 'همه شعب'}</span>
           <ChevronDownIcon className="size-4 shrink-0 opacity-60" aria-hidden />

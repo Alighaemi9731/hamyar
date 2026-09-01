@@ -32,7 +32,7 @@ export interface HistoryLinkProps {
  */
 export function HistoryLink({ subject, record, label = 'تاریخچه', className }: HistoryLinkProps) {
   return (
-    <Button variant="ghost" size="sm" className={className} asChild>
+    <Button variant="ghost" className={className} asChild>
       <Link href={`/settings/activity?subject=${subject}&record=${record}`}>
         <HistoryIcon className="size-4" aria-hidden />
         {label}

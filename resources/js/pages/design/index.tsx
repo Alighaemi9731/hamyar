@@ -30,6 +30,7 @@ import { type UnitOption, UnitPicker } from '@/components/domain/unit-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -103,6 +104,7 @@ export default function DesignGallery() {
         <StatusSection />
         <ButtonSection alt />
         <CardSection />
+        <CheckboxSection alt />
         <PageHeaderSection alt />
         <FilterBarSection />
         <MoneyLadderSection alt />
@@ -609,6 +611,55 @@ function PaperIslandCase() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Checkbox — the control fourteen pages were hand-rolling at 16px.
+ *
+ * The specimen exists mostly to make the target visible: hover anywhere on a row and the
+ * whole row responds, because the label is the hit area. A 16px box next to a 40px input
+ * was the one control in the product that ignored both the touch floor and the token layer
+ * — `accent-primary` cannot be themed past the browser's own rendering.
+ */
+function CheckboxSection({ alt }: { alt?: boolean }) {
+  const [checked, setChecked] = useState<boolean | 'indeterminate'>(true);
+
+  return (
+    <Section
+      alt={alt}
+      title="Checkbox"
+      note="برچسب بخشی از ناحیهٔ لمس است — کل ردیف ۴۰ پیکسل ارتفاع دارد و با کلیک روی متن هم تیک می‌خورد."
+    >
+      <div className="max-w-md space-y-1">
+        <Checkbox
+          checked={checked}
+          onCheckedChange={setChecked}
+          label="بازبینی شد — به موجودی برگردد"
+        />
+
+        <Checkbox
+          defaultChecked
+          label="نمایش در ویترین"
+          description="کالاهای بدون قیمت حتی با تیک هم نمایش داده نمی‌شوند."
+        />
+
+        <Checkbox
+          label="شعبهٔ پیش‌فرض"
+          description="اسنادی که شعبه‌ای ندارند به این شعبه نسبت داده می‌شوند."
+          disabled
+        />
+
+        <Checkbox label="یک برچسب بلند که در عرض کم به خط دوم می‌رود و باید جعبه‌اش کنار خط اول بماند، نه وسط هر دو خط." />
+      </div>
+
+      <p className="mt-6 text-2xs text-muted-foreground">
+        بدون برچسب — فقط برای سلول جدول یا نوار ابزار، جایی که نام دسترس‌پذیر از جای دیگری می‌آید:
+      </p>
+      <div className="mt-2">
+        <Checkbox aria-label="انتخاب ردیف" />
+      </div>
+    </Section>
   );
 }
 
@@ -1216,7 +1267,7 @@ function StateSection({ alt }: { alt?: boolean }) {
           icon={WrenchIcon}
           title="تعمیری در جریان نیست"
           description="با ثبت اولین قبض پذیرش، کارتابل تعمیرات همین‌جا نمایش داده می‌شود."
-          action={<Button size="sm">ثبت قبض پذیرش</Button>}
+          action={<Button>ثبت قبض پذیرش</Button>}
         />
 
         <EmptyState
@@ -1224,11 +1275,7 @@ function StateSection({ alt }: { alt?: boolean }) {
           icon={SearchIcon}
           title="نتیجه‌ای برای این فیلتر نیست"
           description="بازه تاریخ را بازتر کنید یا وضعیت را روی «همه» بگذارید."
-          action={
-            <Button size="sm" variant="outline">
-              پاک کردن فیلترها
-            </Button>
-          }
+          action={<Button variant="outline">پاک کردن فیلترها</Button>}
         />
       </div>
     </Section>

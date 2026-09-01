@@ -155,7 +155,7 @@ export function PartyPicker({
                 <p className="text-xs text-muted-foreground">
                   فهرست مشتریان بارگذاری نشد. اتصال را بررسی کنید.
                 </p>
-                <Button type="button" variant="outline" size="sm" onClick={retry}>
+                <Button type="button" variant="outline" onClick={retry}>
                   تلاش دوباره
                 </Button>
               </div>
