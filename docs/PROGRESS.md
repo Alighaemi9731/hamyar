@@ -3343,3 +3343,43 @@ high severity. Transitive through `laravel/framework`, so a targeted update move
 separable from the queue behind it.
 
 Three PRs, all five checks green: `#110`, `#111`, `#112`.
+
+## 1404-06-12 (2026-09-02) — Phase 11 begins: reporting
+
+**The inventory valuation answered 500 (`#114`).** The serialized rows divided a group's
+total cost by its quantity and handed the result to `Money::toArray()`, which refuses a
+figure that is not a whole toman. **Three handsets totalling ten million toman** average
+33,333,333.33, and the whole report died.
+
+The standard rows have never had this problem — `averageCostExpression()` ceils in SQL, and
+its own docblock records the last time this class of bug reached a screen (a valuation of
+56,666,675 rial from a missing `::bigint`). The serialized path divided and hoped, which
+held only while every group happened to divide evenly. It ceils now, in the same direction
+and for the reason that expression already gives: the two sit in one table under one
+heading, and a shop that finds them rounded opposite ways cannot tell which is wrong.
+
+Second 500 this programme has found by **opening pages with realistic data rather than
+reading them**. Every fixture in that test file divides evenly, which is exactly why nothing
+caught it.
+
+**Every report rendered two page headings (`#115`).** All seven put an `<h1>` inside the
+printed sheet while `AppShell` already rendered one above it. The sheet's heading is the
+*document's* — on paper it names the thing you are holding, and there is no outline there to
+be wrong — so it became an `<h2>` with its classes untouched.
+
+Printed output unchanged, and measured rather than asserted: same tag-independent rendering
+before and after, 21px / weight 700 / line-height 32.67 / margins 0 / box 730x33, on three
+reports. Worth the check because "the classes are the same so it renders the same" is only
+true if the utilities beat the base layer, and a print surface is where nobody would notice
+if they did not.
+
+The cut chips — «ارزش موجودی», «کالای راکد» — were 28px, and they are the only way to change
+what a report shows.
+
+All eight reporting screens now sweep clean: 64 cases, one heading each, nothing under 40px.
+
+**Still ahead in this phase:** the screen/document split itself. Deliberately not attempted
+alongside the above — the heading and target defects stand on their own and should not be
+tangled with a change that reshapes seven reports and their print output.
+
+Two PRs, all five checks green: `#114`, `#115`.
