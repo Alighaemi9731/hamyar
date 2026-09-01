@@ -3238,3 +3238,62 @@ every screen already reported clean found Messaging to be the only one affected,
 earlier results stand — but they were narrower than I said they were.
 
 Two PRs, all five checks green: `#102`, `#103`.
+
+## 1404-06-11 (2026-09-01) — Phase 9: the editor family, and the checkbox nobody had built
+
+**There was no `Checkbox` component (`#106`, `#107`).** Fourteen places wrote the same six
+lines instead, across Storefront, POS, trade-in, returns, products, labels, parties,
+branches, stock counts and the treasury statement. They had already drifted — `gap-2` and
+`gap-3`, three different `items-*`, four wrapped in a `min-h-11` label reaching for the
+touch floor by hand and ten not.
+
+Underneath the duplication was the defect: `size-4` is a **16px target**, a quarter of what
+rule 9 requires, on the control that says a returned handset may go back on the shelf. And
+`accent-primary` cannot be themed past the browser's own rendering, so these were the one
+control in the product that ignored the token layer — visibly so in dark mode.
+
+The fix is not a bigger box. **The label is the target**: the row is `min-h-10` and all of
+it activates the control while the box stays a 20px mark. That is why `label` is a prop
+rather than something callers compose. The unlabelled form carries a transparent `::before`
+for its 40×40 area.
+
+Two things worth keeping from building it:
+
+- Putting a `<button role="checkbox">` inside a `<label>` risks a **double toggle**. It does
+  not here, and that was measured rather than assumed — along with label-click, box-click,
+  Space, and `disabled`.
+- **My first hit-area test said it was broken. The test was wrong**, not the component: it
+  clicked viewport coordinates for an element below the fold, so `elementFromPoint` returned
+  null everywhere including the box's own centre. The instinct in that moment is to go and
+  fix a component with nothing wrong with it.
+
+The `::before` computed 38px on the first attempt — under the floor it exists to clear — so
+the inset is `-inset-[11px]` and it now computes exactly 40. Ten `size="sm"` controls in
+shared domain components went to the floor with it: both picker retry buttons, the history
+link, three in report presets, the date picker's month navigation and its day cells.
+
+**Four silent failures on things that move money or stock**, one per screen: assigning
+staff to a branch (`#105`), revoking a reseller price-list link (`#107`), deleting a
+purchase invoice line, and every one of the purchase editor's four forms (`#108`). Two of
+them also deleted on a single click, one of them on a URL the screen itself describes as
+unrecoverable.
+
+**The two smallest targets in the product**, both found by measuring rather than looking:
+the axis-value X on the products editor at **12×12px**, and forty 28px controls on one
+branches page. The label sheet also pushed itself 180px off the side of a phone — the grid
+track floor again, where a grid item's `auto` minimum resolves to min-content and an
+unbreakable row refuses to shrink.
+
+**Storefront had zero domain components when this programme started.** It now has a single
+heading, a `DataTable`, `FormErrors`, a confirmed revoke, and the last hand-written native
+`<select>` in the tenant app is gone. That correction cascaded: a comment in the
+installments screen still claimed two remained, true when written and not any more.
+
+Form-errors baseline: 29 to 26.
+
+Four PRs, all five checks green: `#105`, `#106`, `#107`, `#108`.
+
+**Left open deliberately:** splitting `Purchasing/Invoices/Edit.tsx` (878 lines) into
+module-local components. The maintenance argument is real, but it is a pure refactor over
+IMEI capture and goods receiving — the two paths in the module most expensive to get wrong —
+and it deserves its own PR and verification rather than riding on a defect fix.
