@@ -3297,3 +3297,49 @@ Four PRs, all five checks green: `#105`, `#106`, `#107`, `#108`.
 module-local components. The maintenance argument is real, but it is a pure refactor over
 IMEI capture and goods receiving — the two paths in the module most expensive to get wrong —
 and it deserves its own PR and verification rather than riding on a defect fix.
+
+## 1404-06-12 (2026-09-02) — Phase 10: the passports, and every back arrow in the product
+
+**Every «بازگشت» arrow pointed the wrong way (`#110`).** Thirteen files wrote
+`<ArrowRightIcon className="size-4 rtl:rotate-180" />`. In an RTL page a back link points
+toward the reading *start* — physical right — and `ArrowRightIcon` already points there.
+The variant turns it around, so the arrow on every back link in the product pointed away
+from where the link went. `PageHeader` had it right all along.
+
+It survived thirteen reviews **because it reads as careful RTL work**. Mirroring an icon is
+usually right, and the identical class two files away in `Pagination` is correct there.
+Same class, opposite reasoning, one of them a bug. That is now the ninth guard,
+`bin/check-rtl-arrows`, which deliberately says nothing about chevrons.
+
+**The first measurement said there was no bug.** `getComputedStyle(svg).transform` returned
+`none` everywhere, including on files carrying the class — because Tailwind v4 compiles
+`rotate-180` to the standalone `rotate` property. Reading the generated CSS is what turned
+"the variant does nothing" into "the variant does exactly what it says". Second time this
+session a probe reported working code broken; both are in `docs/lessons.md`.
+
+**The IMEI passport lost half its width when a sidebar appeared (`#112`).** Its timeline ran
+704px at 768 and **328px at 1024** — the same content, more than halved by moving to a wider
+screen, because the shell's sidebar and the page's own split both land at `lg`. Third
+occurrence of that trap, and the first where nothing overflows: it just collapses, which is
+quieter and worse. The design system's rule now carries all three measurements and names the
+two failure modes apart.
+
+All four passports gained a `PageHeader`, which puts «بازگشت» where it belongs — it had been
+sitting among the page actions, as though returning to the list were something you can do to
+the record.
+
+**Two corrections to my own work**, both caught before acting:
+
+- An earlier structural audit of mine reported eight raw `<table>`s across the passports.
+  There are none — I had misread my own column alignment, and the number I read as "tables"
+  was the `lg:grid` count, which turned out to be the actual finding.
+- A `PageHeader` title typed as `string` tempted an `as unknown as string` cast. The
+  constraint is deliberate; the title became a plain string instead.
+
+**Unrelated and urgent (`#111`).** `composer audit` began failing every PR — including one
+that changes only TSX — on two `league/commonmark` advisories published that afternoon, one
+high severity. Transitive through `laravel/framework`, so a targeted update moved 2.9.0 to
+2.10.0 with nothing else in the lock file. Shipped on its own so the unblocking was
+separable from the queue behind it.
+
+Three PRs, all five checks green: `#110`, `#111`, `#112`.
