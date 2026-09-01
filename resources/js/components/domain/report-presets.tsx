@@ -125,16 +125,16 @@ export function ReportPresets({ reportKey, presets, current, path }: ReportPrese
             className="h-9 w-44"
           />
 
-          <Button size="sm" onClick={save} disabled={name.trim() === ''}>
+          <Button onClick={save} disabled={name.trim() === ''}>
             ذخیره
           </Button>
 
-          <Button size="sm" variant="ghost" onClick={() => setNaming(false)}>
+          <Button variant="ghost" onClick={() => setNaming(false)}>
             انصراف
           </Button>
         </span>
       ) : (
-        <Button variant="ghost" size="sm" onClick={() => setNaming(true)}>
+        <Button variant="ghost" onClick={() => setNaming(true)}>
           <BookmarkPlusIcon className="size-4" aria-hidden />
           ذخیره فیلتر
         </Button>

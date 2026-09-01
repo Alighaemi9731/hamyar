@@ -190,7 +190,7 @@ export function JDatePicker({
                 aria-current={isToday ? 'date' : undefined}
                 aria-pressed={isSelected}
                 className={cn(
-                  'tabular flex h-9 items-center justify-center rounded-control text-xs transition-colors',
+                  'tabular flex h-10 items-center justify-center rounded-control text-xs transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',
                   isToday && !isSelected && 'ring-1 ring-ring',
                   isSelected && 'bg-primary text-primary-foreground hover:bg-primary'
@@ -206,7 +206,6 @@ export function JDatePicker({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             onClick={() => {
               setCursor({ jy: today.jy, jm: today.jm });
               onChange(jalaliToUtcISO(today.jy, today.jm, today.jd));
@@ -220,7 +219,6 @@ export function JDatePicker({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
               className="text-muted-foreground"
               onClick={() => {
                 onChange(null);
