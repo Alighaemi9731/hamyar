@@ -1,6 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
 import {
-  ArrowRightIcon,
   BuildingIcon,
   CheckIcon,
   CopyIcon,
@@ -16,6 +15,7 @@ import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali, toJalali } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
@@ -91,23 +91,28 @@ export default function UnitPassport({ unit, timeline, can }: Props) {
 
   return (
     <AppShell
-      title={unit.product_name}
-      actions={
-        <Button variant="outline" asChild>
-          <Link href="/inventory/units">
-            <ArrowRightIcon className="size-4" />
-            بازگشت به فهرست دستگاه‌ها
-          </Link>
-        </Button>
+      header={
+        <PageHeader
+          eyebrow="شناسنامهٔ دستگاه"
+          title={unit.product_name}
+          back={{ href: '/inventory/units', label: 'فهرست دستگاه‌ها' }}
+        />
       }
     >
       <Head title={`شناسنامه ${code ?? unit.product_name}`} />
 
       <Identity unit={unit} />
 
-      {/* The timeline leads. In RTL the first grid column is the right-hand one, so
-          the life story sits where the eye lands and the facts sit beside it. */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      {/*
+        The timeline leads. In RTL the first grid column is the right-hand one, so the life
+        story sits where the eye lands and the facts sit beside it.
+
+        Split at `xl`, not `lg`. The shell's sidebar arrives at `lg` (1024) — the same
+        breakpoint — so splitting there takes width away twice at once. Measured on this
+        page: the timeline column ran 704px at 768, **328px at 1024**, and 584px at 1280.
+        Moving from a tablet to a laptop more than halved the passport's main content.
+      */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <Timeline events={timeline} />
         <Facts unit={unit} canViewCost={can.view_cost} />
       </div>
@@ -262,7 +267,7 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 
 function Facts({ unit, canViewCost }: { unit: Unit; canViewCost: boolean }) {
   return (
-    <aside className="space-y-6 rounded-card border border-border bg-surface p-6 lg:sticky lg:top-24">
+    <aside className="space-y-6 rounded-card border border-border bg-surface p-6 xl:sticky xl:top-24">
       <Fact icon={UserRoundIcon} label="خریداری‌شده از">
         {unit.acquired_from ? (
           unit.acquired_from.url ? (

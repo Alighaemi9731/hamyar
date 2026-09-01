@@ -1,12 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import {
-  ArrowRightIcon,
-  BellPlusIcon,
-  CheckIcon,
-  PencilIcon,
-  RotateCcwIcon,
-  SparklesIcon,
-} from 'lucide-react';
+import { BellPlusIcon, CheckIcon, PencilIcon, RotateCcwIcon, SparklesIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { HistoryLink } from '@/components/domain/history-link';
@@ -30,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 import { toLatinDigits } from '@/lib/digits';
 import { formError } from '@/lib/forms';
@@ -129,28 +123,30 @@ export default function PartyShow({
 }: Props) {
   return (
     <AppShell
-      title={party.name}
-      actions={
-        <>
-          {/* «کی سقف اعتبار این مشتری را بالا برد؟» — the balance is a SUM over
-              ledger_entries and records nobody; the ceiling change is audited. */}
-          {can.view_activity && <HistoryLink subject="party" record={party.id} />}
+      header={
+        <PageHeader
+          eyebrow="طرف حساب"
+          title={party.name}
+          // "Back" belongs above the title, not among the actions: it is where you came
+          // from rather than something you can do to this record.
+          back={{ href: '/crm', label: 'همه طرف حساب‌ها' }}
+          actions={
+            <>
+              {/* «کی سقف اعتبار این مشتری را بالا برد؟» — the balance is a SUM over
+                  ledger_entries and records nobody; the ceiling change is audited. */}
+              {can.view_activity && <HistoryLink subject="party" record={party.id} />}
 
-          <Button variant="outline" asChild>
-            <Link href="/crm">
-              <ArrowRightIcon className="size-4" />
-              بازگشت
-            </Link>
-          </Button>
-          {can.update && (
-            <Button variant="outline" asChild>
-              <Link href={`/crm/parties/${party.id}/edit`}>
-                <PencilIcon className="size-4" />
-                ویرایش
-              </Link>
-            </Button>
-          )}
-        </>
+              {can.update && (
+                <Button variant="outline" asChild>
+                  <Link href={`/crm/parties/${party.id}/edit`}>
+                    <PencilIcon className="size-4" />
+                    ویرایش
+                  </Link>
+                </Button>
+              )}
+            </>
+          }
+        />
       }
     >
       <Head title={party.name} />
@@ -159,7 +155,9 @@ export default function PartyShow({
 
       {finance && <Finances finance={finance} />}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+      {/* `xl`, not `lg` — the sidebar arrives at `lg`, so splitting there narrows the
+          timeline twice over. See the unit passport for the measurements. */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.6fr_1fr] xl:items-start">
         <Tabs defaultValue="timeline" className="min-w-0">
           <TabsList>
             <TabsTrigger value="timeline">رویدادها</TabsTrigger>
