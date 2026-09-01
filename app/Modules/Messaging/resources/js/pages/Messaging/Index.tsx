@@ -1,7 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
 import { BanIcon, CheckCircle2Icon, WalletIcon, XCircleIcon } from 'lucide-react';
 
+import { DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
+import { Num } from '@/components/domain/num';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
@@ -50,6 +53,12 @@ const STATUS: Record<string, { label: string; className: string }> = {
  *
  * The commonest reason messages stop is an empty one, and a shop that learns that from a
  * customer complaint has already stopped trusting the feature.
+ *
+ * ## The cost column was aligned on the wrong edge
+ *
+ * `text-end` in an RTL table is physical **left**, which lines up the most-significant
+ * digits of a Latin numeral and leaves the units ragged. `DataTable`'s `numeric` is
+ * physical right; the flag's docblock carries the measurements.
  */
 export default function MessagingIndex({ balance, status, counts, messages }: Props) {
   return (
@@ -93,60 +102,69 @@ export default function MessagingIndex({ balance, status, counts, messages }: Pr
         />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-card border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-2xs text-muted-foreground">
-              <th className="p-3 text-start font-medium">گیرنده</th>
-              <th className="p-3 text-start font-medium">بابت</th>
-              <th className="p-3 text-start font-medium">زمان</th>
-              <th className="p-3 text-start font-medium">وضعیت</th>
-              <th className="p-3 text-end font-medium">هزینه</th>
-            </tr>
-          </thead>
-          <tbody>
-            {messages.data.map((row) => {
+      <DataTable
+        className="mt-6"
+        caption="پیامک‌های ثبت‌شده، تازه‌ترین اول — شامل آن‌هایی که ارسال نشدند و دلیلش."
+        rows={messages.data}
+        rowKey={(row) => row.id}
+        empty={
+          <EmptyState
+            title="پیامکی ثبت نشده است"
+            description="با ثبت فروش، تعمیر یا یادآوری، پیامک‌های خودکار اینجا فهرست می‌شوند."
+          />
+        }
+        columns={[
+          {
+            key: 'to',
+            header: 'گیرنده',
+            cell: (row) => (
+              <>
+                {row.party_name ?? '—'}
+                <Num value={row.to} variant="ltr" className="ms-2 text-2xs text-muted-foreground" />
+              </>
+            ),
+          },
+          {
+            key: 'template',
+            header: 'بابت',
+            cell: (row) => row.template_label ?? '—',
+          },
+          {
+            key: 'at',
+            header: 'زمان',
+            cell: (row) => formatJalali(row.sent_at ?? row.queued_at, { withTime: true }),
+            secondary: true,
+          },
+          {
+            key: 'status',
+            header: 'وضعیت',
+            cell: (row) => {
               const state = STATUS[row.status] ?? { label: row.status, className: '' };
 
               return (
-                <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="p-3">
-                    {row.party_name ?? '—'}
-                    <span className="tabular ms-2 text-2xs text-muted-foreground" dir="ltr">
-                      {row.to}
-                    </span>
-                  </td>
-                  <td className="p-3">{row.template_label ?? '—'}</td>
-                  <td className="p-3 whitespace-nowrap text-2xs">
-                    {formatJalali(row.sent_at ?? row.queued_at, { withTime: true })}
-                  </td>
-                  <td className="p-3">
-                    <span className={state.className}>{state.label}</span>
-                    {row.error && (
-                      <span className="block text-2xs text-muted-foreground">{row.error}</span>
-                    )}
-                  </td>
-                  <td className="p-3 text-end tabular">
-                    {row.cost.value > 0 ? (
-                      <Money rial={row.cost.value} />
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
+                <>
+                  <span className={state.className}>{state.label}</span>
+                  {/* The reason a message never left is the useful half of this log. */}
+                  {row.error && (
+                    <span className="block text-2xs text-muted-foreground">{row.error}</span>
+                  )}
+                </>
               );
-            })}
-
-            {messages.data.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-6 text-center text-sm text-muted-foreground">
-                  پیامکی ثبت نشده است.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            },
+          },
+          {
+            key: 'cost',
+            header: 'هزینه',
+            numeric: true,
+            cell: (row) =>
+              row.cost.value > 0 ? (
+                <Money rial={row.cost.value} digits="latin" />
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+        ]}
+      />
 
       <Pagination links={messages.links} total={messages.total} className="mt-4" />
     </AppShell>
@@ -165,7 +183,9 @@ function Filter({
   icon?: typeof CheckCircle2Icon;
 }) {
   return (
-    <Button variant={current === value ? 'default' : 'outline'} size="sm" asChild>
+    // No `size="sm"`. These were 28px anchor-buttons, and they are the only way to narrow
+    // this log — the control a shopkeeper reaches for when asking «چرا پیامک نرفت؟».
+    <Button variant={current === value ? 'default' : 'outline'} asChild>
       <Link href={value === '' ? '/messaging' : `/messaging?status=${value}`}>
         {Icon && <Icon className="size-4" aria-hidden />}
         {label}

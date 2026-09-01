@@ -1,7 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import { CheckCircle2Icon, SmartphoneIcon } from 'lucide-react';
 
+import { DataTable } from '@/components/domain/data-table';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/domain/empty-state';
+import { Num } from '@/components/domain/num';
+import { PageHeader } from '@/components/domain/page-header';
 import { AppShell } from '@/layouts/app-shell';
 
 interface Unit {
@@ -23,26 +27,36 @@ interface Unit {
  * shop's workflow cannot be held hostage to a third party. This is the other half of that
  * bargain — the outstanding ones are collected somewhere visible instead of being forgotten
  * the moment the customer leaves.
+ *
+ * ## The list is capped, and now says so
+ *
+ * The controller fetches `limit(200)`. A shop with two hundred and fifty outstanding
+ * transfers was shown two hundred and told nothing, so «تمام شد» and «تا اینجا نشان دادیم»
+ * looked identical — on the one screen whose whole job is proving a compliance backlog has
+ * been cleared. The notice is drawn from the row count rather than a server-side total,
+ * which over-warns in the exact case of two hundred and never under-warns. A precise
+ * remainder needs a count on the wire and is a decision for the owner, not a redesign.
  */
+const ROW_CAP = 200;
+
 export default function HamtaPending({ units }: { units: Unit[] }) {
   return (
-    <AppShell title="انتقال‌های همتا">
+    <AppShell
+      header={
+        <PageHeader
+          title="انتقال‌های همتا"
+          description="دستگاه‌های دست‌دومی که انتقال مالکیتشان در سامانهٔ همتا هنوز ثبت نشده است."
+          actions={
+            <Button asChild variant="outline">
+              <Link href="/hamta/guide">راهنمای انتقال</Link>
+            </Button>
+          }
+        />
+      }
+    >
       <Head title="انتقال‌های همتا" />
 
       <div className="space-y-6">
-        {/* No `<h1>` here: `AppShell` renders one from `title`, and this said the same
-            words at 40px directly beneath it — two page headings in the document outline
-            and, since the shell's own title was demoted to 28px, the louder of the two
-            was the duplicate. The description survives; the heading was the redundancy. */}
-        <header>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            دستگاه‌های دست‌دومی که انتقال مالکیتشان در سامانهٔ همتا هنوز ثبت نشده است.
-            <Link href="/hamta/guide" className="ms-1 text-primary hover:underline">
-              راهنمای انتقال
-            </Link>
-          </p>
-        </header>
-
         <ApiNotice />
 
         {units.length === 0 ? (
@@ -52,42 +66,67 @@ export default function HamtaPending({ units }: { units: Unit[] }) {
             description="هر دستگاه دست‌دومی که خریده یا فروخته‌اید، انتقالش ثبت شده است."
           />
         ) : (
-          <div className="overflow-x-auto rounded-card border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-surface-muted text-muted-foreground">
-                  <th className="p-3 text-start font-medium">دستگاه</th>
-                  <th className="p-3 text-start font-medium">IMEI</th>
-                  <th className="p-3 text-start font-medium">وضعیت</th>
-                  <th className="p-3 text-start font-medium">طرف حساب</th>
-                  <th className="p-3 text-start font-medium">تاریخ ورود</th>
-                  <th className="p-3 text-start font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {units.map((unit) => (
-                  <tr key={unit.id} className="border-b last:border-0">
-                    <td className="p-3">
+          <>
+            {units.length >= ROW_CAP && (
+              <p
+                role="status"
+                className="rounded-control border border-warning/25 bg-warning/5 px-4 py-3 text-sm text-warning"
+              >
+                فقط <Num value={ROW_CAP} variant="prose" /> مورد قدیمی‌تر نشان داده می‌شود؛ ممکن است
+                انتقال‌های معوق بیشتری داشته باشید. با ثبت همین‌ها، بقیه نمایش داده می‌شوند.
+              </p>
+            )}
+
+            <DataTable
+              caption="دستگاه‌های دست‌دومی که انتقال مالکیتشان در همتا ثبت نشده، قدیمی‌ترین اول."
+              rows={units}
+              rowKey={(unit) => unit.id}
+              columns={[
+                {
+                  key: 'product',
+                  header: 'دستگاه',
+                  cell: (unit) => (
+                    <>
                       <span className="font-medium">{unit.product}</span>
                       <span className="block text-xs text-muted-foreground">{unit.condition}</span>
-                    </td>
-                    {/* Inherently LTR — an IMEI is read left to right whatever the page does. */}
-                    <td className="p-3 font-mono tabular-nums" dir="ltr">
-                      {unit.imei}
-                    </td>
-                    <td className="p-3">{unit.status}</td>
-                    <td className="p-3">{unit.party ?? '—'}</td>
-                    <td className="p-3 tabular-nums">{unit.acquired_at}</td>
-                    <td className="p-3 text-end">
-                      <Link href={`/hamta/${unit.id}`} className="text-primary hover:underline">
-                        چک‌لیست
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </>
+                  ),
+                },
+                {
+                  // Inherently LTR — an IMEI is read left to right whatever the page does.
+                  key: 'imei',
+                  header: 'IMEI',
+                  cell: (unit) => <Num value={unit.imei} variant="ltr" />,
+                },
+                {
+                  key: 'status',
+                  header: 'وضعیت',
+                  cell: (unit) => unit.status,
+                  secondary: true,
+                },
+                {
+                  key: 'party',
+                  header: 'طرف حساب',
+                  cell: (unit) => unit.party ?? '—',
+                },
+                {
+                  key: 'acquired_at',
+                  header: 'تاریخ ورود',
+                  cell: (unit) => unit.acquired_at,
+                  secondary: true,
+                },
+                {
+                  key: 'checklist',
+                  header: '',
+                  cell: (unit) => (
+                    <Link href={`/hamta/${unit.id}`} className="text-primary hover:underline">
+                      چک‌لیست
+                    </Link>
+                  ),
+                },
+              ]}
+            />
+          </>
         )}
       </div>
     </AppShell>
