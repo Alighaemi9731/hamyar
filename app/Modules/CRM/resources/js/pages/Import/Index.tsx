@@ -166,7 +166,7 @@ export default function ImportIndex({ fields, kinds, extensions }: Props) {
       actions={
         <Button variant="outline" asChild>
           <Link href="/crm">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت
           </Link>
         </Button>

@@ -95,7 +95,7 @@ export default function UnitPassport({ unit, timeline, can }: Props) {
       actions={
         <Button variant="outline" asChild>
           <Link href="/inventory/units">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت به فهرست دستگاه‌ها
           </Link>
         </Button>

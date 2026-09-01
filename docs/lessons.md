@@ -380,3 +380,35 @@ watching the test fail on it.
 The general rule: **a test that searches for a needle must use a needle that cannot grow in
 the haystack.** Anything short enough to be realistic is usually short enough to collide, so
 make the sentinel unmistakable and say why in the file.
+
+### An icon that names a physical direction is already correct in both directions
+
+Every «بازگشت» link in the product outside `PageHeader` — thirteen files across Purchasing,
+Catalog, CRM, Inventory and settings — rendered its arrow pointing the wrong way.
+
+They wrote `<ArrowRightIcon className="size-4 rtl:rotate-180" />`. In a right-to-left page a
+back link points toward the reading *start*, which is the physical **right**, and
+`ArrowRightIcon` already points there. The variant turns it around: the icon computes
+`rotate: 180deg` and points physically left, which is forward. So the arrow on a link
+labelled «بازگشت» pointed away from where the link went.
+
+It survived thirteen reviews **because it reads as careful RTL work.** Mirroring an icon is
+usually right, and the identical class two files away in `Pagination` is correct there —
+that component picks the LTR icon for "previous" and mirrors it deliberately, so in an RTL
+page previous points right, where the reader's eye came from. Same class, opposite
+reasoning, and only one of them is a bug.
+
+Two things this cost, worth remembering separately:
+
+**The first measurement said there was no bug.** `getComputedStyle(svg).transform` returned
+`none` everywhere, including on the files that carried the class — because Tailwind v4
+compiles `rotate-180` to the standalone `rotate` property, not to `transform`. Reading the
+generated CSS rather than trusting the probe is what turned "the variant does nothing" into
+"the variant does exactly what it says". A negative result from tooling is a claim about the
+tooling until it has been checked against the source.
+
+**And the plan had it backwards.** Its Phase 15 icon audit reads «`rtl:rotate-180` on every
+directional glyph» — as though adding the variant were the fix. Removing it is.
+
+Gated by `bin/check-rtl-arrows`, which refuses `ArrowLeftIcon`/`ArrowRightIcon` carrying the
+variant and deliberately says nothing about chevrons.

@@ -1,0 +1,124 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — directional-arrow gate.
+ *
+ * ## The rule
+ *
+ * `ArrowLeftIcon` and `ArrowRightIcon` name a **physical** direction. They must never
+ * carry `rtl:rotate-180`.
+ *
+ * ## Why this is a bug and not a style preference
+ *
+ * A back link in a right-to-left page points toward the reading start, which is the
+ * physical **right**. `ArrowRightIcon` already points there, so it is correct with no
+ * variant at all — which is exactly what `PageHeader` does, with the reasoning written
+ * beside it.
+ *
+ * Adding `rtl:rotate-180` turns it around: the icon renders `rotate: 180deg` and points
+ * physically left, which is *forward*. So the arrow on a link labelled «بازگشت» points away
+ * from where the link goes.
+ *
+ * **Thirteen files shipped exactly that**, in Purchasing, Catalog x3, CRM x3, Inventory x4,
+ * and settings — every «بازگشت» in the product outside `PageHeader`. Measured, not
+ * inferred: `getComputedStyle(svg).rotate` read `180deg` on each, against `none` on the
+ * `PageHeader` link beside it.
+ *
+ * It survived thirteen reviews because it reads as *careful* RTL work. A mirrored icon is
+ * usually right, and the class is the same one `Pagination` uses correctly two files away.
+ * That is the shape this gate refuses: something that looks more considered than the
+ * correct version.
+ *
+ * ## What it deliberately does not flag
+ *
+ * `ChevronLeftIcon`/`ChevronRightIcon` mirrored by `rtl:rotate-180`. Those are chosen for
+ * reading order rather than physical direction — `Pagination` picks the LTR icon for
+ * "previous" and mirrors it, so in an RTL page previous points right, which is where the
+ * reader's eye came from. Same class, opposite and correct reasoning, documented in the
+ * component. A gate that could not tell them apart would be a gate somebody switches off.
+ *
+ * The lesson generalises past arrows: **an icon that names a physical direction is already
+ * correct in both directions, and mirroring one is how it stops being.**
+ */
+
+const SCAN_ROOTS = ['resources/js', 'app/Modules'];
+
+/** The icon name and the mirror variant inside one JSX tag. */
+const TAG_PATTERN = '/<Arrow(?:Left|Right)Icon\b[^>]*\brtl:rotate-180\b[^>]*>/s';
+
+$root = dirname(__DIR__);
+
+/** @return list<string> */
+function tsxFilesIn(string $path): array
+{
+    if (! is_dir($path)) {
+        return [];
+    }
+
+    $found = [];
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if ($file->isFile() && $file->getExtension() === 'tsx' && ! str_contains($file->getPathname(), '/node_modules/')) {
+            $found[] = $file->getPathname();
+        }
+    }
+
+    sort($found);
+
+    return $found;
+}
+
+$checked = 0;
+$failures = [];
+
+foreach (SCAN_ROOTS as $relative) {
+    foreach (tsxFilesIn($root.'/'.$relative) as $file) {
+        $source = file_get_contents($file);
+
+        if ($source === false) {
+            continue;
+        }
+
+        $checked++;
+
+        if (preg_match_all(TAG_PATTERN, $source, $matches, PREG_OFFSET_CAPTURE) === 0) {
+            continue;
+        }
+
+        $relativePath = ltrim(str_replace($root, '', $file), DIRECTORY_SEPARATOR);
+
+        foreach ($matches[0] as [$tag, $offset]) {
+            $line = substr_count(substr($source, 0, (int) $offset), "\n") + 1;
+            $failures[] = $relativePath.':'.$line;
+        }
+    }
+}
+
+if ($failures === []) {
+    echo "\n  Arrow gate: {$checked} components checked, no mirrored direction arrows.\n\n";
+
+    exit(0);
+}
+
+echo "\n  ✗ Arrow gate failed.\n\n";
+echo "    `ArrowLeftIcon` and `ArrowRightIcon` name a physical direction, so they are\n";
+echo "    already correct in an RTL page. `rtl:rotate-180` turns them around:\n\n";
+
+foreach ($failures as $failure) {
+    echo "      {$failure}\n";
+}
+
+echo "\n    A back link points toward the reading start — physical right in RTL — so it is\n";
+echo "    `<ArrowRightIcon />` with no variant, exactly as `PageHeader` renders it. With\n";
+echo "    the variant it points physically left, which is forward: the arrow on «بازگشت»\n";
+echo "    ends up pointing away from where the link goes.\n\n";
+echo "    Chevrons are a different case and are not flagged — `Pagination` picks the LTR\n";
+echo "    icon for \"previous\" and mirrors it deliberately, which is correct.\n\n";
+
+exit(1);

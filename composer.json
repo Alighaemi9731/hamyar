@@ -113,6 +113,7 @@
             "@php bin/check-queued-tenancy",
             "@php bin/check-quota-scoping",
             "@php bin/check-form-errors",
+            "@php bin/check-rtl-arrows",
             "@php bin/check-apex-domain"
         ]
     },

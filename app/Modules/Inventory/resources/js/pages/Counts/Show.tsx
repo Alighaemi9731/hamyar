@@ -79,7 +79,7 @@ export default function CountShow({ count, lines, can }: Props) {
       actions={
         <Button variant="outline" asChild>
           <Link href="/inventory/counts">
-            <ArrowRightIcon className="size-4 rtl:rotate-180" />
+            <ArrowRightIcon className="size-4" />
             بازگشت
           </Link>
         </Button>
