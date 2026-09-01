@@ -8,6 +8,7 @@ import { Num } from '@/components/domain/num';
 import { PickerSkeleton } from '@/components/domain/picker-skeleton';
 import { PrintLayout, printSheet } from '@/components/domain/print-layout';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -217,25 +218,17 @@ export default function LabelsIndex({ levels }: Props) {
             </Select>
           </div>
 
-          <label className="flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox"
-              className="size-4 accent-primary"
-              checked={showName}
-              onChange={(event) => setShowName(event.target.checked)}
-            />
-            <span className="text-sm">نام کالا روی برچسب</span>
-          </label>
+          <Checkbox
+            checked={showName}
+            onCheckedChange={(checked) => setShowName(checked === true)}
+            label="نام کالا روی برچسب"
+          />
 
-          <label className="flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox"
-              className="size-4 accent-primary"
-              checked={showPrice}
-              onChange={(event) => setShowPrice(event.target.checked)}
-            />
-            <span className="text-sm">قیمت روی برچسب</span>
-          </label>
+          <Checkbox
+            checked={showPrice}
+            onCheckedChange={(checked) => setShowPrice(checked === true)}
+            label="قیمت روی برچسب"
+          />
 
           <p className="text-xs text-muted-foreground">
             <Num value={labels.length} /> برچسب روی{' '}

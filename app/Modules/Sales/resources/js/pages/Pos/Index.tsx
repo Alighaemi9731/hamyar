@@ -8,6 +8,7 @@ import { MoneyLadder, MoneyRow } from '@/components/domain/money-ladder';
 import { Num } from '@/components/domain/num';
 import { type PartyOption, PartyPicker } from '@/components/domain/party-picker';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTenantSettings } from '@/hooks/use-tenant-settings';
@@ -516,18 +517,16 @@ export default function PosIndex({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 accent-primary"
-              checked={vatApplied}
-              onChange={(event) => setVatApplied(event.target.checked)}
-            />
-            <span>
-              مالیات بر ارزش افزوده (<Num value={vat.rate} variant="prose" />
-              ٪)
-            </span>
-          </label>
+          <Checkbox
+            checked={vatApplied}
+            onCheckedChange={(checked) => setVatApplied(checked === true)}
+            label={
+              <>
+                مالیات بر ارزش افزوده (<Num value={vat.rate} variant="prose" />
+                ٪)
+              </>
+            }
+          />
 
           {/* One ladder for the whole block, total included: a second `<dl>` would derive a
               second figure axis, and the payable amount is the rung every other one adds up

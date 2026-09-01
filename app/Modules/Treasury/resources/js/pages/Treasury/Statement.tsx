@@ -8,6 +8,7 @@ import { Money } from '@/components/domain/money';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -74,15 +75,13 @@ export default function AccountStatementPage({
               // The box stays 16px and the target is 40. A checkbox drawn at 40px reads
               // as a button; one you cannot hit with a thumb is the control somebody
               // taps forty times in a row against a bank statement.
-              <label className="flex min-h-10 cursor-pointer items-center justify-center px-3">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary"
+              <span className="flex min-h-10 items-center justify-center px-3">
+                <Checkbox
                   aria-label={`انتخاب ردیف ${row.id}`}
                   checked={selected.includes(row.id)}
-                  onChange={() => toggle(row.id)}
+                  onCheckedChange={() => toggle(row.id)}
                 />
-              </label>
+              </span>
             ),
           } satisfies Column<EntryRow>,
         ]

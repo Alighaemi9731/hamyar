@@ -6,6 +6,7 @@ import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -228,15 +229,14 @@ export default function ReturnCreate({ invoice, items, grades }: Props) {
                           </Select>
                         </div>
 
-                        <label className="flex items-end gap-2 pb-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="size-4 accent-primary"
-                            checked={draft.restock}
-                            onChange={(event) => update(item.id, { restock: event.target.checked })}
-                          />
-                          <span>بازبینی شد — به موجودی برگردد</span>
-                        </label>
+                        <Checkbox
+                          className="self-end"
+                          checked={draft.restock}
+                          onCheckedChange={(checked) =>
+                            update(item.id, { restock: checked === true })
+                          }
+                          label="بازبینی شد — به موجودی برگردد"
+                        />
                       </>
                     )}
                   </div>

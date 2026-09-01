@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { SettingsSection } from '@/components/settings-section';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -351,15 +352,12 @@ export default function PartyEdit({ party, contacts, kinds, price_levels: priceL
             onChange={(event) => form.setData('notes', event.target.value)}
           />
 
-          <label className="mt-4 flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox"
-              className="size-4 accent-primary"
-              checked={form.data.is_active}
-              onChange={(event) => form.setData('is_active', event.target.checked)}
-            />
-            <span className="text-sm">این طرف حساب فعال است</span>
-          </label>
+          <Checkbox
+            className="mt-4"
+            checked={form.data.is_active}
+            onCheckedChange={(checked) => form.setData('is_active', checked === true)}
+            label="این طرف حساب فعال است"
+          />
         </SettingsSection>
 
         <div className="flex items-center gap-3">

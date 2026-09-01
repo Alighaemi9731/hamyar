@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/domain/empty-state';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -180,21 +181,12 @@ function CreateDialog({
               </Select>
             </div>
 
-            <label className="flex min-h-11 items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-1 size-4 accent-primary"
-                checked={form.data.is_blind}
-                onChange={(event) => form.setData('is_blind', event.target.checked)}
-              />
-              <span>
-                <span className="block text-sm">شمارش کور</span>
-                <span className="block text-xs text-muted-foreground">
-                  موجودی مورد انتظار به شمارنده نشان داده نمی‌شود. عددی که روی صفحه باشد، عددی است
-                  که آدم‌ها به سمتش می‌شمارند.
-                </span>
-              </span>
-            </label>
+            <Checkbox
+              checked={form.data.is_blind}
+              onCheckedChange={(checked) => form.setData('is_blind', checked === true)}
+              label="شمارش کور"
+              description="موجودی مورد انتظار به شمارنده نشان داده نمی‌شود. عددی که روی صفحه باشد، عددی است که آدم‌ها به سمتش می‌شمارند."
+            />
           </div>
 
           <DialogFooter>

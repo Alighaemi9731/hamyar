@@ -3,6 +3,7 @@ import { CopyIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -231,15 +232,11 @@ function SettingsForm({
         </div>
       ) : null}
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={data.is_enabled}
-          onChange={(e) => setData('is_enabled', e.target.checked)}
-          className="size-4"
-        />
-        صفحهٔ عمومی فعال باشد
-      </label>
+      <Checkbox
+        checked={data.is_enabled}
+        onCheckedChange={(value) => setData('is_enabled', value === true)}
+        label="صفحهٔ عمومی فعال باشد"
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="نام نمایشی" id="display_name">
@@ -303,15 +300,11 @@ function SettingsForm({
         />
       </Field>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={data.shows_out_of_stock}
-          onChange={(e) => setData('shows_out_of_stock', e.target.checked)}
-          className="size-4"
-        />
-        کالاهای ناموجود هم نمایش داده شوند
-      </label>
+      <Checkbox
+        checked={data.shows_out_of_stock}
+        onCheckedChange={(value) => setData('shows_out_of_stock', value === true)}
+        label="کالاهای ناموجود هم نمایش داده شوند"
+      />
 
       {canManage ? (
         <Button type="submit" disabled={processing}>

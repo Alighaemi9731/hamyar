@@ -3,6 +3,7 @@ import { SmartphoneIcon, XIcon } from 'lucide-react';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { type VariantOption, VariantPicker } from '@/components/domain/variant-picker';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -183,17 +184,11 @@ export function TradeInBox({ value, onChange, toman, hasParty, errors }: TradeIn
         </div>
       </div>
 
-      <label className="flex items-start gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="mt-1 size-4 accent-primary"
-          checked={value.hamta_ack}
-          onChange={(event) => update({ hamta_ack: event.target.checked })}
-        />
-        <span>
-          مراحل انتقال مالکیت در سامانه همتا را به مشتری توضیح دادم و مدارک هویتی را دیدم.
-        </span>
-      </label>
+      <Checkbox
+        checked={value.hamta_ack}
+        onCheckedChange={(checked) => update({ hamta_ack: checked === true })}
+        label="مراحل انتقال مالکیت در سامانه همتا را به مشتری توضیح دادم و مدارک هویتی را دیدم."
+      />
       {errors['trade_in.hamta_ack'] && (
         <p className="text-sm text-destructive">{errors['trade_in.hamta_ack']}</p>
       )}
