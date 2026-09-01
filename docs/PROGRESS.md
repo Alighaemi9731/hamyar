@@ -3138,3 +3138,51 @@ primary action in the wrong place and the approved figure missing entirely.
 Still open in Phase 7: Repairs board, index and intake — the second repairs PR.
 
 Two PRs, all five checks green: `#97`, `#98`.
+
+## 1404-06-10 (2026-09-01) — Phase 7 closes: the board, the queue and intake
+
+**The board's whole purpose was mouse-only (`#100`).** Moving a card was HTML5
+drag-and-drop and nothing else. That does not fire on touch, and `draggable` has no
+keyboard equivalent — so on the tablet at the bench, the device a kanban board is most
+likely to be read on, every card was a link to somewhere else and nothing on the screen
+could move one. The board rendered its entire reason for existing as decoration.
+
+Each card now carries a menu of the moves its column allows, fed by the same `allows` array
+the drop targets read and filtered to the columns on screen. From «آماده تحویل» it offers
+«در حال تعمیر» and **not** «تحویل‌شده» — delivery writes a `SalesInvoice` and belongs to
+the delivery form, so the board must not be a shortcut past it. Driven keyboard-only to
+prove the card actually changes column.
+
+**The queue's eleven filter controls were 28px.** `FilterBar` puts them at the floor, sheets
+them below `md`, and announces the result count. The hand-rolled card list becomes a
+`DataTable`, because the queue is scanned down a column. Lateness is said in words as well
+as colour.
+
+**Intake's error region was a hand-rolled `<FormErrors>`** that printed every key including
+`quota`, which `AppShell` was already rendering through `<QuotaBlock>` with an upgrade
+button — so a shop at its monthly limit read the refusal twice, the second time as a bare
+sentence with nothing to do about it. Checked first that the shell renders `QuotaBlock`
+unconditionally: without that, swapping to the shared component would have *created* a
+silent failure on a metered path rather than removing a duplicated one. Intake's own layout
+reasoning — one column, tap targets, nothing pre-answered — was right and is untouched.
+
+**A four-digit security sentinel collided with random data.** `PasscodeSecurityTest` greps
+the whole rendered payload for the device unlock code, and the sentinel was `'4517'`. Every
+page carries `auth.user.mobile`, eleven random digits, which contains `4517` in 0.067% of
+runs. It failed CI on a PR of three React files, which cannot reach `viewData('page')` at
+all.
+
+The instinct in that moment is to re-run it, and **that instinct is the real damage** — a
+security assertion that cries wolf trains people to wave the third amber through. Fixed by
+making the sentinel unmistakable, and verified the only way that counts: by planting a real
+leak in the controller and watching the test fail on it. In `docs/lessons.md`.
+
+Worth naming: two of this session's four CI reds were flaky tests rather than broken code,
+and one of those was mine. Chasing each to its actual cause rather than re-running cost
+maybe an hour and removed two future ambers.
+
+Phase 7 is closed. Every repairs screen and the POS sweep clean at 375/768/1280/1440 in
+both themes: no overflow, one `<h1>`, no control under 40px, no console errors — 48 cases
+across six screens.
+
+Two PRs, all five checks green: `#100`, and the sentinel fix inside it.
