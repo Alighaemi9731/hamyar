@@ -167,7 +167,6 @@ export default function FinancialReport({
                 <Button
                   key={entry.key}
                   variant={entry.key === cut ? 'default' : 'outline'}
-                  size="sm"
                   onClick={() => apply({ cut: entry.key })}
                 >
                   {entry.label}
@@ -188,14 +187,12 @@ export default function FinancialReport({
                     <div id="direction" className="flex gap-2">
                       <Button
                         variant={direction === 'receivable' ? 'default' : 'outline'}
-                        size="sm"
                         onClick={() => apply({ direction: 'receivable' })}
                       >
                         طلب از مشتری
                       </Button>
                       <Button
                         variant={direction === 'payable' ? 'default' : 'outline'}
-                        size="sm"
                         onClick={() => apply({ direction: 'payable' })}
                       >
                         بدهی به تأمین‌کننده
@@ -249,7 +246,11 @@ export default function FinancialReport({
       >
         <div className="p-8 print:p-0">
           <header className="mb-6 border-b pb-4">
-            <h1 className="text-lg font-bold">{title}</h1>
+            {/* The document's heading, not the page's — `AppShell` already renders an
+                `<h1>` above the paper, and this repeated it, so every report shipped
+                two page headings. On paper the outline does not exist and the
+                rendering is unchanged; on screen a reader now gets one. */}
+            <h2 className="text-lg font-bold">{title}</h2>
             <p className="mt-1 text-sm text-black/60">
               {isAging ? (
                 <>
