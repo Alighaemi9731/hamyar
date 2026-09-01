@@ -7,6 +7,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/domain/confirm-dialog';
+import { DataTable } from '@/components/domain/data-table';
+import { FormErrors } from '@/components/domain/form-errors';
+import { Num } from '@/components/domain/num';
+import { PageHeader } from '@/components/domain/page-header';
+import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 
 interface Link {
@@ -61,30 +74,32 @@ export default function StorefrontIndex({
   const { props } = usePage();
   const minted = (props.flash as Record<string, string | null> | undefined)?.minted_link;
 
+  const [revoking, setRevoking] = useState<Link | null>(null);
+  const [revokingBusy, setRevokingBusy] = useState(false);
+  const [revokeErrors, setRevokeErrors] = useState<Record<string, string>>({});
+
   return (
-    <AppShell title="فروشگاه اینترنتی">
+    <AppShell
+      header={
+        <PageHeader
+          title="فروشگاه اینترنتی"
+          description="یک صفحهٔ عمومی با قیمت‌های مصرف‌کننده، و لینک‌های لیست قیمت همکار که رمز و تاریخ انقضا دارند."
+          actions={
+            publicUrl ? (
+              <Button asChild variant="outline">
+                <a href={publicUrl} target="_blank" rel="noopener">
+                  <ExternalLinkIcon aria-hidden />
+                  دیدن صفحهٔ عمومی
+                </a>
+              </Button>
+            ) : null
+          }
+        />
+      }
+    >
       <Head title="فروشگاه اینترنتی" />
 
       <div className="space-y-8">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">فروشگاه اینترنتی</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              یک صفحهٔ عمومی با قیمت‌های مصرف‌کننده، و لینک‌های لیست قیمت همکار که رمز و تاریخ انقضا
-              دارند.
-            </p>
-          </div>
-
-          {publicUrl ? (
-            <Button asChild variant="outline">
-              <a href={publicUrl} target="_blank" rel="noopener">
-                <ExternalLinkIcon className="size-4" aria-hidden />
-                دیدن صفحهٔ عمومی
-              </a>
-            </Button>
-          ) : null}
-        </header>
-
         {minted ? <MintedBanner url={minted} /> : null}
 
         <SettingsForm settings={settings} canManage={canManage} />
@@ -97,62 +112,98 @@ export default function StorefrontIndex({
           {links.length === 0 ? (
             <p className="text-sm text-muted-foreground">هنوز لینکی ساخته نشده است.</p>
           ) : (
-            <div className="overflow-x-auto rounded-card border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-surface-muted text-muted-foreground">
-                    <th className="p-3 text-start font-medium">برچسب</th>
-                    <th className="p-3 text-start font-medium">سطح قیمت</th>
-                    <th className="p-3 text-start font-medium">انقضا</th>
-                    <th className="p-3 text-start font-medium">رمز</th>
-                    <th className="p-3 text-start font-medium">بازدید</th>
-                    <th className="p-3 text-start font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {links.map((link) => (
-                    <tr key={link.id} className="border-b last:border-0">
-                      <td className="p-3">{link.label ?? '—'}</td>
-                      <td className="p-3">{link.level ?? '—'}</td>
-                      <td className="p-3 tabular-nums">
+            <>
+              <FormErrors errors={revokeErrors} />
+
+              <DataTable
+                caption="لینک‌های لیست قیمت همکار، با تاریخ انقضا و شمار بازدید."
+                rows={links}
+                rowKey={(link) => link.id}
+                columns={[
+                  { key: 'label', header: 'برچسب', cell: (link) => link.label ?? '—' },
+                  { key: 'level', header: 'سطح قیمت', cell: (link) => link.level ?? '—' },
+                  {
+                    key: 'expires',
+                    header: 'انقضا',
+                    cell: (link) => (
+                      <>
                         {link.expires_at}
+                        {/* Said in words, not only in colour. */}
                         {link.is_revoked ? (
                           <span className="ms-2 text-xs text-danger">باطل‌شده</span>
                         ) : link.is_expired ? (
                           <span className="ms-2 text-xs text-warning">منقضی</span>
                         ) : null}
-                      </td>
-                      <td className="p-3">{link.has_password ? 'دارد' : 'ندارد'}</td>
-                      <td className="p-3 tabular-nums">
-                        {link.view_count}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'password',
+                    header: 'رمز',
+                    cell: (link) => (link.has_password ? 'دارد' : 'ندارد'),
+                    secondary: true,
+                  },
+                  {
+                    key: 'views',
+                    header: 'بازدید',
+                    numeric: true,
+                    cell: (link) => (
+                      <>
+                        <Num value={link.view_count} />
                         {link.last_viewed_at ? (
                           <span className="block text-xs text-muted-foreground">
                             آخرین: {link.last_viewed_at}
                           </span>
                         ) : null}
-                      </td>
-                      <td className="p-3 text-end">
-                        {canManage && !link.is_revoked ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              router.delete(`/storefront/links/${link.id}`, {
-                                preserveScroll: true,
-                              })
-                            }
-                          >
-                            ابطال
-                          </Button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </>
+                    ),
+                    secondary: true,
+                  },
+                  {
+                    key: 'revoke',
+                    header: '',
+                    cell: (link) =>
+                      canManage && !link.is_revoked ? (
+                        <Button variant="outline" onClick={() => setRevoking(link)}>
+                          ابطال
+                        </Button>
+                      ) : null,
+                  },
+                ]}
+              />
+            </>
           )}
         </section>
+
+        {/*
+          Revoking asked nothing before — one click on `router.delete`, on an action the
+          banner above describes as unrecoverable: the URL is stored encrypted and cannot be
+          read back, so a link revoked by mistake cannot be handed to the same reseller
+          again. It also handled no refusal.
+        */}
+        <ConfirmDialog
+          open={revoking !== null}
+          onOpenChange={(open) => !open && setRevoking(null)}
+          title={revoking ? `ابطال «${revoking.label ?? 'لینک بدون برچسب'}»` : ''}
+          description="هرکسی که این نشانی را دارد دیگر نمی‌تواند لیست قیمت را ببیند. نشانی قابل بازیابی نیست؛ برای همان همکار باید لینک تازه بسازید."
+          confirmLabel="ابطال لینک"
+          processing={revokingBusy}
+          onConfirm={() => {
+            if (!revoking) return;
+
+            setRevokingBusy(true);
+            setRevokeErrors({});
+
+            router.delete(`/storefront/links/${revoking.id}`, {
+              preserveScroll: true,
+              onError: (received) => setRevokeErrors(received as Record<string, string>),
+              onFinish: () => {
+                setRevokingBusy(false);
+                setRevoking(null);
+              },
+            });
+          }}
+        />
       </div>
     </AppShell>
   );
@@ -177,7 +228,6 @@ function MintedBanner({ url }: { url: string }) {
           {url}
         </code>
         <Button
-          size="sm"
           variant="outline"
           onClick={() => {
             void navigator.clipboard.writeText(url);
@@ -217,20 +267,13 @@ function SettingsForm({
         event.preventDefault();
         put('/storefront/settings', { preserveScroll: true });
       }}
-      className="space-y-4 rounded-card border p-5"
+      className="space-y-4 rounded-card border border-border bg-card p-6"
     >
       <h2 className="text-lg font-semibold">تنظیمات صفحهٔ عمومی</h2>
 
-      {Object.keys(errors).length > 0 ? (
-        <div
-          role="alert"
-          className="rounded-control border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
-        >
-          {Object.values(errors).map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+      {/* Was a hand-rolled copy of this, which also printed `quota` — already rendered by
+          the shell through `<QuotaBlock>` with an upgrade button. */}
+      <FormErrors errors={errors} />
 
       <Checkbox
         checked={data.is_enabled}
@@ -329,33 +372,34 @@ function MintForm({ levels }: { levels: Props['price_levels'] }) {
         event.preventDefault();
         post('/storefront/links', { preserveScroll: true });
       }}
-      className="space-y-4 rounded-card border p-5"
+      className="space-y-4 rounded-card border border-border bg-card p-6"
     >
-      {Object.keys(errors).length > 0 ? (
-        <div
-          role="alert"
-          className="rounded-control border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
-        >
-          {Object.values(errors).map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+      {/* Was a hand-rolled copy of this, which also printed `quota` — already rendered by
+          the shell through `<QuotaBlock>` with an upgrade button. */}
+      <FormErrors errors={errors} />
 
       <div className="grid gap-4 sm:grid-cols-4">
         <Field label="سطح قیمت" id="price_level_id">
-          <select
-            id="price_level_id"
-            value={data.price_level_id}
-            onChange={(e) => setData('price_level_id', Number(e.target.value))}
-            className="h-10 w-full rounded-control border bg-background px-3 text-sm"
+          {/* This was the last hand-written native `<select>` in the tenant app — the
+              other was the installments collections screen. A browser's own menu ignores
+              the token layer and the RTL work entirely, and looked it in dark mode.
+              (Radix still renders a hidden, `aria-hidden` native select for form
+              submission; that one is meant to be there.) */}
+          <Select
+            value={String(data.price_level_id)}
+            onValueChange={(value) => setData('price_level_id', Number(value))}
           >
-            {levels.map((level) => (
-              <option key={level.id} value={level.id}>
-                {level.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="price_level_id" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent dir="rtl">
+              {levels.map((level) => (
+                <SelectItem key={level.id} value={String(level.id)}>
+                  {level.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="برچسب" id="label">

@@ -189,13 +189,12 @@ function CollectRow({
           <div className="space-y-1">
             <Label htmlFor={`account-${row.id}`}>به حساب</Label>
             {/*
-              One of the two native `<select>`s left in the application — the other is on
-              the storefront settings screen, which is Tier C and gets its consistency pass
-              with the rest of them.
+              This was a native `<select>`, and it was `h-8` — 28px, under the touch floor —
+              rendering the platform's own dropdown, which on Android ignores the app's
+              theme entirely: a white system list over a black page.
 
-              It was `h-8` — 28px, under the touch floor — and it rendered the platform's
-              own dropdown, which on Android ignores the app's theme entirely: a white
-              system list over a black page.
+              It was one of two; the other was on the storefront settings screen and went
+              the same way, so the tenant app now has none.
             */}
             <Select
               value={String(accountId)}
