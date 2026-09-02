@@ -1,50 +1,40 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { DownloadIcon, PrinterIcon } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
-import { PrintLayout, printSheet } from '@/components/domain/print-layout';
+import { PageHeader } from '@/components/domain/page-header';
+import { PrintLayout } from '@/components/domain/print-layout';
+import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
-import type { MoneyValue } from '@/types';
 
-type Cut = 'valuation' | 'dead';
-
-interface Row {
-  label: string;
-  kind: 'standard' | 'serialized';
-  quantity: number;
-  value: MoneyValue;
-  unit_cost?: MoneyValue;
-  idle_days?: number;
-  last_out?: string;
-}
+import { InventorySheet } from '../../reporting/inventory-sheet';
+import { useReportView } from '../../reporting/report-view';
+import {
+  INVENTORY_CUTS,
+  type InventoryCut,
+  type InventoryRow,
+  type InventoryTotals,
+} from '../../reporting/types';
 
 interface Props {
-  cut: Cut;
+  cut: InventoryCut;
   as_of: string;
   as_of_jalali: string;
   days: number;
   day_options: number[];
   can_export: boolean;
-  totals: {
-    value: MoneyValue;
-    device_value: MoneyValue;
-    devices: number;
-    items: number;
-    lines: number;
-  };
-  rows: Row[];
+  totals: InventoryTotals;
+  rows: InventoryRow[];
 }
-
-const CUTS: { key: Cut; label: string }[] = [
-  { key: 'valuation', label: 'ارزش موجودی' },
-  { key: 'dead', label: 'کالای راکد' },
-];
 
 /**
  * Stock valuation and dead stock.
@@ -60,6 +50,11 @@ const CUTS: { key: Cut; label: string }[] = [
  * A mobile shop's two kinds of stock are two kinds of asset — handsets tracked one by one
  * and accessories tracked by quantity — and the accountant asks for them separately. A
  * single «ارزش کل» would let forty handsets and no accessories read the same as neither.
+ *
+ * ## Two views
+ *
+ * The A4 sheet moved to `reporting/inventory-sheet.tsx` unchanged; the default view is
+ * built for a monitor. See `Sales.tsx` for the argument and `report-view.tsx` for the toggle.
  */
 export default function InventoryReport({
   cut,
@@ -72,10 +67,12 @@ export default function InventoryReport({
   rows,
 }: Props) {
   const [date, setDate] = useState<string | null>(asOf);
+  const { showingSheet, actions } = useReportView();
 
   const dead = cut === 'dead';
+  const title = dead ? 'کالای راکد' : 'ارزش موجودی انبار';
 
-  const query = (next: Partial<{ cut: Cut; as_of: string | null; days: number }> = {}) => {
+  const query = (next: Partial<{ cut: InventoryCut; as_of: string | null; days: number }> = {}) => {
     const merged = { cut, as_of: date, days, ...next };
 
     return {
@@ -85,182 +82,179 @@ export default function InventoryReport({
     };
   };
 
-  const apply = (next: Partial<{ cut: Cut; as_of: string | null; days: number }> = {}) => {
+  const apply = (next: Partial<{ cut: InventoryCut; as_of: string | null; days: number }> = {}) => {
     router.get('/reporting/inventory', query(next), { preserveState: true, preserveScroll: true });
   };
 
   const exportHref = `/reporting/inventory/export?${new URLSearchParams(query()).toString()}`;
 
-  return (
-    <AppShell title={dead ? 'کالای راکد' : 'ارزش موجودی انبار'}>
-      <Head title={dead ? 'کالای راکد' : 'ارزش موجودی انبار'} />
+  const toolbar = (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {INVENTORY_CUTS.map((entry) => (
+          <Button
+            key={entry.key}
+            variant={entry.key === cut ? 'default' : 'outline'}
+            aria-pressed={entry.key === cut}
+            onClick={() => apply({ cut: entry.key })}
+          >
+            {entry.label}
+          </Button>
+        ))}
+      </div>
 
-      <PrintLayout.A4
-        toolbar={
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/reporting" className="me-2 text-sm text-primary hover:underline">
-                فهرست گزارش‌ها
-              </Link>
-
-              {CUTS.map((entry) => (
+      <div className="flex flex-wrap items-end gap-3">
+        {dead ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="days">بدون خروج به مدت</Label>
+            <div id="days" className="flex flex-wrap gap-2">
+              {dayOptions.map((option) => (
                 <Button
-                  key={entry.key}
-                  variant={entry.key === cut ? 'default' : 'outline'}
-                  onClick={() => apply({ cut: entry.key })}
+                  key={option}
+                  variant={option === days ? 'default' : 'outline'}
+                  aria-pressed={option === days}
+                  onClick={() => apply({ days: option })}
                 >
-                  {entry.label}
+                  <Num value={option} variant="table" /> روز
                 </Button>
               ))}
             </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="as_of">در تاریخ</Label>
+              <JDatePicker id="as_of" value={date} onChange={setDate} clearable={false} />
+            </div>
 
-            <div className="flex flex-wrap items-end gap-3">
-              {dead ? (
-                <div className="grid gap-1.5">
-                  <Label htmlFor="days">بدون خروج به مدت</Label>
-                  <div id="days" className="flex flex-wrap gap-2">
-                    {dayOptions.map((option) => (
-                      <Button
-                        key={option}
-                        variant={option === days ? 'default' : 'outline'}
-                        onClick={() => apply({ days: option })}
-                      >
-                        <Num value={option} variant="table" /> روز
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="as_of">در تاریخ</Label>
-                    <JDatePicker id="as_of" value={date} onChange={setDate} clearable={false} />
-                  </div>
+            <Button variant="outline" onClick={() => apply()}>
+              اعمال تاریخ
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
-                  <Button variant="outline" onClick={() => apply()}>
-                    اعمال تاریخ
-                  </Button>
-                </>
-              )}
-
-              <span className="grow" />
-
-              <Button variant="outline" onClick={printSheet}>
-                <PrinterIcon className="size-4" aria-hidden />
-                چاپ
-              </Button>
-
+  return (
+    <AppShell
+      header={
+        <PageHeader
+          eyebrow="گزارش"
+          title={title}
+          back={{ href: '/reporting', label: 'فهرست گزارش‌ها' }}
+          description={dead ? `بدون خروج به مدت ${days} روز` : `در تاریخ ${asOfJalali}`}
+          actions={
+            <>
+              {actions}
               {canExport ? (
                 <Button asChild variant="outline">
                   <a href={exportHref}>
-                    <DownloadIcon className="size-4" aria-hidden />
+                    <DownloadIcon aria-hidden />
                     خروجی اکسل
                   </a>
                 </Button>
               ) : null}
-            </div>
-          </div>
-        }
-      >
-        <div className="p-8 print:p-0">
-          <header className="mb-6 border-b pb-4">
-            {/* The document's heading, not the page's — `AppShell` already renders an
-                `<h1>` above the paper, and this repeated it, so every report shipped
-                two page headings. On paper the outline does not exist and the
-                rendering is unchanged; on screen a reader now gets one. */}
-            <h2 className="text-lg font-bold">{dead ? 'کالای راکد' : 'ارزش موجودی انبار'}</h2>
-            <p className="mt-1 text-sm text-black/60">
-              {dead ? (
-                <>
-                  بدون خروج به مدت <Num value={days} variant="table" /> روز یا بیشتر
-                </>
-              ) : (
-                <>در تاریخ {asOfJalali}</>
-              )}
-            </p>
-          </header>
+            </>
+          }
+        />
+      }
+    >
+      <Head title={title} />
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Figure label="ارزش کل" value={totals.value} />
-            <Figure label="ارزش دستگاه‌ها" value={totals.device_value} />
-            <Figure label="تعداد دستگاه" count={totals.devices} />
-            <Figure label="تعداد اقلام" count={totals.items} />
+      {showingSheet ? (
+        <PrintLayout.A4 toolbar={toolbar}>
+          <InventorySheet
+            dead={dead}
+            asOfJalali={asOfJalali}
+            days={days}
+            rows={rows}
+            totals={totals}
+          />
+        </PrintLayout.A4>
+      ) : (
+        <div className="space-y-8">
+          <Card>{toolbar}</Card>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="ارزش کل" value={totals.value.value} isMoney />
+            <StatCard label="ارزش دستگاه‌ها" value={totals.device_value.value} isMoney />
+            <StatCard label="دستگاه" value={totals.devices} />
+            <StatCard label="قلم کالا" value={totals.items} />
           </div>
 
           {rows.length === 0 ? (
-            <p className="py-12 text-center text-sm text-black/60">
-              {dead ? 'کالای راکدی در این بازه وجود ندارد.' : 'موجودی‌ای ثبت نشده است.'}
-            </p>
+            <EmptyState
+              title={dead ? 'کالای راکدی نیست' : 'موجودی‌ای ثبت نشده است'}
+              description={dead ? 'آستانه را کوتاه‌تر کنید.' : 'تاریخ دیگری را امتحان کنید.'}
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-black/60">
-                    <th className="py-2 text-start font-medium">عنوان</th>
-                    <th className="py-2 text-start font-medium">نوع</th>
-                    <th className="py-2 text-end font-medium">تعداد</th>
-                    {dead ? (
-                      <>
-                        <th className="py-2 text-end font-medium">روز بی‌حرکت</th>
-                        <th className="py-2 text-end font-medium">آخرین خروج</th>
-                      </>
-                    ) : (
-                      <th className="py-2 text-end font-medium">بهای واحد</th>
-                    )}
-                    <th className="py-2 text-end font-medium">ارزش</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={`${row.label}-${index}`} className="border-b last:border-0">
-                      <td className="py-2">{row.label}</td>
-                      <td className="py-2">{row.kind === 'serialized' ? 'دستگاه' : 'کالا'}</td>
-                      <td className="py-2 text-end">
-                        <Num value={row.quantity} variant="table" />
-                      </td>
-                      {dead ? (
-                        <>
-                          <td className="py-2 text-end">
-                            <Num value={row.idle_days ?? 0} variant="table" />
-                          </td>
-                          <td className="py-2 text-end">{row.last_out}</td>
-                        </>
-                      ) : (
-                        <td className="py-2 text-end">
+            <DataTable
+              caption={
+                dead ? `کالای بدون خروج به مدت ${days} روز.` : `ارزش موجودی در تاریخ ${asOfJalali}.`
+              }
+              rows={rows}
+              rowKey={(row) => `${row.kind}-${row.label}`}
+              columns={[
+                { key: 'label', header: 'کالا', cell: (row) => row.label },
+                {
+                  key: 'kind',
+                  header: 'نوع',
+                  secondary: true,
+                  cell: (row) => (row.kind === 'serialized' ? 'دستگاه' : 'کالا'),
+                },
+                {
+                  key: 'quantity',
+                  header: 'تعداد',
+                  numeric: true,
+                  cell: (row) => <Num value={row.quantity} />,
+                },
+                ...(dead
+                  ? [
+                      {
+                        key: 'idle_days',
+                        header: 'روز بدون خروج',
+                        numeric: true,
+                        cell: (row: InventoryRow) => <Num value={row.idle_days ?? 0} />,
+                      },
+                      {
+                        key: 'last_out',
+                        header: 'آخرین خروج',
+                        secondary: true,
+                        cell: (row: InventoryRow) => row.last_out ?? '—',
+                      },
+                    ]
+                  : [
+                      {
+                        key: 'unit_cost',
+                        header: 'بهای واحد',
+                        numeric: true,
+                        secondary: true,
+                        cell: (row: InventoryRow) => (
                           <Money rial={row.unit_cost?.value ?? 0} digits="latin" />
-                        </td>
-                      )}
-                      <td className="py-2 text-end">
-                        <Money rial={row.value.value} digits="latin" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        ),
+                      },
+                    ]),
+                {
+                  key: 'value',
+                  header: 'ارزش',
+                  numeric: true,
+                  cell: (row) => <Money rial={row.value.value} digits="latin" />,
+                },
+              ]}
+              footer={(column) => {
+                if (column.key === 'value') {
+                  return <Money rial={totals.value.value} digits="latin" />;
+                }
+                if (column.key === 'quantity') {
+                  return <Num value={totals.items + totals.devices} />;
+                }
+                return undefined;
+              }}
+            />
           )}
-
-          <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-            ارزش‌ها به بهای تمام‌شده است، نه قیمت فروش. کالاهای معمولی به میانگین وزنی خرید و
-            دستگاه‌های سریالی به بهای همان دستگاه ارزش‌گذاری می‌شوند.
-          </footer>
         </div>
-      </PrintLayout.A4>
+      )}
     </AppShell>
-  );
-}
-
-function Figure({ label, value, count }: { label: string; value?: MoneyValue; count?: number }) {
-  return (
-    <div className="rounded-control border p-3">
-      <p className="text-xs text-black/60">{label}</p>
-      <p className="mt-1 font-semibold">
-        {value ? (
-          <Money rial={value.value} withUnit digits="latin" />
-        ) : (
-          <Num value={count ?? 0} variant="table" />
-        )}
-      </p>
-    </div>
   );
 }

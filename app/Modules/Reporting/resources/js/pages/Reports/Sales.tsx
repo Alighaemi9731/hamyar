@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { DownloadIcon, FileTextIcon, PrinterIcon, TableIcon } from 'lucide-react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { DataTable } from '@/components/domain/data-table';
@@ -8,7 +8,7 @@ import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { PageHeader } from '@/components/domain/page-header';
-import { PrintLayout, printSheet } from '@/components/domain/print-layout';
+import { PrintLayout } from '@/components/domain/print-layout';
 import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 
+import { useReportView } from '../../reporting/report-view';
 import { SalesSheet } from '../../reporting/sales-sheet';
 import {
   SALES_CUTS,
@@ -80,7 +81,7 @@ export default function SalesReport({
 }: Props) {
   const [from, setFrom] = useState<string | null>(period.from);
   const [to, setTo] = useState<string | null>(period.to);
-  const [showingSheet, setShowingSheet] = useState(false);
+  const { showingSheet, actions } = useReportView();
 
   const active = SALES_CUTS.find((entry) => entry.key === cut);
   const unit = active?.unit ?? 'تعداد';
@@ -146,31 +147,7 @@ export default function SalesReport({
           description={`${active?.label ?? ''} · از ${period.from_jalali} تا ${period.to_jalali}`}
           actions={
             <>
-              <Button
-                variant="outline"
-                aria-pressed={showingSheet}
-                onClick={() => setShowingSheet((open) => !open)}
-              >
-                {showingSheet ? <TableIcon aria-hidden /> : <FileTextIcon aria-hidden />}
-                {/* Not «نمای چاپ»: that name contains «چاپ», so the toggle and the print
-                    button beside it announce as overlapping labels — a screen reader
-                    reads "نمای چاپ" and "چاپ" one after the other, and only one of them
-                    sends anything to a printer. */}
-                {showingSheet ? 'نمایش جدول' : 'نمایش برگه'}
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Show the paper first, then print it: what reaches the printer is what
-                  // was on the screen a moment earlier.
-                  setShowingSheet(true);
-                  window.setTimeout(printSheet, 0);
-                }}
-              >
-                <PrinterIcon aria-hidden />
-                چاپ
-              </Button>
+              {actions}
 
               {canExport ? (
                 <Button asChild variant="outline">

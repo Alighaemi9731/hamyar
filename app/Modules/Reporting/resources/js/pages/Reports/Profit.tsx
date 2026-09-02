@@ -1,53 +1,41 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { DownloadIcon, PrinterIcon } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
-import { PrintLayout, printSheet } from '@/components/domain/print-layout';
+import { PageHeader } from '@/components/domain/page-header';
+import { PrintLayout } from '@/components/domain/print-layout';
+import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
-import type { MoneyValue } from '@/types';
 
-type Cut = 'product' | 'brand' | 'imei';
-
-interface Row {
-  label: string;
-  count: number;
-  product: string;
-  invoice: string;
-  sold_at: string;
-  customer: string;
-  revenue: MoneyValue;
-  cost: MoneyValue;
-  margin: MoneyValue;
-}
+import { ProfitSheet } from '../../reporting/profit-sheet';
+import { useReportView } from '../../reporting/report-view';
+import {
+  PROFIT_CUTS,
+  type ProfitCut,
+  type ProfitRow,
+  type ProfitSummary,
+  type ReportPeriod,
+} from '../../reporting/types';
 
 interface Props {
-  cut: Cut;
-  period: { from: string; to: string; from_jalali: string; to_jalali: string };
+  cut: ProfitCut;
+  period: ReportPeriod;
   can_export: boolean;
-  summary: {
-    revenue: MoneyValue;
-    cost: MoneyValue;
-    profit: MoneyValue;
-    margin_percent: number;
-    invoice_count: number;
-  };
-  rows: Row[];
+  summary: ProfitSummary;
+  rows: ProfitRow[];
 }
 
-const CUTS: { key: Cut; label: string; heading: string }[] = [
-  { key: 'product', label: 'بر اساس کالا', heading: 'کالا' },
-  { key: 'brand', label: 'بر اساس برند', heading: 'برند' },
-  { key: 'imei', label: 'هر دستگاه', heading: 'شناسه دستگاه' },
-];
-
 /**
- * «از چی سود کردیم» — the profit report.
+ * «از چی سود کردیم» — the profit report, screen and document.
  *
  * ## Rows are ordered by profit, and that is the whole point
  *
@@ -68,15 +56,21 @@ const CUTS: { key: Cut; label: string; heading: string }[] = [
  * It is read down a phone line and typed into HAMTA (design-system rule 3), so it is
  * isolated with `dir="ltr"` rather than left to the bidi algorithm, which reorders a
  * fifteen-digit number sitting in a Persian sentence.
+ *
+ * ## Two views
+ *
+ * The A4 sheet moved to `reporting/profit-sheet.tsx` unchanged; the default view is built
+ * for a monitor. See `Sales.tsx` for the argument and `report-view.tsx` for the toggle.
  */
 export default function ProfitReport({ cut, period, can_export: canExport, summary, rows }: Props) {
   const [from, setFrom] = useState<string | null>(period.from);
   const [to, setTo] = useState<string | null>(period.to);
+  const { showingSheet, actions } = useReportView();
 
-  const active = CUTS.find((entry) => entry.key === cut);
+  const active = PROFIT_CUTS.find((entry) => entry.key === cut);
   const perUnit = cut === 'imei';
 
-  const query = (next: Partial<{ cut: Cut; from: string | null; to: string | null }>) => {
+  const query = (next: Partial<{ cut: ProfitCut; from: string | null; to: string | null }>) => {
     const merged = { cut, from, to, ...next };
 
     return {
@@ -86,190 +80,185 @@ export default function ProfitReport({ cut, period, can_export: canExport, summa
     };
   };
 
-  const apply = (next: Partial<{ cut: Cut; from: string | null; to: string | null }> = {}) => {
+  const apply = (
+    next: Partial<{ cut: ProfitCut; from: string | null; to: string | null }> = {}
+  ) => {
     router.get('/reporting/profit', query(next), { preserveState: true, preserveScroll: true });
   };
 
   const exportHref = `/reporting/profit/export?${new URLSearchParams(query({})).toString()}`;
 
+  const toolbar = (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {PROFIT_CUTS.map((entry) => (
+          <Button
+            key={entry.key}
+            variant={entry.key === cut ? 'default' : 'outline'}
+            aria-pressed={entry.key === cut}
+            onClick={() => apply({ cut: entry.key })}
+          >
+            {entry.label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="from">از تاریخ</Label>
+          <JDatePicker id="from" value={from} onChange={setFrom} clearable={false} />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="to">تا تاریخ</Label>
+          <JDatePicker id="to" value={to} onChange={setTo} clearable={false} />
+        </div>
+
+        <Button variant="outline" onClick={() => apply()}>
+          اعمال بازه
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <AppShell title="گزارش سود">
-      <Head title="گزارش سود" />
-
-      <PrintLayout.A4
-        toolbar={
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/reporting" className="me-2 text-sm text-primary hover:underline">
-                فهرست گزارش‌ها
-              </Link>
-
-              {CUTS.map((entry) => (
-                <Button
-                  key={entry.key}
-                  variant={entry.key === cut ? 'default' : 'outline'}
-                  onClick={() => apply({ cut: entry.key })}
-                >
-                  {entry.label}
-                </Button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="from">از تاریخ</Label>
-                <JDatePicker id="from" value={from} onChange={setFrom} clearable={false} />
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor="to">تا تاریخ</Label>
-                <JDatePicker id="to" value={to} onChange={setTo} clearable={false} />
-              </div>
-
-              <Button variant="outline" onClick={() => apply()}>
-                اعمال بازه
-              </Button>
-
-              <span className="grow" />
-
-              <Button variant="outline" onClick={printSheet}>
-                <PrinterIcon className="size-4" aria-hidden />
-                چاپ
-              </Button>
+    <AppShell
+      header={
+        <PageHeader
+          eyebrow="گزارش"
+          title="گزارش سود"
+          back={{ href: '/reporting', label: 'فهرست گزارش‌ها' }}
+          description={`${active?.label ?? ''} · از ${period.from_jalali} تا ${period.to_jalali}`}
+          actions={
+            <>
+              {actions}
 
               {canExport ? (
                 <Button asChild variant="outline">
                   <a href={exportHref}>
-                    <DownloadIcon className="size-4" aria-hidden />
+                    <DownloadIcon aria-hidden />
                     خروجی اکسل
                   </a>
                 </Button>
               ) : null}
-            </div>
-          </div>
-        }
-      >
-        <div className="p-8 print:p-0">
-          <header className="mb-6 border-b pb-4">
-            {/* The document's heading, not the page's — `AppShell` already renders an
-                `<h1>` above the paper, and this repeated it, so every report shipped
-                two page headings. On paper the outline does not exist and the
-                rendering is unchanged; on screen a reader now gets one. */}
-            <h2 className="text-lg font-bold">گزارش سود</h2>
-            <p className="mt-1 text-sm text-black/60">
-              {active?.label} · از {period.from_jalali} تا {period.to_jalali}
-            </p>
-          </header>
+            </>
+          }
+        />
+      }
+    >
+      <Head title="گزارش سود" />
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Figure label="فروش خالص" value={summary.revenue} />
-            <Figure label="بهای تمام‌شده" value={summary.cost} />
-            <Figure label="سود ناخالص" value={summary.profit} />
-            <Figure label="حاشیه سود" count={summary.margin_percent} suffix="٪" />
+      {showingSheet ? (
+        <PrintLayout.A4 toolbar={toolbar}>
+          <ProfitSheet
+            cut={active}
+            perUnit={perUnit}
+            period={period}
+            summary={summary}
+            rows={rows}
+          />
+        </PrintLayout.A4>
+      ) : (
+        <div className="space-y-8">
+          <Card>{toolbar}</Card>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="فروش" value={summary.revenue.value} isMoney />
+            <StatCard label="بهای تمام‌شده" value={summary.cost.value} isMoney />
+            <StatCard
+              label="سود ناخالص"
+              value={summary.profit.value}
+              isMoney
+              hint={`حاشیه ${summary.margin_percent}٪`}
+            />
+            <StatCard label="تعداد فاکتور" value={summary.invoice_count} />
           </div>
 
           {rows.length === 0 ? (
-            <p className="py-12 text-center text-sm text-black/60">
-              در این بازه فروشی ثبت نشده است.
-            </p>
+            <EmptyState
+              title="در این بازه فروشی ثبت نشده است"
+              description="بازه را بازتر کنید، یا برش دیگری را امتحان کنید."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-black/60">
-                    <th className="py-2 text-start font-medium">{active?.heading ?? 'عنوان'}</th>
-                    {perUnit ? (
-                      <>
-                        <th className="py-2 text-start font-medium">کالا</th>
-                        <th className="py-2 text-start font-medium">فاکتور</th>
-                        <th className="py-2 text-start font-medium">تاریخ</th>
-                      </>
-                    ) : (
-                      <th className="py-2 text-end font-medium">تعداد</th>
-                    )}
-                    <th className="py-2 text-end font-medium">فروش</th>
-                    <th className="py-2 text-end font-medium">بهای تمام‌شده</th>
-                    <th className="py-2 text-end font-medium">سود</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr
-                      key={`${row.label}-${row.invoice}-${index}`}
-                      className="border-b last:border-0"
-                    >
-                      <td className="py-2">
-                        {perUnit ? (
-                          <span className="ltr-value tabular" dir="ltr">
-                            {row.label}
-                          </span>
-                        ) : (
-                          row.label
-                        )}
-                      </td>
+            <DataTable
+              caption={`سود ${active?.label ?? ''} از ${period.from_jalali} تا ${period.to_jalali}، پرسودترین اول.`}
+              rows={rows}
+              // The label is the IMEI on the per-device cut and the group name otherwise —
+              // unique either way, which is what the server groups by.
+              rowKey={(row) => row.label}
+              columns={[
+                {
+                  key: 'label',
+                  header: active?.heading ?? 'عنوان',
+                  cell: (row) => (perUnit ? <Num value={row.label} variant="ltr" /> : row.label),
+                },
+                ...(perUnit
+                  ? [
+                      {
+                        key: 'product',
+                        header: 'کالا',
+                        cell: (row: ProfitRow) => row.product,
+                      },
+                      {
+                        key: 'invoice',
+                        header: 'فاکتور',
+                        secondary: true,
+                        cell: (row: ProfitRow) => <Num value={row.invoice} variant="ltr" />,
+                      },
+                      {
+                        key: 'sold_at',
+                        header: 'تاریخ فروش',
+                        secondary: true,
+                        cell: (row: ProfitRow) => row.sold_at,
+                      },
+                    ]
+                  : [
+                      {
+                        key: 'count',
+                        header: 'تعداد',
+                        numeric: true,
+                        cell: (row: ProfitRow) => <Num value={row.count} />,
+                      },
+                    ]),
+                {
+                  key: 'revenue',
+                  header: 'فروش',
+                  numeric: true,
+                  cell: (row) => <Money rial={row.revenue.value} digits="latin" />,
+                },
+                {
+                  key: 'cost',
+                  header: 'بهای تمام‌شده',
+                  numeric: true,
+                  secondary: true,
+                  cell: (row) => <Money rial={row.cost.value} digits="latin" />,
+                },
+                {
+                  key: 'margin',
+                  header: 'سود',
+                  numeric: true,
+                  cell: (row) => <Money rial={row.margin.value} digits="latin" signed />,
+                },
+              ]}
+              footer={(column) => {
+                if (column.key === 'revenue') {
+                  return <Money rial={summary.revenue.value} digits="latin" />;
+                }
 
-                      {perUnit ? (
-                        <>
-                          <td className="py-2">{row.product}</td>
-                          <td className="py-2">{row.invoice}</td>
-                          <td className="py-2">{row.sold_at}</td>
-                        </>
-                      ) : (
-                        <td className="py-2 text-end">
-                          <Num value={row.count} variant="table" />
-                        </td>
-                      )}
+                if (column.key === 'cost') {
+                  return <Money rial={summary.cost.value} digits="latin" />;
+                }
 
-                      <td className="py-2 text-end">
-                        <Money rial={row.revenue.value} digits="latin" />
-                      </td>
-                      <td className="py-2 text-end">
-                        <Money rial={row.cost.value} digits="latin" />
-                      </td>
-                      <td className="py-2 text-end">
-                        <Money rial={row.margin.value} digits="latin" signed />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                if (column.key === 'margin') {
+                  return <Money rial={summary.profit.value} digits="latin" signed />;
+                }
+
+                return undefined;
+              }}
+            />
           )}
-
-          <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-            ارقام بدون مالیات بر ارزش افزوده است. بهای تمام‌شده همان مبلغی است که در لحظه فروش ثبت
-            شده، نه قیمت امروز.
-          </footer>
         </div>
-      </PrintLayout.A4>
+      )}
     </AppShell>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  count,
-  suffix,
-}: {
-  label: string;
-  value?: MoneyValue;
-  count?: number;
-  suffix?: string;
-}) {
-  return (
-    <div className="rounded-control border p-3">
-      <p className="text-xs text-black/60">{label}</p>
-      <p className="mt-1 font-semibold">
-        {value ? (
-          <Money rial={value.value} withUnit digits="latin" />
-        ) : (
-          <>
-            <Num value={count ?? 0} variant="table" />
-            {suffix}
-          </>
-        )}
-      </p>
-    </div>
   );
 }
