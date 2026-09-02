@@ -3492,3 +3492,36 @@ invisible-text period to remove. **The load test cannot be re-run**: it is k6 fr
 against a box, and there is no box.
 
 Two PRs, all five checks green: `#122`, `#123`.
+
+## 1404-06-13 (2026-09-03) — Phase 14: the landing, audited; three things left for the owner
+
+**What changed (`#125`).** Four links under the touch floor — the brand at 37px, the desktop
+nav at 36px, the sign-off mail link at 23px, a line of text and the last thing a phone
+reaches. Four rules gain `min-block-size: 2.5rem`; nothing else on the page moves. One 23px
+link is left alone on purpose: the mail address inside a FAQ sentence, an inline link in
+running text, which is precisely the case WCAG 2.5.8 exempts.
+
+**What the audit found nothing to change.** JS 1 KB gz and CSS 23 KB gz against a 180 KB
+budget; reduced motion honoured in both; no overflow, one heading, no console errors at
+375/768/1440 in both themes; pricing rendered from the real plan catalogue, so reconciled
+with the metered ladder by construction; no hostname literal. LCP on the hero copy at
+~200ms on localhost, which says nothing about 4G and is not claimed to. `landing.css` was
+already 231 lines from Prettier's style on `main` and CI does not check that path; left as
+found rather than reformatted in a four-line PR.
+
+**Left for the owner — ADR 0016 says this phase ends in sign-off, and these are taste and
+budget calls, not redesign ones:**
+
+1. **The signature element does not exist.** The spec's live thermal receipt, three frames
+   on scroll, is nowhere on the page — and `landing.js`'s own docblock argues against the
+   GSAP/ScrollTrigger approach on budget grounds.
+2. **The ink divergence is still open.** Landing navy `#0E1B2C` against the product's
+   `#1d1d1f`; both still exist.
+3. **The six product screenshots are from 22 August**, nine days before the redesign began,
+   and every one shows a screen that has since changed: POS, repairs, installments, the
+   profit report, SMS, the IMEI passport. All 1440x900, all cropped by the tour's own
+   focus/zoom map. Refreshing them is six logged-in captures and six `cwebp` calls — held
+   back deliberately, because a screenshot of a landing whose direction may still change is
+   wasted work.
+
+One PR, all five checks green: `#125`.
