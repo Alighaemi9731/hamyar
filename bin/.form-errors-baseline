@@ -18,7 +18,6 @@ app/Modules/Inventory/resources/js/pages/Transfers/Index.tsx
 app/Modules/Inventory/resources/js/pages/Transfers/Show.tsx
 app/Modules/Purchasing/resources/js/pages/Invoices/Index.tsx
 app/Modules/Repairs/resources/js/pages/Tickets/Board.tsx
-app/Modules/Repairs/resources/js/pages/Tracking/Approve.tsx
 app/Modules/Repairs/resources/js/pos/approval-panel.tsx
 app/Modules/Treasury/resources/js/pages/Treasury/Statement.tsx
 resources/js/components/domain/branch-switcher.tsx

@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 
+import { FormErrors } from '@/components/domain/form-errors';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,16 @@ interface Props {
  * It records the answer and stops the work. What happens to the device next — returned
  * unrepaired, re-quoted lower, collected as-is — is a conversation, and the software
  * should not make that decision on the shop's behalf.
+ *
+ * ## A refusal is shown, on the one page where silence is worst
+ *
+ * Both submits posted with no error region. The server can decline either one — the link
+ * has expired, the shop re-quoted and this token is stale, the answer was already given
+ * from another phone — and every one of those came back as a redirect that re-rendered
+ * this page identically. A customer holding their phone at arm's length tapped «تأیید
+ * می‌کنم», nothing changed, and they concluded the shop's software was broken. On the page
+ * that authorises spending, that is the worst possible outcome; `<FormErrors>` takes the
+ * whole bag so a key nobody thought to place still has somewhere to appear.
  */
 export default function TicketApprove({ ticket, shop, token }: Props) {
   const [declining, setDeclining] = useState(false);
@@ -84,7 +95,10 @@ export default function TicketApprove({ ticket, shop, token }: Props) {
             </div>
             <div className="flex items-baseline justify-between gap-2">
               <dt className="shrink-0 text-muted-foreground">ایراد</dt>
-              <dd className="min-w-0 text-end">{ticket.reported_issue}</dd>
+              {/* `text-start`, not `text-end`: this is Persian prose, and in RTL `text-end`
+                  is the physical left — a two-line description was ragged on its
+                  reading edge. */}
+              <dd className="min-w-0 text-start">{ticket.reported_issue}</dd>
             </div>
             {ticket.requested_at && (
               <div className="flex items-baseline justify-between gap-2">
@@ -96,6 +110,8 @@ export default function TicketApprove({ ticket, shop, token }: Props) {
 
           {!declining ? (
             <div className="space-y-2 border-t border-border pt-4">
+              <FormErrors errors={approve.errors} />
+
               <Button
                 type="button"
                 className="h-12 w-full text-base"
@@ -123,14 +139,26 @@ export default function TicketApprove({ ticket, shop, token }: Props) {
                 decline.post(`/a/${token}/decline`);
               }}
             >
+              <FormErrors errors={decline.errors} handled={['note']} />
+
               <div className="space-y-2">
                 <Label htmlFor="decline-note">اگر توضیحی دارید بنویسید (اختیاری)</Label>
                 <Input
                   id="decline-note"
+                  aria-invalid={Boolean(decline.errors.note)}
+                  aria-describedby={decline.errors.note ? 'decline-note-error' : undefined}
                   value={decline.data.note}
                   onChange={(event) => decline.setData('note', event.target.value)}
                   placeholder="مثلاً: فعلاً منصرف شدم"
                 />
+                {/* `handled={['note']}` above is a promise that this key has a home. The
+                    first draft made the promise and rendered nothing — the server refused a
+                    301-character note, `aria-invalid` went on, and no text appeared. */}
+                {decline.errors.note && (
+                  <p id="decline-note-error" role="alert" className="text-sm text-destructive">
+                    {decline.errors.note}
+                  </p>
+                )}
               </div>
 
               <Button

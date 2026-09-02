@@ -105,6 +105,11 @@
 
         .err { color: var(--danger); font-size: .9rem; }
 
+        /* A4 with a 10mm margin, matching the app's `PrintLayout.A4`. Without a
+           document-level `@page` the price list printed on whatever paper the browser
+           defaulted to — Letter on some machines — and the table's columns reflowed. */
+        @page { size: A4; margin: 10mm; }
+
         @media print {
             body { background: #fff; }
             .no-print { display: none !important; }
