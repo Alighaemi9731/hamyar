@@ -208,11 +208,21 @@ contrast checker.
    emits logical classes for new components; anything pasted or inherited needs
    `npx shadcn migrate rtl` once.
 
-3. **Radix portals need explicit `dir`.** They render outside the RTL root, so
-   placement and animation invert without it. Menu-style primitives
-   (`DropdownMenu`, `ContextMenu`, `Menubar`) take `dir` on the **Root** — it drives
-   keyboard navigation too. Plain popovers (`Popover`, `Dialog`, `Sheet`, `Tooltip`)
-   take it on the **Content**.
+3. **Radix is RTL from the root.** `app.tsx` mounts one `Direction.Provider
+   dir="rtl"` beside the `TooltipProvider`, so every portal — menu, select, sheet,
+   dialog, popover — renders and navigates RTL without being told. Sixty-one call sites
+   used to pass `dir="rtl"` by hand to the portals somebody remembered; the forgotten ones
+   opened mirrored with their arrow keys reversed. Those explicit props are now redundant
+   and harmless. Pass `dir="ltr"` only for a genuinely LTR pocket.
+
+   **An icon that names a physical direction is already correct in both directions.**
+   A back link points toward the reading start — physical right in RTL — and
+   `ArrowRightIcon` already points there; `rtl:rotate-180` turns it around. Thirteen
+   «بازگشت» links shipped pointing forward, and it survived review because mirroring
+   *looks* like careful RTL work. `bin/check-rtl-arrows` refuses it on `ArrowLeft`/
+   `ArrowRight`. Chevrons are not gated because `Pagination` mirrors its prev/next
+   deliberately — those were chosen for reading order, not for a physical direction. A
+   tree-depth chevron is a physical direction and was mirrored wrongly too (`#127`).
 
 4. **Digits have three modes**, and mixing them is the most common visual bug:
 
