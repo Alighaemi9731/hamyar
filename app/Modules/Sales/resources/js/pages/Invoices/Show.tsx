@@ -298,7 +298,7 @@ function IdentityBand({
             <>
               <Link
                 href={`/crm/parties/${invoice.party.id}`}
-                className="font-medium text-primary hover:underline"
+                className="inline-flex min-h-10 items-center font-medium text-primary hover:underline"
               >
                 {invoice.party.name}
               </Link>

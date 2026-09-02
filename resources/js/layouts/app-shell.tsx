@@ -232,8 +232,19 @@ function SidebarNav({
   currentPath: string;
   features: Record<string, boolean>;
 }) {
+  const activeHref = NAVIGATION.flatMap((section) => section.items)
+    .map((item) => item.href)
+    .filter((href) => currentPath === href || currentPath.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {/*
+        One active item, and it is the most specific one. Matching each item by prefix on
+        its own lit two at once — on `/inventory/units/6` both «انبار» and «شناسنامهٔ IMEI»
+        — because `/inventory` is a prefix of `/inventory/units`. The longest href that
+        matches is the page you are on; its parents are not.
+      */}
       {NAVIGATION.map((section) => {
         // A section whose every item is gated off by the plan should disappear
         // entirely rather than leave an orphan heading.
@@ -253,7 +264,7 @@ function SidebarNav({
 
             <ul className="space-y-0.5">
               {visible.map((item) => {
-                const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+                const active = item.href === activeHref;
 
                 return (
                   <li key={item.href}>

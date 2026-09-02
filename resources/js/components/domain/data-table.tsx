@@ -213,12 +213,37 @@ export function DataTable<TRow>({
                 <TableRow
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn(onRowClick && 'cursor-pointer')}
+                  // A clickable row is a control, so it is reachable and operable like one.
+                  // Without these, every register's rows had `cursor: pointer` and an
+                  // `onClick` and nothing else: no tab stop, no role, no key — so a
+                  // keyboard or screen-reader user could see fourteen invoices and open
+                  // none of them.
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'link' : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={cn(
+                    onRowClick &&
+                      'cursor-pointer outline-none focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset'
+                  )}
                 >
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
+                      // A link inside a cell is a target, and it measured 20–21px — a line
+                      // of text — on every register: product names, party names, ticket
+                      // codes, fifty of them on the activity log. The row is ~40px already,
+                      // so the link grows to fill it and nothing moves.
                       className={cn(
+                        '[&_a]:inline-flex [&_a]:min-h-10 [&_a]:items-center',
                         column.numeric && 'text-start tabular',
                         column.secondary && 'hidden sm:table-cell',
                         column.className

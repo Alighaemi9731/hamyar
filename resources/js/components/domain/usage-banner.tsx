@@ -65,7 +65,13 @@ export function UsageBanner({ usage, className }: UsageBannerProps) {
         ) : (
           <>{describe(blocked.length > 0 ? blocked : nearingLimit(usage))}</>
         )}{' '}
-        <Link href="/billing" className="font-medium underline underline-offset-4">
+        {/* An inline link in a sentence, so it cannot grow into a 40px box without
+            breaking the line — but it is the banner's only action and it measured 24px
+            on every page. `py-2.5 -my-2.5` adds the hit area without moving a pixel (21px line + 20 = 41). */}
+        <Link
+          href="/billing"
+          className="-my-2.5 inline-block py-2.5 font-medium underline underline-offset-4"
+        >
           {usage.plan.lapsed ? 'تمدید اشتراک' : 'مشاهده سهمیه‌ها'}
         </Link>
       </p>
