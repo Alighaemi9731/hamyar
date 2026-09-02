@@ -3458,3 +3458,37 @@ One honest note: the sweep's first click on the approve button *succeeded* and a
 demo quote. Local data only, and the reason the refusal had to be driven through decline.
 
 One PR, all five checks green: `#120`.
+
+## 1404-06-13 (2026-09-03) — Phase 13 closes: Tier C, responsive, a11y, perf
+
+**Tier C (`#122`).** The 16 supporting screens swept with data. Five submits had no error
+region — both bulk imports and the HAMTA checklist were bare `router.post` calls with no
+`onError` at all, so a refused import came back as a redirect that re-rendered the page
+with the preview still showing. The checklist's twelve «انجام شد / انجام نشد» buttons, the
+only controls on the page, were 28px. Ten more `size="sm"` callers across seven pages —
+revoke, deactivate, delete, retry, collect, confirm — went to the floor. **Outside
+`/design`'s size specimen, no page in the product renders a button under 40px.** Baseline
+25 to 20.
+
+**Responsive.** The sweep gained 390 and 1024 — 1024 being the width the sidebar lands on,
+which it had never measured — and ran across 43 Tier A/B screens: **516 cases, all clean.**
+
+**A11y (`#123`).** No Radix primitive had a direction of its own; sixty-one call sites were
+passing `dir="rtl"` by hand to the portals somebody remembered while the forgotten ones
+opened mirrored. One `Direction.Provider` at the root now, verified by reading `rtl` off a
+listbox that passes nothing. The last three tables without a `<caption>` have one. The schedule table also prints; its caption is `sr-only`, which is clipped to a pixel and puts nothing on paper by construction. The demo tenant holds no installment plan, so the printed sheet could not be diffed the way the report sheets were — stated rather than implied.
+
+My first draft of the provider put a JSX comment where only an expression may go. `tsc`
+refused it; the build did not, and the browser checks passed on the previous bundle. The
+chain runs `tsc` before it trusts a build, which is the only reason it was caught.
+
+**Perf, honestly.** The entry bundle is 158 KB gz against Phase 0's 163 — under the DoD. The
+shell chunk grew 22 to 39 KB gz on every page, and that is Phase 2's three features: the
+toaster, the command palette and Radix's dismissable layer. The palette is the one
+lazy-load candidate; flagged, not done blind. **Font preload was evaluated and declined**:
+Vite's manifest does not carry the CSS entry's font assets, so nothing in Blade can resolve
+the hashed filename, and `@fontsource` already sets `font-display: swap`, so there is no
+invisible-text period to remove. **The load test cannot be re-run**: it is k6 from a laptop
+against a box, and there is no box.
+
+Two PRs, all five checks green: `#122`, `#123`.
