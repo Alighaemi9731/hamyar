@@ -39,7 +39,14 @@
         </tbody>
     </table>
 
-    <script>
+    {{--
+      `nonce` is load-bearing. `SecurityHeaders` emits a nonce-based `script-src`, and an
+      inline script without one is refused by the browser — silently, as a console line
+      nobody reads. So this page's one purpose never happened: a visitor who pressed
+      «نسخهٔ چاپی» landed on a page that just sat there. Found by a browser sweep that
+      reads the console; a Pest render cannot see a CSP refusal.
+    --}}
+    <script nonce="{{ Illuminate\Support\Facades\Vite::cspNonce() }}">
         // Opens the print dialogue on arrival, because this URL is only ever reached by
         // somebody who pressed «نسخهٔ چاپی». Guarded so it never fires during a test render.
         if (!navigator.webdriver) { window.addEventListener('load', () => window.print()); }

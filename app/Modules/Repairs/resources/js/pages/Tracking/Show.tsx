@@ -139,7 +139,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="flex items-baseline justify-between gap-2">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-end">{children}</dd>
+      {/* `text-start`, not `text-end`: in RTL `text-end` is the physical left, so a device
+          name that wraps was ragged on its reading edge. An LTR number inside isolates
+          itself and is unaffected either way. */}
+      <dd className="min-w-0 text-start">{children}</dd>
     </div>
   );
 }
