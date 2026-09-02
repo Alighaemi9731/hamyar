@@ -3418,3 +3418,43 @@ Reports are done: 56 sweep cases across seven paths, one heading each, nothing u
 Reporting 116 passed including the latency budget; browser 51.
 
 Two PRs, all five checks green: `#117`, `#118`.
+
+## 1404-06-12 (2026-09-02) — Phase 12: the print and public surfaces
+
+**The price list's «نسخهٔ چاپی» never printed (`#120`).** Its auto-print is an inline
+script, and `SecurityHeaders` emits a nonce-based `script-src`, so the browser refused it —
+as a console line nobody reads. A visitor pressed the button and landed on a page that sat
+there. It carries the nonce now, and the storefront layout gains the `@page` it never had.
+**A Pest render cannot see a CSP refusal.** A browser sweep that reads the console can,
+which is the reason the sweep exists.
+
+**The Z report imported `printSheet` and wrapped nothing.** Ctrl+P printed the shell, the
+filter row and the sidebar around a sheet with no `@page` — on the one piece of paper a
+shop staples to the day's cash. `PrintLayout.A4` owns it now. Its payments «مبلغ» column
+measured 65px of scatter across two right edges (`text-end`, physical left in RTL) and now
+measures one edge at 0px; its four money lists are ladders; the expected-cash figure with
+its unit inline was 316px at `text-3xl` and pushed a phone 14px sideways.
+
+**The approval page — the one that authorises spending — showed no refusal.** Two submits,
+no region. Driven with a 301-character note: `aria-invalid` went on and not one word
+appeared. **My first fix made the same mistake in a new shape** — `handled={['note']}` with
+nothing rendering the note — and only driving the refusal a second time caught it. Now under
+the field, with `aria-describedby`.
+
+**Found and deliberately not fixed: every signed public invoice link redirects to
+`/login`.** Since the single-host change (`#41`) `ResolveTenant` reads the tenant from the
+session only; `/t/`, `/a/` and `/p/` moved to `tenant.public:<surface>` resolvers keyed on
+columns that are globally unique *by design*, and `/i/{invoice}` was left on plain `tenant`.
+An invoice id is not such a column, so the fix is a new token column (and a change to what
+the QR encodes) or a cross-tenant lookup trusting the signature alone. A security-model
+decision, flagged for the owner. No test ever GETs the link as a guest — the suite only
+asserts the QR *contains* it — which is why it has been invisible since August.
+
+The label sheet was inspected and left alone: already on `PrintLayout.A4`, sized in
+millimetres. Print-media emulation is not available in this harness, so "alignment at all
+densities" cannot be measured here; nothing on screen suggests a defect.
+
+One honest note: the sweep's first click on the approve button *succeeded* and approved the
+demo quote. Local data only, and the reason the refusal had to be driven through decline.
+
+One PR, all five checks green: `#120`.
