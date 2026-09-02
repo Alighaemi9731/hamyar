@@ -3525,3 +3525,43 @@ budget calls, not redesign ones:**
    wasted work.
 
 One PR, all five checks green: `#125`.
+
+## 1404-06-13 (2026-09-03) — Phase 15 closes, and with it the redesign programme
+
+**What the final pass changed (`#127`, `#128`).** One more mirrored icon — the category
+tree's depth marker, pointing out of its row, the same shape as the thirteen back arrows on
+the one icon the guard leaves alone. Two rules in the skill and the design system that said
+the opposite of what the code does, rewritten. ADR 0019, recording the eight directions the
+programme arrived at by doing it. Twenty walk captures under `docs/walks/redesign/`.
+
+Then the design-reviewer pass on POS, the dashboard, the IMEI passport and the sales book.
+**Every register's rows were clickable and unreachable** — `cursor: pointer`, an `onClick`,
+and no tab stop, role or key; a keyboard user could see fourteen invoices and open none.
+And the reviewer's seven 17px dashboard links exposed the programme's own blind spot: **the
+sweep had only ever counted buttons, never anchors.** Counted, 112 of 344 cases lit up —
+product and party names, ticket codes, fifty links on the activity log — cleared by one rule
+in `DataTable`'s cell and five links by hand, with invisible padding for the two that live
+inside a sentence. The sidebar stops lighting a parent and its child at once; the quota
+meter's track exists in dark mode; a quiet morning's «۰» stops shouting.
+
+Two of the reviewer's findings were its tooling, not the product, and are recorded as such:
+the POS "unnamed 20×20 button" is a checkbox mark named by its 40px label row, and the
+passport's two dates are the seed fixture backdating `acquired_at`. One is left to the owner:
+the POS confirm sits 792px from the total it confirms, and moving the money path's primary
+action is not a polish call.
+
+**The programme, closed.** Sixteen phases, `#84` through `#128`. What it leaves behind:
+nine guards where there were five; a form-errors baseline that fell from 37 to 20 and cannot
+grow; no button under 40px outside `/design`'s size specimen, and now no standalone link
+either; every Radix portal RTL from the root; seven reports split into a screen and a
+document, each document proved unchanged by DOM diff; a sweep that runs with data at six
+widths in both themes, reads the console, and counts anchors. Four defects it found that no
+test could have: two 500s on ordinary data, a CSP refusal, and a public invoice link that
+has sent every customer to the login page since August.
+
+**Three decisions are the owner's**, stated plainly rather than taken: the signed public
+invoice link (`#120`, a tenancy security model), the landing's signature element and ink
+(`#125`, ADR 0016 taste), and undefined invoice line order (`#99`, one line, and paper
+already printed). And one placement, above.
+
+Two PRs, all five checks green: `#127`, `#128`.
