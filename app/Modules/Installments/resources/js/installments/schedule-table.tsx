@@ -98,6 +98,10 @@ export function ScheduleTable({
   return (
     <div className="overflow-x-auto rounded-card border border-border print:rounded-none print:border-black/30">
       <table className="w-full text-sm">
+        {/* `sr-only`, because this table also prints: a screen-reader caption is clipped to 1px and puts nothing on paper. */}
+        <caption className="sr-only">
+          جدول اقساط: شماره، سررسید، مبلغ، وصول‌شده و وضعیت هر قسط.
+        </caption>
         <thead className="bg-muted/50 text-2xs text-muted-foreground print:bg-transparent print:text-black">
           <tr>
             <th scope="col" className="p-3 text-start font-medium">

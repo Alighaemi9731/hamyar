@@ -284,6 +284,7 @@ export default function InstallmentPlanCreate({ invoice, defaults }: Props) {
 
                 <div className="overflow-x-auto rounded-card border border-border">
                   <table className="w-full text-sm">
+                    <caption className="sr-only">پیش‌نمایش اقساط طرح، پیش از ثبت.</caption>
                     <thead className="bg-muted/50 text-2xs text-muted-foreground">
                       <tr>
                         <th scope="col" className="p-3 text-start font-medium">

@@ -3,6 +3,8 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
+import { Direction } from 'radix-ui';
+
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { resolvePage } from '@/lib/pages';
 
@@ -16,9 +18,16 @@ void createInertiaApp({
     // root means a page can drop a tooltip anywhere without remembering to wrap it —
     // and a missing provider throws at render time, blanking the whole page.
     createRoot(el).render(
-      <TooltipProvider delayDuration={200}>
-        <App {...props} />
-      </TooltipProvider>
+      // Every Radix primitive reads its direction from this provider. Without it each
+      // one defaults to LTR, and sixty-one call sites were passing `dir="rtl"` by hand
+      // to the portals they remembered — a menu, a select, a sheet — while the ones they
+      // forgot opened mirrored. This is the whole product's direction, so it is set once,
+      // at the root, beside the other provider Radix insists on.
+      <Direction.Provider dir="rtl">
+        <TooltipProvider delayDuration={200}>
+          <App {...props} />
+        </TooltipProvider>
+      </Direction.Provider>
     );
   },
   progress: {

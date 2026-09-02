@@ -372,6 +372,9 @@ export default function PosIndex({
           ) : (
             <div className="overflow-x-auto rounded-card border border-border">
               <table className="w-full text-sm">
+                <caption className="sr-only">
+                  اقلام سبد فروش: کالا، تعداد، قیمت واحد و جمع هر ردیف.
+                </caption>
                 <thead className="bg-muted/50 text-2xs text-muted-foreground">
                   <tr>
                     <th scope="col" className="p-2 text-start font-medium">
