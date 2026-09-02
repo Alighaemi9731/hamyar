@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { Num } from '@/components/domain/num';
 import { SettingsSection } from '@/components/settings-section';
+import { FormErrors } from '@/components/domain/form-errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -149,15 +150,27 @@ export default function ImportIndex({ fields, kinds, extensions }: Props) {
     }
   }
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   function commit(): void {
+    setErrors({});
     if (!analysis) return;
 
-    router.post('/crm/import', {
-      token: analysis.token,
-      kind,
-      unit: settings.currency_display,
-      mapping: analysis.mapping,
-    });
+    router.post(
+      '/crm/import',
+      {
+        token: analysis.token,
+        kind,
+        unit: settings.currency_display,
+        mapping: analysis.mapping,
+      },
+      {
+        // A refused import — the token expired, the quota is spent, a column the
+        // preview accepted the server does not — came back as a redirect that
+        // re-rendered this page identically, with the preview still showing.
+        onError: (received) => setErrors(received as Record<string, string>),
+      }
+    );
   }
 
   return (
@@ -173,6 +186,8 @@ export default function ImportIndex({ fields, kinds, extensions }: Props) {
       }
     >
       <Head title="ورود گروهی مشتریان" />
+
+      <FormErrors errors={errors} />
 
       <div className="space-y-6">
         <SettingsSection

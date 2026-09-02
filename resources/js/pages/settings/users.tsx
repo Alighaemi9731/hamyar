@@ -107,7 +107,7 @@ export default function Users({ users, invitations, roles }: Props) {
                   {!user.is_self && (
                     <Button
                       variant="ghost"
-                      size="sm"
+
                       disabled={toggle.processing}
                       onClick={() => toggle.put(`/settings/users/${user.id}/active`)}
                     >
@@ -136,7 +136,7 @@ export default function Users({ users, invitations, roles }: Props) {
                   <Badge variant="secondary">{invitation.role}</Badge>
                   <Button
                     variant="ghost"
-                    size="sm"
+
                     className="text-destructive"
                     onClick={() => toggle.delete(`/settings/invitations/${invitation.id}`)}
                   >

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { FormErrors } from '@/components/domain/form-errors';
 import { AppShell } from '@/layouts/app-shell';
 
 import { ApiNotice } from './Pending';
@@ -121,8 +122,11 @@ function StepsForm({
     }));
   };
 
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+
   const save = () => {
     setSaving(true);
+    setSaveErrors({});
     router.post(
       `/hamta/${unitId}/checklist`,
       { answers },
@@ -130,12 +134,18 @@ function StepsForm({
         preserveScroll: true,
         onFinish: () => setSaving(false),
         onSuccess: () => setAnswers({}),
+        // Posted with no `onError`: a refused answer — a step the server no longer
+        // recognises, a unit that changed hands meanwhile — came back as a redirect that
+        // re-rendered the checklist with the same ticks and nothing said.
+        onError: (received) => setSaveErrors(received as Record<string, string>),
       }
     );
   };
 
   return (
     <section className="space-y-4">
+      <FormErrors errors={saveErrors} />
+
       <ol className="space-y-3">
         {steps.map((step, index) => {
           const pending = answers[step.key];
@@ -162,16 +172,17 @@ function StepsForm({
 
                   {canManage ? (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {/* Twelve of these were 28px — the only controls on the page. */}
                       <Button
-                        size="sm"
                         variant={current === 'confirmed' ? 'default' : 'outline'}
+                        aria-pressed={current === 'confirmed'}
                         onClick={() => set(step.key, 'confirmed')}
                       >
                         انجام شد
                       </Button>
                       <Button
-                        size="sm"
                         variant={current === 'skipped' ? 'default' : 'outline'}
+                        aria-pressed={current === 'skipped'}
                         onClick={() => set(step.key, 'skipped')}
                       >
                         انجام نشد
@@ -224,16 +235,9 @@ function TransferPanel({ unit, canManage }: { unit: Props['unit']; canManage: bo
     <aside className="h-fit space-y-4 rounded-card border p-4">
       <h2 className="font-semibold">ثبت انتقال</h2>
 
-      {Object.keys(errors).length > 0 ? (
-        <div
-          role="alert"
-          className="rounded-control border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
-        >
-          {Object.values(errors).map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+      {/* Was a hand-rolled copy of this region that also printed `quota`, which the shell
+          already renders through `<QuotaBlock>` with an upgrade button. */}
+      <FormErrors errors={errors} />
 
       {done ? (
         <div className="rounded-control bg-success/5 p-3 text-sm">

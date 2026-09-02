@@ -4,13 +4,10 @@
 #
 # Emptying it is the job of the phase that rebuilds each page. Do not add to it.
 
-app/Modules/CRM/resources/js/pages/Import/Index.tsx
 app/Modules/CRM/resources/js/pages/Parties/Edit.tsx
 app/Modules/CRM/resources/js/pages/Parties/Show.tsx
 app/Modules/Catalog/resources/js/pages/Categories/Index.tsx
-app/Modules/Catalog/resources/js/pages/Import/Index.tsx
 app/Modules/Catalog/resources/js/pages/Prices/Index.tsx
-app/Modules/Hamta/resources/js/pages/Hamta/Checklist.tsx
 app/Modules/Installments/resources/js/pages/Plans/Create.tsx
 app/Modules/Inventory/resources/js/pages/Counts/Index.tsx
 app/Modules/Inventory/resources/js/pages/Counts/Show.tsx
@@ -24,8 +21,6 @@ resources/js/components/domain/branch-switcher.tsx
 resources/js/components/domain/quota-block.tsx
 resources/js/components/domain/report-presets.tsx
 resources/js/components/domain/user-menu.tsx
-resources/js/pages/auth/accept-invitation.tsx
-resources/js/pages/auth/forgot-password.tsx
 resources/js/pages/platform/billing/index.tsx
 resources/js/pages/settings/sessions.tsx
 resources/js/pages/settings/two-factor.tsx

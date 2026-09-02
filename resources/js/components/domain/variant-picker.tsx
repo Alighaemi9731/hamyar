@@ -134,7 +134,7 @@ export function VariantPicker({
               <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
                 <AlertTriangleIcon className="size-5 text-destructive" aria-hidden />
                 <p className="text-xs text-muted-foreground">فهرست کالاها بارگذاری نشد.</p>
-                <Button type="button" variant="outline" size="sm" onClick={retry}>
+                <Button type="button" variant="outline" onClick={retry}>
                   تلاش دوباره
                 </Button>
               </div>

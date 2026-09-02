@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { LoaderIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { FormErrors } from '@/components/domain/form-errors';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthLayout } from '@/layouts/auth-layout';
@@ -53,6 +54,11 @@ export default function ForgotPassword() {
             <p className="text-2xs text-destructive">{form.errors.identifier}</p>
           )}
         </div>
+
+        {/* Every key the server can refuse on, not only the ones with an input beside
+            them — a refusal on a key nobody placed came back as a 302 that re-rendered
+            this form identically, and the button looked broken. */}
+        <FormErrors errors={form.errors} handled={['identifier']} />
 
         <Button type="submit" className="h-11 w-full text-base" disabled={form.processing}>
           {form.processing && <LoaderIcon className="size-4 animate-spin" />}

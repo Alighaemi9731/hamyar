@@ -56,7 +56,7 @@ export default function Sessions({ sessions }: { sessions: SessionRow[] }) {
                 {!session.is_current && (
                   <Button
                     variant="ghost"
-                    size="sm"
+
                     className="text-destructive"
                     onClick={() => {
                       // Inertia's router; no payload needed — the id is in the URL.
