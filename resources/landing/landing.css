@@ -471,6 +471,9 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  /* A 40px tap target on a phone — it was 37px, the height of its own glyphs. The
+     landing is its own design system, but a thumb is the same size on both. */
+  min-block-size: 2.5rem;
 }
 
 .nav__mark {
@@ -491,6 +494,9 @@ h3 {
   font-weight: 500;
   transition: color 160ms ease;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
   padding-block: 0.25rem;
 }
 
@@ -1514,8 +1520,21 @@ h3 {
   flex: none;
 }
 
+.signoff__mail {
+  /* The one link on the page a phone reaches last, and the one most likely to be
+     tapped: it measured 23px, a line of text. Same floor as everything else. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
+}
+
 .foot a {
   transition: color 160ms ease;
+  /* The footer's contact links are the only ones a phone reaches after scrolling
+     to the end; the mail link measured 23px — a line of text, not a target. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
 }
 
 .foot a:hover {
