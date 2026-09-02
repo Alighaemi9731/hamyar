@@ -1,48 +1,39 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { DownloadIcon, PrinterIcon } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { DataTable } from '@/components/domain/data-table';
+import { EmptyState } from '@/components/domain/empty-state';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
-import { PrintLayout, printSheet } from '@/components/domain/print-layout';
+import { PageHeader } from '@/components/domain/page-header';
+import { PrintLayout } from '@/components/domain/print-layout';
 import { ReportPresets, type ReportPreset } from '@/components/domain/report-presets';
+import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
-import type { MoneyValue } from '@/types';
 
-interface Row {
-  label: string;
-  sent: number;
-  failed: number;
-  suppressed: number;
-  queued: number;
-  messages: number;
-  segments: number;
-  cost: MoneyValue;
-}
+import { OperationsSheet } from '../../reporting/operations-sheet';
+import { useReportView } from '../../reporting/report-view';
+import type {
+  OperationsRow,
+  OperationsTotals,
+  OperationsWallet,
+  ReportPeriod,
+} from '../../reporting/types';
 
 interface Props {
-  period: { from: string; to: string; from_jalali: string; to_jalali: string };
+  period: ReportPeriod;
   can_export: boolean;
   report_key: string;
   presets: ReportPreset[];
-  rows: Row[];
-  totals: {
-    messages: number;
-    segments: number;
-    failed: number;
-    cost: MoneyValue;
-    templates: number;
-  };
-  wallet: {
-    balance: MoneyValue;
-    topups: MoneyValue;
-    charges: MoneyValue;
-    refunds: MoneyValue;
-  };
+  rows: OperationsRow[];
+  totals: OperationsTotals;
+  wallet: OperationsWallet;
 }
 
 /**
@@ -59,6 +50,11 @@ interface Props {
  * Top-ups and charges belong to the range. The balance does not — «چقدر اعتبار دارم» is a
  * question about this minute, and answering it with a historical figure under a heading
  * that reads as current is how a shop runs out mid-campaign.
+ *
+ * ## Two views
+ *
+ * The A4 sheet moved to `reporting/operations-sheet.tsx` unchanged; the default view is
+ * built for a monitor. See `Sales.tsx` for the argument and `report-view.tsx` for the toggle.
  */
 export default function OperationsReport({
   period,
@@ -71,6 +67,7 @@ export default function OperationsReport({
 }: Props) {
   const [from, setFrom] = useState<string | null>(period.from);
   const [to, setTo] = useState<string | null>(period.to);
+  const { showingSheet, actions } = useReportView();
 
   const query = (next: Partial<{ from: string | null; to: string | null }> = {}) => {
     const merged = { from, to, ...next };
@@ -90,171 +87,145 @@ export default function OperationsReport({
 
   const exportHref = `/reporting/operations/export?${new URLSearchParams(query()).toString()}`;
 
+  const toolbar = (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="from">از تاریخ</Label>
+          <JDatePicker id="from" value={from} onChange={setFrom} clearable={false} />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="to">تا تاریخ</Label>
+          <JDatePicker id="to" value={to} onChange={setTo} clearable={false} />
+        </div>
+
+        <Button variant="outline" onClick={() => apply()}>
+          اعمال بازه
+        </Button>
+      </div>
+
+      <ReportPresets
+        reportKey={reportKey}
+        presets={presets}
+        current={query()}
+        path="/reporting/operations"
+      />
+    </div>
+  );
+
   return (
-    <AppShell title="مصرف پیامک">
-      <Head title="مصرف پیامک" />
-
-      <PrintLayout.A4
-        toolbar={
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/reporting" className="me-2 text-sm text-primary hover:underline">
-                فهرست گزارش‌ها
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="from">از تاریخ</Label>
-                <JDatePicker id="from" value={from} onChange={setFrom} clearable={false} />
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor="to">تا تاریخ</Label>
-                <JDatePicker id="to" value={to} onChange={setTo} clearable={false} />
-              </div>
-
-              <Button variant="outline" onClick={() => apply()}>
-                اعمال بازه
-              </Button>
-
-              <span className="grow" />
-
-              <Button variant="outline" onClick={printSheet}>
-                <PrinterIcon className="size-4" aria-hidden />
-                چاپ
-              </Button>
-
+    <AppShell
+      header={
+        <PageHeader
+          eyebrow="گزارش"
+          title="مصرف پیامک"
+          back={{ href: '/reporting', label: 'فهرست گزارش‌ها' }}
+          description={`از ${period.from_jalali} تا ${period.to_jalali}`}
+          actions={
+            <>
+              {actions}
               {canExport ? (
                 <Button asChild variant="outline">
                   <a href={exportHref}>
-                    <DownloadIcon className="size-4" aria-hidden />
+                    <DownloadIcon aria-hidden />
                     خروجی اکسل
                   </a>
                 </Button>
               ) : null}
-            </div>
+            </>
+          }
+        />
+      }
+    >
+      <Head title="مصرف پیامک" />
 
-            <ReportPresets
-              reportKey={reportKey}
-              presets={presets}
-              current={query()}
-              path="/reporting/operations"
-            />
-          </div>
-        }
-      >
-        <div className="p-8 print:p-0">
-          <header className="mb-6 border-b pb-4">
-            {/* The document's heading, not the page's — `AppShell` already renders an
-                `<h1>` above the paper, and this repeated it, so every report shipped
-                two page headings. On paper the outline does not exist and the
-                rendering is unchanged; on screen a reader now gets one. */}
-            <h2 className="text-lg font-bold">مصرف پیامک</h2>
-            <p className="mt-1 text-sm text-black/60">
-              از {period.from_jalali} تا {period.to_jalali}
-            </p>
-          </header>
+      {showingSheet ? (
+        <PrintLayout.A4 toolbar={toolbar}>
+          <OperationsSheet period={period} rows={rows} totals={totals} wallet={wallet} />
+        </PrintLayout.A4>
+      ) : (
+        <div className="space-y-8">
+          <Card>{toolbar}</Card>
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Figure label="کل پیامک" count={totals.messages} />
-            <Figure label="کل بخش" count={totals.segments} />
-            <Figure label="هزینه بازه" value={totals.cost} />
-            <Figure label="اعتبار فعلی کیف پول" value={wallet.balance} />
-          </div>
-
-          <div className="mb-6 grid gap-4 text-sm sm:grid-cols-3">
-            <Figure label="شارژ در بازه" value={wallet.topups} />
-            <Figure label="مصرف در بازه" value={wallet.charges} />
-            <Figure
-              label="ناموفق"
-              count={totals.failed}
-              tone={totals.failed > 0 ? 'danger' : undefined}
-            />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="اعتبار فعلی" value={wallet.balance.value} isMoney hint="همین لحظه" />
+            <StatCard label="هزینهٔ بازه" value={totals.cost.value} isMoney />
+            <StatCard label="سگمنت" value={totals.segments} />
+            <StatCard label="ناموفق" value={totals.failed} />
           </div>
 
           {rows.length === 0 ? (
-            <p className="py-12 text-center text-sm text-black/60">
-              در این بازه پیامکی ارسال نشده است.
-            </p>
+            <EmptyState
+              title="در این بازه پیامکی ارسال نشده است"
+              description="بازه را بازتر کنید."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm tabular-nums">
-                <thead>
-                  <tr className="border-b text-black/60">
-                    <th className="py-2 text-start font-medium">قالب</th>
-                    <th className="py-2 text-end font-medium">ارسال‌شده</th>
-                    <th className="py-2 text-end font-medium">ناموفق</th>
-                    <th className="py-2 text-end font-medium">مسدود</th>
-                    <th className="py-2 text-end font-medium">در صف</th>
-                    <th className="py-2 text-end font-medium">بخش</th>
-                    <th className="py-2 text-end font-medium">هزینه</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.label} className="border-b last:border-0">
-                      <td className="py-2">{row.label}</td>
-                      <td className="py-2 text-end text-success">
-                        <Num value={row.sent} variant="table" />
-                      </td>
-                      <td className="py-2 text-end text-danger">
-                        <Num value={row.failed} variant="table" />
-                      </td>
-                      <td className="py-2 text-end text-black/60">
-                        <Num value={row.suppressed} variant="table" />
-                      </td>
-                      <td className="py-2 text-end text-black/60">
-                        <Num value={row.queued} variant="table" />
-                      </td>
-                      <td className="py-2 text-end">
-                        <Num value={row.segments} variant="table" />
-                      </td>
-                      <td className="py-2 text-end font-semibold">
-                        <Money rial={row.cost.value} digits="latin" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption={`مصرف پیامک به تفکیک قالب از ${period.from_jalali} تا ${period.to_jalali}.`}
+              rows={rows}
+              rowKey={(row) => row.label}
+              columns={[
+                { key: 'label', header: 'قالب', cell: (row) => row.label },
+                {
+                  key: 'messages',
+                  header: 'پیام',
+                  numeric: true,
+                  cell: (row) => <Num value={row.messages} />,
+                },
+                {
+                  key: 'segments',
+                  header: 'سگمنت',
+                  numeric: true,
+                  cell: (row) => <Num value={row.segments} />,
+                },
+                {
+                  key: 'sent',
+                  header: 'ارسال‌شده',
+                  numeric: true,
+                  secondary: true,
+                  cell: (row) => <Num value={row.sent} />,
+                },
+                {
+                  key: 'failed',
+                  header: 'ناموفق',
+                  numeric: true,
+                  cell: (row) => <Num value={row.failed} />,
+                },
+                {
+                  key: 'suppressed',
+                  header: 'مسدود',
+                  numeric: true,
+                  secondary: true,
+                  cell: (row) => <Num value={row.suppressed} />,
+                },
+                {
+                  key: 'queued',
+                  header: 'در صف',
+                  numeric: true,
+                  secondary: true,
+                  cell: (row) => <Num value={row.queued} />,
+                },
+                {
+                  key: 'cost',
+                  header: 'هزینه',
+                  numeric: true,
+                  cell: (row) => <Money rial={row.cost.value} digits="latin" />,
+                },
+              ]}
+              footer={(column) => {
+                if (column.key === 'messages') return <Num value={totals.messages} />;
+                if (column.key === 'segments') return <Num value={totals.segments} />;
+                if (column.key === 'failed') return <Num value={totals.failed} />;
+                if (column.key === 'cost') {
+                  return <Money rial={totals.cost.value} digits="latin" />;
+                }
+                return undefined;
+              }}
+            />
           )}
-
-          <footer className="mt-6 border-t pt-3 text-xs text-black/60">
-            هزینه بر اساس «بخش» است نه تعداد پیامک: هر پیامک فارسی تا ۷۰ نویسه یک بخش حساب می‌شود،
-            پس یک کلمهٔ اضافه در یک قالب، هزینهٔ همهٔ ارسال‌های آن را دو برابر می‌کند. «مسدود» یعنی
-            گیرنده در فهرست انصراف بوده و پیامک عمداً ارسال نشده — این موفقیت است، نه خطا. اعتبار
-            کیف پول مربوط به همین لحظه است، نه پایان بازه.
-          </footer>
         </div>
-      </PrintLayout.A4>
+      )}
     </AppShell>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  count,
-  tone,
-}: {
-  label: string;
-  value?: MoneyValue;
-  count?: number;
-  tone?: 'danger';
-}) {
-  return (
-    <div className="rounded-control border p-3">
-      <p className="text-xs text-black/60">{label}</p>
-      <p className={`mt-1 font-semibold ${tone === 'danger' ? 'text-danger' : ''}`}>
-        {value ? (
-          <bdi>
-            <Money rial={value.value} withUnit digits="latin" />
-          </bdi>
-        ) : (
-          <Num value={count ?? 0} variant="table" />
-        )}
-      </p>
-    </div>
   );
 }
