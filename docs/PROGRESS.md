@@ -3383,3 +3383,38 @@ alongside the above — the heading and target defects stand on their own and sh
 tangled with a change that reshapes seven reports and their print output.
 
 Two PRs, all five checks green: `#114`, `#115`.
+
+## 1404-06-12 (2026-09-02) — Phase 11 closes: the screen/document split, all seven reports
+
+**Six more reports split into a screen and a document (`#118`)**, on the pattern `#117`
+set with sales. Every sheet moved out unchanged, and every one is verified rather than
+asserted: each was sliced by a script that *moves* text and never retypes it, then rendered
+on `main` and on the branch with the normalised DOM of `[data-paper="a4"]` diffed — eight
+sheet/cut combinations, all IDENTICAL, 794px both sides.
+
+Moving rather than retyping is the point, and it was proved twice. The sales sheet's
+`Figure` nearly shipped with no border and no `withUnit` because it was written from memory
+(`#117`); the profit sheet's row type was written from memory with four wrong fields and
+caught by `tsc` (`#118`). Same mistake, two forms. The real interfaces now live in
+`reporting/types.ts`, moved verbatim.
+
+**One hook, `useReportView`, for the two buttons every report grew.** Print shows the paper
+first, so nothing prints unseen; the toggle is «نمایش برگه» rather than «نمای چاپ», whose
+name contains «چاپ» and announced as overlapping the print button beside it; `aria-pressed`
+on the toggle, because which view you are in is state. The rest of each report's chrome
+stays on its page — three have cuts and three do not, the financial report carries two
+ranges — and one component wide enough for all of that would fit none of them.
+
+The financial screen view deliberately has no stat band: its `totals` is an untyped record,
+and inventing keys for it would be a guess on a money screen.
+
+**The dev VM was down mid-verification.** Every sweep and DOM capture failed at once with
+connection-refused underneath; colima reported its runtime state unreadable and its socket
+was a stale file from 30 August. A stop/start fixed it and the seeded data survived on its
+volume. Recorded because a wall of red from tooling reads exactly like a code failure, and
+the first move was to check the stack rather than the diff.
+
+Reports are done: 56 sweep cases across seven paths, one heading each, nothing under 40px;
+Reporting 116 passed including the latency budget; browser 51.
+
+Two PRs, all five checks green: `#117`, `#118`.
