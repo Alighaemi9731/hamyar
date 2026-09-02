@@ -45,10 +45,14 @@ hover surface.
    Any `ml- mr- pl- pr- left- right- text-left text-right` in a diff = bug.
    `bin/check-direction-classes` fails the build. Escape hatch: `rtl-allow` comment on
    the same or preceding line, with a reason.
-2. shadcn/ui is the base kit; `components.json` has `"rtl": true`. Pass `dir="rtl"`
-   explicitly to Radix portals — on the **Root** for menu primitives (DropdownMenu,
-   ContextMenu, Menubar), on the **Content** for Popover/Dialog/Sheet/Tooltip.
-   Directional icons get `rtl:rotate-180` when not auto-handled.
+2. shadcn/ui is the base kit; `components.json` has `"rtl": true`. Every Radix
+   primitive is RTL already: `app.tsx` mounts one `Direction.Provider dir="rtl"` at
+   the root, so no portal needs `dir` passed by hand (sixty-one sites used to, and the
+   ones that forgot opened mirrored). Pass `dir="ltr"` only for a genuinely LTR pocket.
+   **Never mirror an icon that names a physical direction.** `ArrowLeft`/`ArrowRight`
+   already point the right way in RTL; `rtl:rotate-180` on one sends it backwards —
+   thirteen «بازگشت» links shipped that way, and `bin/check-rtl-arrows` now refuses
+   it. Mirror only an icon chosen for *reading order* (Pagination's prev/next chevrons).
 3. Inherently-LTR inputs (IMEI, phone, amounts shown in Latin digits) render with
    inner `dir="ltr"` while keeping the field's start-aligned label layout. Wrap a
    signed number in `<bdi>` — a minus sign is bidi-neutral and jumps sides otherwise.

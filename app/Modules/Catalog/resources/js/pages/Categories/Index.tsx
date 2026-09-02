@@ -137,11 +137,12 @@ function TreeRow({
           className="flex min-w-0 flex-1 items-center gap-2"
           style={{ paddingInlineStart: `${depth * 1.5}rem` }}
         >
+          {/* A depth marker: it sits at the reading start of the row and points into the
+              child's name, which in RTL flows to the physical left — where `ChevronLeft`
+              already points. Mirroring it sent it the other way, out of the row. Same
+              shape as the back arrows in `#110`, on the icon the guard leaves alone. */}
           {depth > 0 && (
-            <ChevronLeftIcon
-              className="size-3.5 shrink-0 text-muted-foreground rtl:rotate-180"
-              aria-hidden
-            />
+            <ChevronLeftIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           )}
           <span className="truncate text-sm font-medium">{node.name}</span>
           {node.product_count > 0 && (
