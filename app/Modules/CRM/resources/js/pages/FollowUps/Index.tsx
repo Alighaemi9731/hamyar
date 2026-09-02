@@ -123,7 +123,10 @@ export default function FollowUpsIndex({ follow_ups: followUps, filters }: Props
                   {followUp.title}
                 </span>
                 <span className="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
-                  <Link href={`/crm/parties/${followUp.party.id}`} className="text-primary">
+                  <Link
+                    href={`/crm/parties/${followUp.party.id}`}
+                    className="inline-flex min-h-10 items-center text-primary"
+                  >
                     {followUp.party.name}
                   </Link>
                   <span aria-hidden>·</span>

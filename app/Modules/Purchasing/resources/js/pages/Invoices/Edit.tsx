@@ -513,7 +513,10 @@ function ImeiIntake({ invoiceId }: { invoiceId: number }) {
                 {/* A device that already exists is findable, not just rejected: the
                     operator almost always wants to see which handset it is. */}
                 {line.unit_id && (
-                  <Link href={`/inventory/units/${line.unit_id}`} className="text-2xs text-primary">
+                  <Link
+                    href={`/inventory/units/${line.unit_id}`}
+                    className="inline-flex min-h-10 items-center text-2xs text-primary"
+                  >
                     دیدن شناسنامه
                   </Link>
                 )}
@@ -591,7 +594,7 @@ function UnitLines({
             {line.product_unit_id ? (
               <Link
                 href={`/inventory/units/${line.product_unit_id}`}
-                className="text-2xs text-primary"
+                className="inline-flex min-h-10 items-center text-2xs text-primary"
               >
                 شناسنامه
               </Link>

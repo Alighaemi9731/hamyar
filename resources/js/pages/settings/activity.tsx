@@ -337,8 +337,11 @@ function ActivityEntry({ activity, showLink }: { activity: ActivityRow; showLink
           {activity.description}
           {activity.subject_label && (
             <Badge variant="secondary" className="ms-2">
+              {/* Inside a badge in a sentence, so it cannot grow — but it is the only way
+                  into the record from the log, and it measured 17px. Invisible padding gives
+                  it 41px (a 17px line + 24) without moving the badge. */}
               {href ? (
-                <Link href={href} className="hover:underline">
+                <Link href={href} className="-my-3 inline-block py-3 hover:underline">
                   {activity.subject_label}
                 </Link>
               ) : (

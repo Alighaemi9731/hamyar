@@ -396,7 +396,16 @@ function TodayBand({
         <div className="min-w-0">
           <h2 className="text-sm text-muted-foreground">فروش امروز</h2>
 
-          <p className="mt-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
+          {/* On a quiet morning this is a lone «۰» at 40px — a dot, not a number — and
+              the only readable large figure on the page becomes the 30-day total beside
+              it, so the hierarchy inverts. The zero stays truthful and keeps its slot; it
+              just stops shouting. */}
+          <p
+            className={cn(
+              'mt-2 font-display text-xl font-bold tracking-tight sm:text-2xl',
+              today.invoice_count === 0 && 'text-muted-foreground'
+            )}
+          >
             <Money rial={today.revenue.value} withUnit unitPlacement="block" />
           </p>
 
@@ -448,7 +457,7 @@ function TodayBand({
             {canSeeReports && (
               <Link
                 href="/reporting/sales"
-                className="mt-3 inline-block text-xs text-brand hover:underline"
+                className="mt-3 inline-flex min-h-10 items-center text-xs text-brand hover:underline"
               >
                 گزارش فروش
               </Link>
@@ -643,7 +652,9 @@ function Card({
         {linkLabel ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
+            // `min-h-10`: these seven «فهرست کامل» links measured 17–24px tall — a line
+            // of text, not a target — on the one screen a shop opens every morning.
+            className="inline-flex min-h-10 items-center gap-1 text-sm text-brand hover:underline"
           >
             {linkLabel}
             {/* The arrow points the way the reader is going, which in RTL is left. */}

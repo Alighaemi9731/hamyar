@@ -3,7 +3,11 @@ import { cn } from '@/lib/utils';
 import type { UsageMeterState } from '@/types';
 
 const TONE = {
-  ok: { track: 'bg-muted', fill: 'bg-brand', text: 'text-muted-foreground' },
+  // `bg-muted-foreground/15`, not `bg-muted`: the meter sits on a card, and in dark mode
+  // `bg-muted` is the card's own ground — the track vanished and «۱ از ۶۰» had no bar,
+  // only a 6px thumb floating on nothing. The alpha idiom the other tones already use
+  // reads against either ground.
+  ok: { track: 'bg-muted-foreground/15', fill: 'bg-brand', text: 'text-muted-foreground' },
   warning: { track: 'bg-warning/15', fill: 'bg-warning', text: 'text-warning' },
   reached: { track: 'bg-warning/15', fill: 'bg-warning', text: 'text-warning' },
   blocked: { track: 'bg-danger/15', fill: 'bg-danger', text: 'text-danger' },
