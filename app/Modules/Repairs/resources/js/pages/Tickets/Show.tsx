@@ -381,7 +381,7 @@ function PasscodePanel({ ticketId, allowed }: { ticketId: number; allowed: boole
           <p className="tabular text-lg font-semibold" dir="ltr">
             {code}
           </p>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setCode(null)}>
+          <Button type="button" variant="ghost" onClick={() => setCode(null)}>
             پنهان کردن
           </Button>
         </>

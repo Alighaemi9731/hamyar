@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { type Column, DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
+import { Num } from '@/components/domain/num';
 import { PageHeader } from '@/components/domain/page-header';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Button } from '@/components/ui/button';
@@ -169,12 +170,14 @@ export default function AccountStatementPage({
 
       {account.holds_money && selected.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2">
-          <span className="text-sm">{selected.length} ردیف انتخاب شده</span>
-          <Button size="sm" onClick={() => submit(false)}>
+          <span className="text-sm">
+            <Num value={selected.length} variant="prose" /> ردیف انتخاب شده
+          </span>
+          <Button onClick={() => submit(false)}>
             <CheckIcon className="size-4" aria-hidden />
             تأیید مغایرت‌گیری
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => submit(true)}>
+          <Button variant="ghost" onClick={() => submit(true)}>
             برداشتن تأیید
           </Button>
         </div>

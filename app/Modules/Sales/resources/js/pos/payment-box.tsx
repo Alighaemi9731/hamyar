@@ -108,7 +108,7 @@ export function PaymentBox({
     <section className="space-y-3" aria-label="پرداخت">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">پرداخت</h2>
-        <Button type="button" variant="outline" size="sm" onClick={add}>
+        <Button type="button" variant="outline" onClick={add}>
           <PlusIcon className="size-4" aria-hidden />
           افزودن روش پرداخت
         </Button>

@@ -162,9 +162,7 @@ function CollectRow({
             )}
           </span>
 
-          <Button size="sm" onClick={() => setOpen((o) => !o)}>
-            دریافت
-          </Button>
+          <Button onClick={() => setOpen((o) => !o)}>دریافت</Button>
         </div>
       </div>
 

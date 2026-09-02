@@ -214,7 +214,7 @@ export default function StockIndex({ rows, summary, filters, warehouses }: Props
           <p className="text-sm text-warning">
             <Num value={summary.low_stock_count} /> قلم به حد هشدار رسیده یا تمام شده است.
           </p>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" asChild>
             <Link href="/inventory/low-stock">دیدن فهرست</Link>
           </Button>
         </div>
