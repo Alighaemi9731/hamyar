@@ -15,6 +15,13 @@
     <meta property="og:locale" content="fa_IR">
     <meta property="og:url" content="{{ url('/') }}">
 
+    {{-- The two faces the hero paints with, requested before the stylesheet parses.
+         `crossorigin` is mandatory even same-origin or the preload is discarded. --}}
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/estedad-arabic-wght-normal.woff2') }}">
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}">
+
     @vite(['resources/landing/landing.css', 'resources/landing/landing.js'])
 </head>
 <body>

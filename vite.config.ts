@@ -1,3 +1,4 @@
+import { globSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 
 import tailwindcss from '@tailwindcss/vite';
@@ -11,22 +12,23 @@ export default defineConfig({
       input: [
         'resources/css/app.css',
         'resources/js/app.tsx',
-        // The public landing is a separate entry on purpose: its dark theme, its fonts
-        // (arabic subsets only) and its scroll choreography must never be pulled into
-        // the authenticated bundle, and the app's design system must never be pulled
-        // into the landing (ADR 0016).
+        // The public landing is a separate entry on purpose: its own grounds and its
+        // scroll choreography must never be pulled into the authenticated bundle, and
+        // the app's components must never be pulled into the landing (ADR 0016). The
+        // two share exactly one leaf, `resources/css/brand.css` (tokens and fonts);
+        // `bin/check-bundle-boundary` refuses any other crossing.
         'resources/landing/landing.css',
         'resources/landing/landing.js',
-        // Real product screenshots, referenced from landing.blade.php via Vite::asset().
-        // They are listed as inputs rather than dropped in public/ so they are
-        // content-hashed like everything else: a re-captured screenshot invalidates its
-        // own URL instead of hiding behind a cached one.
-        'resources/landing/shots/pos.webp',
-        'resources/landing/shots/repairs.webp',
-        'resources/landing/shots/installments.webp',
-        'resources/landing/shots/sms.webp',
-        'resources/landing/shots/profit.webp',
-        'resources/landing/shots/imei.webp',
+        // Real product screenshots, referenced from the landing via Vite::asset().
+        // Listed as inputs rather than dropped in public/ so they are content-hashed:
+        // a re-captured screenshot invalidates its own URL instead of hiding behind a
+        // cached one. A glob, so `bin/shots` can add a screen without editing this file.
+        ...globSync('resources/landing/shots/*.webp').sort(),
+        // Fonts are inputs for the same reason, plus one more: the document heads
+        // preload the two files the first paint needs via Vite::asset(), and an input
+        // is what puts a file in the manifest. The `url()` in fonts.css resolves to the
+        // same hashed asset, so the preload and the stylesheet agree on one URL.
+        ...globSync('resources/fonts/*.woff2').sort(),
       ],
       ssr: 'resources/js/ssr.tsx',
       refresh: true,

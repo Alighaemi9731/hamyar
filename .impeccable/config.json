@@ -9,7 +9,59 @@
   },
   "detector": {
     "extensions": [
-      { "ext": ".blade.php", "engine": "html" }
+      {
+        "ext": ".blade.php",
+        "engine": "html"
+      }
+    ],
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "resources/css/fonts.css"
+        ],
+        "createdAt": "2026-09-03T20:30:50.989Z",
+        "reason": "Agent: fonts.css is the @font-face declaration file; it carries the Redesign v2 type-test candidates (ROADMAP 16.2, owner asked for a rendered type test) and their metric fallbacks. DESIGN.md records the incumbent pairing only until ADR 0020."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "resources/landing/**"
+        ],
+        "createdAt": "2026-09-03T20:31:55.941Z",
+        "reason": "Agent: the landing carries its own @theme by ADR 0016 (navy grounds, its own display steps and radii) so the product's DESIGN.md is not its palette; the whole directory is replaced in Redesign v2 16.3 and re-documented then."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "resources/landing/**"
+        ],
+        "createdAt": "2026-09-03T20:31:55.971Z",
+        "reason": "Agent: the landing carries its own @theme by ADR 0016 (navy grounds, its own display steps and radii) so the product's DESIGN.md is not its palette; the whole directory is replaced in Redesign v2 16.3 and re-documented then."
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "*",
+        "files": [
+          "resources/landing/**"
+        ],
+        "createdAt": "2026-09-03T20:31:55.998Z",
+        "reason": "Agent: the landing carries its own @theme by ADR 0016 (navy grounds, its own display steps and radii) so the product's DESIGN.md is not its palette; the whole directory is replaced in Redesign v2 16.3 and re-documented then."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "resources/landing/**"
+        ],
+        "createdAt": "2026-09-03T20:31:56.025Z",
+        "reason": "Agent: the landing carries its own @theme by ADR 0016 (navy grounds, its own display steps and radii) so the product's DESIGN.md is not its palette; the whole directory is replaced in Redesign v2 16.3 and re-documented then."
+      }
     ]
   }
 }

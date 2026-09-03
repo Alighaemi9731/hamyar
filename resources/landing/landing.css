@@ -39,14 +39,12 @@
 
 @import 'tailwindcss';
 
-/* Arabic subsets only: Persian digits live there, and it is the whole of what this page
-   renders. The app imports every subset fontsource ships, which is right for an
-   authenticated tool nobody measures LCP on and wrong here. */
-@import '@fontsource/vazirmatn/arabic-400.css';
-@import '@fontsource/vazirmatn/arabic-500.css';
-@import '@fontsource/vazirmatn/arabic-700.css';
-@import '@fontsource/estedad/arabic-700.css';
-@import '@fontsource/estedad/arabic-800.css';
+/* The brand layer: ink, accent, semantics, fonts, type scale, shape, depth, widths and
+   motion, shared with the app through one leaf file that imports nothing of either
+   bundle (ADR 0016 still holds; `bin/check-bundle-boundary` enforces it). The fonts
+   are the same self-hosted variable files the app loads, so a visitor who signs up
+   never downloads them twice. Landing-only names are declared in the @theme below. */
+@import '../css/brand.css';
 
 /* The eight rebuilt sections. Each file owns only its own block. */
 @import './sections/hero.css';
@@ -110,10 +108,9 @@
   --color-paper: #fffdf8;
   --color-paper-edge: #ece7dd;
 
-  /* --- type --------------------------------------------------------------- */
-  --font-display: 'Estedad', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
-
+  /* --- type ---------------------------------------------------------------
+     `--font-display` / `--font-sans` come from brand.css. Only the landing's own
+     display steps live here. */
   --text-hero: clamp(2.25rem, 5.4vw, 4.25rem);
   --text-section: clamp(1.75rem, 3.4vw, 2.75rem);
   /*
@@ -1549,7 +1546,7 @@ h3 {
   border: 1px solid var(--color-hair);
   color: var(--color-navy);
   direction: ltr;
-  text-align: left;
+  text-align: start;
 }
 
 .field:focus {
@@ -1792,7 +1789,7 @@ h3 {
    an RTL page, or the caret jumps and a half-typed number reads backwards. */
 .auth__input--ltr {
   direction: ltr;
-  text-align: right;
+  text-align: end;
 }
 
 .auth__reveal {

@@ -71,6 +71,33 @@ const RULES = [
  */
 const VALUE = '(?:\d[\w./%]*|auto|full|px|screen|min|max|fit|reverse|dvw|dvh|\[[^\]\s]*\]|\([^)\s]*\))';
 
+/**
+ * Hand-written CSS gets the same rule, in its own vocabulary.
+ *
+ * The class rules above only ever saw Tailwind tokens, so the ~4,700 lines of hand CSS
+ * under `resources/landing/` and `resources/css/` were never gated at all — and a
+ * `text-align: left` in a stylesheet mirrors a Persian page exactly as thoroughly as a
+ * `text-left` in a className does. Two of them were sitting in `landing.css` when this
+ * was added (an LTR field and an auth input, both wanting `start`/`end`).
+ *
+ * Only `.css` files are scanned with these, and only property *declarations* — a
+ * `background-position: left` is a physical position on an image, not a layout, and
+ * `linear-gradient(to right, …)` is a direction of paint. Both are left alone
+ * deliberately: a gate that flags them is a gate somebody switches off.
+ *
+ * @var list<array{0: string, 1: string, 2: string}> each: [pattern, replacement, label]
+ */
+const CSS_RULES = [
+    ['~(?<![\w-])margin-(?:left|right)\s*:~', 'margin-inline-start / -end', 'margin-left|right'],
+    ['~(?<![\w-])padding-(?:left|right)\s*:~', 'padding-inline-start / -end', 'padding-left|right'],
+    ['~(?<![\w-])border-(?:left|right)(?:-(?:width|style|color))?\s*:~', 'border-inline-start / -end', 'border-left|right'],
+    ['~(?<![\w-])border-(?:top|bottom)-(?:left|right)-radius\s*:~', 'border-start-start-radius and friends', 'border-*-left|right-radius'],
+    ['~(?<![\w-])(?:left|right)\s*:~', 'inset-inline-start / -end', 'left|right'],
+    ['~(?<![\w-])text-align\s*:\s*(?:left|right)\b~', 'text-align: start / end', 'text-align: left|right'],
+    ['~(?<![\w-])float\s*:\s*(?:left|right)\b~', 'float: inline-start / inline-end', 'float: left|right'],
+    ['~(?<![\w-])clear\s*:\s*(?:left|right)\b~', 'clear: inline-start / inline-end', 'clear: left|right'],
+];
+
 /** Paths that never contain our own utility classes. */
 const EXCLUDED = [
     'node_modules',
@@ -179,6 +206,20 @@ foreach (SCAN_ROOTS as $root) {
                         'use' => $logical,
                         'source' => trim($line),
                     ];
+                }
+            }
+
+            if (str_ends_with($path, '.css')) {
+                foreach (CSS_RULES as [$pattern, $logical, $label]) {
+                    if (preg_match($pattern, $line) === 1) {
+                        $violations[] = [
+                            'file' => $path,
+                            'line' => $index + 1,
+                            'found' => $label,
+                            'use' => $logical,
+                            'source' => trim($line),
+                        ];
+                    }
                 }
             }
         }

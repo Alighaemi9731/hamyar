@@ -7,6 +7,40 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.21.0 - 2026-09-04
+
+**The landing and the app now draw with one set of tokens, and the frosted chrome is
+actually frosted.** Two surfaces that are meant to look like one product had two
+definitions of ink, accent, type scale, radii, shadows and fonts, kept in step by hand
+across `resources/css/app.css` and `resources/landing/landing.css`. They now share one
+leaf, `resources/css/brand.css`, which imports `fonts.css` and nothing else — so Tailwind
+generates the same utilities on both sides from one file while the bundles stay apart, as
+ADR 0016 requires. `bin/check-bundle-boundary` refuses every other crossing, and refuses a
+selector rule sneaking into the leaf, because the day it grows a `.card {}` it has become a
+third stylesheet both bundles ship.
+
+**Fonts are self-hosted variable files in the repository** (`resources/fonts/`, OFL, with
+each licence beside it) instead of eleven `@fontsource` imports of static weights. Both
+documents preload the face their first paint needs through `Vite::asset()`, so one hashed
+URL serves the landing, the login page and the product — a visitor who signs up does not
+download the fonts a second time — and each family declares a metric-matched fallback so
+the swap moves nothing. Four candidate families ship for the type test the owner asked for;
+the losers are deleted when the pairing is locked.
+
+**The `.glass` chrome had no blur in production and nobody could see it in the source.**
+The rule declared `backdrop-filter` and a hand-written `-webkit-` twin; the minifier folded
+the pair into the prefixed form alone, Chromium computed `none`, and the sticky nav and
+sidebar shipped as translucent slabs with content ghosting through them for the whole of
+the first redesign. Every reviewer read a source file that was correct. Removing the manual
+prefix fixes it, and `bin/check-built-css` now reads the emitted stylesheet — the design
+system's own "grep the built CSS" rule, made unrepeatable.
+
+The RTL gate learned CSS. It only ever matched Tailwind class tokens, so ~4,700 lines of
+hand-written stylesheet were never checked; `text-align: left` in a stylesheet mirrors a
+Persian page exactly as thoroughly as `text-left` in a `className`. Two were sitting in
+`landing.css`. Paint directions (`background-position`, `linear-gradient(to right, …)`) are
+deliberately left alone: a gate that flags those is a gate somebody switches off.
+
 ## 0.20.0 - 2026-08-30
 
 **A shopkeeper can register a cheque.** Until now they could not, and everything downstream

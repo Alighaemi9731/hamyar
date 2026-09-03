@@ -2239,7 +2239,7 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       `design-reviewer` agent; wire `impeccable` (`PRODUCT.md`, `DESIGN.md`, `.impeccable/`);
       `docs/brand/voice.md`; six interface lessons promoted into `docs/lessons.md`; baseline
       reviewer scores recorded (PR 0.1)
-- [ ] Shared brand layer `resources/css/brand.css` + `fonts.css` imported by both bundles;
+- [x] Shared brand layer `resources/css/brand.css` + `fonts.css` imported by both bundles;
       subset variable fonts under `resources/fonts/` with preloads and metric fallbacks;
       `bin/check-bundle-boundary`; CSS-property rules in `bin/check-direction-classes`;
       Dockerfile manifest assertion extended (PR 0.2)
