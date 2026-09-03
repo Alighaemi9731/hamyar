@@ -1,0 +1,95 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — built-stylesheet gate.
+ *
+ * The design system's own rule is "a defined token is not evidence of a generated
+ * class — grep the built stylesheet", and this is that grep, made unrepeatable.
+ *
+ * The scar: `.glass` declared `backdrop-filter` and a hand-written `-webkit-` twin, and
+ * the build's minifier folded the pair into the prefixed form only. The served app CSS
+ * had no `backdrop-filter` at all, Chromium computed `none`, and the frosted chrome —
+ * the one piece of depth the system allows itself — shipped as a translucent slab for
+ * the whole of the first redesign. Nothing errored; the source read correctly; every
+ * reviewer read the source. The 2026-09-03 baseline measured the computed style.
+ *
+ * So this gate reads `public/build/` and refuses a build where:
+ *
+ *   · the app stylesheet has no unprefixed `backdrop-filter:`;
+ *   · either stylesheet has no `@font-face` pointing at a `.woff2`;
+ *   · the manifest carries no `resources/fonts/` entry (the document heads preload
+ *     fonts through `Vite::asset()`, which needs the manifest key).
+ *
+ * When there is no build on the machine the gate passes with a note: feature tests do
+ * not need assets, and CI runs this in the job that builds them (and the production
+ * image asserts the same three things in `docker/app/Dockerfile.prod`).
+ */
+
+const MANIFEST = 'public/build/manifest.json';
+
+if (! is_file(MANIFEST)) {
+    fwrite(STDOUT, "  Built-CSS gate: no public/build on this machine — skipped (CI runs it after `npm run build`).\n");
+    exit(0);
+}
+
+/** @var array<string, array{file?: string}> $manifest */
+$manifest = json_decode((string) file_get_contents(MANIFEST), true, flags: JSON_THROW_ON_ERROR);
+
+$failures = [];
+
+function builtFile(array $manifest, string $key): ?string
+{
+    $file = $manifest[$key]['file'] ?? null;
+
+    return is_string($file) && is_file('public/build/'.$file) ? 'public/build/'.$file : null;
+}
+
+$app = builtFile($manifest, 'resources/css/app.css');
+$landing = builtFile($manifest, 'resources/landing/landing.css');
+
+if ($app === null) {
+    $failures[] = 'the manifest has no built resources/css/app.css';
+} else {
+    $css = (string) file_get_contents($app);
+
+    if (preg_match('~(?<![\w-])backdrop-filter:~', $css) !== 1) {
+        $failures[] = "{$app} has no unprefixed `backdrop-filter:` — the frosted chrome will render as a flat slab";
+    }
+
+    if (preg_match('~@font-face\{[^}]*\.woff2~', $css) !== 1) {
+        $failures[] = "{$app} has no @font-face pointing at a .woff2 — the app will render in the system font";
+    }
+}
+
+if ($landing === null) {
+    $failures[] = 'the manifest has no built resources/landing/landing.css';
+} elseif (preg_match('~@font-face\{[^}]*\.woff2~', (string) file_get_contents($landing)) !== 1) {
+    $failures[] = "{$landing} has no @font-face pointing at a .woff2 — the landing will render in the system font";
+}
+
+$fontKeys = array_filter(array_keys($manifest), fn (string $key): bool => str_starts_with($key, 'resources/fonts/'));
+
+if ($fontKeys === []) {
+    $failures[] = 'the manifest has no resources/fonts/ entry — the document heads cannot preload a font';
+}
+
+if ($failures === []) {
+    fwrite(STDOUT, sprintf(
+        "  Built-CSS gate: backdrop-filter present, fonts declared in both bundles, %d font file(s) in the manifest.\n",
+        count($fontKeys),
+    ));
+    exit(0);
+}
+
+fwrite(STDERR, "\n  Built-CSS gate FAILED — the build does not contain what the source promises.\n\n");
+
+foreach ($failures as $failure) {
+    fwrite(STDERR, "  · {$failure}\n");
+}
+
+fwrite(STDERR, "\n  Read the built asset, not the source: a defined rule is not evidence of an emitted one.\n\n");
+
+exit(1);

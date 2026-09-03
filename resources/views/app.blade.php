@@ -53,6 +53,16 @@
         })();
     </script>
 
+    {{--
+        The text face the first paint needs, requested before the stylesheet has parsed.
+        Without this the browser discovers the font only after `app.css` arrives and
+        reaches its `@font-face`, and the page paints in the fallback and then reflows.
+        `crossorigin` is required even same-origin, or the preload is discarded and the
+        font fetched twice. One hashed URL: the same file `fonts.css` points at.
+    --}}
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}">
+
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     @inertiaHead

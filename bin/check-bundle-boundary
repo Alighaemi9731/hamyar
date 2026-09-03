@@ -1,0 +1,257 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — bundle-boundary gate.
+ *
+ * The public landing and the authenticated app are two Vite entries that must never
+ * import each other (ADR 0016): the landing is measured for LCP on a mid-range Android
+ * over an Iranian connection and cannot afford the app bundle, and the app must never
+ * inherit the landing's page-specific styling. Since Redesign v2 (ADR 0020) they share
+ * exactly one leaf — `resources/css/brand.css`, which imports `fonts.css` and nothing
+ * else — so tokens and fonts are one definition without the bundles touching.
+ *
+ * Three things this gate refuses:
+ *
+ *   1. Anything under `resources/landing/` importing from `resources/js/` or
+ *      `resources/css/app.css` (the app), or using the `@/` alias.
+ *   2. Anything under `resources/js/`, `resources/css/app.css` or a module's
+ *      `resources/js/` importing from `resources/landing/`.
+ *   3. A selector rule in `brand.css` or `fonts.css`. The leaf is `@import`, `@theme`
+ *      and `@font-face` only; the day it grows a `.card {}` it has become a third
+ *      stylesheet both bundles ship, which is the coupling the rule exists to prevent.
+ *
+ * Wired into `composer guards` and CI. There is no escape hatch: a crossing that seems
+ * necessary is a token or a font that belongs in the leaf.
+ */
+
+const LANDING_ROOT = 'resources/landing';
+
+const APP_ROOTS = ['resources/js', 'app/Modules'];
+
+const APP_CSS = 'resources/css/app.css';
+
+const LEAF_FILES = ['resources/css/brand.css', 'resources/css/fonts.css'];
+
+const CODE_EXTENSIONS = ['css', 'js', 'ts', 'tsx', 'jsx'];
+
+/**
+ * @return list<string>
+ */
+function filesUnder(string $root, ?string $mustContain = null): array
+{
+    if (! is_dir($root)) {
+        return [];
+    }
+
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+    );
+
+    /** @var SplFileInfo $file */
+    foreach ($iterator as $file) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        $path = $file->getPathname();
+
+        if (str_contains($path, 'node_modules') || str_contains($path, '/vendor/')) {
+            continue;
+        }
+
+        if ($mustContain !== null && ! str_contains($path, $mustContain)) {
+            continue;
+        }
+
+        foreach (CODE_EXTENSIONS as $extension) {
+            if (str_ends_with($path, '.'.$extension)) {
+                $files[] = $path;
+
+                continue 2;
+            }
+        }
+    }
+
+    sort($files);
+
+    return $files;
+}
+
+/**
+ * Every module specifier a file imports: CSS `@import`, JS `import … from`, dynamic
+ * `import()`, and CSS `url()`.
+ *
+ * Comments are blanked first — line by line, so the reported line numbers stay true.
+ * These files explain themselves at length and quote the very `@import 'tailwindcss'`
+ * lines they are documenting; a gate that reads prose as code is a gate people switch
+ * off, and this one caught its own docblock on the first run.
+ *
+ * @return list<array{line: int, spec: string}>
+ */
+function importsIn(string $path): array
+{
+    $source = file_get_contents($path);
+
+    if ($source === false) {
+        return [];
+    }
+
+    // Blank comment bodies but keep every newline, so line numbers survive.
+    $source = (string) preg_replace_callback(
+        '~/\*.*?\*/~s',
+        static fn (array $m): string => preg_replace('~[^\n]~', ' ', $m[0]) ?? '',
+        $source,
+    );
+
+    $lines = preg_split('~\R~', $source);
+
+    if ($lines === false) {
+        return [];
+    }
+
+    $found = [];
+
+    foreach ($lines as $index => $line) {
+        // Line comments: `//` outside a string, and a Blade-ish `#` never appears here.
+        $line = (string) preg_replace('~(^|[\s;{}])//.*$~', '$1', $line);
+
+        $patterns = [
+            '~@import\s+(?:url\()?\s*[\'"]([^\'"]+)[\'"]~',
+            '~\bimport\s+(?:[^\'";]*?\s+from\s+)?[\'"]([^\'"]+)[\'"]~',
+            '~\bimport\(\s*[\'"]([^\'"]+)[\'"]~',
+            '~url\(\s*[\'"]?([^\'")]+)[\'"]?\s*\)~',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match_all($pattern, $line, $matches) > 0) {
+                foreach ($matches[1] as $spec) {
+                    $found[] = ['line' => $index + 1, 'spec' => $spec];
+                }
+            }
+        }
+    }
+
+    return $found;
+}
+
+/**
+ * Resolve a relative specifier against the importing file, normalised to a
+ * repository-relative path. Bare specifiers (packages, the `@/` alias) come back as-is.
+ */
+function resolveSpec(string $fromFile, string $spec): string
+{
+    if (! str_starts_with($spec, '.')) {
+        return $spec;
+    }
+
+    $parts = explode('/', dirname($fromFile).'/'.$spec);
+    $stack = [];
+
+    foreach ($parts as $part) {
+        if ($part === '' || $part === '.') {
+            continue;
+        }
+
+        if ($part === '..') {
+            array_pop($stack);
+
+            continue;
+        }
+
+        $stack[] = $part;
+    }
+
+    return implode('/', $stack);
+}
+
+$violations = [];
+
+// 1. The landing may not reach into the app.
+foreach (filesUnder(LANDING_ROOT) as $path) {
+    foreach (importsIn($path) as ['line' => $line, 'spec' => $spec]) {
+        $resolved = resolveSpec($path, $spec);
+
+        $crosses = str_starts_with($resolved, 'resources/js/')
+            || $resolved === APP_CSS
+            || str_starts_with($spec, '@/');
+
+        if ($crosses) {
+            $violations[] = [$path, $line, $spec, 'the landing imports the app'];
+        }
+    }
+}
+
+// 2. The app may not reach into the landing.
+$appFiles = filesUnder('resources/js');
+
+foreach (filesUnder('app/Modules', '/resources/js/') as $path) {
+    $appFiles[] = $path;
+}
+
+$appFiles[] = APP_CSS;
+
+foreach ($appFiles as $path) {
+    if (! is_file($path)) {
+        continue;
+    }
+
+    foreach (importsIn($path) as ['line' => $line, 'spec' => $spec]) {
+        $resolved = resolveSpec($path, $spec);
+
+        if (str_starts_with($resolved, LANDING_ROOT.'/') || str_contains($spec, '/landing/')) {
+            $violations[] = [$path, $line, $spec, 'the app imports the landing'];
+        }
+    }
+}
+
+// 3. The shared leaf is tokens and fonts only.
+foreach (LEAF_FILES as $path) {
+    if (! is_file($path)) {
+        $violations[] = [$path, 0, '', 'the shared leaf is missing'];
+
+        continue;
+    }
+
+    $css = (string) file_get_contents($path);
+
+    // Strip comments, then remove the constructs the leaf is allowed to contain.
+    $stripped = (string) preg_replace('~/\*.*?\*/~s', '', $css);
+    $stripped = (string) preg_replace('~@import\s+[^;]+;~', '', $stripped);
+    $stripped = (string) preg_replace('~@(?:theme|font-face)\b[^{]*\{[^{}]*\}~s', '', $stripped);
+
+    if (trim($stripped) !== '') {
+        $first = trim(strtok(trim($stripped), "\n"));
+        $violations[] = [$path, 0, mb_strimwidth($first, 0, 80, '…'), 'the shared leaf may only contain @import, @theme and @font-face'];
+    }
+
+    foreach (importsIn($path) as ['line' => $line, 'spec' => $spec]) {
+        $resolved = resolveSpec($path, $spec);
+        $allowed = in_array($resolved, LEAF_FILES, true) || str_starts_with($resolved, 'resources/fonts/');
+
+        if (! $allowed) {
+            $violations[] = [$path, $line, $spec, 'the shared leaf imports outside itself and resources/fonts'];
+        }
+    }
+}
+
+if ($violations === []) {
+    fwrite(STDOUT, "  Bundle-boundary gate: the landing and the app share only the brand leaf.\n");
+    exit(0);
+}
+
+fwrite(STDERR, "\n  Bundle-boundary gate FAILED — the landing and the app must not import each other (ADR 0016).\n\n");
+
+foreach ($violations as [$path, $line, $spec, $why]) {
+    fwrite(STDERR, sprintf("  %s%s\n    %s%s\n\n", $path, $line > 0 ? ':'.$line : '', $why, $spec !== '' ? ' — `'.$spec.'`' : ''));
+}
+
+fwrite(STDERR, sprintf(
+    "  %d violation(s). Tokens and fonts belong in resources/css/brand.css; everything else stays on its side.\n\n",
+    count($violations),
+));
+
+exit(1);

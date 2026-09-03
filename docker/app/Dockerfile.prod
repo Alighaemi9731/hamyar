@@ -75,15 +75,22 @@ COPY app ./app
 # module pages in it. Same discipline as bin/backup-nightly reading its own archive.
 RUN npm run build \
  && if ! grep -q '"resources/landing/landing.js"' public/build/manifest.json \
-    || ! grep -q '"resources/landing/shots/' public/build/manifest.json; then \
+    || ! grep -q '"resources/landing/shots/' public/build/manifest.json \
+    || ! grep -q '"resources/fonts/' public/build/manifest.json; then \
         echo ""                                                                     >&2; \
-        echo "FATAL: the built manifest has no landing entry, or no screenshots."    >&2; \
-        echo "The public landing page would render unstyled and unillustrated —"    >&2; \
-        echo "and it is the only page a prospective customer ever sees."             >&2; \
+        echo "FATAL: the built manifest has no landing entry, no screenshots, or"    >&2; \
+        echo "no fonts. Both document heads preload a font through Vite::asset(),"   >&2; \
+        echo "which reads the manifest — a missing font entry is a 500 on every"     >&2; \
+        echo "page, not a fallback face."                                            >&2; \
+        echo ""                                                                     >&2; \
+        echo "Without the landing entry or its screenshots the public page renders"  >&2; \
+        echo "unstyled and unillustrated — and it is the only page a prospective"    >&2; \
+        echo "customer ever sees."                                                   >&2; \
         echo ""                                                                     >&2; \
         echo "The landing is a SEPARATE Vite entry from the app (ADR 0016), so a"   >&2; \
         echo "green app bundle says nothing about it. Check the input list in"       >&2; \
-        echo "vite.config.ts still names resources/landing/*."                       >&2; \
+        echo "vite.config.ts still globs resources/landing/shots/*.webp and"         >&2; \
+        echo "resources/fonts/*.woff2."                                              >&2; \
         echo ""                                                                     >&2; \
         exit 1; \
     fi \

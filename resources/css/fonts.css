@@ -1,0 +1,235 @@
+/*
+ | Hamyar — self-hosted fonts. `@font-face` only; no selectors, no tokens.
+ |
+ | Imported by `brand.css`, which both bundles import (the app's `app.css` and the
+ | landing's `landing.css`), so the landing, the auth pages and the product download one
+ | set of files and share one browser cache — `bin/check-bundle-boundary` refuses anything
+ | else in this file.
+ |
+ | The files live in `resources/fonts/` and are Vite inputs (see `vite.config.ts`), so the
+ | same content hash serves the `url()` below and the `<link rel="preload">` in the two
+ | document heads. Every face is OFL-licensed and its licence sits beside it; nothing here
+ | is a font this project does not have the right to ship (no SF Pro, no B-series print
+ | faces, no FontIran family without a web licence).
+ |
+ | Four candidate families are declared during Redesign v2's type test (ROADMAP 16.2). A
+ | browser only downloads a face when a rendered element actually uses it, so declaring
+ | the candidates costs bytes of CSS and nothing at runtime; the losers are deleted once
+ | the owner locks the pairing (ADR 0020).
+ |
+ | Subsets: `arabic` carries Persian and its digits (U+06F0–06F9 sit inside U+0600–06FF),
+ | `latin` carries the ASCII identifiers a shop types (IMEI, INV-000012, an email). No
+ | other subset is shipped; a glyph outside these ranges falls back to the system.
+ |
+ | Fallbacks: each family declares a metric-compatible fallback face over the system's
+ | Persian-capable font (Tahoma on Windows, otherwise whatever `sans-serif` resolves to),
+ | with `size-adjust` from the measured advance width of a Persian sentence against
+ | Tahoma and the vertical metrics copied from the web font — so the swap from fallback to
+ | the real face moves nothing. The families in `brand.css` list the fallback face right
+ | after the real one.
+ */
+
+/* --- Vazirmatn (Rastikerdar, OFL 1.1) — variable, wght 100–900 ------------------- */
+
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/vazirmatn-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'Vazirmatn Fallback';
+  src: local('Tahoma'), local('Noto Naskh Arabic'), local('Noto Sans Arabic');
+  size-adjust: 91%;
+  ascent-override: 102.5%;
+  descent-override: 53.7%;
+  line-gap-override: 0%;
+}
+
+/* --- Estedad (Amin Abedi, OFL 1.1) — variable, wght 100–900 --------------------- */
+
+@font-face {
+  font-family: 'Estedad';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/estedad-arabic-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'Estedad';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/estedad-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'Estedad Fallback';
+  src: local('Tahoma'), local('Noto Naskh Arabic'), local('Noto Sans Arabic');
+  size-adjust: 82%;
+  ascent-override: 102.5%;
+  descent-override: 50%;
+  line-gap-override: 0%;
+}
+
+/* --- Noto Kufi Arabic (Google, OFL 1.1) — variable, wght 100–900 ---------------- */
+
+@font-face {
+  font-family: 'Noto Kufi Arabic';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/noto-kufi-arabic-arabic-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'Noto Kufi Arabic';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/noto-kufi-arabic-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'Noto Kufi Arabic Fallback';
+  src: local('Tahoma'), local('Noto Naskh Arabic'), local('Noto Sans Arabic');
+  size-adjust: 100%;
+  ascent-override: 128.2%;
+  descent-override: 61.5%;
+  line-gap-override: 0%;
+}
+
+/* --- IBM Plex Sans Arabic (IBM, OFL 1.1) — static 400 / 500 / 600 / 700 ---------- */
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+    U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-latin-400-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-latin-500-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-latin-600-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-sans-arabic-latin-700-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Arabic Fallback';
+  src: local('Tahoma'), local('Noto Naskh Arabic'), local('Noto Sans Arabic');
+  size-adjust: 87%;
+  ascent-override: 108.5%;
+  descent-override: 41.5%;
+  line-gap-override: 0%;
+}

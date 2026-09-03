@@ -1,15 +1,8 @@
 @import 'tailwindcss';
 
-/* Self-hosted so the panel works on a slow Iranian connection with no CDN.
-   Estedad/Vazirmatn are our Persian equivalents of a system UI face. We do NOT
-   ship SF Pro — it is Apple's, and not licensed for us (ADR 0008). */
-@import '@fontsource/vazirmatn/400.css';
-@import '@fontsource/vazirmatn/500.css';
-@import '@fontsource/vazirmatn/600.css';
-@import '@fontsource/vazirmatn/700.css';
-@import '@fontsource/estedad/600.css';
-@import '@fontsource/estedad/700.css';
-@import '@fontsource/estedad/800.css';
+/* Fonts are self-hosted variable files declared once in `fonts.css`, which `brand.css`
+   (imported below, inside the tokens block) pulls in for both bundles. We do NOT ship
+   SF Pro — it is Apple's, and not licensed for us (ADR 0008). */
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
@@ -26,11 +19,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ==========================================================================
-   Hamyar design tokens — the single source of truth.
+   Hamyar design tokens.
 
-   Visual language: calm, near-monochrome, generous whitespace, one restrained
-   blue accent, full-pill primary actions, hairline borders and very soft
-   shadows (ADR 0008 — docs/design-system.md is the long form).
+   The brand layer — ink, accent, semantics, fonts, type scale, shape, depth, layout
+   widths and motion — lives in `brand.css`, which the landing imports too, so both
+   surfaces draw with one definition (ADR 0016 keeps the bundles apart; the tokens are
+   shared through that one leaf). What stays here is product-only: named z-index,
+   density, shadcn's surface variables and the dark swap, and the paper island.
 
    Rules (hamyar-ui skill):
    · Pages never hardcode a hex value or a raw size. Use these tokens.
@@ -39,139 +34,13 @@
      this"; the semantic three mean money/work state. Nothing else is coloured.
    ========================================================================== */
 
+@import './brand.css';
+
 @theme {
-  /* --- neutral ground ------------------------------------------------------
-     Two alternating page grounds plus an optional near-black feature band.
-     Measured from the reference: sections alternate white / #f5f5f7, and a
-     full-black band is used sparingly for emphasis. */
-  --color-canvas: #ffffff; /* primary section ground */
-  --color-canvas-alt: #f5f5f7; /* alternating section ground */
-  --color-canvas-invert: #000000; /* feature band (rare, high impact) */
-
-  --color-ink: #1d1d1f; /* primary text — 16.8:1 on white */
-  --color-ink-soft: #6e6e73; /* secondary text — 5.07:1 on white, 4.66:1 on canvas-alt */
-
-  /* --- brand accent --------------------------------------------------------
-     ONE blue, and it is the only chromatic colour in the interface chrome.
-
-     Named `brand`, not `accent`: shadcn already owns `--color-accent` for its
-     muted hover surface, and taking that name turns every hover state bright blue.
-
-     #0066cc is the accessible member of the family — 5.57:1 on white and 5.11:1
-     on #f5f5f7, so it clears AA for body text on BOTH grounds. The brighter
-     #0071e3 measures 4.31:1 on the grey sections and would fail there, which is
-     exactly why it is not the token. */
-  /* Each semantic token below is an ALIAS for its light step rather than the hex
-     itself. Two places need to say "the light value" — `.dark`, which swaps them
-     out, and the print sheet, which is white paper inside a dark document and has
-     to swap them back — and naming the step once is what keeps those two from
-     drifting apart. */
-  --color-brand-on-light: #0066cc;
-  --color-brand: var(--color-brand-on-light);
-  --color-brand-hover: #005bbb;
-  --color-brand-bright: #0a84ff; /* dark-mode fills only, never light text */
-  --color-brand-on-dark: #409cff; /* 7.4:1 on black */
-
-  /* --- product semantics ---------------------------------------------------
-     Muted to sit inside a near-monochrome page, but every value still clears AA
-     against both grounds. A status badge is information, not decoration. */
-  --color-success-on-light: #0f7b3f; /* paid · cleared · delivered — 5.35:1 */
-  --color-warning-on-light: #8a5a00; /* due soon · awaiting — 5.93:1 */
-  --color-danger-on-light: #b3261e; /* overdue · bounced · failed — 6.54:1 */
-
-  --color-success: var(--color-success-on-light);
-  --color-warning: var(--color-warning-on-light);
-  --color-danger: var(--color-danger-on-light);
-  --color-info: var(--color-brand-on-light); /* in flight — same blue, deliberately */
-
-  --color-success-on-dark: #4cc47f; /* 7.5:1 on #1d1d1f */
-  --color-warning-on-dark: #e0a13a; /* 7.4:1 on #1d1d1f */
-  --color-danger-on-dark: #ff6961; /* 5.9:1 on #1d1d1f */
-
-  /* Price-label yellow survives as a signature accent for price tags only —
-     tiny highlights, never a fill. */
-  --color-label: #ffd84d;
-
-  /* --- typography ----------------------------------------------------------
-     Headings: Estedad, heavier and tighter. Body: Vazirmatn with generous
-     leading — Persian needs more leading than Latin at the same size. */
-  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
-  --font-display: 'Estedad', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
-
-  /* Scale: denser at the small end for dense POS tables, much larger at the top
-     for the marketing/section headings the new language leans on. */
-  --text-2xs: 0.75rem; /* 12 */
-  --text-xs: 0.8125rem; /* 13 */
-  --text-sm: 0.9375rem; /* 15 */
-  --text-base: 1.0625rem; /* 17 — reference body size */
-  --text-lg: 1.3125rem; /* 21 */
-  --text-xl: 1.75rem; /* 28 */
-  --text-2xl: 2.5rem; /* 40 */
-  --text-3xl: 3.5rem; /* 56 */
-  --text-4xl: 4.5rem; /* 72 — hero only */
-
-  /* Negative tracking on display sizes; normal-to-open on body. */
-  --tracking-display: -0.022em;
-  --tracking-heading: -0.015em;
-  --tracking-body: 0em;
-
-  --leading-display: 1.08;
-  --leading-heading: 1.2;
-  --leading-body: 1.65;
-
-  /* --- shape ---------------------------------------------------------------
-     Pill for actions; 12–18px elsewhere. */
-  --radius-pill: 9999px;
-  --radius-card: 1.125rem; /* 18 */
-  --radius-control: 0.75rem; /* 12 */
-  --radius-inner: 0.5rem; /* 8 — chips, tight cells */
-
-  /* --- depth ---------------------------------------------------------------
-     Very soft and nearly colourless. Elevation is communicated by ground
-     contrast and whitespace first, shadow last. */
-  --shadow-low: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.04);
-  /* The step the overlays were missing. Before this the system had two levels and the
-     overlays used neither — dropdown, select and popover reached for Tailwind's
-     `shadow-md`, the sheet for `shadow-lg`, each with a `ring-1 ring-foreground/10`
-     bolted on. That is a second elevation ramp with different colour, different spread
-     and no dark-mode thinking, running beside the one the tokens describe.
-
-     `low` is a card resting on the page, `mid` is a surface that opened over it and will
-     close again, `high` is a surface that has taken the page. */
-  --shadow-mid: 0 2px 6px rgb(0 0 0 / 0.05), 0 8px 20px rgb(0 0 0 / 0.06);
-  --shadow-high: 0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px rgb(0 0 0 / 0.08);
-
-  /* --- layout --------------------------------------------------------------
-     Section rhythm is 1.5× the previous 96px. Generous whitespace is the single
-     biggest carrier of this visual language — cutting it undoes the rest. */
-  --container-shell: 69.375rem; /* 1110px content column */
-  --container-wide: 87.5rem; /* 1400px for full-bleed sections */
-  --spacing-section: 9rem; /* 144px */
-  --spacing-section-sm: 5.5rem; /* 88px — mobile */
-
-  /* --- motion --------------------------------------------------------------
-     One curve and three durations, because the vocabulary is deliberately small
-     (design-system: fade and rise, nothing else).
-
-     These existed already, just not as tokens: the curve was written once inside
-     `@keyframes reveal-rise` where nothing else could reach it, and the durations were
-     inlined per component — `duration-100` on four overlays, `duration-200` on the
-     sheet, `duration-500` on the share bar. Same numbers, five places to change them.
-
-     `fast` is a surface appearing over the page; `base` is one that slides a distance;
-     `slow` is a value animating to a new position, where the eye needs to follow it
-     rather than just notice it arrived. The reduced-motion block below still overrides
-     all three to 0.01ms. */
-  --duration-fast: 100ms;
-  --duration-base: 200ms;
-  --duration-slow: 500ms;
-  --ease-out: cubic-bezier(0.28, 0.11, 0.32, 1);
-
   /* --- named z-index -------------------------------------------------------
      `--z-index-*`, not `--z-*`. Tailwind v4 builds the `z-` utilities from the
      `--z-index-*` namespace, so the previous spelling generated **no CSS at all** — and
-     `app-shell.tsx` has been asking for `z-sticky` on the sticky header ever since it was
+     `app-shell.tsx` had been asking for `z-sticky` on the sticky header ever since it was
      written, getting a class that does not exist and a header with no stacking order.
      Nothing errors when a utility is absent; the rule simply is not there.
 
@@ -482,12 +351,21 @@
 
 @layer components {
   /* Frosted chrome: sticky nav and sidebar. The saturate() is what stops the
-     blur looking grey — it keeps colour alive behind the panel. */
+     blur looking grey — it keeps colour alive behind the panel.
+
+     One declaration, unprefixed, on purpose. This rule used to carry a hand-written
+     `-webkit-backdrop-filter` twin, and the build's minifier (lightningcss, under
+     Tailwind v4) folded the pair into the prefixed form only — the served stylesheet
+     had NO `backdrop-filter`, Chromium computed `none`, and the chrome shipped as a
+     72%-alpha slab with content ghosting through it for the whole of the first
+     redesign. Found by the 2026-09-03 baseline review, which measured the computed
+     style instead of reading the source. The prefixer adds the `-webkit-` form itself
+     from the browser targets; `bin/check-built-css` now greps the built asset for the
+     unprefixed property so this cannot silently happen again. */
   .glass {
     background-color: var(--chrome);
     border-color: var(--chrome-border);
     backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
   /* Alternating section grounds. */

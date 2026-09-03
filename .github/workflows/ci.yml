@@ -104,6 +104,13 @@ jobs:
       - name: Directional arrows are not mirrored
         run: php bin/check-rtl-arrows
 
+      # The landing and the app are two Vite entries that must never import each other
+      # (ADR 0016). Since ADR 0020 they share exactly one leaf — resources/css/brand.css,
+      # tokens and fonts, importing nothing of either side — and this refuses every other
+      # crossing, plus a selector rule sneaking into the leaf itself.
+      - name: Bundle-boundary gate
+        run: php bin/check-bundle-boundary
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)
@@ -315,6 +322,14 @@ jobs:
       # failure message about text not being visible that explains nothing.
       - name: Build assets
         run: npm run build
+
+      # The only job with a real build, so the only place this can run. It reads the
+      # emitted stylesheets rather than the source: `.glass` declared `backdrop-filter`
+      # and a hand-written `-webkit-` twin, the minifier folded the pair into the
+      # prefixed form alone, and the frosted chrome shipped as a flat slab for a whole
+      # redesign with every reviewer reading a source file that was correct.
+      - name: Built-CSS gate
+        run: php bin/check-built-css
 
       # Cached on the resolved Playwright version, because the download is the slow and
       # flaky part — it is ~150MB from a third-party CDN, and it is the step that hung.

@@ -3602,3 +3602,38 @@ a primary button that gets lighter on hover, 17 gradients on a landing whose ADR
 and a fold that reads as "a ledger app, free to try".
 
 One PR, `#130`. Nothing deployed — there is no box.
+
+## 1404-06-13 (2026-09-04) — the brand layer, self-hosted fonts, and a blur nobody could see (16.0, PR 0.2)
+
+The landing and the app were supposed to look like one product and had two copies of every
+token, kept in step by hand. They now share `resources/css/brand.css` — `@theme` plus an
+import of `fonts.css`, importing nothing of either bundle — so Tailwind generates identical
+utilities on both sides from one definition while ADR 0016's separation holds. The new
+`bin/check-bundle-boundary` refuses every other crossing in either direction, refuses the
+`@/` alias inside the landing, and refuses a selector rule appearing in the leaf itself; its
+first run flagged its own docblock, which quotes the `@import 'tailwindcss'` line it
+documents, so it now blanks comments before reading imports.
+
+Fonts left `@fontsource` and moved into the repository as variable woff2 with their OFL
+licences: two subsets each (Persian, and the Latin a shop actually types), `font-display:
+swap`, and a metric-matched fallback per family so the swap moves nothing. Both documents
+preload the face their first paint needs through `Vite::asset()`, which means the landing,
+the login page and the product all point at one hashed URL and a visitor who signs up does
+not download them twice. Four candidate families ship for the type test at 16.2; the losers
+go when the owner locks the pairing. The `npm` dependencies are gone entirely and the build
+is unchanged in size (app 22 KB gz, landing 24 KB gz).
+
+**And the frosted chrome was never frosted.** `.glass` declared `backdrop-filter` and a
+hand-written `-webkit-` twin; lightningcss folded the pair into the prefixed form alone, so
+the served stylesheet had no `backdrop-filter` at all and Chromium computed `none`. The
+sticky nav and sidebar have been translucent slabs with content ghosting through them since
+the day the class was written, and every review read a source file that was correct. The
+baseline caught it by measuring the computed style. One line deleted; `bin/check-built-css`
+now greps the emitted asset for the property, the `@font-face` and the manifest's font
+entries, and the production image asserts the same. Measured after the fix, in the browser:
+`saturate(1.8) blur(20px)` on both the header and the sidebar.
+
+The RTL gate learned CSS in the same pass — it only ever matched Tailwind class tokens, so
+~4,700 lines of hand-written stylesheet were unguarded, and it found two physical
+`text-align` values in `landing.css` immediately. Paint directions are deliberately exempt.
+Ten guards now, was eight plus the RTL gate; 65 cases across the two gate tests.
