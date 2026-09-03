@@ -412,3 +412,63 @@ directional glyph» — as though adding the variant were the fix. Removing it i
 
 Gated by `bin/check-rtl-arrows`, which refuses `ArrowLeftIcon`/`ArrowRightIcon` carrying the
 variant and deliberately says nothing about chevrons.
+
+---
+
+## Interface
+
+Six lessons that were paid for during the 2026-08/09 UI work and recorded only in
+`docs/design-system.md` or `docs/PROGRESS.md`, promoted here so the file that explains the
+rules is not missing the most expensive ones.
+
+### A defined token is not evidence of a generated class
+
+The z-index tokens were declared as `--z-sticky` … `--z-toast`. Tailwind v4 builds `z-`
+utilities from the `--z-index-*` namespace, so those declarations generated **no CSS at
+all** — and `app-shell.tsx` asked for `z-sticky` on the sticky header from the day it was
+written, getting a class that did not exist and a header with `z-index: auto`. Nothing
+errors when a utility is absent. Grep the built stylesheet for the class; a token block that
+looks right is not proof.
+
+### 40px means 40px, and the label is the target
+
+`button.tsx` used to name filter chips, toolbars and table rows as cases that could ask for
+`sm` (28px), contradicting the accessibility floor one file away. A scan of twenty-three
+screens found 35 controls under it. Settled 2026-08-31 in favour of the floor: anything a
+person taps is `default` or larger; `sm`/`xs` exist for controls nobody taps. The target and
+the control are not the same box — a 20px checkbox inside a 40px label row is correct, and an
+unlabelled expanded target says so in `data-hit-area="expanded"` because a pseudo-element is
+invisible to anything that measures.
+
+### Paper is a light island
+
+Dark-mode `success` `#4cc47f` is 7.5:1 on `#1d1d1f` and **2.2:1 on white**. A print sheet is
+ink on white in both themes, so the moment a shop switched to dark mode every «پرداخت‌شده»
+stamp and every positive figure on an invoice went from readable to nearly invisible. Every
+semantic token now restores to its `-on-light` step inside `[data-paper]`, once, in
+`app.css`. Adding a semantic token means adding its `-on-light` step and its `[data-paper]`
+line; faking a sheet with `bg-white text-black` fixes the ground and leaves every badge on
+its dark step.
+
+### A second elevation ramp hides beside the first
+
+The tokens described two shadows. Dropdown, select and popover reached for Tailwind's
+`shadow-md`, the sheet for `shadow-lg`, each with a `ring-1 ring-foreground/10` bolted on —
+a second ramp with different colour, spread and no dark-mode thinking, running beside the
+one the tokens named. The missing step was `--shadow-mid`; the rings went with it. When a
+component reaches past the tokens, the tokens are missing a step, not the component a rule.
+
+### `rounded-card` was spelled twenty-five ways
+
+141 sites hand-rolled the card surface: three grounds, five padding scales, `border` beside
+`border border-border` (the same thing). A primitive that exists but is not the path of
+least resistance does not get used. `Card` now owns radius, hairline and padding, with
+`ground` / `padding` / `elevated` variants, and the design system says surfaces use it.
+
+### The sweep counted buttons and never anchors
+
+Every register's rows were clickable and unreachable by keyboard — `cursor: pointer` plus
+`onClick`, no tab stop, role or key — and 17px dashboard links sat under the 40px floor.
+Thirteen phases of sweeps missed both because the target scan only ever counted `button`
+elements; adding anchors lit up 112 of 344 cases. A measurement is only as good as the
+population it measures; when a sweep passes cleanly, check what it did not look at.

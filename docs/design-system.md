@@ -8,6 +8,13 @@ The audience is a phone-shop owner in Iran, often on a mid-range Android and a s
 connection, working at a counter with a customer waiting. Every decision below serves
 clarity and speed over showmanship.
 
+> **Redesign v2 is in flight (ROADMAP Phase 16, from 2026-09-03).** Token *values* move into
+> `resources/css/brand.css` shared by the landing and the app, the type pairing and ink are
+> being replaced (ADR 0020), and the landing is rebuilt (ADR 0021). Until those ADRs land,
+> read values from the CSS rather than from the tables below; the *rules* here still hold.
+> `PRODUCT.md` and `DESIGN.md` at the repo root are the machine-readable twins consumed by
+> the `impeccable` design tooling.
+
 ---
 
 ## 1. Tokens
@@ -391,7 +398,12 @@ Primary CTA: **«۱۴ روز رایگان شروع کنید»** — no bank card
 
 ## 6. Persian copy
 
-- All UI strings in `lang/fa/**`. Never hardcode Farsi in a component.
+**Voice, orthography and the glossary live in [`docs/brand/voice.md`](brand/voice.md)**
+(owner's register decision, 2026-09-03: professional and confident, top-tier Iranian SaaS).
+The rules below are the older summary and defer to that file where they differ.
+
+- Blade/public strings in `lang/fa/**`. React pages carry their strings inline (there is
+  no i18n layer); shared vocabulary comes from `resources/js/lib/copy.ts` once it exists.
 - Domain terms, fixed translations: فاکتور invoice · پیش‌فاکتور quote · حواله transfer ·
   انبارگردانی stock count · قبض پذیرش repair intake receipt · رسوبی abandoned device ·
   چک cheque · قسط installment · صندوق cash account · کارتخوان POS terminal account ·
