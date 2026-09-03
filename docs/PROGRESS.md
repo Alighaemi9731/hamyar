@@ -3565,3 +3565,40 @@ invoice link (`#120`, a tenancy security model), the landing's signature element
 already printed). And one placement, above.
 
 Two PRs, all five checks green: `#127`, `#128`.
+
+## 1404-06-13 (2026-09-03) — Redesign v2 opens: the tooling reset and a baseline to beat (16.0, PR 0.1)
+
+The owner looked at the closed programme and said the product still reads as AI-made —
+a narrow centred landing with empty sides, silly copy, bad fonts, «انگار یه بچه دبیرستانی
+اینو زده». Target ~5/100 → ~80/100, full authority, phase it. The plan (outside the repo)
+became ROADMAP Phase 16; the decisions taken with the owner the same day are recorded there
+and in `PRODUCT.md`: three rendered landing directions to choose from (which answers the
+still-open DECISION GATE 5), a professional and confident register (`docs/brand/voice.md`),
+pilot shops as the only trust material, and free OFL fonts chosen by a rendered type test —
+B Niloofar is a print-era Borna Rayaneh face with no web licence, and Peyda/Doran/Morabba
+turned out to be commercial, so the free candidates are Estedad re-tuned, IBM Plex Sans
+Arabic and Noto Kufi Arabic beside Vazirmatn.
+
+The first PR touches no pixel. It deletes four of the five project skills — one was a
+byte-identical copy of an enabled global plugin and loaded twice, one a 1.5 MB stale fork of
+another, and two generic ones contradicted the design system outright (Geist, an `accent`
+token that breaks shadcn, 1024 as a review width, not a word about RTL). `hamyar-ui` is
+rewritten against the real 32 domain components (it named two that never existed) and names
+roles instead of hex values so `brand.css` cannot stale it; `design-reviewer` loses
+Write/Edit, gains the browser, and stops flagging the system's own pills and glass as
+defects. `impeccable` is wired in for the first time: `PRODUCT.md`, a scan-mode `DESIGN.md`
+with its sidecar, a code-led config with Blade as a detector extension, doctor clean. Six
+interface lessons that lived only here and in the design system moved into `docs/lessons.md`.
+
+Then the rewritten reviewer scored five screens before anything changes — **5/10 overall**
+(landing 6, dashboard 5, POS 5, passport 6, register 5) — with the numbers in
+`docs/walks/v2/baseline.md`. Three of its findings are bugs nobody had measured: the
+`.glass` chrome ships **without `backdrop-filter`** (the manual `-webkit-` line survives the
+build and the real one does not), the POS splits at `lg:` and collapses to 296px at 1024 —
+the exact trap rule 8 documents — and the landing skip link's inline handlers are refused by
+CSP, so it never appears and logs two errors per keyboard visit. The rest is the diagnosis
+the owner gave in one sentence, now as measurements: one surface treatment on every screen,
+a primary button that gets lighter on hover, 17 gradients on a landing whose ADR says none,
+and a fold that reads as "a ledger app, free to try".
+
+One PR, `#130`. Nothing deployed — there is no box.

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-03T20:00:00Z",
+  "title": "Design System: Hamyar",
+  "extensions": {
+    "colorMeta": {
+      "brand": { "role": "primary", "displayName": "Counter Blue", "canonical": "#0066cc", "tonalRamp": ["#001f42", "#003366", "#004c99", "#0066cc", "#3385d6", "#66a3e0", "#99c2eb", "#cce0f5"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#1d1d1f", "tonalRamp": ["#1d1d1f", "#3a3a3c", "#58585c", "#6e6e73", "#8e8e93", "#aeaeb2", "#d1d1d6", "#f5f5f7"] },
+      "canvas-alt": { "role": "neutral", "displayName": "Warm Grey", "canonical": "#f5f5f7", "tonalRamp": ["#2c2c2e", "#48484a", "#636366", "#8e8e93", "#aeaeb2", "#d1d1d6", "#e8e8ed", "#f5f5f7"] },
+      "success": { "role": "semantic", "displayName": "Paid Green", "canonical": "#0f7b3f", "tonalRamp": ["#063a1d", "#0a5a2e", "#0f7b3f", "#2a9455", "#4cc47f", "#7fd8a3", "#b3e9c7", "#e2f7ea"] },
+      "warning": { "role": "semantic", "displayName": "Due Amber", "canonical": "#8a5a00", "tonalRamp": ["#3d2800", "#5c3d00", "#8a5a00", "#b77a10", "#e0a13a", "#efbe70", "#f7dcab", "#fcf1dd"] },
+      "danger": { "role": "semantic", "displayName": "Overdue Red", "canonical": "#b3261e", "tonalRamp": ["#4d0f0b", "#7a1811", "#b3261e", "#d6423a", "#ff6961", "#ff9891", "#ffc4c0", "#ffe6e4"] },
+      "label": { "role": "signature", "displayName": "Label Yellow", "canonical": "#ffd84d", "tonalRamp": ["#5c4a00", "#8a6f00", "#b89400", "#e6b900", "#ffd84d", "#ffe27a", "#ffeda8", "#fff7d6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero only; Estedad 800 at 72px, -0.022em." },
+      "headline": { "displayName": "Headline", "purpose": "Page and section titles; Estedad 700." },
+      "body": { "displayName": "Body", "purpose": "Vazirmatn 17px/1.65 — Persian needs more leading than Latin." },
+      "figure": { "displayName": "Figure", "purpose": "Money and counts; tabular-nums, aligned on the units digit." }
+    },
+    "shadows": [
+      { "name": "low", "value": "0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.04)", "purpose": "A card resting on the page." },
+      { "name": "mid", "value": "0 2px 6px rgb(0 0 0 / 0.05), 0 8px 20px rgb(0 0 0 / 0.06)", "purpose": "A surface that opened over the page and will close — menu, select, popover." },
+      { "name": "high", "value": "0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px rgb(0 0 0 / 0.08)", "purpose": "A surface that has taken the page — dialog, sheet." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.28, 0.11, 0.32, 1)", "purpose": "The one curve." },
+      { "name": "duration-fast", "value": "100ms", "purpose": "A surface appearing over the page." },
+      { "name": "duration-base", "value": "200ms", "purpose": "Something sliding a distance." },
+      { "name": "duration-slow", "value": "500ms", "purpose": "A value moving to a new position." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px (sidebar arrives; content narrower than at 768)" },
+      { "name": "xl", "value": "1280px (multi-column bands split here, never at lg)" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one brand-filled action per view. Pill, 40px, verb + object label.",
+      "html": "<button class=\"ds-btn-primary\" dir=\"rtl\">ثبت فاکتور</button>",
+      "css": ".ds-btn-primary { background: var(--color-brand, #0066cc); color: #fff; height: 40px; padding: 0 20px; border: 0; border-radius: 9999px; font: 600 15px/1 Vazirmatn, system-ui, sans-serif; cursor: pointer; transition: background 100ms cubic-bezier(0.28,0.11,0.32,1); } .ds-btn-primary:hover { background: var(--color-brand-hover, #005bbb); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-brand, #0066cc); outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action: white fill, hairline stroke, same pill and height.",
+      "html": "<button class=\"ds-btn-outline\" dir=\"rtl\">پیش‌فاکتور</button>",
+      "css": ".ds-btn-outline { background: #fff; color: var(--color-ink, #1d1d1f); height: 40px; padding: 0 20px; border: 1px solid rgb(0 0 0 / 0.14); border-radius: 9999px; font: 500 15px/1 Vazirmatn, system-ui, sans-serif; cursor: pointer; transition: background 100ms cubic-bezier(0.28,0.11,0.32,1); } .ds-btn-outline:hover { background: var(--color-canvas-alt, #f5f5f7); } .ds-btn-outline:focus-visible { outline: 2px solid var(--color-brand, #0066cc); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label above, 12px radius, 16%-alpha stroke, blue ring on focus.",
+      "html": "<label class=\"ds-field\" dir=\"rtl\"><span class=\"ds-field-label\">شماره موبایل</span><input class=\"ds-input\" dir=\"ltr\" placeholder=\"0912…\"></label>",
+      "css": ".ds-field { display: grid; gap: 6px; font-family: Vazirmatn, system-ui, sans-serif; color: var(--color-ink, #1d1d1f); } .ds-field-label { font-size: 13px; font-weight: 500; } .ds-input { height: 40px; padding: 0 12px; border: 1px solid rgb(0 0 0 / 0.16); border-radius: 12px; background: #fff; font: 400 15px/1 inherit; color: inherit; } .ds-input:focus-visible { outline: 0; border-color: var(--color-brand, #0066cc); box-shadow: 0 0 0 2px rgb(0 102 204 / 0.25); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "18px surface on a hairline crease with the low shadow; no nested cards.",
+      "html": "<div class=\"ds-card\" dir=\"rtl\"><h3 class=\"ds-card-title\">فروش امروز</h3><p class=\"ds-card-figure\">۲۱۴,۲۰۶,۰۰۰ <span class=\"ds-card-unit\">تومان</span></p></div>",
+      "css": ".ds-card { background: #fff; border: 1px solid rgb(0 0 0 / 0.08); border-radius: 18px; padding: 24px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.04); font-family: Vazirmatn, system-ui, sans-serif; color: var(--color-ink, #1d1d1f); } .ds-card-title { margin: 0 0 8px; font: 700 15px/1.2 Estedad, Vazirmatn, sans-serif; } .ds-card-figure { margin: 0; font: 700 28px/1.2 Vazirmatn, sans-serif; font-variant-numeric: tabular-nums; } .ds-card-unit { font-size: 13px; font-weight: 400; color: var(--color-ink-soft, #6e6e73); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "The single status→tone→label map: pill, muted ground, dot in the semantic tone.",
+      "html": "<span class=\"ds-badge ds-badge--success\" dir=\"rtl\"><i class=\"ds-badge-dot\"></i>نهایی</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 9999px; background: var(--color-canvas-alt, #f5f5f7); font: 500 12px/1 Vazirmatn, system-ui, sans-serif; color: var(--color-ink, #1d1d1f); } .ds-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-badge--success { color: var(--color-success, #0f7b3f); background: rgb(15 123 63 / 0.10); }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "44px pill row; active = 10% blue ground, blue semibold text, icon at the reading end.",
+      "html": "<nav class=\"ds-nav\" dir=\"rtl\"><a class=\"ds-nav-item ds-nav-item--active\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/></svg><span>داشبورد</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"21\" r=\"1\"/><circle cx=\"19\" cy=\"21\" r=\"1\"/><path d=\"M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12\"/></svg><span>فروش و صندوق</span></a></nav>",
+      "css": ".ds-nav { display: grid; gap: 2px; width: 240px; font-family: Vazirmatn, system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 9999px; color: var(--color-ink, #1d1d1f); text-decoration: none; font-size: 15px; transition: background 100ms cubic-bezier(0.28,0.11,0.32,1); } .ds-nav-item:hover { background: var(--color-canvas-alt, #f5f5f7); } .ds-nav-item--active { background: rgb(0 102 204 / 0.10); color: var(--color-brand, #0066cc); font-weight: 600; } .ds-nav-item:focus-visible { outline: 2px solid var(--color-brand, #0066cc); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Counter",
+    "overview": "A phone-shop till that stays out of the way. The interface is near-monochrome — white and warm-grey grounds, near-black ink, one blue — with whitespace doing the structuring that lines and colour usually do. Colour is information: blue means you can act on this, and the three semantic tones mean money or work state; nothing else is coloured. Actions are pills, surfaces are soft 18px cards on hairline creases, shadows are almost colourless.",
+    "keyCharacteristics": [
+      "Two alternating grounds (white / #f5f5f7) separate sections — never borders",
+      "One accent, brand #0066cc, on ≤10% of any screen; semantics carry meaning only",
+      "Pill actions enforced system-wide on [data-slot=\"button\"]",
+      "Hairline borders at 8% alpha, three near-colourless shadow steps",
+      "Persian-first type: Estedad display, Vazirmatn body, 17px/1.65, tabular figures",
+      "RTL from the root; logical properties only; three digit modes"
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "There is no second accent. Secondary actions are neutral-filled or outlined; charts use the blue plus greys and the semantic three.", "section": "colors" },
+      { "name": "The Paper Island Rule", "body": "A print sheet is ink on white in both themes; every semantic token restores to its -on-light step inside [data-paper].", "section": "colors" },
+      { "name": "The Meaning Rule", "body": "Colour carries meaning, not decoration: blue = actionable, green/amber/red = money or work state, yellow = a price tag.", "section": "colors" },
+      { "name": "The Three Digits Rule", "body": "Prose uses Persian digits; tables use Latin tabular digits; IMEI, phone and serial are Latin, LTR-isolated and ungrouped.", "section": "typography" },
+      { "name": "The No SF Pro Rule", "body": "Only self-hosted, licensed Persian faces ship.", "section": "typography" },
+      { "name": "The Ground First Rule", "body": "If a surface needs a shadow to be seen, its ground is wrong.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do alternate white and #f5f5f7 grounds to separate sections; keep borders for tables and cards only.",
+      "Do keep one brand fill per view and render every status through StatusBadge.",
+      "Do use Money, Num, JDatePicker, DataTable, FilterBar, PageHeader, EmptyState rather than page-local markup.",
+      "Do keep touch targets at 40px and register rows keyboard-reachable.",
+      "Do restore semantic tokens to their light step inside [data-paper]."
+    ],
+    "donts": [
+      "Don't introduce a second accent, a gradient, or glass outside the nav and sidebar.",
+      "Don't use physical direction classes or mirror ArrowLeft/ArrowRight.",
+      "Don't hardcode a hex, a size, a z-index or a duration; every value is a token.",
+      "Don't use Tailwind's shadow-md/shadow-lg or a ring as an edge.",
+      "Don't fake a print sheet with bg-white text-black."
+    ]
+  }
+}

@@ -1773,9 +1773,13 @@ trail worth reading**.*
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages
 - [ ] Public landing page per `docs/design-system.md#landing`: signature live thermal receipt hero, specced section order, Blade + Tailwind, JS ≤ 180KB gz, LCP < 2.5s on 4G, `prefers-reduced-motion` honoured
+      — **superseded by Phase 16.3**: the thermal-receipt brief is retired (ADR 0021); the
+      budget and reduced-motion requirements carry over unchanged
 
 > ### ⛔ DECISION GATE 5
 > Show the landing at wireframe and first-styled-pass before polishing.
+> **Being answered by Phase 16.2** (2026-09-03): three rendered directions on real markup,
+> owner picks one before any polish.
 
 ### Phase 11 — Definition of Done
 - [ ] Staging deploy from CI — staging is deployed and `bin/deploy` has now run end to end
@@ -2211,6 +2215,80 @@ and are written down here so they are not rediscovered.
 > Moadian is low priority for a later phase — «کلا بیشتر مغازه‌ها معاف از مالیاتن اونو
 > نمی‌خوان». Nothing in Phase 12 depends on it; the kill-switch (item 8) is what keeps it off.
 
+
+---
+
+## Phase 16 — Redesign v2: from "assembled" to "designed" (2026-09-03 →)
+
+Owner's verdict on 2026-09-03: the product and landing "obviously look AI-generated"; the
+landing sits in a centred column with empty sides; the copy is silly; the fonts are bad.
+Target ~5/100 → ~80/100. The previous programme (Phase 15, ADR 0019) propagated a token
+system; this one invents brand, type, composition, imagery, copy and the product shell. The
+full plan lives outside the repo; each phase below records its outcome in `docs/PROGRESS.md`
+and the decisions land in ADR 0020 (brand and type system) and ADR 0021 (landing direction).
+No production box exists: every phase ends at a merged PR, nothing is reported as shipped.
+
+Decisions the owner made on 2026-09-03: three rendered landing directions, owner picks one
+(this answers DECISION GATE 5) · copy in the professional, confident register of top-tier
+Iranian SaaS (`docs/brand/voice.md`) · trust material = pilot shops named or counted, with
+consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web license
+(IRANSansX + Yekan Bakh) stays open if bought; no unlicensed commercial faces.
+
+### 16.0 Tooling reset and foundations
+- [x] Delete the four redundant/contradictory project skills; rewrite `hamyar-ui` and the
+      `design-reviewer` agent; wire `impeccable` (`PRODUCT.md`, `DESIGN.md`, `.impeccable/`);
+      `docs/brand/voice.md`; six interface lessons promoted into `docs/lessons.md`; baseline
+      reviewer scores recorded (PR 0.1)
+- [ ] Shared brand layer `resources/css/brand.css` + `fonts.css` imported by both bundles;
+      subset variable fonts under `resources/fonts/` with preloads and metric fallbacks;
+      `bin/check-bundle-boundary`; CSS-property rules in `bin/check-direction-classes`;
+      Dockerfile manifest assertion extended (PR 0.2)
+- [ ] `ShowcaseSeeder`, `scripts/shots/*`, `bin/shots`, `make shots`, `shots.yml`,
+      `tests/Feature/LandingShotsTest.php`, `tests/Browser/LandingTest.php` green against the
+      current landing (PR 0.3)
+
+### 16.1 Brand assets
+- [ ] Logo mark + «همیار» wordmark candidates on `/design`; `favicon.svg` + PNG set +
+      `site.webmanifest` replacing the 0-byte `.ico`; og:image template rendered by `bin/shots`
+- [ ] Branded error pages `resources/views/errors/{403,404,419,500,503}` (closes 11's item)
+      with `tests/Feature/ErrorPagesTest.php`
+- [ ] `/design` type specimen (every candidate pairing on real copy) and navy-ink token sheet
+
+### 16.2 Owner gate — direction · type · logo · ink · copy
+- [ ] `docs/brand/positioning.md` + landing copy v1 (`lang/fa/landing.php` form)
+- [ ] Three directions from the impeccable roll, each a real hero + one section under
+      `/design/landing/{a,b,c}`; type test; ink test; decision board + Artifact
+- [ ] ⛔ **DECISION GATE 5 (answered here)** — owner locks direction, pairing, logo, ink,
+      copy notes, pilot-shop wording → ADR 0020, ADR 0021, direction contract, PRODUCT.md
+
+### 16.3 Landing v2 + auth
+- [ ] Sections 1–4 on the named-line page grid (hero product composition, proof strip, bento
+      tour, IMEI passport centrepiece); old CSS deleted; skip link CSS-only (PR 3.1)
+- [ ] Sections 5–8 + SEO: modules, pricing, FAQ, closing, footer, legal; favicon/og/JSON-LD;
+      `sitemap.xml` + `robots.txt` routes + nginx `try_files` (PR 3.2)
+- [ ] All six auth screens on Blade over one layout; React auth pages deleted;
+      `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3)
+- [ ] Finish: detector, finish-reviewer, documenter, Lighthouse ≥ 90/95, LandingTest, owner
+      live review (PR 3.4)
+
+### 16.4 Product — type, ink, shell, dashboard, first-run
+- [ ] `app.css` on `brand.css`; chosen pairing; heading audit; navy ink; contrast re-measured
+- [ ] Shell: sidebar token + collapsible rail, brand mark, eyebrow labels, `PageHeader`
+      crumbs, the 17 `title=` pages, `Deferred` + page skeleton
+- [ ] SVG chart primitives on `/design`; dashboard rebuilt as deferred widgets
+- [ ] First-run setup checklist (`ShopSetupProgress`) — droppable if the schedule slips
+
+### 16.5 Product consistency + copy
+- [ ] 13 register pages onto `FilterBar`; `ReportToolbar` for the seven reports; the
+      copy-pasted debounce deleted
+- [ ] `EmptyState` on the real gaps; `processing` feedback; ad-hoc pills → `Badge`; settings
+      tiles with icons; Repairs `Show` section primitives
+- [ ] `resources/js/lib/copy.ts`; `bin/check-copy-terms`; `clarify` pass over the 20 most-seen
+      screens; `/design` split per section + the 7 missing specimens
+
+### 16.6 Closure
+- [ ] `bin/ui-sweep`; `docs/walks/v2/` with a README; `impeccable critique`; `DESIGN.md`
+      re-documented; reviewer scores vs the 16.0 baseline; CHANGELOG; memory note
 
 ---
 

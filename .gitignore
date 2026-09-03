@@ -3,6 +3,17 @@
 # and the release commands ship with the repo.
 .claude/settings.local.json
 
+# Impeccable (design tooling). `.impeccable/config.json`, `design.json` and the surface
+# briefs are shared and tracked; everything below is per-machine or per-run scratch —
+# hook consent, live-mode injection state, review captures, comps and build state.
+.impeccable/config.local.json
+.impeccable/live/
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/build/
+.impeccable/cache/
+.impeccable/critiques/
+
 # Operator coordinates for the production box — host, path, deploy directory. Not
 # secrets, but the repository is PUBLIC, so they live on the machine that deploys and
 # nowhere else (golden rule 1b, and docs/RELEASE_PROCESS.md).

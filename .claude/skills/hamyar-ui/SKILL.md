@@ -1,132 +1,128 @@
 ---
 name: hamyar-ui
-description: Use when building or changing ANY user-facing UI in this repo — Inertia/React pages, Blade public pages, emails, or print layouts. Enforces the Hamyar design system: RTL logical classes, design tokens, Persian typography/digits, shadcn/ui usage, domain components, and the /design gallery workflow. Also use when reviewing UI diffs.
+description: Use when building, changing or reviewing ANY user-facing UI in this repo — Inertia/React pages, Blade public/auth/error pages, emails, print layouts, the landing. Enforces the Hamyar design system (RTL logical classes, tokens, Persian typography and digits, shadcn/ui, domain components, the /design gallery) and says how the global design tooling (impeccable, frontend-design) is used here. Outranks any generic design skill on RTL, Persian, tokens, components and guards.
 ---
 
-# Hamyar UI — design system rules
+# Hamyar UI — the project's design rules
 
-Source of truth: `docs/design-system.md` (read it when unsure). Direction is set by
-`docs/adr/0008-visual-language.md`. This skill is the per-session enforcement summary.
+**Precedence.** `docs/design-system.md` is the source of truth; this skill is its
+per-session summary. Both outrank any global or generic design skill (`impeccable`,
+`frontend-design`, `ui-ux-pro-max`, a plugin's font list, a palette database) on anything
+Persian, RTL, token, component or guard related. Generic advice is a menu; the repo decides.
 
-**Visual language in one line:** calm neutral ground, ONE blue accent, whitespace doing
-the structuring, pill actions, hairline borders, very soft shadows.
+**Redesign v2 (2026-09) is in flight.** Token *values* are moving into
+`resources/css/brand.css` (ADR 0020) and the landing is being rebuilt (ADR 0021). Read the
+token values from the CSS, never from memory; this file names roles, not hex codes.
 
-## Tokens (never hardcode raw colors/sizes in pages)
+## The system in one paragraph
 
-| token | value | use |
-|---|---|---|
-| canvas | #FFFFFF | primary section ground |
-| canvas-alt | #F5F5F7 | alternating section ground |
-| canvas-invert | #000000 | rare feature band |
-| ink | #1D1D1F | primary text |
-| ink-soft | #6E6E73 | secondary text |
-| **brand** | **#0066CC** | the ONLY accent — links, primary fills, active, focus |
-| brand-on-dark | #409CFF | dark mode accent |
-| success | #0F7B3F | paid / cleared / delivered |
-| warning | #8A5A00 | due soon / awaiting |
-| danger | #B3261E | overdue / bounced / failed |
-| label | #FFD84D | price tags only — tiny highlights, never a fill |
+One ink, one accent (`brand`; never `accent` — shadcn owns `--color-accent`), three
+semantics (`success`/`warning`/`danger`), a `label` yellow for price tags only. Pill
+actions (enforced on `[data-slot="button"]`), 18px cards, 12px controls, hairline borders,
+three soft shadows (`low`/`mid`/`high`), `.glass` only on nav and sidebar, `.reveal` as the
+motion vocabulary, durations and easing as tokens. Whitespace and ground alternation
+structure a page; borders do not. Dark mode is a variable swap on the `dark` class set
+pre-paint in `app.blade.php`.
 
-Defined once in `resources/css/app.css` under `@theme`. Radius: pill for actions,
-18px cards, 12px controls. Three soft shadows — `low` (resting card), `mid` (menu,
-select, popover), `high` (dialog, sheet); never Tailwind's `shadow-md`/`shadow-lg`.
-Dark mode via CSS vars — never a per-component color override.
+## Hard rules (each one is a guard or a scar — see `docs/lessons.md`)
 
-**Colour carries meaning, not decoration.** Blue = "you can act on this". The semantic
-three = money/work state. Everything else is neutral. There is no second accent; do
-not introduce one. Secondary actions are neutral-filled or outlined.
+1. **Logical utilities only**: `ms- me- ps- pe- start- end- text-start text-end border-s
+   border-e rounded-s rounded-e`. Any `ml- mr- pl- pr- left- right- text-left text-right
+   float-*` fails `bin/check-direction-classes` (also over `.css` properties). Escape hatch:
+   an `rtl-allow` comment on the same or preceding line with a reason — only for genuinely
+   physical APIs (`Sheet side="left"`, a print edge).
+2. **Radix is RTL from the root** (`app.tsx` mounts one `Direction.Provider dir="rtl"`).
+   Never pass `dir="rtl"` to a portal; pass `dir="ltr"` only for a genuinely LTR pocket.
+3. **Never mirror an icon that names a physical direction.** `ArrowLeft/ArrowRight` already
+   point correctly in RTL; `rtl:rotate-180` on one is refused by `bin/check-rtl-arrows`.
+   Mirror only icons chosen for reading order (Pagination's chevrons). A tree-depth chevron
+   is a physical direction too.
+4. **Digits have three modes** — prose: Persian (`۳ دستگاه`); tables/invoices: Latin
+   `tabular-nums`; IMEI/phone/barcode/serial: Latin, LTR-isolated, ungrouped. Always via
+   `<Num variant="prose|table|ltr">`; never inline a conversion. Wrap a signed number in
+   `<bdi>`.
+5. **Money only via `<Money>` / `<MoneyField>` / `<MoneyLadder>`** (integer rial in). Dates
+   only via `lib/jalali.ts` + `<JDatePicker>` (wire format UTC ISO). Statuses only via
+   `<StatusBadge>` — the single status→tone→label map.
+6. **Every form renders every key of the error bag**: `<FormErrors errors={errors}
+   handled={[…]} />` in any file that submits (`bin/check-form-errors`; the baseline in
+   `bin/.form-errors-baseline` only shrinks — touch a listed file, add the region, delete its
+   line in the same commit). Blade forms render `$errors->all()` in the layout.
+7. **40px means 40px** for anything tapped; `sm`/`xs` only for controls nobody taps; a 20px
+   checkbox inside a 40px label row is correct; unlabelled expanded targets carry
+   `data-hit-area="expanded"`. Register rows are keyboard-reachable (tab stop, role, key).
+8. **Multi-column bands split at `xl`, never `lg`** — the sidebar arrives at `lg`, so the
+   content column is narrower at 1024 than at 768. Check the narrowest column against its
+   widest figure at 1024.
+9. **Paper is a light island**: a sheet is ink on white in both themes; every semantic token
+   restores to its `-on-light` step inside `[data-paper]` (`PrintLayout.*` sets it). Never
+   fake a sheet with `bg-white text-black`. A new semantic token needs an `-on-light` step
+   and a `[data-paper]` line.
+10. **No hostname literal anywhere** — `config('app.domain')`, `url()`, `route()`
+    (`bin/check-apex-domain`; `lang/` is scanned too).
+11. **Persian strings**: Blade/public pages read `lang/fa/*.php`; React pages carry their
+    strings inline (no i18n layer) but shared vocabulary comes from
+    `resources/js/lib/copy.ts` once it exists and follows `docs/brand/voice.md`.
+12. **z-index from `--z-index-*`** (`z-sticky`, `z-overlay`, `z-popover`, `z-toast`). A
+    defined token is not evidence of a generated class — grep the built CSS.
+13. **One theme authority**: the `dark` class on `<html>`, read through `hooks/use-theme.ts`.
+    No theme providers, no per-component theme copies.
 
-Note: the accent is `brand`, not `accent` — shadcn owns `--color-accent` for its muted
-hover surface.
+## Components — use, never rebuild
 
-## Hard rules
+- **ui/** (shadcn, `components.json` has `rtl: true`): badge · button · card · checkbox ·
+  command · dialog · dropdown-menu · input · input-group · label · popover · select ·
+  separator · sheet · skeleton · sonner · table · tabs · textarea · tooltip. Add new ones
+  with the shadcn CLI; never paste LTR markup.
+- **domain/** (32): `Money` · `MoneyField` · `MoneyLadder`(+`MoneyRow`) · `Num` ·
+  `JDatePicker` · `StatusBadge` · `DataTable` · `FilterBar` · `PageHeader` · `EmptyState` ·
+  `StatCard` · `Pagination` · `FormErrors` · `ConfirmDialog` · `Timeline` · `ShareBar` ·
+  `BarChart` · `ReportPresets` · `HistoryLink` · `IMEIInput` · `PartyPicker` · `UnitPicker`
+  · `VariantPicker` · `PickerSkeleton` · `PrintLayout.{Thermal80,A4,A5}` + `printSheet()` ·
+  `UsageMeter` · `UsageBanner` · `QuotaBlock` · `AnnouncementBanner` · `CommandPalette` ·
+  `BranchSwitcher` · `UserMenu`. Plus `SettingsSection` and `ThemeToggle` in `components/`.
+- **Layout primitives**: `AppShell` (one per authenticated page; `header={<PageHeader …/>}`
+  is the standard, bare `title=` is legacy) and `SettingsSection`. Auth screens are Blade
+  on `resources/views/auth/layout.blade.php` (ADR 0020).
+- **Page families** (ADR 0019): register = `PageHeader` + `FilterBar` + `DataTable` +
+  `Pagination`; document/ledger = `Card` + `MoneyLadder`; analysis = screen + unchanged
+  print sheet via `useReportView`. Inventing a surface needs a reason in the file.
+- `Card` has no `tone` — a toned callout is a notice, not a card. No nested cards.
 
-1. RTL: logical utilities ONLY — `ms-/me-/ps-/pe-/start-/end-/text-start/text-end`.
-   Any `ml- mr- pl- pr- left- right- text-left text-right` in a diff = bug.
-   `bin/check-direction-classes` fails the build. Escape hatch: `rtl-allow` comment on
-   the same or preceding line, with a reason.
-2. shadcn/ui is the base kit; `components.json` has `"rtl": true`. Every Radix
-   primitive is RTL already: `app.tsx` mounts one `Direction.Provider dir="rtl"` at
-   the root, so no portal needs `dir` passed by hand (sixty-one sites used to, and the
-   ones that forgot opened mirrored). Pass `dir="ltr"` only for a genuinely LTR pocket.
-   **Never mirror an icon that names a physical direction.** `ArrowLeft`/`ArrowRight`
-   already point the right way in RTL; `rtl:rotate-180` on one sends it backwards —
-   thirteen «بازگشت» links shipped that way, and `bin/check-rtl-arrows` now refuses
-   it. Mirror only an icon chosen for *reading order* (Pagination's prev/next chevrons).
-3. Inherently-LTR inputs (IMEI, phone, amounts shown in Latin digits) render with
-   inner `dir="ltr"` while keeping the field's start-aligned label layout. Wrap a
-   signed number in `<bdi>` — a minus sign is bidi-neutral and jumps sides otherwise.
-4. Typography: headings = Estedad (600/700/800), tighter tracking as size grows; body =
-   Vazirmatn at 17px / 1.65 leading; all financial/tabular numbers use `tabular-nums`.
-   Persian digits in prose; Latin tabular digits in tables/invoices (tenant setting —
-   use the `<Num/>` helper, don't inline). **Never ship SF Pro** — not licensed to us.
-5. Money is rendered ONLY via `<Money/>` (IRR integer in, formatted out). Dates ONLY
-   via Jalali components/helpers. Statuses ONLY via `<StatusBadge/>` (single
-   status→color map — never map colors ad hoc in a page).
-6. Layout primitives carry the frame — `AppShell`, `AuthLayout`, `SettingsSection`,
-   all built on `<Card>` (`components/ui/card.tsx`), which owns radius, hairline and
-   padding. Never hand-roll an auth frame or card padding in a page; extend the
-   primitive. Toned callouts are notices, not cards — `Card` has no `tone` prop.
-   Domain components live in `resources/js/components/domain/` and must be used
-   instead of rebuilding: Money, Num, JDatePicker, JDateRange, IMEIInput,
-   PartyPicker, UnitPicker, StatusBadge, StatCard, DataTable, EmptyState,
-   KanbanCard, PrintLayout.Thermal80, PrintLayout.A4, PrintLayout.A5.
-7. Forms: label above field; error text under field, actionable Persian copy;
-   primary action is the only `brand`-filled button per view; Enter submits in POS
-   screens. Compact density token on POS/table-heavy screens.
-8. Accessibility floor: visible focus ring, AA contrast, touch targets ≥ 40px,
-   **40px means 40px** — `sm`/`xs` are not a licence to go under it (settled 2026-08-31).
-   Use them only for controls nobody taps. Inline links in prose are exempt, per WCAG
-   2.5.8. A 16px checkbox inside a 40px label is correct: the target need not be the box.
-   `prefers-reduced-motion` respected on every animation. Every token pair in the
-   system has a measured contrast ratio — do not introduce one that has not been
-   checked.
-9. Print layouts are part of the system: thermal 80mm and A4/A5 templates under
-   PrintLayout.* — never page-local `@media print` hacks.
-   **Paper is a light island**: a sheet is ink on white in BOTH themes, so every
-   semantic token restores to its light step inside `[data-paper]` (one rule in
-   `app.css`; `PrintLayout` sets the attribute). Dark-mode `success` #4CC47F is 2.2:1
-   on white — a paid stamp vanished exactly this way. Adding a semantic token means
-   adding its `-on-light` step AND its `[data-paper]` line. Never fake a sheet with
-   `bg-white text-black`: the ground turns white and the badges inside stay dark-step.
-10. Public/marketing pages (Blade) follow the landing brief in
-    `docs/design-system.md#landing`: signature "live thermal receipt" hero,
-    landing JS budget ≤ 180KB gz, no WebGL/scroll-jacking.
+## Typography
 
-## Layout & motion
+Families and scale live in `brand.css` (`--font-display`, `--font-sans`, 12…72 scale,
+`--tracking-display`, `--leading-display`). Rules that survive any pairing: display weight
+600–700 (never 800 by default); headings tighten tracking as they grow; body ≥ 16px with
+Persian leading (≈1.7–1.8 prose, 1.5 in dense tables); `tabular-nums` on every figure;
+`font-display` only on `h1` and headline figures. **Never SF Pro, never a font the repo does
+not self-host.**
 
-- Sections **alternate** `bg-background` / `bg-surface-muted`. Alternation separates
-  content, not borders.
-- Section rhythm 144px desktop / 88px mobile. Whitespace is the primary structuring
-  device — cutting it undoes the language.
-- Multi-column bands inside `AppShell` split at `xl`, not `lg`. The sidebar appears at
-  `lg`, so the content column is narrower at 1024 than at 768 — a row that fits at `md` can
-  overflow at the width that looks safest. Measured three times: treasury summary, billing
-  plans, and the unit passport's timeline, which ran 704px at 768 and 328px at 1024. The
-  first two overflow; the third just collapses, which is quieter and worse.
-- Sticky chrome uses the `.glass` class (frosted, `backdrop-filter`). Confined to nav
-  and sidebar; it costs GPU on mid-range Android.
-- Motion vocabulary is exactly `.reveal` (fade + rise, 12px) plus `.reveal-delay-1..3`.
-  Nothing else. Durations and easing are tokens — `duration-(--duration-fast|base|slow)`
-  and `ease-(--ease-out)`; never inline a number.
-- z-index comes from `--z-index-*` (`z-sticky`, `z-overlay`, `z-popover`, …). The
-  namespace matters: Tailwind v4 builds `z-` utilities from `--z-index-*`, and the
-  earlier `--z-*` spelling generated no CSS at all while looking correct in the token
-  block. **A defined token is not evidence of a generated class — grep the built CSS.**
-- One theme authority: the `dark` class on `<html>`, set pre-paint in `app.blade.php` and
-  read through `hooks/use-theme.ts`. Never add a theme provider, and never let a component
-  keep its own copy of the theme.
+## How the global design tooling is used here
 
-## Formatting
+- **impeccable** (global plugin). Run its `context.mjs` once per session; it loads
+  `PRODUCT.md`, `DESIGN.md` and a surface brief. Modes: **Persuade** for the landing and
+  auth, **Operate** for every product screen, **Read** for legal/help. **Code-led only** —
+  there is no image generation and image models mangle Persian; its Google-Fonts matcher and
+  Latin font advice never apply. Load `reference/craft-floor.md` before editing UI. Its
+  detector hook runs on this project (`.impeccable/config.json`); triage findings — fix real
+  ones, record a narrow `ignore-value` with evidence for sanctioned system choices (pills,
+  `.glass` on nav, one accent), never an `ignore-rule` on your own judgment. Use its
+  `clarify` / `onboard` / `typeset` / `critique` playbooks; its finish-reviewer and
+  documenter agents close a build.
+- **frontend-design** (global plugin): taste calibration only; it does not know RTL.
+- **design-reviewer** (project agent): read-only reviewer with the Hamyar rubric; run it on
+  flagship screens after a phase, never inside the build thread.
 
-`.prettierrc.json` governs `resources/js` (single quotes, 100 cols). `npm run format`.
+## Verify before you claim
 
-## Workflow
-
-- New/changed component → add or update its state matrix on the `/design` gallery
-  route (dev-only) BEFORE using it in a feature page.
-- After UI work, verify visually: open the page, screenshot at 390px and 1280px in
-  RTL, check dark mode, check focus order, and assert zero horizontal overflow.
-- UI diff review checklist: physical classes? raw hex? a second accent colour?
-  inline status colors? non-tabular numbers in tables? missing `dir` on portals?
-  missing empty/loading state? unsigned `<bdi>` around a negative number?
+- Widths **390 · 768 · 1024 (the sidebar trap) · 1280 · 1440**, light + dark, RTL, real
+  seeded data (`make fresh`; showcase seeder for rich screens), console read (a CSP refusal
+  and a 500 both look fine from PHP), `scrollWidth <= clientWidth + 1`, keyboard order.
+- Tools: playwright / chrome-devtools MCP for captures and Lighthouse; `composer guards &&
+  composer rtl`; targeted Pest (`--filter`); browser tests need `npm run build`.
+- New or changed component → its state matrix on `/design` (local/testing only) **before**
+  a feature page. Evidence is a number, not a look.
+- Diff checklist: physical classes? raw hex? second accent? inline status colour? non-tabular
+  digits in a table? `dir` on a portal? missing empty/loading state? unsigned `<bdi>`?
+  submit without `<FormErrors>`? control under 40px? a band splitting at `lg`? a hostname?
