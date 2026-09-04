@@ -46,7 +46,6 @@
             --a-board-alt: #f4f6f9;
         }
         html, body { overflow-x: clip; }
-        @media (max-width: 899px) { .nav__links { display: none; } }
         body { background: var(--a-board); color: var(--a-ink); line-height: 1.7; font-size: 1.0625rem; }
         .grid {
             display: grid;
@@ -157,6 +156,7 @@
             .rise { animation: rise .5s cubic-bezier(.28,.11,.32,1) both; }
             @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         }
+        @media (max-width: 899px) { .nav__links { display: none; } }
     </style>
 </head>
 <body>

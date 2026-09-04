@@ -23,7 +23,6 @@
     <style>
         :root { --c-ink: var(--color-navy); --c-soft: var(--color-navy-soft); --c-mute: var(--color-navy-mute); --c-rule: var(--color-hair); --c-blue: var(--color-accent); --c-tint: #eef3f9; }
         html, body { overflow-x: clip; }
-        @media (max-width: 899px) { .nav__links { display: none; } }
         body { background: #fff; color: var(--c-ink); font-size: 1.0625rem; line-height: 1.7; }
         .grid { display: grid; grid-template-columns: [full-start] minmax(1.25rem, 1fr) [wide-start] minmax(0, 6rem) [content-start] min(72rem, 100% - 2.5rem) [content-end] minmax(0, 6rem) [wide-end] minmax(1.25rem, 1fr) [full-end]; }
         .grid > * { grid-column: content; }
@@ -84,6 +83,7 @@
             .rise { animation: rise .5s cubic-bezier(.28,.11,.32,1) both; }
             @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         }
+        @media (max-width: 899px) { .nav__links { display: none; } }
     </style>
 </head>
 <body>

@@ -47,7 +47,6 @@
         }
         html { background: #fff; }
         html, body { overflow-x: clip; }
-        @media (max-width: 899px) { .nav__links { display: none; } }
         body { color: var(--b-ink); font-size: 1.0625rem; line-height: var(--b-row); }
         /* The sheet: rules across the whole viewport, aligned to a row height everything on the
            page sits on. This is the thesis, not decoration — a ledger is its rules. */
@@ -128,6 +127,7 @@
             .rise { animation: rise .5s cubic-bezier(.28,.11,.32,1) both; }
             @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         }
+        @media (max-width: 899px) { .nav__links { display: none; } }
     </style>
 </head>
 <body>
