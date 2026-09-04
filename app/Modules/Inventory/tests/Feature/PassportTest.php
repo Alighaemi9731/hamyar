@@ -121,6 +121,38 @@ it('tells the whole story, oldest first, with the acquisition marked', function 
         );
 });
 
+it('offers the next actions to somebody who may take them, and the brand for the intake handover', function (): void {
+    [$unit] = acquiredUnit($this->tenant);
+
+    $owner = app(TenantContext::class)->runFor($this->tenant, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $this->actingAs($owner)
+        ->get($this->url.'/inventory/units/'.$unit->id)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Inventory::Units/Show')
+            ->where('can.sell', true)
+            ->where('can.repair', true)
+            ->where('can.label', true)
+            ->has('unit.brand_name')
+        );
+});
+
+it('withholds a door from somebody who cannot walk through it', function (): void {
+    [$unit] = acquiredUnit($this->tenant);
+
+    // A warehousekeeper does not sell: the till link would 403, so it is not offered.
+    $this->actingAs($this->keeper)
+        ->get($this->url.'/inventory/units/'.$unit->id)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.sell', false));
+});
+
 it('names the document that caused each line, without Inventory knowing the class', function (): void {
     [$unit] = acquiredUnit($this->tenant, 'آیفون ۱۵ پرو مکس', $this->keeper->id, 'PUR-1405-0012');
 

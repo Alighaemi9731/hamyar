@@ -76,8 +76,15 @@ final class PosController extends Controller
 
         $vat = $this->settings->vat();
 
+        // A code handed to the till by a link, the passport's «فروش» button. Only the
+        // string travels: the scan box looks it up through the same scoped endpoint a
+        // reader's scan uses, so nothing here can resolve another shop's device.
+        $scan = $request->query('imei');
+        $scan = is_string($scan) ? trim($scan) : '';
+
         return Inertia::render('Sales::Pos/Index', [
             'invoice' => $invoice instanceof SalesInvoice ? $this->resumePayload($invoice) : null,
+            'scan' => $scan === '' || mb_strlen($scan) > 64 ? null : $scan,
             'branch' => [
                 'id' => $branch->id,
                 'name' => $branch->name,

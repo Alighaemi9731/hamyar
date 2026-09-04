@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FormErrors } from '@/components/domain/form-errors';
+import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { AppShell } from '@/layouts/app-shell';
 
@@ -63,10 +64,7 @@ export default function HamtaChecklist({ unit, steps, can_manage: canManage }: P
             {/* `AppShell` already titles this screen «چک‌لیست همتا»; a second heading
                 saying almost the same thing is a duplicate, not a hierarchy. */}
             <p className="mt-1 text-sm text-muted-foreground">
-              {unit.product} · {unit.condition} ·{' '}
-              <span className="font-mono tabular-nums" dir="ltr">
-                {unit.imei}
-              </span>
+              {unit.product} · {unit.condition} · <Num value={unit.imei} variant="ltr" />
             </p>
           </div>
 

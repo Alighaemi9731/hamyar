@@ -261,7 +261,22 @@ final class TicketController extends Controller
 
         abort_if($branch === null, 409, 'این کاربر به هیچ شعبه‌ای دسترسی ندارد.');
 
+        // The passport's «پذیرش تعمیر» hands the device over by link. Strings only,
+        // trimmed and capped; the intake request validates them again on submit, and no
+        // lookup happens here, so nothing can reach across a tenant. Null, never `[]`,
+        // when there is nothing: an empty array is a truthy JSON array on the client.
+        $prefill = [];
+
+        foreach (['device_imei' => 'imei', 'device_model' => 'model', 'device_brand' => 'brand'] as $field => $param) {
+            $value = $request->query($param);
+
+            if (is_string($value) && trim($value) !== '') {
+                $prefill[$field] = mb_substr(trim($value), 0, 120);
+            }
+        }
+
         return Inertia::render('Repairs::Tickets/Intake', [
+            'prefill' => $prefill === [] ? null : $prefill,
             'branch' => ['id' => $branch->id, 'name' => $branch->name],
             'technicians' => $this->technicianOptions(),
             'checklist' => $this->checklistTemplate(),

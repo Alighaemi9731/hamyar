@@ -3789,3 +3789,20 @@ from a never-had-anything: the table's own search branch used to do that, and mo
 search out of the table would otherwise have shown «هنوز کالایی ثبت نشده» to a filter that
 matched nothing. The activity log and the report toolbar are the rest of the roadmap
 line. (#138)
+
+## 1404-06-14 (2026-09-04) — the passport gets its doors, and the IMEI leaves the OS monospace (16.4)
+
+The baseline scored the IMEI passport as the product's best-structured screen and noted
+two things: its signature number was set in `font-mono`, which resolves to whatever
+monospace the device has, and the page had no action at all. Every question about a phone
+ends in selling it, taking it in for repair, or putting a label on it, and each of those
+began with re-typing fifteen digits into another screen. The header now carries «فروش»,
+«پذیرش تعمیر» and «چاپ برچسب», each offered only to somebody who may take it (the
+dashboard's `may()` check, repeated) and only while it makes sense (a sold phone is not
+for sale, but it is for repair). Each link hands the device over by query string and the
+receiving screen looks it up through its own scoped path: the till's scan box takes the
+code as if a reader had typed it — same debounce, same auto-pick — so a link and a scanner
+cannot behave differently; the intake form prefills brand, model and IMEI; the label
+sheet searches the product name. No new lookup anywhere, so nothing to isolate. `Num`'s
+`ltr` variant drops `font-mono` for tabular figures in Vazirmatn, on the passport (at the
+display step, one step down on a phone) and in every register that shows an IMEI. (#139)

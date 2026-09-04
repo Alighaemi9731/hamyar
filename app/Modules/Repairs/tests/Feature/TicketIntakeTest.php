@@ -73,6 +73,30 @@ function intakePayload(int $branchId, array $overrides = []): array
     ];
 }
 
+/* ------------------------------------------------------------ handover -- */
+
+it('prefills the device a passport link hands over, and nothing when there is no link', function (): void {
+    $this->actingAs($this->owner)
+        ->get($this->url.'/repairs/intake?'.http_build_query([
+            'imei' => '356938035643809',
+            'model' => 'آیفون ۱۵ پرو مکس',
+            'brand' => 'اپل',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Repairs::Tickets/Intake')
+            ->where('prefill.device_imei', '356938035643809')
+            ->where('prefill.device_model', 'آیفون ۱۵ پرو مکس')
+            ->where('prefill.device_brand', 'اپل')
+        );
+
+    // Null, never an empty array: `[]` is a truthy JSON array on the client.
+    $this->actingAs($this->owner)
+        ->get($this->url.'/repairs/intake')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('prefill', null));
+});
+
 /* ---------------------------------------------------------- happy path -- */
 
 it('takes a device in and lands on the printable receipt', function (): void {

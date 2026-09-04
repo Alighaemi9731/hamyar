@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowRightIcon, PrinterIcon, SearchIcon, XIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
@@ -36,6 +36,8 @@ interface LabelVariant {
 }
 
 interface Props {
+  /** A search term a link handed over (`?q=`), or null. Typed into the box on mount. */
+  initial_term: string | null;
   levels: { id: number; label: string; is_default: boolean }[];
 }
 
@@ -63,7 +65,7 @@ interface Selection {
  * Barcodes are rendered as SVG on the server (see `BarcodeRenderer`) so that what the
  * scanner reads is generated from the same string the database holds, by one encoder.
  */
-export default function LabelsIndex({ levels }: Props) {
+export default function LabelsIndex({ levels, initial_term: initialTerm }: Props) {
   const [levelId, setLevelId] = useState(
     String(levels.find((level) => level.is_default)?.id ?? levels[0]?.id ?? '')
   );
@@ -78,6 +80,13 @@ export default function LabelsIndex({ levels }: Props) {
   );
 
   const { term, setTerm, results, status } = useRemoteSearch(search);
+
+  // A term a link handed over (the passport's «چاپ برچسب» carries the product name)
+  // is typed into the box once, on mount, and takes the same search path as typing.
+  useEffect(() => {
+    if (initialTerm) setTerm(initialTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const add = useCallback((variant: LabelVariant) => {
     setSelection((current) =>

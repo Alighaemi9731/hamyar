@@ -86,6 +86,18 @@ it('opens the label sheet with the shop price levels', function (): void {
         );
 });
 
+it('carries a term a link handed over into the sheet, and null when there is none', function (): void {
+    $this->actingAs($this->keeper)
+        ->get($this->url.'/catalog/labels?q='.rawurlencode('آیفون ۱۵'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('initial_term', 'آیفون ۱۵'));
+
+    $this->actingAs($this->keeper)
+        ->get($this->url.'/catalog/labels')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('initial_term', null));
+});
+
 it('sends everything one label needs in a single row', function (): void {
     [$level] = app(TenantContext::class)->runFor($this->tenant, function (): array {
         $level = PriceLevel::factory()->create(['is_default' => true]);

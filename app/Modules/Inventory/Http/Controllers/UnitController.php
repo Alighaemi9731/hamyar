@@ -10,6 +10,7 @@ use App\Modules\Inventory\Enums\UnitStatus;
 use App\Modules\Inventory\Models\ProductUnit;
 use App\Modules\Inventory\Models\ProductUnitHistory;
 use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Support\Documents\DocumentRegistry;
 use App\Support\Documents\DocumentType;
 use App\Support\Money;
@@ -107,13 +108,23 @@ final class UnitController extends Controller
     /**
      * One device's whole life.
      */
-    public function show(Request $request, ProductUnit $unit, DocumentRegistry $documents): Response
-    {
+    public function show(
+        Request $request,
+        ProductUnit $unit,
+        DocumentRegistry $documents,
+        SubscriptionResolver $plan,
+    ): Response {
         $this->authorize('view', $unit);
 
-        $unit->load(['variant.product:id,name,type', 'warehouse.branch:id,name']);
+        $unit->load([
+            'variant.product:id,name,type,brand_id',
+            'variant.product.brand:id,name,name_fa',
+            'warehouse.branch:id,name',
+        ]);
 
-        $showCost = $request->user()?->can('inventory.view_cost') ?? false;
+        $user = $request->user();
+        $showCost = $user?->can('inventory.view_cost') ?? false;
+        $brand = $unit->variant->product->brand;
 
         $histories = ProductUnitHistory::query()
             ->with('actor:id,name')
@@ -128,6 +139,7 @@ final class UnitController extends Controller
                 'imei2' => $unit->imei2,
                 'serial' => $unit->serial,
                 'product_name' => $unit->variant->product->name,
+                'brand_name' => $brand === null ? null : ($brand->name_fa ?? $brand->name),
                 'variant_name' => $unit->variant->displayName(),
                 'status' => $unit->status->value,
                 'condition' => $unit->condition->value,
@@ -150,8 +162,23 @@ final class UnitController extends Controller
                 'notes' => $unit->notes,
             ],
             'timeline' => $this->timeline($histories, $documents),
-            'can' => ['view_cost' => $showCost],
+            // The passport's doors: what this person may do next with this device. A
+            // link to a screen that 403s is a worse welcome than no link (the dashboard's
+            // quick actions make the same check for the same reason).
+            'can' => [
+                'view_cost' => $showCost,
+                'sell' => $this->may($user, $plan, 'sales', 'sales.create'),
+                'repair' => $this->may($user, $plan, 'repairs', 'repairs.create'),
+                'label' => $this->may($user, $plan, 'catalog', 'catalog.view'),
+            ],
         ]);
+    }
+
+    private function may(?\Illuminate\Contracts\Auth\Authenticatable $user, SubscriptionResolver $plan, string $module, string $permission): bool
+    {
+        return $user instanceof \App\Modules\Identity\Models\User
+            && $plan->grants($module)
+            && $user->can($permission);
     }
 
     /**

@@ -27,6 +27,12 @@ export interface NumProps {
  *
  * An IMEI rendered in Persian digits cannot be read back to a customer over the
  * phone or typed into HAMTA, which is why "ltr" ignores the tenant digit setting.
+ *
+ * Identifiers are set in the product's own face with tabular figures, not in
+ * `font-mono`: that token resolves to the operating system's monospace (Menlo, Consolas,
+ * whatever the device has), so the passport's signature number — the one figure the
+ * product is sold on — was the one thing on the screen drawn in a face the design system
+ * never chose. Tabular Latin digits in Vazirmatn align just as a monospace would.
  */
 export function Num({ value, variant = 'prose', grouped, className }: NumProps) {
   const settings = useTenantSettings();
@@ -44,7 +50,7 @@ export function Num({ value, variant = 'prose', grouped, className }: NumProps) 
 
   if (variant === 'ltr') {
     return (
-      <span className={cn('ltr-value tabular font-mono', className)} dir="ltr">
+      <span className={cn('ltr-value tabular', className)} dir="ltr">
         {text}
       </span>
     );
