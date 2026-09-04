@@ -46,6 +46,8 @@
             --b-row: 3.25rem;
         }
         html { background: #fff; }
+        html, body { overflow-x: clip; }
+        @media (max-width: 899px) { .nav__links { display: none; } }
         body { color: var(--b-ink); font-size: 1.0625rem; line-height: var(--b-row); }
         /* The sheet: rules across the whole viewport, aligned to a row height everything on the
            page sits on. This is the thesis, not decoration — a ledger is its rules. */

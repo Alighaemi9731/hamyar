@@ -45,6 +45,8 @@
             --a-board: #ffffff;
             --a-board-alt: #f4f6f9;
         }
+        html, body { overflow-x: clip; }
+        @media (max-width: 899px) { .nav__links { display: none; } }
         body { background: var(--a-board); color: var(--a-ink); line-height: 1.7; font-size: 1.0625rem; }
         .grid {
             display: grid;
