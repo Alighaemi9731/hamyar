@@ -111,6 +111,8 @@
      15.5rem holds the longest item («فروش و صندوق» with its icon) with the same air
      the 44px rows have, and returns 40px to every page against the 18rem it replaced. */
   --sidebar-width: 15.5rem;
+  /* The collapsed rail: one icon wide, plus the air a 44px row already has. */
+  --sidebar-rail: 4rem;
 
   --chart-1: var(--color-brand);
   --chart-2: #5e5ce6;

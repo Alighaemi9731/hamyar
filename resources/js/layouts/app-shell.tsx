@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
-import { MenuIcon } from 'lucide-react';
+import { MenuIcon, PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { BrandMark } from '@/components/brand-mark';
@@ -16,6 +16,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NAVIGATION } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
@@ -57,6 +58,25 @@ type AppShellProps = {
     }
 );
 
+/** Where the rail remembers itself. Per browser, on purpose: the counter PC and the phone differ. */
+const RAIL_KEY = 'hamyar.sidebar';
+
+function readRail(): boolean {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === 'rail';
+  } catch {
+    return false;
+  }
+}
+
+function storeRail(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(RAIL_KEY, collapsed ? 'rail' : 'full');
+  } catch {
+    // A private window or a locked-down browser: the toggle still works for the session.
+  }
+}
+
 /**
  * The tenant panel frame.
  *
@@ -64,12 +84,34 @@ type AppShellProps = {
  * which in `dir="rtl"` is the right of the screen — where a Persian reader's eye and
  * thumb land. Everything positional here is logical (border-s, ms-, start-), so the
  * same markup would mirror correctly if a Latin locale were ever added.
+ *
+ * ## The rail
+ *
+ * The sidebar collapses to one icon wide (`--sidebar-rail`). The counter and the
+ * reports are worked, not read, and on a 1280px laptop the full sidebar costs the POS a
+ * fifth of its width for a list of links the cashier stopped reading on day two. Each
+ * link keeps its name for a screen reader and gains a tooltip for the pointer; the
+ * choice is remembered per browser, because the counter PC and the owner's phone are
+ * different places. The drawer below `lg` is untouched — a phone has no rail.
  */
 export function AppShell({ title, actions, header, width = 'default', children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
   const { auth, flash, features, tenant, location, branch, usage, quota_block: quotaBlock } = props;
+
+  // Read once, on the client, before the first paint of this tree: SSR is off, so the
+  // initialiser is the earliest moment there is a `window` and the latest that avoids
+  // a full-to-rail jump on every navigation.
+  const [collapsed, setCollapsed] = useState<boolean>(readRail);
+
+  function toggleRail(): void {
+    setCollapsed((current) => {
+      storeRail(!current);
+
+      return !current;
+    });
+  }
 
   // Flash messages arrive as props on the next visit; surfacing them as toasts keeps
   // every module from having to render its own alert bar.
@@ -102,9 +144,46 @@ export function AppShell({ title, actions, header, width = 'default', children }
       {/* `--sidebar-width` is the one number the rail, the drawer and the page's
           arithmetic share; a rail that is 288px in one place and 256px in another is
           how a drawer stops matching the sidebar it stands in for. */}
-      <aside className="glass no-print sticky top-0 hidden h-dvh w-(--sidebar-width) shrink-0 flex-col border-e lg:flex">
-        <ShopBadge name={tenant?.name ?? 'سامانه همیار'} subdomain={tenant?.subdomain ?? null} />
-        <SidebarNav currentPath={location} features={features} />
+      <aside
+        data-rail={collapsed ? 'collapsed' : 'open'}
+        className={cn(
+          'glass no-print sticky top-0 hidden h-dvh shrink-0 flex-col border-e transition-[width] duration-(--duration-base) ease-(--ease-out) lg:flex',
+          collapsed ? 'w-(--sidebar-rail)' : 'w-(--sidebar-width)'
+        )}
+      >
+        <ShopBadge
+          name={tenant?.name ?? 'سامانه همیار'}
+          subdomain={tenant?.subdomain ?? null}
+          compact={collapsed}
+        />
+        <SidebarNav currentPath={location} features={features} compact={collapsed} />
+
+        <div className="border-t border-border p-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleRail}
+                aria-expanded={!collapsed}
+                aria-controls="sidebar-nav"
+                aria-label={collapsed ? 'بازکردن منو' : 'جمع‌کردن منو'}
+                className={cn('w-full', !collapsed && 'justify-start px-3')}
+              >
+                {/* The panel glyphs are drawn for an LTR frame; the sidebar sits on the
+                    right here, so "close" points into the rail the way the eye expects. */}
+                {collapsed ? (
+                  <PanelRightOpenIcon className="size-4" aria-hidden />
+                ) : (
+                  <PanelRightCloseIcon className="size-4" aria-hidden />
+                )}
+                {!collapsed && <span className="text-xs text-muted-foreground">جمع‌کردن منو</span>}
+              </Button>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="left">بازکردن منو</TooltipContent>}
+          </Tooltip>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -206,16 +285,32 @@ export function AppShell({ title, actions, header, width = 'default', children }
   );
 }
 
-function ShopBadge({ name, subdomain }: { name: string; subdomain: string | null }) {
+function ShopBadge({
+  name,
+  subdomain,
+  compact = false,
+}: {
+  name: string;
+  subdomain: string | null;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
+    <div
+      className={cn(
+        'flex h-16 items-center gap-2.5 border-b border-border',
+        compact ? 'justify-center px-0' : 'px-5'
+      )}
+    >
       {/* The product's mark, on the brand tile, beside the shop's name: the shop is on
           Hamyar, the way a store sits under its platform's mark in every admin a
           shopkeeper has used. It replaces a generic store icon that said nothing. */}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary text-primary-foreground">
+      <span
+        className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary text-primary-foreground"
+        title={compact ? name : undefined}
+      >
         <BrandMark tone="mono" className="size-5" />
       </span>
-      <span className="min-w-0">
+      <span className={cn('min-w-0', compact && 'sr-only')}>
         <span className="block truncate font-display text-sm font-bold">{name}</span>
         {subdomain && (
           <span className="ltr-value block truncate text-2xs text-muted-foreground" dir="ltr">
@@ -230,9 +325,12 @@ function ShopBadge({ name, subdomain }: { name: string; subdomain: string | null
 function SidebarNav({
   currentPath,
   features,
+  compact = false,
 }: {
   currentPath: string;
   features: Record<string, boolean>;
+  /** The rail: icons only, names in tooltips and for screen readers, sections as rules. */
+  compact?: boolean;
 }) {
   const activeHref = NAVIGATION.flatMap((section) => section.items)
     .map((item) => item.href)
@@ -240,7 +338,7 @@ function SidebarNav({
     .sort((a, b) => b.length - a.length)[0];
 
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4">
+    <nav id="sidebar-nav" className={cn('flex-1 overflow-y-auto py-4', compact ? 'px-2' : 'px-3')}>
       {/*
         One active item, and it is the most specific one. Matching each item by prefix on
         its own lit two at once — on `/inventory/units/6` both «انبار» and «شناسنامهٔ IMEI»
@@ -259,31 +357,53 @@ function SidebarNav({
         }
 
         return (
-          <div key={section.label} className="mb-4">
-            <p className="px-3 pb-2 text-2xs font-medium tracking-wide text-muted-foreground">
+          <div key={section.label} className={cn(compact ? 'mb-2' : 'mb-4')}>
+            {/* On the rail a section is a rule, not a word: there is no room for the
+                label and the grouping still reads. The group keeps its name for a
+                screen reader. */}
+            <p
+              className={cn(
+                'text-2xs font-medium tracking-wide text-muted-foreground',
+                compact ? 'sr-only' : 'px-3 pb-2'
+              )}
+            >
               {section.label}
             </p>
+            {compact && <div aria-hidden className="mx-2 mb-2 border-t border-border" />}
 
             <ul className="space-y-0.5">
               {visible.map((item) => {
                 const active = item.href === activeHref;
 
+                const link = (
+                  <Link
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-pill text-sm transition-colors',
+                      'h-[var(--density-row)]',
+                      compact ? 'justify-center px-0' : 'px-3.5',
+                      active
+                        ? 'bg-primary/10 font-semibold text-primary'
+                        : 'text-foreground/75 hover:bg-accent hover:text-foreground'
+                    )}
+                  >
+                    <item.icon className="size-4 shrink-0" aria-hidden />
+                    <span className={cn('truncate', compact && 'sr-only')}>{item.label}</span>
+                  </Link>
+                );
+
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? 'page' : undefined}
-                      className={cn(
-                        'flex items-center gap-3 rounded-pill px-3.5 text-sm transition-colors',
-                        'h-[var(--density-row)]',
-                        active
-                          ? 'bg-primary/10 font-semibold text-primary'
-                          : 'text-foreground/75 hover:bg-accent hover:text-foreground'
-                      )}
-                    >
-                      <item.icon className="size-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
+                    {compact ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>{link}</TooltipTrigger>
+                        {/* Physical left: the rail is on the right of the screen. */}
+                        <TooltipContent side="left">{item.label}</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      link
+                    )}
                   </li>
                 );
               })}
