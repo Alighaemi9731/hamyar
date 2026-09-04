@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+#
+# Re-capture the product screenshots the landing page ships.
+#
+#   bin/shots              every screen
+#   bin/shots pos imei     only these
+#   bin/shots --seed       seed the showcase data first (destructive: migrate:fresh)
+#
+# The landing claims its images come from the running software. Keeping that true has to
+# be one command, or it stops being true — it already did once, by nine days and a whole
+# redesign (docs/PROGRESS.md, 2026-09-03).
+#
+# Refuses rather than guesses: no stack, no build, no cwebp — say which, and stop. A
+# half-captured set is worse than yesterday's set, because it looks fresh.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+COMPOSE="docker compose"
+docker compose version >/dev/null 2>&1 || COMPOSE="docker-compose"
+
+SEED=0
+ARGS=()
+
+for arg in "$@"; do
+    case "$arg" in
+        --seed) SEED=1 ;;
+        *) ARGS+=("$arg") ;;
+    esac
+done
+
+BASE="${SHOTS_BASE_URL:-}"
+
+if [[ -z "$BASE" ]]; then
+    DOMAIN="$(grep -m1 '^APP_DOMAIN=' .env 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || true)"
+
+    if [[ -z "$DOMAIN" ]]; then
+        echo "  APP_DOMAIN is not in .env and SHOTS_BASE_URL is unset — nothing says where the app is served." >&2
+        exit 1
+    fi
+
+    BASE="http://app.${DOMAIN}"
+fi
+
+if ! curl -sS -o /dev/null --max-time 5 "${BASE}/login"; then
+    echo "  ${BASE}/login does not answer. Start the stack first: make up" >&2
+    exit 1
+fi
+
+if ! command -v cwebp >/dev/null 2>&1; then
+    echo "  cwebp is not installed — the shots would stay PNGs three times their size." >&2
+    echo "  macOS: brew install webp   ·   Debian/Ubuntu: apt-get install -y webp" >&2
+    exit 1
+fi
+
+if [[ ! -d node_modules/playwright ]]; then
+    echo "  playwright is not installed. Run: npm ci" >&2
+    exit 1
+fi
+
+if [[ "$SEED" == "1" ]]; then
+    echo "  seeding  migrate:fresh --seed + ShowcaseSeeder (destroys the dev database)"
+    $COMPOSE exec -T app php artisan migrate:fresh --seed
+    $COMPOSE exec -T app php artisan db:seed --class=ShowcaseSeeder
+fi
+
+# The captures are of the BUILT front end: the dev server's un-minified bundle is not what
+# a visitor sees, and `public/hot` would make the page load from Vite instead.
+echo "  building assets"
+npm run build >/dev/null
+
+echo "  capturing"
+SHOTS_BASE_URL="$BASE" node scripts/shots/capture.mjs "${ARGS[@]+"${ARGS[@]}"}"
+
+echo
+echo "  Done. Review resources/landing/shots/ before committing — a screenshot with a"
+echo "  half-loaded table in it is a defect the landing ships to every visitor."

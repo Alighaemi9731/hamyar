@@ -1769,7 +1769,7 @@ trail worth reading**.*
       four: a session that expired while a shop was mid-invoice currently produces an
       English page with no explanation and no way back. Needs the `hamyar-ui` skill and
       a pass through `/design`, so it is UI work rather than a one-line fix
-- [ ] Demo tenant with rich Persian data
+- [x] Demo tenant with rich Persian data — `ShowcaseSeeder` (Phase 16.0, 2026-09-04)
 - [ ] 5-minute owner onboarding tour
 - [ ] Terms + privacy pages
 - [ ] Public landing page per `docs/design-system.md#landing`: signature live thermal receipt hero, specced section order, Blade + Tailwind, JS ≤ 180KB gz, LCP < 2.5s on 4G, `prefers-reduced-motion` honoured
@@ -2243,7 +2243,7 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       subset variable fonts under `resources/fonts/` with preloads and metric fallbacks;
       `bin/check-bundle-boundary`; CSS-property rules in `bin/check-direction-classes`;
       Dockerfile manifest assertion extended (PR 0.2)
-- [ ] `ShowcaseSeeder`, `scripts/shots/*`, `bin/shots`, `make shots`, `shots.yml`,
+- [x] `ShowcaseSeeder`, `scripts/shots/*`, `bin/shots`, `make shots`, `shots.yml`,
       `tests/Feature/LandingShotsTest.php`, `tests/Browser/LandingTest.php` green against the
       current landing (PR 0.3)
 

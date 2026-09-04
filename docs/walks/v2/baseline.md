@@ -62,6 +62,12 @@ Estedad 600/700. Dark mode is a clean variable swap on every app screen.
    rule 8 documents; the passport does it right at `xl:`. → one-line fix, first in 16.4.
 7. **The landing skip link is broken by CSP** (`landing.blade.php:23-24`, inline handlers)
    — never visible on focus, two console errors per keyboard visit. → CSS-only in 16.3.
+8. **The `.mesh` grid background is a generated-UI signature** (`landing.css:410`): a
+   hairline line-field tiled on a fixed 46px cell, drawn over the hero and the navy band.
+   Flagged by the impeccable detector, and it agrees with finding 4 — a grid overlay
+   belongs on a canvas, a map, a blueprint or a measurement surface, and this page is none
+   of them. Left standing deliberately rather than patched: it is part of the look 16.3
+   replaces, and polishing a discarded direction is how the last two landings were built.
 
 High-impact next: dashboard's five empty attention boxes become one line each and its local
 `Card`/`Quiet` become `ui/card` + `EmptyState`; POS gets `data-density="compact"`, loses its

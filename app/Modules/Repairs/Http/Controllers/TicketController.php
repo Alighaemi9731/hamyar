@@ -129,8 +129,13 @@ final class TicketController extends Controller
 
         $columns = TicketStatus::boardColumns();
 
+        // `branch` is on the list because `row()` reads it and lazy loading is disabled:
+        // without it the board 500s on the first shop with tickets in more than one
+        // branch. The demo tenant never had a ticket, so no screen and no test ever hit
+        // it — the screenshot pipeline did, the first time it photographed a seeded
+        // workshop (2026-09-04).
         $tickets = RepairTicket::query()
-            ->with(['party:id,name', 'technician:id,name'])
+            ->with(['party:id,name', 'technician:id,name', 'branch:id,name'])
             ->whereIn('status', array_map(fn (TicketStatus $s): string => $s->value, $columns))
             ->tap(fn ($query) => $this->branches->constrain($query, $user))
             ->when($request->boolean('mine'), fn ($query) => $query->where('technician_id', $user->id))

@@ -1,0 +1,89 @@
+{
+  "captured_at": "2026-09-04T08:22:47.060Z",
+  "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "device_scale_factor": 2,
+  "theme": "light",
+  "locale": "fa-IR",
+  "screens": {
+    "pos": {
+      "path": "/sales/pos",
+      "files": [
+        "pos.webp",
+        "pos@2x.webp",
+        "pos-phone.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "repairs": {
+      "path": "/repairs/board",
+      "files": [
+        "repairs.webp",
+        "repairs@2x.webp",
+        "repairs-phone.webp"
+      ],
+      "captured_at": "2026-09-04T08:22:47.060Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "installments": {
+      "path": "/installments/collections",
+      "files": [
+        "installments.webp",
+        "installments@2x.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "profit": {
+      "path": "/reporting/profit",
+      "files": [
+        "profit.webp",
+        "profit@2x.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "sms": {
+      "path": "/messaging",
+      "files": [
+        "sms.webp",
+        "sms@2x.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "imei": {
+      "path": "/inventory/units",
+      "files": [
+        "imei.webp",
+        "imei@2x.webp",
+        "imei-phone.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "dashboard": {
+      "path": "/dashboard",
+      "files": [
+        "dashboard.webp",
+        "dashboard@2x.webp",
+        "dashboard-phone.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "sales": {
+      "path": "/sales",
+      "files": [
+        "sales.webp",
+        "sales@2x.webp"
+      ],
+      "captured_at": "2026-09-04T08:20:29.119Z",
+      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    }
+  }
+}
