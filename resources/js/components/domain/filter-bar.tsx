@@ -159,7 +159,10 @@ export function FilterBar({
     <div className={cn('space-y-3', className)}>
       <div className="flex flex-wrap items-center gap-2">
         {search && (
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+          // A floor and a basis, so the chips and selects wrap to a second row before
+          // the search shrinks: with `min-w-0` the unit register's seven chips and
+          // three selects squeezed it to 90px, and the placeholder read «IMEI، س».
+          <div className="relative min-w-48 flex-1 basis-60 sm:max-w-xs">
             <SearchIcon
               className="pointer-events-none absolute inset-block-0 start-3 my-auto size-4 text-muted-foreground"
               aria-hidden

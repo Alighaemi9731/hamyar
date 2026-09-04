@@ -2280,15 +2280,22 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
 ### 16.4 Product — type, ink, shell, dashboard, first-run
 - [ ] `app.css` on `brand.css`; chosen pairing; heading audit; navy ink; contrast re-measured
 - [ ] Shell: sidebar token + collapsible rail, brand mark, eyebrow labels, `PageHeader`
-      crumbs, the 17 `title=` pages, `Deferred` + page skeleton
-- [ ] SVG chart primitives on `/design`; dashboard rebuilt as deferred widgets
+      crumbs, the 17 `title=` pages, `Deferred` + page skeleton — token, mark (provisional
+      C), one header implementation and `width="wide"` landed in #136; crumbs dropped
+      (they repeat the lit sidebar item); the rail waits for the ink decision, `Deferred`
+      for the dashboard split
+- [ ] SVG chart primitives on `/design`; dashboard rebuilt as deferred widgets — the
+      `BarChart` is an SVG with a scale (#135); the deferred split remains
 - [ ] First-run setup checklist (`ShopSetupProgress`) — droppable if the schedule slips
 
 ### 16.5 Product consistency + copy
 - [ ] 13 register pages onto `FilterBar`; `ReportToolbar` for the seven reports; the
-      copy-pasted debounce deleted
+      copy-pasted debounce deleted — the catalogue, prices, parties, stock and units
+      registers moved (#138), with `FilterSelect` for open-ended dimensions; the activity
+      log and the report toolbar remain
 - [ ] `EmptyState` on the real gaps; `processing` feedback; ad-hoc pills → `Badge`; settings
-      tiles with icons; Repairs `Show` section primitives
+      tiles with icons; Repairs `Show` section primitives — all but the Repairs `Show`
+      primitives landed in #137, plus `FileDrop` on both import pages
 - [ ] `resources/js/lib/copy.ts`; `bin/check-copy-terms`; `clarify` pass over the 20 most-seen
       screens; `/design` split per section + the 7 missing specimens
 

@@ -1,9 +1,10 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowRightIcon, CheckIcon, TrendingUpIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
@@ -87,28 +88,13 @@ interface Props {
  * changes and gets another because a price moved in between.
  */
 export default function PricesIndex({ levels, variants, filters, categories, brands, can }: Props) {
-  const [term, setTerm] = useState(filters.q);
-  const first = useRef(true);
-
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-
-      return;
-    }
-
-    const timer = window.setTimeout(
-      () =>
-        router.get(
-          '/catalog/prices',
-          { q: term, category_id: filters.category_id, brand_id: filters.brand_id },
-          { preserveState: true, preserveScroll: true, replace: true }
-        ),
-      300
-    );
-
-    return () => window.clearTimeout(timer);
-  }, [term, filters.category_id, filters.brand_id]);
+  function visit(changes: Record<string, string | null>): void {
+    router.get('/catalog/prices', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
+  }
 
   return (
     <AppShell
@@ -126,22 +112,16 @@ export default function PricesIndex({ levels, variants, filters, categories, bra
 
       <div className="space-y-6">
         {can.manage_prices && (
-          <BulkPanel
-            levels={levels}
-            filters={{ ...filters, q: term }}
-            categories={categories}
-            brands={brands}
-          />
+          <BulkPanel levels={levels} filters={filters} categories={categories} brands={brands} />
         )}
 
         <SettingsSection variant="flush">
           <div className="p-6 pb-0 sm:p-7 sm:pb-0">
-            <Input
-              type="search"
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="نام کالا…"
-              className="max-w-sm"
+            <FilterBar
+              search={{ value: filters.q, label: 'جستجوی کالا', placeholder: 'نام کالا…' }}
+              onChange={visit}
+              resultCount={variants.total}
+              resultUnit="تنوع"
             />
           </div>
 

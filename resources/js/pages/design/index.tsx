@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/domain/confirm-dialog';
 import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
 import { FilterBar } from '@/components/domain/filter-bar';
+import { FilterSelect } from '@/components/domain/filter-select';
 import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
@@ -1177,7 +1178,21 @@ function FilterBarSection({ alt }: { alt?: boolean }) {
             }
             resultCount={rows}
             resultUnit="فاکتور"
-          />
+          >
+            {/* An open-ended dimension rides in the children slot as a compact select:
+                the *all* row names the dimension, so it needs no caption of its own. */}
+            <FilterSelect
+              label="دسته"
+              value={null}
+              options={[
+                { value: '1', label: 'گوشی' },
+                { value: '2', label: 'لوازم جانبی' },
+                { value: '3', label: 'قطعات' },
+              ]}
+              allLabel="همه دسته‌ها"
+              onChange={() => {}}
+            />
+          </FilterBar>
         </div>
       </Row>
 

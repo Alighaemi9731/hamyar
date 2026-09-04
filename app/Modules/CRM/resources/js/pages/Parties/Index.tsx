@@ -1,21 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { BellIcon, PlusIcon, UploadIcon, UsersIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 import { type Column, DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 import { cn } from '@/lib/utils';
 import type { MoneyValue } from '@/types';
@@ -38,8 +31,6 @@ interface Props {
   can: { create: boolean; view_balance: boolean };
 }
 
-const ALL = 'all';
-
 /**
  * Everyone the shop deals with, on one list.
  *
@@ -48,33 +39,17 @@ const ALL = 'all';
  * the picker uses, so the two screens can never disagree about who exists.
  */
 export default function PartiesIndex({ parties, filters, kinds, can }: Props) {
-  const [term, setTerm] = useState(filters.q);
-  const first = useRef(true);
-
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-
-      return;
-    }
-
-    const timer = window.setTimeout(() => visit({ q: term }), 300);
-
-    return () => window.clearTimeout(timer);
-  }, [term]);
-
-  function visit(changes: Record<string, string | boolean | null>): void {
-    router.get(
-      '/crm',
-      {
-        q: term,
-        kind: filters.kind,
-        include_inactive: filters.include_inactive,
-        ...changes,
-      },
-      { preserveState: true, preserveScroll: true, replace: true }
-    );
+  // The debounce and the merge live in `FilterBar` and `withoutEmpty`; this page owns
+  // only the visit. `replace`, so Back leaves the screen instead of replaying keystrokes.
+  function visit(changes: Record<string, string | null>): void {
+    router.get('/crm', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
   }
+
+  const filtered = filters.q !== '' || filters.kind !== null || filters.include_inactive;
 
   const columns: Column<PartyRow>[] = [
     {
@@ -193,64 +168,55 @@ export default function PartiesIndex({ parties, filters, kinds, can }: Props) {
     >
       <Head title="مشتریان و طرف حساب‌ها" />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1.5">
-          <span className="text-2xs text-muted-foreground">نوع</span>
-          <Select
-            value={filters.kind ?? ALL}
-            onValueChange={(value) => visit({ kind: value === ALL ? null : value })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value={ALL}>همه</SelectItem>
-              {kinds.map((kind) => (
-                <SelectItem key={kind.value} value={kind.value}>
-                  {kind.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-2xs text-muted-foreground">غیرفعال‌ها</span>
-          <Select
-            value={filters.include_inactive ? '1' : ALL}
-            onValueChange={(value) => visit({ include_inactive: value === '1' })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value={ALL}>پنهان باشند</SelectItem>
-              <SelectItem value="1">نمایش داده شوند</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
+      <FilterBar
+        className="mb-4"
+        search={{
+          value: filters.q,
+          label: 'جستجوی طرف حساب',
+          placeholder: 'نام، شرکت، کد ملی یا شماره تماس…',
+        }}
+        groups={[
+          { key: 'kind', label: 'نوع', value: filters.kind, options: kinds },
+          {
+            key: 'include_inactive',
+            label: 'غیرفعال‌ها',
+            value: filters.include_inactive ? '1' : null,
+            allLabel: 'فقط فعال‌ها',
+            options: [{ value: '1', label: 'با غیرفعال‌ها' }],
+          },
+        ]}
+        onChange={visit}
+        resultCount={parties.total}
+        resultUnit="طرف حساب"
+      />
 
       <DataTable
         columns={columns}
         rows={parties.rows}
         rowKey={(row) => row.id}
         caption="فهرست طرف حساب‌ها"
-        search={{ value: term, onChange: setTerm, placeholder: 'نام، شرکت، کد ملی یا شماره تماس…' }}
         onRowClick={(row) => router.visit(`/crm/parties/${row.id}`)}
         empty={
-          <EmptyState
-            icon={UsersIcon}
-            title="هنوز طرف حسابی ثبت نشده"
-            description="مشتری‌ها و تأمین‌کننده‌ها در یک فهرست‌اند — همان کسی که به شما گوشی می‌فروشد، ممکن است فردا از شما شارژر بخرد."
-            action={
-              can.create ? (
-                <Button asChild>
-                  <Link href="/crm/parties/create">ثبت اولین طرف حساب</Link>
-                </Button>
-              ) : undefined
-            }
-          />
+          filtered ? (
+            <EmptyState
+              variant="search"
+              title="طرف حسابی با این فیلتر نیست"
+              description="جستجو یا فیلتر را تغییر دهید."
+            />
+          ) : (
+            <EmptyState
+              icon={UsersIcon}
+              title="هنوز طرف حسابی ثبت نشده"
+              description="مشتری‌ها و تأمین‌کننده‌ها در یک فهرست‌اند — همان کسی که به شما گوشی می‌فروشد، ممکن است فردا از شما شارژر بخرد."
+              action={
+                can.create ? (
+                  <Button asChild>
+                    <Link href="/crm/parties/create">ثبت اولین طرف حساب</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          )
         }
       />
 

@@ -1,20 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangleIcon, BoxesIcon, SmartphoneIcon, WalletIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 import { type Column, DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
+import { FilterSelect } from '@/components/domain/filter-select';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatCard } from '@/components/domain/stat-card';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 import { cn } from '@/lib/utils';
 import type { MoneyValue } from '@/types';
@@ -42,8 +36,6 @@ interface Props {
   warehouses: { id: number; label: string }[];
 }
 
-const ALL = 'all';
-
 /**
  * What the shop is holding.
  *
@@ -53,28 +45,15 @@ const ALL = 'all';
  * this page and the shelf can be reconciled line by line.
  */
 export default function StockIndex({ rows, summary, filters, warehouses }: Props) {
-  const [term, setTerm] = useState(filters.q);
-  const first = useRef(true);
-
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-
-      return;
-    }
-
-    const timer = window.setTimeout(() => visit({ q: term }), 300);
-
-    return () => window.clearTimeout(timer);
-  }, [term]);
-
-  function visit(changes: Record<string, string | number | null>): void {
-    router.get(
-      '/inventory',
-      { ...filters, q: term, ...changes },
-      { preserveState: true, preserveScroll: true, replace: true }
-    );
+  function visit(changes: Record<string, string | null>): void {
+    router.get('/inventory', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
   }
+
+  const filtered = filters.q !== '' || filters.warehouse_id !== null;
 
   const columns: Column<StockRow>[] = [
     {
@@ -187,27 +166,24 @@ export default function StockIndex({ rows, summary, filters, warehouses }: Props
         />
       </div>
 
-      <div className="mb-6 grid gap-3 sm:max-w-xs">
-        <label className="space-y-1.5">
-          <span className="text-2xs text-muted-foreground">انبار</span>
-          <Select
-            value={filters.warehouse_id === null ? ALL : String(filters.warehouse_id)}
-            onValueChange={(value) => visit({ warehouse_id: value === ALL ? null : value })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value={ALL}>همه انبارها</SelectItem>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={String(warehouse.id)}>
-                  {warehouse.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
+      <FilterBar
+        className="mb-4"
+        search={{ value: filters.q, label: 'جستجوی کالا', placeholder: 'نام کالا…' }}
+        onChange={visit}
+        resultCount={rows.total}
+        resultUnit="قلم"
+      >
+        <FilterSelect
+          label="انبار"
+          value={filters.warehouse_id}
+          options={warehouses.map((warehouse) => ({
+            value: String(warehouse.id),
+            label: warehouse.label,
+          }))}
+          allLabel="همه انبارها"
+          onChange={(value) => visit({ warehouse_id: value })}
+        />
+      </FilterBar>
 
       {summary.low_stock_count > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-warning/25 bg-warning/10 px-5 py-4">
@@ -225,18 +201,25 @@ export default function StockIndex({ rows, summary, filters, warehouses }: Props
         rows={rows.items}
         rowKey={(row) => row.variant_id}
         caption="موجودی کالاهای فروشگاه"
-        search={{ value: term, onChange: setTerm, placeholder: 'نام کالا…' }}
         empty={
-          <EmptyState
-            icon={BoxesIcon}
-            title="چیزی در انبار نیست"
-            description="با ثبت فاکتور خرید، موجودی همین‌جا نمایش داده می‌شود."
-            action={
-              <Button variant="outline" asChild>
-                <Link href="/catalog">رفتن به کالاها</Link>
-              </Button>
-            }
-          />
+          filtered ? (
+            <EmptyState
+              variant="search"
+              title="قلمی با این فیلتر نیست"
+              description="جستجو یا انبار را تغییر دهید."
+            />
+          ) : (
+            <EmptyState
+              icon={BoxesIcon}
+              title="چیزی در انبار نیست"
+              description="با ثبت فاکتور خرید، موجودی همین‌جا نمایش داده می‌شود."
+              action={
+                <Button variant="outline" asChild>
+                  <Link href="/catalog">رفتن به کالاها</Link>
+                </Button>
+              }
+            />
+          )
         }
       />
 
