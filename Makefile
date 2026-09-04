@@ -113,6 +113,14 @@ gates: ## Run every bin/check-* gate (the same ones CI runs)
 		$(APP) php "$$gate" || exit 1; \
 	done
 
+.PHONY: shots
+shots: ## Re-capture the landing's product screenshots from the running stack
+	bin/shots
+
+.PHONY: shots-seed
+shots-seed: ## Seed showcase data, then re-capture (DESTROYS the dev database)
+	bin/shots --seed
+
 .PHONY: health
 health: ## Database, cache, migrations and queue — the check /health and bin/deploy run
 	$(APP_IT) php artisan health:check

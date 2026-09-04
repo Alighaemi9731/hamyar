@@ -1,0 +1,158 @@
+name: Landing screenshots
+
+# Re-capture the product screenshots the landing page ships, and open a PR when they have
+# changed.
+#
+# The page claims its images come from the running software. That claim went false once
+# already — six images nine days older than a redesign that changed every screen in them —
+# because re-capturing was a manual afternoon nobody scheduled. A weekly run makes the
+# staleness ceiling one week, and a PR (never a push) keeps `guard-main.yml` honest and
+# puts a human in front of every image before a visitor sees it.
+#
+# Linux is the canonical renderer: font rasterisation differs from macOS, so a local
+# capture is for iterating and this one is for shipping.
+
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: 'Screen ids to capture (blank = all)'
+        required: false
+        default: ''
+  schedule:
+    # 03:20 UTC on Mondays — off the hour, because every scheduled workflow on GitHub
+    # fires on the hour and the runner queue shows it.
+    - cron: '20 3 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: landing-shots
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture and open a PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hamyar_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, pgsql, redis, gd, zip, bcmath, intl, exif, pcntl
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # `cwebp` is what `scripts/shots/encode.mjs` encodes with; without it the script
+      # refuses rather than shipping PNGs three times the size.
+      - name: Install libwebp
+        run: sudo apt-get update && sudo apt-get install -y webp
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo "APP_ENV=local"
+            echo "APP_DEBUG=false"
+            echo "APP_DOMAIN=localhost"
+            echo "APP_URL=http://app.localhost:8000"
+            echo "DB_CONNECTION=pgsql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=5432"
+            echo "DB_DATABASE=hamyar_test"
+            echo "DB_USERNAME=postgres"
+            echo "DB_PASSWORD=postgres"
+            echo "REDIS_HOST=127.0.0.1"
+            echo "CACHE_STORE=redis"
+            echo "QUEUE_CONNECTION=sync"
+            echo "SESSION_DRIVER=cookie"
+          } >> .env
+
+      - name: Migrate and seed a shop worth photographing
+        run: |
+          php artisan migrate:fresh --seed --force
+          php artisan db:seed --class=ShowcaseSeeder --force
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Serve the application
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 &
+          for _ in $(seq 1 30); do
+            curl -sSf -o /dev/null http://app.localhost:8000/login && break
+            sleep 1
+          done
+
+      - name: Capture
+        env:
+          SHOTS_BASE_URL: http://app.localhost:8000
+        run: node scripts/shots/capture.mjs ${{ inputs.screens }}
+
+      - name: Verify the shots the landing expects
+        run: ./vendor/bin/pest tests/Feature/LandingShotsTest.php
+
+      - name: Open a pull request when the screens have changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: resources/landing/shots
+          branch: chore/landing-shots
+          commit-message: |
+            chore(landing): re-capture the product screenshots
+
+            Captured from a seeded showcase tenant on this workflow's runner, so the
+            landing's claim that its images come from the running software stays true.
+
+            Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+          title: 'chore(landing): re-capture the product screenshots'
+          body: |
+            The weekly capture found the product's screens no longer match the images the
+            landing ships.
+
+            **Look at every image before merging.** A screenshot with a half-loaded table,
+            an empty state where data was expected, or a console error behind it is a
+            defect shipped to every visitor. `resources/landing/shots/manifest.json` records
+            the commit each image was captured from.
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          delete-branch: true

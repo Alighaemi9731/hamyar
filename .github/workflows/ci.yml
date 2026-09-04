@@ -432,8 +432,28 @@ jobs:
       # through `postcss` by the `shadcn` CLI, which is in `dependencies` rather than
       # `devDependencies` and therefore in the production tree. Fixed by the patch bump;
       # the misplaced CLI is noted in docs/security.md.
+      # The registry's advisory endpoint is not part of this repository and goes down on
+      # its own schedule: three consecutive runs on 2026-09-04 failed with "audit endpoint
+      # returned an error" (a socket hang-up on the bulk-advisory call, reproducible from
+      # a laptop) while the lockfile was unchanged and clean. So the step retries, and
+      # separates "the service could not answer" from "the service answered and found
+      # something": the first is a warning, the second still fails the build. A gate that
+      # goes red on somebody else's outage is a gate somebody eventually disables.
       - name: npm audit (production tree)
-        run: npm audit --omit=dev --audit-level=high
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm audit --omit=dev --audit-level=high 2>&1 | tee audit.log; then
+              exit 0
+            fi
+            if ! grep -q "audit endpoint returned an error" audit.log; then
+              echo "::error::npm audit found an advisory at or above high severity in the production tree."
+              exit 1
+            fi
+            echo "audit endpoint unavailable (attempt ${attempt}/3); retrying in 20s"
+            sleep 20
+          done
+          echo "::warning::npm audit skipped — the registry's advisory endpoint did not answer after three attempts. Re-run the job later; this is not a finding."
 
       # Formatting was the one frontend rule with a script and no gate, and it drifted:
       # 25 files across 9 modules were unformatted when this step was added, none of them

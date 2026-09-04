@@ -3637,3 +3637,46 @@ The RTL gate learned CSS in the same pass — it only ever matched Tailwind clas
 ~4,700 lines of hand-written stylesheet were unguarded, and it found two physical
 `text-align` values in `landing.css` immediately. Paint directions are deliberately exempt.
 Ten guards now, was eight plus the RTL gate; 65 cases across the two gate tests.
+
+## 1404-06-14 (2026-09-04) — a shop worth photographing, and the camera that keeps it honest (16.0, PR 0.3)
+
+The landing's screenshots were captured by hand on 22 August, nine days before a redesign
+changed every screen in them, and the page kept saying «تصویرها از خود نرم‌افزار گرفته
+شده‌اند». Re-capturing was an afternoon nobody scheduled, and the demo shop they would have
+been captured from had one sale, ten handsets, and no repairs, cheques or instalments —
+every picture of the dashboard, the board and the collections desk would have been a
+picture of an empty product.
+
+`ShowcaseSeeder` fills the demo shop in, on demand (`php artisan db:seed
+--class=ShowcaseSeeder`; `make fresh` stays fast). A month of trading driven through the
+real services on a clock parked in the past, so the ledger, the stock movements and every
+IMEI passport agree about when each thing happened: 62 invoices shaped by a fixed
+per-day table (the two zeros are Fridays), 40 handsets across eight models with a margin on
+every one, 17 repair tickets across all eight board columns with the approval gate
+respected rather than stepped around, five instalment plans including a settled one and
+three that are weeks late, ten cheques in every state the register names, the month's
+overheads and weekly banking, and a message log with `sent` and `suppressed` rows. The demo
+shop is sold «حرفه‌ای» first — the free rung sells no SMS and two seats — so every quota
+is spent the way a shopkeeper's button press would spend it and the usage screen shows real
+numbers. Deterministic: two runs give the same figures on every screen.
+
+Then the camera: `bin/shots` (also `make shots`, `make shots-seed`) builds the assets,
+logs into the seeded shop and captures eight screens at 1440×900 @2x in light theme with
+motion settled and fonts loaded, waiting on a witness selector and never on a timeout,
+scanning a real IMEI into the till so it is not photographed empty. `cwebp` encodes a
+1440, a 2880 and — where the tour needs it — a real crop of the region the caption talks
+about, replacing the CSS zoom that showed 44% of a screen. A manifest records the commit
+each image was captured from, and `LandingShotsTest` refuses a tour tile without a shot,
+a shot without a manifest entry, or a manifest sha this repository does not contain — a
+coherence check, deliberately not a date check. `shots.yml` runs it weekly on Linux (the
+canonical renderer) and opens a PR when the screens have changed.
+
+**The first capture found a production defect.** The repairs board returned 500 on the
+seeded shop: `row()` reads `$ticket->branch`, lazy loading is disabled, and the board query
+never eager-loaded it — so every shop with tickets in more than one branch has been getting
+the error page there, and nothing had ever put tickets on that board with two branches. One
+entry in the `with()` list, and the pipeline exits non-zero on any console error so the
+next such defect cannot ship inside an image.
+
+`ShowcaseSeederTest` pins the shape the screenshots depend on (six cases, twelve seconds).
+Nothing deployed — there is no box.
