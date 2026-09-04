@@ -1,0 +1,28 @@
+/*
+ | Gate 16.2 — the stylesheet the three direction comps load.
+ |
+ | The brand layer (tokens and fonts) and the landing-only grounds, and nothing of the
+ | current landing page: loading `landing.css` into a comp brought the old hero wash and
+ | button styles with it, which is the look the comps exist to replace. Preflight only,
+ | no utilities (`source(none)`), so each comp's inline styles are the whole of its look.
+ |
+ | Disposable with the comps; the chosen direction becomes proper section files in 16.3.
+ */
+
+@import 'tailwindcss' source(none);
+@import '../css/brand.css' theme(static);
+
+/* `static` on both: Tailwind v4 emits a theme variable only where the CSS it compiles
+   references it, and the comps reference these from inline <style> blocks it never sees —
+   so without `static` every var() in a comp resolved to nothing and the primary buttons
+   rendered white on white. */
+@theme static {
+  --color-page: #ffffff;
+  --color-navy: #0e1b2c;
+  --color-navy-soft: #46586d;
+  --color-navy-mute: #5d6b7e;
+  --color-navy-900: #0a1628;
+  --color-navy-800: #142943;
+  --color-accent: #0066cc;
+  --color-hair: #dce3eb;
+}

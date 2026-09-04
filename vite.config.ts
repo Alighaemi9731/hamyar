@@ -19,6 +19,9 @@ export default defineConfig({
         // `bin/check-bundle-boundary` refuses any other crossing.
         'resources/landing/landing.css',
         'resources/landing/landing.js',
+        // Gate 16.2's direction comps: the brand layer alone, so the old landing's look cannot
+        // leak into the candidates meant to replace it. Removed with the comps in 16.3.
+        'resources/landing/gate.css',
         // Real product screenshots, referenced from the landing via Vite::asset().
         // Listed as inputs rather than dropped in public/ so they are content-hashed:
         // a re-captured screenshot invalidates its own URL instead of hiding behind a

@@ -198,4 +198,12 @@ if (app()->environment('local', 'testing')) {
     // The og:image as a page, captured by `bin/shots og` into resources/landing/og/og.png.
     // Same guard as /design: never registered in production.
     Route::get('/design/og', fn () => view('og.landing'))->name('design.og');
+
+    // Gate 16.2: three landing directions as real markup, one route each. Disposable —
+    // the chosen one is rebuilt properly in 16.3 and these come out with it.
+    Route::get('/design/landing/{direction}', function (string $direction) {
+        abort_unless(in_array($direction, ['a', 'b', 'c'], true), 404);
+
+        return view("design.landing.{$direction}", ['plans' => \App\Modules\Platform\Models\Plan::query()->where('is_public', true)->with('limits')->orderBy('position')->get()]);
+    })->name('design.landing');
 }
