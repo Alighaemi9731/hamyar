@@ -2291,10 +2291,12 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       #140, 2026-09-04
 
 ### 16.5 Product consistency + copy
-- [ ] 13 register pages onto `FilterBar`; `ReportToolbar` for the seven reports; the
+- [x] 13 register pages onto `FilterBar`; `ReportToolbar` for the seven reports; the
       copy-pasted debounce deleted — the catalogue, prices, parties, stock and units
-      registers moved (#138), with `FilterSelect` for open-ended dimensions; the activity
-      log and the report toolbar remain
+      registers moved (#138) with `FilterSelect` for open-ended dimensions, the activity
+      log followed (#142); every page-level debounce is gone. `ReportToolbar` dropped on
+      purpose: `report-view.tsx` records why the seven toolbars differ (cuts on three,
+      two ranges on one), and they were built together and do not drift
 - [ ] `EmptyState` on the real gaps; `processing` feedback; ad-hoc pills → `Badge`; settings
       tiles with icons; Repairs `Show` section primitives — all but the Repairs `Show`
       primitives landed in #137, plus `FileDrop` on both import pages
