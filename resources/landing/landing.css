@@ -202,6 +202,19 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* The keyboard visitor's first control. Off-screen until focused — never `display:none`,
+   which would take it out of the tab order and defeat the point. */
+.skip {
+  position: absolute;
+  inset-inline-start: -9999px;
+  inset-block-start: 1rem;
+  z-index: 99;
+}
+
+.skip:focus-visible {
+  inset-inline-start: 1rem;
+}
+
 h1,
 h2,
 h3 {
@@ -226,6 +239,17 @@ h3 {
 .shell {
   width: min(1120px, 100% - 3rem);
   margin-inline: auto;
+}
+
+/*
+  The wide track: 1280px, for a band whose content is a stage or a grid rather than
+  prose. The owner's first complaint about this page was «متن وسط، دو طرف خالی» — one
+  1120px column carried everything, including the fold, so a 1440px screen spent 320px
+  on nothing beside the one thing a visitor came to look at. Prose stays on `.shell`,
+  because 1280px of Persian text is a line nobody can track back.
+*/
+.shell--wide {
+  width: min(1280px, 100% - 3rem);
 }
 
 /* 639, not 519: the shell's gutter change is the small breakpoint, not a tenth one. */
@@ -437,84 +461,114 @@ h3 {
 
 /* ----------------------------------------------------------------- nav ---- */
 
+/*
+  Frosted, and it does not change on scroll.
+
+  v1 wrote "solid, not frosted — no glassmorphism anywhere on this page" and gave the bar
+  a `data-stuck` state that grew a border and a shadow once you scrolled. ADR 0021 takes
+  both back: the reference bar is white at 80% over `blur(12px)` with one constant
+  hairline and no scroll state at all, and a bar that restyles itself as you scroll is a
+  second thing moving on a page whose content should be the only thing moving.
+
+  One unprefixed `backdrop-filter`. A manual `-webkit-` twin is what lightningcss folded
+  in #131, dropping the standard property and leaving the app with a blur that never
+  rendered; `bin/check-built-css` exists because of it.
+*/
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  /* Solid, not frosted. No glassmorphism anywhere on this page. */
-  background: var(--color-page);
-  border-block-end: 1px solid transparent;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
-}
-
-.nav[data-stuck='true'] {
-  border-block-end-color: var(--color-hair);
-  box-shadow: 0 8px 24px -20px rgb(14 27 44 / 0.5);
+  background: color-mix(in srgb, var(--color-page) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-block-end: 1px solid var(--color-hair);
 }
 
 .nav__inner {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  min-height: 4.5rem;
+  gap: 1rem;
+  min-block-size: 4rem;
 }
 
+/* The name, set as a mark rather than typed as a heading: the mark tile, then the
+   wordmark, then the reading of it a screen reader gets. */
 .nav__brand {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  color: var(--color-navy);
-  letter-spacing: -0.02em;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  /* A 40px tap target on a phone — it was 37px, the height of its own glyphs. The
-     landing is its own design system, but a thumb is the same size on both. */
   min-block-size: 2.5rem;
-}
-
-.nav__mark {
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
   flex: none;
 }
 
+.nav__mark {
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 0.625rem;
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.nav__mark svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/* The mark file carries the brand dot as a literal so it reads on a white ground; on the
+   brand tile that dot would vanish into it, so the tile paints it in its own colour.
+   `components/brand-mark.tsx` does the same thing with `[&_circle]:fill-current` — one
+   SVG file, two grounds, no second copy to keep in step. */
+.nav__mark svg circle {
+  fill: currentColor;
+}
+
+.nav__wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+  color: var(--color-navy);
+}
+
+/*
+  The link group is one pill holding the links, with the current page lit by a white pill
+  inside it. It reads as a control rather than as a row of text, which is the difference
+  the owner pointed at in the reference — and the lit pill answers "where am I" without a
+  second colour or an underline that only appears on hover.
+*/
 .nav__links {
   display: none;
-  gap: 2rem;
-  margin-inline-start: auto;
+  align-items: center;
+  gap: 0.125rem;
+  margin-inline: auto;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--color-page-alt);
 }
 
 .nav__links a {
   color: var(--color-navy-soft);
   font-size: 0.9375rem;
   font-weight: 500;
-  transition: color 160ms ease;
-  position: relative;
   display: inline-flex;
   align-items: center;
-  min-block-size: 2.5rem;
-  padding-block: 0.25rem;
-}
-
-.nav__links a::after {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: -0.125rem;
-  block-size: 2px;
-  border-radius: 2px;
-  background: var(--color-accent);
-  scale: 0 1;
-  transition: scale 180ms ease;
+  min-block-size: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: 9999px;
+  transition: color 160ms ease, background-color 160ms ease;
 }
 
 .nav__links a:hover {
   color: var(--color-navy);
+  background: color-mix(in srgb, #fff 70%, transparent);
 }
 
-.nav__links a:hover::after {
-  scale: 1 1;
+.nav__links a[aria-current='page'] {
+  color: var(--color-navy);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.06);
 }
 
 .nav__cta {
@@ -524,12 +578,180 @@ h3 {
   margin-inline-start: auto;
 }
 
+/*
+  The mobile menu, as a `<details>`.
+
+  No JavaScript: the disclosure, the keyboard, the Escape key and the initial state are
+  the browser's, they work before `landing.js` parses, and they cannot be broken by the
+  nonce-only CSP that already refused this page's skip-link handlers (16.0 finding 7).
+  The 16.0 baseline recorded that the landing had NO navigation at all below 900px —
+  eight links and both actions simply absent on the device most visitors arrive on.
+*/
+.nav__toggle {
+  margin-inline-start: auto;
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--color-navy);
+  cursor: pointer;
+  list-style: none;
+}
+
+.nav__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.nav__toggle:hover {
+  background: var(--color-page-alt);
+}
+
+.nav__menu[open] .nav__toggle {
+  background: var(--color-page-alt);
+}
+
+/* The open icon swaps for the close icon, so one control says both things. */
+.nav__menu:not([open]) .nav__toggle-close,
+.nav__menu[open] .nav__toggle-open {
+  display: none;
+}
+
+.nav__panel {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  padding: 0.75rem 1.5rem 1.25rem;
+  background: var(--color-page);
+  border-block-end: 1px solid var(--color-hair);
+  box-shadow: 0 16px 32px -24px rgb(14 27 44 / 0.4);
+  display: grid;
+  gap: 0.125rem;
+}
+
+.nav__panel a {
+  display: flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding-inline: 0.75rem;
+  border-radius: 0.75rem;
+  color: var(--color-navy);
+  font-weight: 500;
+}
+
+.nav__panel a:hover,
+.nav__panel a[aria-current='page'] {
+  background: var(--color-page-alt);
+}
+
+.nav__panel-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 0.75rem;
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--color-hair);
+}
+
 @media (min-width: 900px) {
   .nav__links {
     display: flex;
   }
+
+  .nav__menu {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
   .nav__cta {
-    margin-inline-start: 0;
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- trust --- */
+
+/*
+  The proof strip: one bordered band under the fold, the way the reference does it.
+
+  It shipped with **no stylesheet at all** — every `.trust__*` class in
+  `sections/trust.blade.php` matched nothing, so the band rendered as four stacked
+  paragraphs of unstyled text directly under the hero. Nothing errors when a rule is
+  absent; it just looks like a page that was never finished, which is a fair description
+  of what a visitor saw.
+
+  There is still no social proof on it. This product has no paying customers yet
+  (CLAUDE.md, «Environments»), so a logo row or a shop count here would be invented —
+  the one thing the reference does that ADR 0021 refuses to copy. What is on it instead
+  are three claims a shopkeeper can check on the free plan before paying anybody.
+*/
+.trust {
+  border-block: 1px solid var(--color-hair);
+  background: var(--color-page);
+  padding-block: 1.25rem;
+}
+
+.trust__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+
+.trust__claim {
+  font-size: 0.9375rem;
+  color: var(--color-navy-soft);
+  margin: 0;
+}
+
+.trust__claim b {
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+/* The leader rule only exists where the claim and the proofs share a line; at narrower
+   widths it would be a dash floating between two stacked blocks. */
+.trust__rule {
+  display: none;
+  flex: 1;
+  block-size: 1px;
+  background: var(--color-hair);
+}
+
+.trust__proofs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  color: var(--color-navy-mute);
+  font-size: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust__proofs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A dot before every item except the first, so the row reads as a series without
+   spending a border on it. */
+.trust__proofs li + li::before {
+  content: '';
+  inline-size: 0.25rem;
+  block-size: 0.25rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-navy-mute) 50%, transparent);
+  margin-inline-end: 1rem;
+}
+
+@media (min-width: 900px) {
+  .trust__rule {
+    display: block;
+  }
+
+  .trust__proofs li + li::before {
+    margin-inline-end: 0;
   }
 }
 
@@ -551,21 +773,26 @@ h3 {
   white-space: nowrap;
 }
 
-/* Navy, not blue: the loudest thing on the page should still be quiet, and the accent
-   is worth more kept for links and small marks. White on navy is 17.3:1.
+/*
+  Brand blue, flat.
 
-   The gradient is two steps of the same navy and the inset highlight is one pixel —
-   enough that the button reads as a solid object rather than a rectangle of colour. */
+  It was a two-stop navy gradient with a one-pixel inset highlight, a coloured drop
+  shadow and a 1px hover lift, on the reasoning that "the loudest thing on the page
+  should still be quiet". The 16.0 baseline counted that button among 17 gradients and 7
+  shadow recipes and named the result generic SaaS hardware; the reference the owner then
+  named has one flat fill in its accent and no lift anywhere.
+
+  Blue also matches the product: the same `#0066cc` means "you can act on this" on every
+  screen behind the sign-up, and a landing whose primary action is navy teaches the
+  opposite on the way in. White on it is 5.6:1.
+*/
 .btn--primary {
-  background: linear-gradient(180deg, #1a3050 0%, var(--color-navy-900) 100%);
+  background: var(--color-accent);
   color: #fff;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 8px 20px -12px rgb(10 22 40 / 0.7);
 }
 
 .btn--primary:hover {
-  background: linear-gradient(180deg, #22406b 0%, #12243c 100%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 12px 26px -12px rgb(10 22 40 / 0.75);
-  translate: 0 -1px;
+  background: #005bbb;
 }
 
 .btn--quiet {

@@ -1,40 +1,19 @@
 /*
  | Hamyar landing — the whole of its JavaScript.
  |
- | There is no second chunk. The rejected dark direction (ADR 0016) dynamically imported
- | ~50KB of GSAP, ScrollTrigger and Lenis to drive a pinned, scrubbed hero; this
- | direction asks typography and whitespace to carry the page, so the only motion left is
- | a 220ms fade-and-rise on section entry — which is an IntersectionObserver and a CSS
- | transition.
+ | There is no second chunk, and there is no motion here at all. The rejected dark
+ | direction (ADR 0016) dynamically imported ~50KB of GSAP, ScrollTrigger and Lenis to
+ | drive a pinned, scrubbed hero. ADR 0021 removed the last of what replaced it: the
+ | reference the owner named has zero elements parked at `opacity: 0` and one transform
+ | transition on the whole page, so what reads as a considered scroll is
+ | `scroll-behavior: smooth` and section rhythm — both CSS, both already here.
  |
- | Everything here is page FUNCTIONALITY except the observer and the spine: the
- | sticky-nav hairline, the pricing toggle and the FAQ all have to work whether or not
- | this file ever arrives.
+ | The nav's own scroll observer went with it: the bar no longer changes as you scroll.
+ | The mobile menu is a `<details>`, so it needs nothing from this file either.
+ |
+ | Everything left is page FUNCTIONALITY — the pricing toggle, the FAQ and the password
+ | reveal all have to work whether or not this file ever arrives.
  */
-
-/* ------------------------------------------------------------------ nav ---- */
-/*
- | A hairline appears under the nav once the page has scrolled. An observer on a
- | sentinel rather than a scroll listener: the browser does the work, and there is no
- | handler running on every frame.
- */
-
-const nav = document.querySelector('[data-nav]');
-
-
-import './sections/signature.js';
-import './sections/imei.js';
-
-if (nav) {
-  const sentinel = document.createElement('div');
-  sentinel.setAttribute('aria-hidden', 'true');
-  nav.parentNode.insertBefore(sentinel, nav);
-
-  new IntersectionObserver(
-    ([entry]) => nav.setAttribute('data-stuck', String(!entry.isIntersecting)),
-    { threshold: 0 },
-  ).observe(sentinel);
-}
 
 /* -------------------------------------------------------------- pricing ---- */
 /*

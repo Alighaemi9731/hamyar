@@ -1,197 +1,131 @@
 {{--
-    Section 1 — هیرو, and the page's signature element.
+    Section 1 — the fold.
 
-    ## Why this hero is not the previous hero
+    ## What this replaces, and why
 
-    The rejected page opened with a centred pill, a headline, a lede, two buttons and a
-    rendered 80mm receipt in the second column. Every part of that shape appears on a
-    thousand generated landing pages, and the owner named it: «معلومه کلاد کد زده».
+    The previous hero was a navy "counter after hours" panel with four rendered paper
+    slips that squared up into ledger rows as the first half-screen scrolled. It was the
+    third composition the owner rejected («معلومه کلاد کد زده»), and the 16.0 baseline
+    had already flagged its hairline `.mesh` overlay as a generated-UI signature.
 
-    Three things changed, and each is a decision rather than a reshuffle:
+    ADR 0021 takes the shape of the reference the owner named — a POS product in our own
+    category — and mirrors it for RTL: the argument on the reading-start side, and **the
+    product itself** on the other. Three cards float over the frame naming moments the
+    software actually produces.
 
-    · **The eyebrow is not a centred pill.** It is a start-aligned caption with a short
-      accent rule running into it. Same words, different device — and the centred
-      eyebrow above every section was the first tell on the list.
-    · **The claim names the enemy.** All six shopkeeper pains in the section below this
-      one are the same fault wearing different clothes: the record was on paper, and the
-      paper lost it — a handwritten intake ticket, a cheque in a drawer, an instalment
-      booklet, a delivery nobody remembered to mention. So the headline is about the
-      shop's ledger, in the merchant's own noun (دفتر مغازه), and the promise is the one
-      a merchant actually wants: nothing goes missing.
-    · **The signature is the counter, not a receipt.** See below.
+    ## The claim, and the one number that is not here
 
-    ## The signature element — «دفترِ مغازه»
+    The headline is candidate (a) from `docs/brand/positioning.md`, chosen at the gate:
+    it names the category in the largest type on the page rather than leaving it to a
+    14px eyebrow, which is what the baseline found a first-time visitor reading past.
 
-    The owner's verdict on the receipt was «ایده خوب است ولی اجرایش تکراری شده». The idea
-    worth keeping is *paper*, because paper is what this trade runs on. The idea worth
-    dropping is one pretty rendered artefact sitting still next to the text.
+    The reference's eyebrow reads «Used by 500+ Phone Shops Worldwide». Ours states what
+    the product is, because we have no such number and `docs/brand/voice.md` rule 3
+    forbids inventing one. It becomes a pilot-shop line the day the owner supplies names
+    and written consent.
 
-    So: a navy panel — the counter, after hours — with four real slips of the shop's day
-    lying on it in a pile: the intake ticket, the invoice, the cheque, the instalment.
-    As the visitor scrolls the first half-screen, the pile **squares up into the ledger's
-    rows** and each slip takes a ثبت mark. The headline says the papers stop getting
-    lost; the panel shows exactly that happening, once, to real slips with real numbers
-    on them. It is the argument, not a decoration of the argument.
+    ## The capture is real, and stays real
 
-    Four properties this had to satisfy, three of them learned the expensive way in
-    ADR 0016:
+    `bin/shots` takes it from a seeded shop, the manifest records the commit it was taken
+    at, `LandingShotsTest` fails if the manifest and the files disagree, and the weekly
+    workflow re-takes it. The page's previous screenshots were from 22 August and the
+    page claimed «تصویرها از خود نرم‌افزار گرفته شده‌اند» while showing a product that had
+    since changed twice.
 
-    · **It is never empty on arrival — and never illegible on arrival either.** The pile
-      is not a heap: the slip on top of it lies flat and square and is the invoice, so a
-      visitor who never scrolls still reads one whole document off the panel. Complete
-      and unreadable is its own version of the blank sheet. See the geometry note below.
-    · **It is never empty on arrival.** The panel, its heading, all four slips and every
-      word on them are painted at first paint. Scroll changes where the slips *sit*, not
-      whether they exist. The rejected direction drove a whole receipt from scroll
-      position zero and a visitor at the top of the page got a blank sheet of paper.
-    · **It cannot hijack the scroll.** One passive rAF-throttled listener writes one
-      custom property (`--fold`); CSS does the rest. Nothing is pinned, nothing is
-      scrubbed, no library is involved. See `sections/signature.js`.
-    · **It degrades to a still.** Below 1024px — and under `prefers-reduced-motion`, and
-      with no JavaScript at all — `--fold` stays at its default `1`, which is the
-      *finished* state: a tidy ledger with every slip filed and every mark shown.
-      Reduced motion gets the ending, never a disabled-looking middle.
-    · **It is the only expensive animation on the page.** Nothing else here moves.
-
-    The slips are illustrative sample data, so their figures are literals in this
-    template rather than `money()` output — the same call the existing receipt makes.
-    The one rule they still obey: Persian digits in prose, and Latin + `dir="ltr"` for
-    the two things that are genuinely Latin identifiers (the intake number and a handset
-    model), because a serial that reorders under bidi is a serial nobody can read back.
+    The three cards carry sample figures from one shop's day. Persian digits in prose;
+    the IMEI stays Latin and `dir="ltr"`, because a serial that reorders under bidi is a
+    serial nobody can read back to a customer.
 --}}
-<section class="pitch" id="hero">
-    {{-- The shared 46px hairline mesh, masked to fade out. Reused, not re-declared:
-         it is the same surface the rest of the page is drawn on. --}}
-    <div class="mesh" aria-hidden="true"></div>
+<section class="sec fold" id="hero">
+    <div class="shell shell--wide fold__grid">
+        <div class="fold__say">
+            <p class="fold__eyebrow">نرم‌افزار ابری فروشگاه موبایل</p>
 
-    <div class="shell pitch__grid">
-        <div class="pitch__say">
-            <p class="pitch__kicker">
-                <span class="pitch__rule" aria-hidden="true"></span>
-                نرم‌افزار ابری فروشگاه موبایل
+            {{-- «فروشگاه موبایل» is one noun phrase and the category the headline exists to
+                 name; `text-wrap: balance` was splitting it across the two lines. --}}
+            <h1 class="fold__title">
+                همهٔ کارِ <span class="nowrap">فروشگاه موبایل</span>، در <em>یک سامانه</em>
+            </h1>
+
+            <p class="fold__lede">
+                فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ
+                خودش ثبت می‌شود و سود هر فروش همان لحظه معلوم است.
             </p>
 
-            {{-- The accent lives in the largest type on the page and nowhere else in this
-                 section. #0066cc on white is 5.6:1, so the loudest colour costs nothing. --}}
-            {{--
-                «این‌بار» is gone from this line on purpose. It means *this time*, which
-                presumes the reader already bought software and it failed him — and most of
-                this audience has never bought any. It also left two clauses with no verb
-                between them, at 68px. The claim the panel beside it is making is that the
-                day's paper becomes rows; say that, and let «گم نمی‌شود» have a verb in the
-                lede where it can carry one.
-            --}}
-            <h1 class="pitch__title">هرچه پشت پیشخوان اتفاق می‌افتد،<br><em>یک سطر می‌شود.</em></h1>
-
-            <p class="pitch__lede">
-                گوشی را با IMEI می‌فروشید، قبض پذیرش را چاپ می‌کنید، قسط و چک را با سررسید
-                ثبت می‌کنید و مشتری خودش پیامک تحویل می‌گیرد. هیچ‌کدام توی کشو گم نمی‌شود، و
-                آخر ماه سودِ واقعیِ هر فروش را می‌بینید — نه جمعِ فروش را.
-            </p>
-
-            <div class="pitch__actions">
-                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">
-                    رایگان شروع کنید
-                    @include('landing.icon', ['name' => 'arrow', 'size' => 16])
-                </a>
-
-                {{-- Points at the product tour, which is the only honest demo this page
-                     has: there is no video, and autoplay video is out of budget. --}}
-                <a href="#tour" class="btn btn--quiet btn--lg">دموی ۳ دقیقه‌ای</a>
+            <div class="fold__actions">
+                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">رایگان شروع کنید</a>
+                {{-- `quiet`, not `ghost`: ghost is white-on-transparent for the navy
+                     band, and on this white ground it was an invisible button. --}}
+                <a href="#tour" class="btn btn--quiet btn--lg">دیدن نرم‌افزار</a>
             </div>
 
-            {{-- «بدون کارت بانکی» is a qualifier, not part of the button label. Putting it
-                 inside the target would make the one thing a visitor is meant to press
-                 read as a paragraph. --}}
-            <p class="pitch__fine">بدون کارت بانکی · بدون قرارداد · راه‌اندازی چند دقیقه‌ای</p>
+            <ul class="fold__ticks">
+                @foreach (['بدون کارت بانکی', 'در مرورگر، بدون نصب', 'تقویم شمسی و تومان'] as $tick)
+                    <li>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                        {{ $tick }}
+                    </li>
+                @endforeach
+            </ul>
         </div>
 
-        {{-- A <figure> rather than a decorative div: every word inside is real, readable
-             content that makes the argument, and a screen reader should get the four
-             slips as a list with the caption that explains them. Only the tick marks are
-             aria-hidden, because "ثبت شد" is already what the caption says. --}}
-        <figure class="counter" data-counter>
-            <div class="counter__head">
-                <span class="counter__title">دفترِ مغازه</span>
-                {{-- «امروز», not a printed date: a date literal in a template is stale the
-                     day after it ships, and this panel has no reason to be. --}}
-                <span class="counter__day">امروز</span>
+        <div class="fold__stage">
+            <div class="frame">
+                <div class="frame__bar" aria-hidden="true"><span></span><span></span><span></span></div>
+                <picture>
+                    <source
+                        srcset="{{ Illuminate\Support\Facades\Vite::asset('resources/landing/shots/dashboard.webp') }} 1x,
+                                {{ Illuminate\Support\Facades\Vite::asset('resources/landing/shots/dashboard@2x.webp') }} 2x"
+                        type="image/webp">
+                    {{-- `fetchpriority="high"`: it is the largest paint on the fold, and the
+                         browser otherwise discovers it after the stylesheet. --}}
+                    <img src="{{ Illuminate\Support\Facades\Vite::asset('resources/landing/shots/dashboard.webp') }}"
+                         width="1440" height="900" fetchpriority="high" decoding="async"
+                         alt="داشبورد همیار: فروش امروز، نمودار درآمد ۳۰ روز، چک‌ها و اقساط سررسیدشده.">
+                </picture>
             </div>
 
-            {{--
-                ## The pile, and the one document that is always readable
+            <div class="fold__card fold__card--imei">
+                <span class="fold__card-dot" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>
+                    </svg>
+                </span>
+                <span>
+                    <b>دستگاه ثبت شد</b>
+                    <span class="nums" dir="ltr">356938035643809</span>
+                </span>
+            </div>
 
-                `--k` is the slip's travel (fixed by its row: 1.5, 0.5, -0.5, -1.5) and is
-                not a taste decision. `--dx`, `--r` and `--z` are, and they are set here
-                against a rule the first build did not have:
+            <div class="fold__card fold__card--repair">
+                <span class="fold__card-dot" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.7 6.3a4 4 0 0 1-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5z"/>
+                    </svg>
+                </span>
+                <span>
+                    <b>تعمیر آمادهٔ تحویل</b>
+                    <span>پیامک برای مشتری رفت</span>
+                </span>
+            </div>
 
-                **the slip on top of the pile is square and unrotated, and it is the
-                invoice.** At `--fold: 0` — the first ~45% of a viewport, which is the
-                first thing anybody sees of this product — four opaque slips converge on
-                the middle of the panel. Whichever one lands on top is the only one being
-                read, so it must be worth reading and it must be flat: `--r:0deg`,
-                `--dx:0`, `--z:4`. The other three keep their tilt and fan out from under
-                it, which is what makes it a pile instead of a card.
-
-                Given three rejections this is the highest-risk taste call on the page:
-                the visitor must be able to read one real document — a real handset, a
-                real amount, a real time of day — without scrolling a pixel.
-            --}}
-            <ol class="counter__list" role="list">
-                <li class="counter__slip" style="--k:1.5;--dx:-1.1rem;--r:-4.4deg;--z:1">
-                    <span class="counter__kind">قبض پذیرش</span>
-                    <span class="counter__what">آیفون ۱۳ — تعویض گلس</span>
-                    <span class="counter__meta">
-                        <span class="nums" dir="ltr">REP-000184</span>
-                        <span class="nums">۹:۴۰</span>
-                    </span>
-                    <span class="counter__tick" aria-hidden="true">
-                        @include('landing.icon', ['name' => 'check', 'size' => 12])
-                    </span>
-                </li>
-
-                {{-- The top of the pile: flat, square, fully legible at `--fold: 0`. --}}
-                <li class="counter__slip" style="--k:0.5;--dx:0rem;--r:0deg;--z:4">
-                    <span class="counter__kind">فاکتور فروش</span>
-                    <span class="counter__what">سامسونگ گلکسی <span dir="ltr">A54</span> — یک دستگاه</span>
-                    <span class="counter__meta">
-                        <b class="counter__amount nums">۱۸٬۹۰۰٬۰۰۰ تومان</b>
-                        <span class="nums">۱۱:۰۵</span>
-                    </span>
-                    <span class="counter__tick" aria-hidden="true">
-                        @include('landing.icon', ['name' => 'check', 'size' => 12])
-                    </span>
-                </li>
-
-                <li class="counter__slip" style="--k:-0.5;--dx:0.85rem;--r:3.1deg;--z:2">
-                    <span class="counter__kind">چک</span>
-                    <span class="counter__what">بانک ملت — سررسید <span class="nums">۱۴۰۵/۰۷/۱۲</span></span>
-                    <span class="counter__meta">
-                        <b class="counter__amount nums">۱۲٬۰۰۰٬۰۰۰ تومان</b>
-                        <span class="nums">۱۳:۱۵</span>
-                    </span>
-                    <span class="counter__tick" aria-hidden="true">
-                        @include('landing.icon', ['name' => 'check', 'size' => 12])
-                    </span>
-                </li>
-
-                <li class="counter__slip" style="--k:-1.5;--dx:-0.5rem;--r:2deg;--z:3">
-                    <span class="counter__kind">قسط</span>
-                    <span class="counter__what">قسط <span class="nums">۳</span> از <span class="nums">۱۲</span> — سررسید امروز</span>
-                    <span class="counter__meta">
-                        <b class="counter__amount nums">۲٬۵۰۰٬۰۰۰ تومان</b>
-                        <span class="nums">۱۶:۲۰</span>
-                    </span>
-                    <span class="counter__tick" aria-hidden="true">
-                        @include('landing.icon', ['name' => 'check', 'size' => 12])
-                    </span>
-                </li>
-            </ol>
-
-            <figcaption class="counter__note">
-                هر اتفاقی که پشت پیشخوان می‌افتد، همین‌جا یک سطر می‌شود — و سطرها آخر ماه
-                جمع می‌شوند.
-            </figcaption>
-        </figure>
+            <div class="fold__card fold__card--instalment">
+                <span class="fold__card-dot" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                </span>
+                <span>
+                    <b>قسط وصول شد</b>
+                    <span class="nums">۴٬۲۰۰٬۰۰۰ تومان</span>
+                </span>
+            </div>
+        </div>
     </div>
 </section>

@@ -214,6 +214,32 @@ $check = static function (string $path) use ($root, $allowed, $stripComments, &$
         foreach (array_unique($found) as $host) {
             $host = mb_strtolower($host);
 
+            /*
+            | An asset filename is not a host, however it is punctuated.
+            |
+            | The `email` pattern reads `@(host)`, and `srcset` is written
+            | `dashboard@2x.webp 2x` — the retina convention every image on the landing
+            | uses. So the `@` of a density descriptor read as the `@` of an address and
+            | the gate reported `2x.webp` as a hostname the day the fold gained a
+            | `<picture>`.
+            |
+            | Rejecting by final label rather than by adding `2x.webp` to the allow-list:
+            | the allow-list is for hosts somebody decided to name, and every future
+            | `something@2x.png` would otherwise need its own line there. No TLD in the
+            | list below is real, so nothing this hides could have been a domain.
+            */
+            $assetExtensions = [
+                'webp', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'avif',
+                'css', 'js', 'mjs', 'ts', 'tsx', 'json', 'map',
+                'woff', 'woff2', 'ttf', 'otf', 'eot', 'pdf', 'zip', 'webmanifest',
+            ];
+
+            $lastLabel = substr((string) strrchr($host, '.'), 1);
+
+            if (in_array($lastLabel, $assetExtensions, true)) {
+                continue;
+            }
+
             foreach ($allowed as $safe) {
                 if ($host === $safe || str_ends_with($host, '.'.ltrim($safe, '.')) || str_ends_with($host, $safe)) {
                     continue 2;
