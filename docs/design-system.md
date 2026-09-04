@@ -31,10 +31,10 @@ for things you can act on.
 | Token | Value | Use |
 |---|---|---|
 | `canvas` | `#ffffff` | Primary section ground |
-| `canvas-alt` | `#f5f5f7` | Alternating section ground |
-| `canvas-invert` | `#000000` | Feature band — rare, high impact |
-| `ink` | `#1d1d1f` | Primary text — 16.8:1 on white |
-| `ink-soft` | `#6e6e73` | Secondary text — 5.07:1 on white, 4.66:1 on `canvas-alt` |
+| `canvas-alt` | `#f2f5f9` | Alternating section ground |
+| `canvas-invert` | `#0a1628` | Feature band — rare, high impact |
+| `ink` | `#0e1b2c` | Primary text — 17.3:1 on white (navy, ADR 0020) |
+| `ink-soft` | `#46586d` | Secondary text — 7.3:1 on white, 6.7:1 on `canvas-alt` |
 
 Sections **alternate** `canvas` and `canvas-alt`. That alternation, not borders, is
 what separates one block of content from the next.
@@ -45,7 +45,7 @@ what separates one block of content from the next.
 |---|---|---|
 | `brand` | `#0066cc` | Links, primary fills, active states, focus ring |
 | `brand-hover` | `#005bbb` | Hover |
-| `brand-on-dark` | `#409cff` | Dark mode — 7.4:1 on black |
+| `brand-on-dark` | `#409cff` | Dark mode — 6.4:1 on the navy ground |
 
 **One accent, and it is the only chromatic colour in the chrome.** Blue means *you can
 act on this*. A second accent would destroy that rule, so there isn't one — secondary
@@ -54,8 +54,8 @@ actions are neutral-filled or outlined.
 It is named `brand`, not `accent`, because shadcn already owns `--color-accent` for
 its muted hover surface.
 
-`#0066cc` rather than a brighter blue is a measured choice: `#0071e3` falls to 4.31:1
-on `#f5f5f7`, below AA, and half our sections use that ground.
+`#0066cc` rather than a brighter blue is a measured choice: `#0071e3` falls below AA on
+the alternating ground, and half our sections use it. `#0066cc` holds 5.09:1 there.
 
 ### Semantics
 
@@ -78,7 +78,7 @@ Light/dark is a **variable swap** (`:root` and `.dark`), never a per-component c
 override. Components consume `--background`, `--surface`, `--card`, `--border`,
 `--primary`, `--muted-foreground` — not the raw palette.
 
-Dark mode grounds on true black with `#1d1d1f` surfaces, and lifts the accent to
+Dark mode grounds on navy `#0a1628` with `#142943` surfaces, and lifts the accent to
 `brand-on-dark`, because the light-mode blue is unreadable on black.
 
 The theme class is applied by an inline script in `app.blade.php` **before first
@@ -89,7 +89,7 @@ paint**, so switching never flashes white.
 **Print surfaces are ink on white in both themes**, on screen as well as on paper — the
 sheet on screen IS the sheet that prints, so it cannot follow the app's ground. That makes
 paper the one place where the dark theme's lifted semantic steps are the *wrong* ones.
-`success` at `#4cc47f` is 7.5:1 on `#1d1d1f` and **2.2:1 on white**: a positive figure in a
+`success` at `#4cc47f` is 6.7:1 on the navy card and **2.2:1 on white**: a positive figure in a
 report, or a «پرداخت‌شده» stamp on an invoice, went from readable to nearly invisible the
 moment a shop switched to dark mode.
 
@@ -106,7 +106,7 @@ in `resources/css/app.css` — no page opts in, and no page can forget:
   --color-danger:  var(--color-danger-on-light);
   --destructive:   var(--color-danger-on-light);
   --primary:       var(--color-brand-on-light);
-  --muted-foreground: #6e6e73;
+  --muted-foreground: #46586d;
 }
 ```
 
@@ -126,11 +126,16 @@ contrast checker.
 
 ### Typography
 
-- Headings — **Estedad** 600/700/800, tight tracking
-- Body — **Vazirmatn** 400/500/600/700
-- Self-hosted via Fontsource. **We do not ship SF Pro** — it is Apple's and not
-  licensed to us. Estedad and Vazirmatn are the right answer regardless: this product
-  is Persian-first.
+- **IBM Plex Sans Arabic** carries both display and text — 400/500/600/700 (ADR 0020,
+  chosen at the 16.2 gate from four rendered pairings). One family, because an IMEI, a
+  rial figure and a Persian label share a row on every screen here and a two-family
+  pairing made that row three typefaces wide.
+- Self-hosted from `resources/fonts/`, subset to the Arabic and Latin ranges, with a
+  metric-matched fallback so the swap moves nothing. Its Arabic subset covers the Persian
+  digits (U+06F0–U+06F9), the Persian separator (U+066C) and «ک»/«ی» — verified, not
+  assumed. **We do not ship SF Pro**: it is Apple's and not licensed to us.
+- Vazirmatn, Estedad and Noto Kufi Arabic stay in the repo as the type test's other
+  candidates and the gallery still renders them; nothing in the product points at them.
 - Body 17px at **1.65** leading; Persian needs more leading than Latin at the same size.
 - Scale: 12 / 13 / 15 / **17** / 21 / 28 / 40 / 56 / 72.
 - Tracking tightens as size grows: `-0.015em` headings, `-0.022em` display. Large type
@@ -352,7 +357,7 @@ SEO-friendly.
 > attached. It keeps its meaning in the product, against a different ground.
 >
 > One divergence is still open and ADR 0016 names it: the landing's ink is navy, the
-> product's is `#1d1d1f`.
+> product's was `#1d1d1f` until ADR 0020 made both navy.
 
 The reasoning that produced the original position, kept because it is still the correct
 frame for every decision *inside* the new one: the audience is a shop owner on a

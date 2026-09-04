@@ -65,7 +65,7 @@
         font fetched twice. One hashed URL: the same file `fonts.css` points at.
     --}}
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}">
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2') }}">
 
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])

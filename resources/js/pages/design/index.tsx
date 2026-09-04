@@ -410,25 +410,29 @@ function contrast(foreground: string, background: string): number {
 }
 
 const INKS = [
-  { family: 'فعلی (ADR 0008)', name: 'ink', value: '#1d1d1f', role: 'متن اصلی' },
-  { family: 'فعلی (ADR 0008)', name: 'ink-soft', value: '#6e6e73', role: 'متن فرعی' },
-  { family: 'پیشنهادی — سرمه‌ای', name: 'navy', value: '#0e1b2c', role: 'متن اصلی' },
-  { family: 'پیشنهادی — سرمه‌ای', name: 'navy-soft', value: '#46586d', role: 'متن فرعی' },
-  { family: 'پیشنهادی — سرمه‌ای', name: 'navy-mute', value: '#5d6b7e', role: 'توضیحات — کف' },
+  { family: 'سرمه‌ای (ADR 0020)', name: 'ink', value: '#0e1b2c', role: 'متن اصلی' },
+  { family: 'سرمه‌ای (ADR 0020)', name: 'ink-soft', value: '#46586d', role: 'متن فرعی' },
+  { family: 'خنثی (ADR 0008 — بازنشسته)', name: 'ink قدیم', value: '#1d1d1f', role: 'متن اصلی' },
+  {
+    family: 'خنثی (ADR 0008 — بازنشسته)',
+    name: 'ink-soft قدیم',
+    value: '#6e6e73',
+    role: 'متن فرعی',
+  },
 ] as const;
 
 const GROUNDS = [
   { name: 'canvas', value: '#ffffff' },
-  { name: 'canvas-alt (فعلی)', value: '#f5f5f7' },
-  { name: 'alt پیشنهادی', value: '#edf2f8' },
+  { name: 'canvas-alt', value: '#f2f5f9' },
+  { name: 'کارت تیره', value: '#142943' },
 ] as const;
 
 function InkSection({ alt }: { alt?: boolean }) {
   return (
     <Section
       alt={alt}
-      title="جوهر — سیاه فعلی یا سرمه‌ای لندینگ؟"
-      note="ADR 0016 این را باز گذاشت: لندینگ با سرمه‌ای #0E1B2C می‌نویسد و محصول با #1D1D1F. یک جوهر برای هر دو. اعداد، نسبت کنتراست WCAG هستند و همین‌جا محاسبه می‌شوند؛ کف AA برای متن معمولی ۴٫۵ است."
+      title="جوهر — سرمه‌ای"
+      note="مالک در گیت ۱۶.۲ سرمه‌ای را انتخاب کرد و ADR 0020 آن را ثبت کرد؛ خنثای قدیمی برای مقایسه مانده است. اعداد، نسبت کنتراست WCAG هستند و همین‌جا محاسبه می‌شوند؛ کف AA برای متن معمولی ۴٫۵ است."
     >
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -496,7 +500,7 @@ function TokensSection({ alt }: { alt?: boolean }) {
   const grounds = [
     { name: 'canvas', value: '#FFFFFF', className: 'bg-canvas text-ink' },
     { name: 'canvas-alt', value: '#F5F5F7', className: 'bg-canvas-alt text-ink' },
-    { name: 'canvas-invert', value: '#000000', className: 'bg-canvas-invert text-white' },
+    { name: 'canvas-invert', value: '#0a1628', className: 'bg-canvas-invert text-white' },
     { name: 'ink', value: '#1D1D1F', className: 'bg-ink text-white' },
     { name: 'ink-soft', value: '#6E6E73', className: 'bg-ink-soft text-white' },
   ];
