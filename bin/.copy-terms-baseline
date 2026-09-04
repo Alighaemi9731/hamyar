@@ -1,0 +1,17 @@
+# Strings that broke docs/brand/voice.md when bin/check-copy-terms landed (2026-09-04),
+# as `path:term` pairs. The gate fails on anything NOT listed here, and also fails when a
+# listed pair disappears — so this file shrinks and cannot rot.
+#
+# Every line is the old landing's voice («مغازه», «توی کشو», «رُک بگوییم»), which 16.3
+# replaces wholesale. Do not add to it.
+
+resources/views/landing.blade.php:مغازه
+resources/views/landing/sections/closing.blade.php:مغازه‌های
+resources/views/landing/sections/faq.blade.php:رُک
+resources/views/landing/sections/faq.blade.php:مغازه‌داری
+resources/views/landing/sections/hero.blade.php:مغازه
+resources/views/landing/sections/hero.blade.php:توی
+resources/views/landing/sections/imei.blade.php:مغازه
+resources/views/landing/sections/problems.blade.php:مغازه‌دار
+resources/views/landing/sections/problems.blade.php:مغازه
+resources/views/landing/sections/problems.blade.php:توی

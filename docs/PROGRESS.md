@@ -3845,3 +3845,18 @@ their placeholders naming the dimension, and no local state at all: the server's
 somebody pastes into a support thread). The roadmap's `ReportToolbar` is dropped, not
 deferred: `report-view.tsx` already records why the seven report toolbars differ — cuts
 on three, two ranges on one — and they were written together and have not drifted. (#142)
+
+## 1404-06-14 (2026-09-04) — the voice becomes a gate (16.5)
+
+`docs/brand/voice.md` was a document; six of its rules are now `bin/check-copy-terms`, the
+twelfth guard: adjectives the reader cannot verify («هوشمند», «جامع», …), Arabic ك/ي and
+Arabic-Indic digits in Persian text, an exclamation mark after Persian, a space where a
+compound takes a ZWNJ («ثبت نام»), and the colloquial register («مغازه», «توی», «رُک»).
+It scans what a shop reads — `.tsx`, Blade, `lang/fa` — with comments blanked (a docblock
+quoting the phrase it forbids is documentation) and a `copy-allow` line marker for quoted
+speech. The same ratchet baseline as the form-error gate: ten `path:term` pairs, every one
+the old landing's voice, which 16.3 replaces; the product's own copy was already clean on
+all six rules except «ثبت نام» on the login and register pages, fixed here with the ZWNJ
+the glossary specifies. `resources/js/lib/copy.ts` is dropped: a vocabulary module nobody
+imports is dead code, and the glossary lives in the voice document with the gate behind
+it. (#143)

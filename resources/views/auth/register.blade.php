@@ -1,7 +1,7 @@
 @extends('auth.layout')
 
-@section('title', 'ثبت نام')
-@section('heading', 'ثبت نام')
+@section('title', 'ثبت‌نام')
+@section('heading', 'ثبت‌نام')
 
 @section('form')
     <form method="POST" action="{{ route('register.store') }}" novalidate>
@@ -69,7 +69,7 @@
             </span>
         </label>
 
-        <button type="submit" class="btn btn--primary auth__submit">ثبت نام</button>
+        <button type="submit" class="btn btn--primary auth__submit">ثبت‌نام</button>
 
         <p class="auth__alt">
             حساب دارید؟

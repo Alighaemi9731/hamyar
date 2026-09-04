@@ -1,0 +1,278 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Hamyar — copy-terms gate.
+ *
+ * ## The rule
+ *
+ * Every Persian string the product shows keeps the voice in `docs/brand/voice.md`: the
+ * professional register the owner chose on 2026-09-03, its orthography, and its glossary.
+ * Six of its rules are mechanical, and this refuses them:
+ *
+ *   adjective   an adjective the reader cannot verify — هوشمند، جامع، پیشرفته، بی‌نظیر،
+ *               قدرتمند، انقلابی، بهترین، حرفه‌ای‌ترین (voice rule 2)
+ *   arabic      an Arabic ك or ي where Persian ک and ی belong
+ *   digits      Arabic-Indic digits (٠–٩) where Persian (۰–۹) or Latin belong
+ *   shout       an exclamation mark after Persian text (voice rule 5)
+ *   zwnj        a compound written with a space where it takes a ZWNJ — ثبت نام، می شود
+ *   register    a colloquial noun or preposition — مغازه، توی، رُک — where the register
+ *               says فروشگاه and در
+ *
+ * ## Why a gate and not a review note
+ *
+ * The 2026-09-03 baseline found the landing in a colloquial-literary voice («رُک بگوییم»,
+ * «توی کشو گم نمی‌شود») and «ثبت نام» drifting between the space and the ZWNJ from one
+ * screen to the next. Copy drifts one string at a time, in pull requests about something
+ * else; a reviewer who reads Persian catches some of it and nobody catches all of it.
+ *
+ * ## What it scans, and what it skips
+ *
+ * The files that carry strings a shop reads: React pages and components, Blade views,
+ * `lang/fa`. Comments are blanked before matching — a docblock quoting the phrase it
+ * forbids is documentation, not copy. A line carrying `copy-allow` in a comment is
+ * skipped, for quoted speech: a card that quotes the shopkeeper's own words («چک‌های توی
+ * کشو») is quoting, and the rule is about our voice, not theirs.
+ *
+ * ## The baseline, and why it shrinks
+ *
+ * The same ratchet as `bin/check-form-errors`: `bin/.copy-terms-baseline` lists the
+ * `path:term` pairs that already existed the day this landed — the old landing's «مغازه»,
+ * which 16.3 replaces wholesale. Anything else fails at once; a listed pair that
+ * disappears also fails, with an instruction to delete its line, so the list shrinks and
+ * cannot rot.
+ */
+const SCAN_ROOTS = ['resources/js', 'resources/views', 'lang/fa', 'app/Modules'];
+
+/** Inside `app/Modules`, only the resources carry copy; services carry code. */
+const MODULE_COPY_SEGMENT = '/resources/';
+
+/** A line whose comment says the phrase is quoted, not ours. */
+const ALLOW_MARKER = 'copy-allow';
+
+/** What already broke the rule when this gate landed. Shrinks, never grows. */
+const BASELINE_FILE = 'bin/.copy-terms-baseline';
+
+/**
+ * Persian "word" boundaries: a letter or a ZWNJ on either side means we are inside a word.
+ */
+const NOT_BEFORE = '(?<![\p{L}\x{200C}])';
+const NOT_AFTER = '(?![\p{L}\x{200C}])';
+
+/** @var array<string, array{pattern: string, advice: string}> */
+const RULES = [
+    'adjective' => [
+        'pattern' => '/'.NOT_BEFORE.'(هوشمند|جامع|پیشرفته|بی‌نظیر|قدرتمند|انقلابی|بهترین|حرفه‌ای‌ترین)'.NOT_AFTER.'/u',
+        'advice' => 'an adjective the reader cannot verify on the next screen (voice rule 2): name the fact instead',
+    ],
+    'arabic' => [
+        'pattern' => '/[\x{0643}\x{064A}]/u',
+        'advice' => 'an Arabic ك or ي: Persian text uses ک (U+06A9) and ی (U+06CC)',
+    ],
+    'digits' => [
+        'pattern' => '/[\x{0660}-\x{0669}]/u',
+        'advice' => 'Arabic-Indic digits: prose takes Persian ۰–۹, tables and identifiers take Latin',
+    ],
+    'shout' => [
+        // Directly after the letter: «ثبت شد!» is a shout, «مانند ! یا @» names a symbol.
+        'pattern' => '/\p{Arabic}!/u',
+        'advice' => 'an exclamation mark after Persian text (voice rule 5): a full stop',
+    ],
+    'zwnj' => [
+        'pattern' => '/'.NOT_BEFORE.'(ثبت نام|پیش فاکتور|می شود|نمی شود|می کند|نمی کند|می توان|نمی توان|می شوند|نمی شوند|بین شعبه)'.NOT_AFTER.'/u',
+        'advice' => 'a compound written with a space: it takes a ZWNJ (U+200C) — ثبت‌نام، پیش‌فاکتور، می‌شود',
+    ],
+    'register' => [
+        'pattern' => '/'.NOT_BEFORE.'(مغازه|مغازه‌ها|مغازه‌دار|مغازه‌داری|مغازه‌ای|مغازه‌های|توی|رُک)'.NOT_AFTER.'/u',
+        'advice' => 'colloquial (voice: register): «فروشگاه», «در»; quoted speech may keep it with a copy-allow comment on the line',
+    ],
+];
+
+$root = dirname(__DIR__);
+
+/** @return list<string> */
+function copyFilesIn(string $path, string $relativeRoot): array
+{
+    if (! is_dir($path)) {
+        return [];
+    }
+
+    $found = [];
+
+    /** @var iterable<SplFileInfo> $files */
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+
+    foreach ($files as $file) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        $pathname = $file->getPathname();
+
+        if (str_contains($pathname, '/node_modules/') || str_contains($pathname, '/vendor/')) {
+            continue;
+        }
+
+        if ($relativeRoot === 'app/Modules' && ! str_contains($pathname, MODULE_COPY_SEGMENT)) {
+            continue;
+        }
+
+        $isBlade = str_ends_with($pathname, '.blade.php');
+        $extension = $file->getExtension();
+
+        // `.tsx` and not `.ts`: pages and components carry copy, `lib/` carries code —
+        // `digits.ts` holds the Arabic-Indic table precisely so it can convert it away.
+        $isCopy = $isBlade
+            || $extension === 'tsx'
+            || ($extension === 'php' && $relativeRoot === 'lang/fa');
+
+        if (! $isCopy) {
+            continue;
+        }
+
+        $found[] = $pathname;
+    }
+
+    sort($found);
+
+    return $found;
+}
+
+/**
+ * Blank every comment, keeping every newline, so line numbers survive the strip.
+ */
+function withoutComments(string $source): string
+{
+    $blank = static fn (array $match): string => preg_replace('/[^\n]/u', ' ', $match[0]) ?? '';
+
+    $source = preg_replace_callback('/\{\{--.*?--\}\}/su', $blank, $source) ?? $source;
+    $source = preg_replace_callback('/\/\*.*?\*\//su', $blank, $source) ?? $source;
+    $source = preg_replace_callback('/<!--.*?-->/su', $blank, $source) ?? $source;
+
+    $lines = explode("\n", $source);
+
+    foreach ($lines as $index => $line) {
+        $trimmed = ltrim($line);
+
+        if (str_starts_with($trimmed, '//') || str_starts_with($trimmed, '* ') || $trimmed === '*' || str_starts_with($trimmed, '#')) {
+            $lines[$index] = '';
+        }
+    }
+
+    return implode("\n", $lines);
+}
+
+/** @var list<string> $baseline */
+$baseline = [];
+$baselinePath = $root.'/'.BASELINE_FILE;
+
+if (is_file($baselinePath)) {
+    foreach (file($baselinePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        $line = trim($line);
+
+        if ($line !== '' && ! str_starts_with($line, '#')) {
+            $baseline[] = $line;
+        }
+    }
+}
+
+$checked = 0;
+/** @var list<array{pair: string, at: string, rule: string, term: string}> $failures */
+$failures = [];
+/** @var list<string> $seen */
+$seen = [];
+
+foreach (SCAN_ROOTS as $relativeRoot) {
+    foreach (copyFilesIn($root.'/'.$relativeRoot, $relativeRoot) as $file) {
+        $source = file_get_contents($file);
+
+        if ($source === false) {
+            continue;
+        }
+
+        $checked++;
+
+        $relativePath = ltrim(str_replace($root, '', $file), DIRECTORY_SEPARATOR);
+        $rawLines = explode("\n", $source);
+        $lines = explode("\n", withoutComments($source));
+
+        foreach ($lines as $index => $line) {
+            if ($line === '' || str_contains($rawLines[$index] ?? '', ALLOW_MARKER)) {
+                continue;
+            }
+
+            foreach (RULES as $rule => $definition) {
+                if (preg_match_all($definition['pattern'], $line, $matches) < 1) {
+                    continue;
+                }
+
+                foreach (array_unique($matches[0]) as $term) {
+                    $pair = $relativePath.':'.$term;
+
+                    if (in_array($pair, $baseline, true)) {
+                        $seen[] = $pair;
+
+                        continue;
+                    }
+
+                    $failures[] = [
+                        'pair' => $pair,
+                        'at' => $relativePath.':'.($index + 1),
+                        'rule' => $rule,
+                        'term' => $term,
+                    ];
+                }
+            }
+        }
+    }
+}
+
+// A baselined pair that no longer occurs — fixed, moved, or rewritten. Delete its line.
+$stale = array_values(array_diff($baseline, array_unique($seen)));
+
+if ($failures === [] && $stale === []) {
+    $remaining = count($baseline);
+
+    echo "\n  Copy gate: {$checked} copy-bearing files checked, {$remaining} pair(s) still on the baseline.\n\n";
+
+    exit(0);
+}
+
+if ($failures === []) {
+    echo "\n  ✗ Copy gate: the baseline is out of date.\n\n";
+    echo "    These pairs are listed and no longer occur — fixed, moved, or rewritten. Delete\n";
+    echo '    their lines from '.BASELINE_FILE." — a baseline that only grows is a list nobody empties.\n\n";
+
+    foreach ($stale as $pair) {
+        echo "      {$pair}\n";
+    }
+
+    echo "\n";
+
+    exit(1);
+}
+
+echo "\n  ✗ Copy gate failed.\n\n";
+echo "    These strings break the voice in docs/brand/voice.md:\n\n";
+
+$seenPairs = [];
+
+foreach ($failures as $failure) {
+    if (in_array($failure['pair'], $seenPairs, true)) {
+        continue;
+    }
+
+    $seenPairs[] = $failure['pair'];
+    $advice = RULES[$failure['rule']]['advice'];
+
+    echo "      {$failure['at']}  «{$failure['term']}»\n";
+    echo "        {$failure['rule']}: {$advice}\n\n";
+}
+
+echo "    Rewrite the string in the register — the glossary in docs/brand/voice.md has the\n";
+echo "    word. Quoted speech may keep its own words: put `copy-allow: quoted` in a comment\n";
+echo "    on the same line.\n\n";
+
+exit(1);

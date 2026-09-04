@@ -56,7 +56,7 @@
         --}}
         <p class="auth__alt">
             حساب ندارید؟
-            <a href="{{ route('register') }}">ثبت نام</a>
+            <a href="{{ route('register') }}">ثبت‌نام</a>
         </p>
     </form>
 @endsection

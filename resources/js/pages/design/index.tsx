@@ -305,7 +305,7 @@ const PAIRINGS = [
     display: "'Noto Kufi Arabic', sans-serif",
     displayWeight: 600,
     body: "'Vazirmatn', sans-serif",
-    note: 'تیتر هندسی و کوفی، متن خنثی. متمایزترین گزینه؛ ریسک آن این است که برای مغازه‌دار ایرانی «عربی» خوانده شود.',
+    note: 'تیتر هندسی و کوفی، متن خنثی. متمایزترین گزینه؛ ریسک آن این است که برای فروشنده ایرانی «عربی» خوانده شود.',
   },
   {
     id: '۴',
@@ -2570,7 +2570,7 @@ function PrintSection({ alt = false }: { alt?: boolean }) {
           <div className="w-[148mm] max-w-full border border-border bg-white p-6 text-black">
             <p className="text-sm font-bold">A5 — فاکتور نصف‌برگی</p>
             <p className="mt-1 text-2xs text-black/60">
-              همان فاکتوری که بیشتر مغازه‌ها واقعاً دست مشتری می‌دهند.
+              همان فاکتوری که بیشتر فروشگاه‌ها واقعاً دست مشتری می‌دهند.
             </p>
           </div>
 
