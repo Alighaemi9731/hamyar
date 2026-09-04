@@ -3820,3 +3820,16 @@ lit one; «بعداً» is a POST that writes the first key the product has ever
 to whoever holds `settings.update`: inviting colleagues is not a salesperson's job. The
 gallery pins the middle state, `SetupChecklistTest` walks the facts and the gate, and
 the empty-states browser suite opens a new shop on it. (#140)
+
+## 1404-06-14 (2026-09-04) — a register on a phone is a list of cards, not a table seen through a slot (16.5)
+
+The baseline's last flagship finding on the sales register: at 390 the table scrolled
+sideways inside its wrapper — contained, so the smoke suite never flagged it, and unread,
+because the money column sat off-screen and the eye stopped at the edge. `DataTable` now
+renders the same rows as cards below `sm`: the first column as the headline, every other
+column (`secondary` ones included, a card has the room) as a label and its value, the
+totals row as a closing card, the clickable row a `role="link"` card with the same
+keyboard path. The table stays in the document, hidden, so both views come from one
+`columns` array and nothing is built twice — and the smoke suite's row witness still
+counts it. Twenty-nine registers change on phones at once; the two browser suites walked
+them all at 390 before the merge. Sorting stays a header affordance. (#141)
