@@ -45,7 +45,10 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
     <tr
       data-slot="table-row"
       className={cn(
-        'border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
+        // Rows stand on the density token — 44px, 36px under `data-density="compact"`.
+        // They measured 39px: a tapped register row under the 40px floor by a pixel and
+        // five under the row height the design system names (baseline, 2026-09-03).
+        'h-(--density-row) border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
         className
       )}
       {...props}
@@ -58,7 +61,9 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-2 text-start align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pe-0',
+        // A header is a label, not a row: small, medium, muted. At 15px/500 in ink it
+        // was the same colour and nearly the same weight as the cells beneath it.
+        'h-10 px-2 text-start align-middle text-xs font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pe-0',
         className
       )}
       {...props}

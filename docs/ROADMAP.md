@@ -2260,9 +2260,10 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       WCAG ratios computed in place (PR 1.1)
 
 ### 16.2 Owner gate — direction · type · logo · ink · copy
-- [ ] `docs/brand/positioning.md` + landing copy v1 (`lang/fa/landing.php` form)
-- [ ] Three directions from the impeccable roll, each a real hero + one section under
-      `/design/landing/{a,b,c}`; type test; ink test; decision board + Artifact
+- [x] `docs/brand/positioning.md` + landing copy v1 (`lang/fa/landing.php` form) — PR 1.1
+- [x] Three directions from the impeccable roll (seed `fd28c358`: A «جعبه و برچسب» assigned,
+      B «دفتر» pick, C canon), each a real hero + one section under `/design/landing/{a,b,c}`;
+      type test; ink test; decision page as an Artifact — PR 1.1, 2026-09-04
 - [ ] ⛔ **DECISION GATE 5 (answered here)** — owner locks direction, pairing, logo, ink,
       copy notes, pilot-shop wording → ADR 0020, ADR 0021, direction contract, PRODUCT.md
 

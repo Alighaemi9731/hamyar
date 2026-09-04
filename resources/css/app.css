@@ -77,6 +77,8 @@
 
   --primary: var(--color-brand);
   --primary-foreground: #ffffff;
+  /* Hover darkens; the token existed (brand-hover) and nothing consumed it until 2026-09-04. */
+  --primary-hover: var(--color-brand-hover);
 
   /* One step deeper than canvas-alt on purpose: with both set to #f5f5f7 a
      secondary button became invisible on an alternating section, which the gallery
@@ -175,6 +177,7 @@
 
   --primary: var(--color-brand-on-dark);
   --primary-foreground: #001227;
+  --primary-hover: var(--color-brand-bright);
 
   --secondary: #3a3a3c;
   --secondary-foreground: #f5f5f7;
