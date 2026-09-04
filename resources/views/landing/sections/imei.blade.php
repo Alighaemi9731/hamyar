@@ -181,7 +181,6 @@
 @endphp
 
 <section class="sec band imei" id="imei" aria-labelledby="imei-title">
-    <div class="mesh" aria-hidden="true"></div>
 
     <div class="shell">
         {{--
