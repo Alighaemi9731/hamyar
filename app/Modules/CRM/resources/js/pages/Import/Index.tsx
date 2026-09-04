@@ -3,11 +3,11 @@ import { AlertTriangleIcon, ArrowRightIcon, CheckCircle2Icon, UploadIcon } from 
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { FileDrop } from '@/components/domain/file-drop';
 import { Num } from '@/components/domain/num';
 import { SettingsSection } from '@/components/settings-section';
 import { FormErrors } from '@/components/domain/form-errors';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -196,19 +196,7 @@ export default function ImportIndex({ fields, kinds, extensions }: Props) {
             settings.currency_display === 'toman' ? 'تومان' : 'ریال'
           } خوانده می‌شوند.`}
         >
-          <div className="flex flex-wrap items-center gap-4">
-            <Input
-              type="file"
-              accept={extensions.map((extension) => `.${extension}`).join(',')}
-              className="max-w-sm"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-
-                if (file) void upload(file);
-              }}
-            />
-            {busy && <span className="text-xs text-muted-foreground">در حال پردازش…</span>}
-          </div>
+          <FileDrop extensions={extensions} busy={busy} onFile={(file) => void upload(file)} />
         </SettingsSection>
 
         {analysis && (

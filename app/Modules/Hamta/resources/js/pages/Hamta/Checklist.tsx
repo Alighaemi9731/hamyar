@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FormErrors } from '@/components/domain/form-errors';
+import { StatusBadge } from '@/components/domain/status-badge';
 import { AppShell } from '@/layouts/app-shell';
 
 import { ApiNotice } from './Pending';
@@ -52,8 +53,6 @@ interface Props {
  * That attribution IS the evidence. An answer with no name against it protects nobody.
  */
 export default function HamtaChecklist({ unit, steps, can_manage: canManage }: Props) {
-  const done = unit.hamta_status === 'done';
-
   return (
     <AppShell title="چک‌لیست همتا">
       <Head title={`چک‌لیست همتا — ${unit.imei}`} />
@@ -72,13 +71,9 @@ export default function HamtaChecklist({ unit, steps, can_manage: canManage }: P
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`rounded-full px-3 py-1 text-sm ${
-                done ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
-              }`}
-            >
-              {unit.hamta_status_label}
-            </span>
+            {/* The same badge the passport and the register use for this status, so a
+                status reads the same in every place it is shown. */}
+            <StatusBadge status={`hamta_${unit.hamta_status}`} label={unit.hamta_status_label} />
             <Link href={unit.url} className="text-sm text-primary hover:underline">
               شناسنامهٔ دستگاه
             </Link>

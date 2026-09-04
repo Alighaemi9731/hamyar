@@ -1,7 +1,8 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangleIcon, CalendarClockIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
 import { PageHeader } from '@/components/domain/page-header';
 import { FormErrors } from '@/components/domain/form-errors';
@@ -110,9 +111,16 @@ export default function CollectionDesk({ overdue, due, totals, accounts, errors 
           سررسید پیش‌رو ({due.length})
         </h2>
         {due.length === 0 ? (
-          <p className="rounded-card border border-border p-6 text-center text-sm text-muted-foreground">
-            قسطی در انتظار نیست.
-          </p>
+          <EmptyState
+            icon={CalendarClockIcon}
+            title="قسطی در انتظار وصول نیست"
+            description="هر قسطی که سررسید شود یا عقب بیفتد، از همهٔ قراردادها، اینجا فهرست می‌شود. قرارداد اقساط از یک فاکتور فروش ساخته می‌شود."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/sales/pos">فروش اقساطی جدید</Link>
+              </Button>
+            }
+          />
         ) : (
           due.map((row) => <CollectRow key={row.id} row={row} accounts={accounts} />)
         )}

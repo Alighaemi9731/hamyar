@@ -1,7 +1,8 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { CopyIcon, ExternalLinkIcon } from 'lucide-react';
+import { CopyIcon, ExternalLinkIcon, LinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { EmptyState } from '@/components/domain/empty-state';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -110,7 +111,15 @@ export default function StorefrontIndex({
           {canManage ? <MintForm levels={levels} /> : null}
 
           {links.length === 0 ? (
-            <p className="text-sm text-muted-foreground">هنوز لینکی ساخته نشده است.</p>
+            <EmptyState
+              icon={LinkIcon}
+              title="هنوز لینکی ساخته نشده است"
+              description={
+                canManage
+                  ? 'با فرم بالا یک لینک با سطح قیمت و تاریخ انقضا بسازید و برای همکار بفرستید.'
+                  : 'مدیر فروشگاه می‌تواند لینک لیست قیمت همکار بسازد.'
+              }
+            />
           ) : (
             <>
               <FormErrors errors={revokeErrors} />
