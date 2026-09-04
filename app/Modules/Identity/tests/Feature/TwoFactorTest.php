@@ -97,7 +97,7 @@ it('stops at the challenge instead of logging in when 2FA is on', function (): v
         return $secret;
     });
 
-    $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password'])
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()])
         ->assertRedirect(route('two-factor.challenge'));
 
     // The password is proven; the second factor is not. Nothing is authenticated yet.
@@ -116,7 +116,7 @@ it('refuses the challenge with a wrong code', function (): void {
         $this->service->confirm($this->user, currentCode($secret));
     });
 
-    $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password']);
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
 
     $this->post($this->url.'/two-factor/challenge', ['code' => '000000'])
         ->assertSessionHasErrors('code');

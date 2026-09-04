@@ -1,8 +1,6 @@
 import { Head } from '@inertiajs/react';
 
-import markA from '../../../brand/mark-a.svg?raw';
-import markB from '../../../brand/mark-b.svg?raw';
-import markC from '../../../brand/mark-c.svg?raw';
+import wordmark from '../../../brand/wordmark.svg?raw';
 import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -192,93 +190,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
    rendered as real markup so the choice is made on what ships, not on a mock: the mark,
    the type pairing, and the ink. Each carries its honest risk beside it. */
 
-const MARKS = [
-  {
-    id: 'A',
-    name: 'یک سطر',
-    svg: markA,
-    thesis: 'یک گوشی، و داخل صفحه‌اش همان چیزی که محصول دربارهٔ آن است: یک سطر با تاریخچه.',
-    risk: 'در ۱۶ پیکسل شبیه کلید تاگل خوانده می‌شود.',
-    recommended: false,
-  },
-  {
-    id: 'B',
-    name: 'مونوگرام «ه»',
-    svg: markB,
-    thesis: 'حرف اول «همیار» با تناسب یک گوشی؛ برای مخاطب فارسی‌زبان حرف است، برای بقیه یک شیء.',
-    risk: 'شبیه قفل یا آواتار خوانده می‌شود؛ ضعیف‌ترین گزینه.',
-    recommended: false,
-  },
-  {
-    id: 'C',
-    name: 'همراه',
-    svg: markC,
-    thesis: 'دو براکت روبه‌روی هم یک گوشی می‌سازند و نقطهٔ آبی میان‌شان همراهی است که همیشه هست.',
-    risk: 'در ۱۶ پیکسل کمی نازک است؛ ضخامت ۲٫۸ حداقل است.',
-    recommended: true,
-  },
-] as const;
-
+/** Inlines one of our own SVG files from `resources/brand`; no user input reaches it. */
 function Mark({ svg, className }: { svg: string; className?: string }) {
   return (
     <span
-      className={cn('inline-flex shrink-0 [&>svg]:size-full', className)}
-      // The mark is our own SVG source under resources/brand, imported as text at build
-      // time — no user input reaches this attribute.
+      className={cn('inline-flex shrink-0 [&>svg]:h-full [&>svg]:w-auto', className)}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
-  );
-}
-
-function MarkSection({ alt }: { alt?: boolean }) {
-  return (
-    <Section
-      alt={alt}
-      title="نشان — سه گزینه برای دروازهٔ ۱۶٫۲"
-      note="هر نشان در سه اندازه، روی زمینهٔ روشن، روی سیاه و به‌صورت کاشی آبی، و کنار واژه‌نشان. ریسک هر کدام صادقانه نوشته شده؛ پیشنهاد ما علامت خورده است."
-    >
-      <div className="grid gap-6 lg:grid-cols-3">
-        {MARKS.map((mark) => (
-          <div
-            key={mark.id}
-            className={cn(
-              'rounded-card border border-border bg-surface p-6',
-              mark.recommended && 'ring-2 ring-brand'
-            )}
-          >
-            <div className="mb-4 flex items-baseline justify-between gap-3">
-              <h3 className="text-base font-bold">
-                {mark.id} · {mark.name}
-              </h3>
-              {mark.recommended && <Badge>پیشنهاد ما</Badge>}
-            </div>
-
-            <div className="mb-5 grid grid-cols-[4rem_2rem_1rem] items-end gap-4 text-foreground">
-              <Mark svg={mark.svg} className="size-16" />
-              <Mark svg={mark.svg} className="size-8" />
-              <Mark svg={mark.svg} className="size-4" />
-            </div>
-
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              <div className="flex items-center justify-center rounded-control bg-canvas-invert p-4 text-white">
-                <Mark svg={mark.svg} className="size-10" />
-              </div>
-              <div className="flex items-center justify-center rounded-control bg-brand p-4 text-white [&_circle]:fill-white">
-                <Mark svg={mark.svg} className="size-10" />
-              </div>
-            </div>
-
-            <div className="mb-5 flex items-center gap-3 text-foreground">
-              <Mark svg={mark.svg} className="size-9" />
-              <span className="font-display text-2xl font-bold tracking-tight">همیار</span>
-            </div>
-
-            <p className="text-sm leading-relaxed text-muted-foreground">{mark.thesis}</p>
-            <p className="mt-2 text-xs text-warning">ریسک: {mark.risk}</p>
-          </div>
-        ))}
-      </div>
-    </Section>
   );
 }
 
@@ -316,6 +234,56 @@ const PAIRINGS = [
     note: 'یک خانواده، تفاوت با وزن. ساده و سبک‌ترین بارگذاری؛ کمترین شخصیت.',
   },
 ] as const;
+
+/**
+ * The logo, and the gallery's record of what it replaced.
+ *
+ * Three symbol candidates stood here for the 16.2 gate — a handset silhouette, a
+ * receipt, and the bracket pair that was picked provisionally. The owner retired all
+ * three on 2026-09-04: «لوگو فعلی سامانمون خوب نیست؛ همین اسم سامانه با یک فونت و حالت
+ * خاص کافی است». What is left is a wordmark, and there is no symbol.
+ */
+function MarkSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="لوگو — واژه‌نشان"
+      note="HAMYAR با حروف Outfit Bold، تبدیل‌شده به مسیر (بدون وابستگی به فونت)، با فاصله‌گذاری ۴۶ در هزار. رنگ از currentColor می‌آید، پس یک فایل روی سفید، روی سرمه‌ای و در نوار بالا کار می‌کند. نشانِ نمادین بازنشسته شد."
+    >
+      <Row label="روی زمینهٔ روشن">
+        <span className="flex items-end gap-8 text-brand">
+          <Mark svg={wordmark} className="h-10" />
+          <Mark svg={wordmark} className="h-6" />
+          <Mark svg={wordmark} className="h-4" />
+        </span>
+      </Row>
+
+      <Row label="روی سرمه‌ای">
+        <span className="flex items-center rounded-card bg-canvas-invert px-6 py-5 text-white">
+          <Mark svg={wordmark} className="h-6" />
+        </span>
+      </Row>
+
+      <Row label="در جوهر متن">
+        <span className="flex items-center text-foreground">
+          <Mark svg={wordmark} className="h-5" />
+        </span>
+      </Row>
+
+      <Row label="نکته‌ها">
+        <ul className="max-w-xl list-disc space-y-1 pe-4 text-2xs text-muted-foreground">
+          <li>حرف اول همین لوگو، روی کاشی آبی، نشان تبِ مرورگر است.</li>
+          <li>
+            فایل تولید می‌شود، نه دستی ویرایش. فرمانش در{' '}
+            <code className="ltr-value">docs/design-system.md</code> است.
+          </li>
+          <li>ارتفاع را تعیین کنید، نه عرض را؛ نسبت ۶٫۵ به ۱ ثابت است.</li>
+        </ul>
+      </Row>
+    </Section>
+  );
+}
+
 
 function TypeSection({ alt }: { alt?: boolean }) {
   return (

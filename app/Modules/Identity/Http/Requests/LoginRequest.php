@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Requests;
 
 use App\Support\Digits;
+use App\Support\SecurityCode;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\RateLimiter;
@@ -38,7 +39,36 @@ final class LoginRequest extends FormRequest
             'mobile' => ['required', 'string'],
             'password' => ['required', 'string'],
             'remember' => ['boolean'],
+            /*
+            | The security code is checked in `withValidator` rather than by a rule,
+            | because checking it CONSUMES it: `SecurityCode::check()` pulls the code out
+            | of the session so one drawing answers one attempt. A rule that runs on every
+            | validation pass would burn the code before the other fields were read, and
+            | a valid sign-in would fail on its own captcha.
+            */
+            'security_code' => ['required', 'string'],
         ];
+    }
+
+    /**
+     * The security code, checked once, before anything expensive.
+     *
+     * Failing here rather than in `rules()` keeps one drawing to one attempt — see the
+     * note on the rule. The message names the field and what to do, not «کد اشتباه است»:
+     * the code is regenerated on the redirect, so "try the new one" is the whole
+     * instruction.
+     */
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
+            if ($validator->errors()->has('security_code')) {
+                return;
+            }
+
+            if (! app(SecurityCode::class)->check($this->string('security_code')->value())) {
+                $validator->errors()->add('security_code', 'کد امنیتی درست نیست. کد تازه‌ای نشان داده شد؛ همان را وارد کنید.');
+            }
+        });
     }
 
     /**

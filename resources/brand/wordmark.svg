@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -706 4615 706" fill="currentColor" role="img" aria-label="Hamyar">
+  <!--
+    The logo: HAMYAR, all caps, geometric, tracked +46/1000em.
+
+    Drawn from Outfit Bold (SIL Open Font License 1.1; the source face is committed beside
+    this file) and converted to outlines, so it renders identically everywhere, needs no
+    webfont to have loaded, and cannot reflow. It inherits `currentColor`: brand blue on
+    white, white on the navy band, ink where the ground is light.
+
+    Why a geometric face rather than the product's own text face: a logotype is read as a
+    shape, and IBM Plex — a humanist grotesque — draws letters that are excellent in a
+    paragraph and unremarkable at 6 characters. This is the model the owner asked for.
+
+    An earlier draft cut a diagonal slot through the first two letters, echoing the
+    reference's own device. The reference cuts the free ends of a C and an E; HAMYAR has
+    no such terminal, so the slot fell through the middle of the H and the A and left
+    floating shards. Deleted rather than tuned.
+
+    GENERATED. Regenerate with the command in docs/design-system.md; do not hand-edit.
+  -->
+  <path d="M68 0V-706H225V0ZM505 0V-706H663V0ZM162 -295V-431H557V-295Z"/>
+  <path d="M791 0 1071 -706H1213L1490 0H1324L1112 -586H1169L954 0ZM950 -128V-256H1335V-128Z"/>
+  <path d="M1619 0V-706H1731L2009 -273H1952L2229 -706H2342V0H2185V-441L2213 -434L2032 -152H1928L1748 -434L1775 -441V0Z"/>
+  <path d="M2740 -263 2468 -706H2650L2859 -348H2742L2951 -706H3129L2855 -263ZM2721 0V-335H2878V0Z"/>
+  <path d="M3203 0 3483 -706H3625L3902 0H3736L3524 -586H3581L3366 0ZM3362 -128V-256H3747V-128Z"/>
+  <path d="M4151 -291V-407H4300Q4347 -407 4372.5 -431.0Q4398 -455 4398 -496Q4398 -534 4373.0 -559.0Q4348 -584 4301 -584H4151V-706H4319Q4389 -706 4442.0 -679.5Q4495 -653 4525.0 -606.0Q4555 -559 4555 -498Q4555 -436 4525.0 -389.5Q4495 -343 4441.0 -317.0Q4387 -291 4314 -291ZM4031 0V-706H4188V0ZM4415 0 4195 -304 4339 -343 4601 0Z"/>
+</svg>

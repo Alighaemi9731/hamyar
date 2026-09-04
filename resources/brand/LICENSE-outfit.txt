@@ -1,0 +1,8 @@
+Outfit is licensed under the SIL Open Font License, Version 1.1.
+https://github.com/Outfitio/Outfit-Fonts — Copyright (c) 2021 The Outfit Project Authors.
+
+It is used HERE ONLY to generate resources/brand/wordmark.svg and public/favicon.svg:
+the letterforms are converted to outlines at build time and the font itself is never
+served to a browser. The OFL permits this (the outlines are a derivative work, and the
+reserved-name clause is not engaged because we do not redistribute the font under its
+name). The product's own typeface is IBM Plex Sans Arabic — see ADR 0020.

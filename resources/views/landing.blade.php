@@ -48,9 +48,9 @@
 
 {{-- ================================================================= nav === --}}
 @php
-    // One source for the mark: the same file `components/brand-mark.tsx` imports. The
-    // brand dot becomes `currentColor` through CSS on the tile, not by editing the file.
-    $mark = Illuminate\Support\Facades\File::get(resource_path('brand/mark.svg'));
+    // One source for the logo: the same file `components/brand-mark.tsx` imports. It is
+    // outlines, so it inherits `currentColor` and needs no webfont to have loaded.
+    $wordmark = Illuminate\Support\Facades\File::get(resource_path('brand/wordmark.svg'));
     $links = [
         '#problems' => 'امکانات',
         '#imei' => 'شناسنامهٔ IMEI',
@@ -60,9 +60,8 @@
 @endphp
 <header class="nav">
     <div class="shell nav__inner">
-        <a href="/" class="nav__brand" aria-label="سامانه همیار — صفحهٔ نخست">
-            <span class="nav__mark" aria-hidden="true">{!! $mark !!}</span>
-            <span class="nav__wordmark">سامانه همیار</span>
+        <a href="/" class="nav__brand" aria-label="همیار — صفحهٔ نخست">
+            <span class="nav__wordmark" aria-hidden="true">{!! $wordmark !!}</span>
         </a>
 
         <nav class="nav__links" aria-label="پیمایش اصلی">

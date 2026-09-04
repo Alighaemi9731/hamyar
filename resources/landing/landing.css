@@ -557,46 +557,30 @@ h3 {
   min-block-size: 4rem;
 }
 
-/* The name, set as a mark rather than typed as a heading: the mark tile, then the
-   wordmark, then the reading of it a screen reader gets. */
+/*
+  The logo, and it is the whole of the brand lockup.
+
+  It was a brand tile carrying a bracket symbol beside «سامانه همیار» typed in the display
+  face. The owner retired the symbol on 2026-09-04 — «همین اسم سامانه با یک فونت و حالت
+  خاص کافی است» — so what is left is the wordmark, drawn from the product's own typeface
+  as outlines (`resources/brand/wordmark.svg`), inheriting `currentColor`.
+*/
 .nav__brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   min-block-size: 2.5rem;
   flex: none;
-}
-
-.nav__mark {
-  inline-size: 2rem;
-  block-size: 2rem;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 0.625rem;
-  background: var(--color-accent);
-  color: #fff;
-}
-
-.nav__mark svg {
-  inline-size: 1.125rem;
-  block-size: 1.125rem;
-}
-
-/* The mark file carries the brand dot as a literal so it reads on a white ground; on the
-   brand tile that dot would vanish into it, so the tile paints it in its own colour.
-   `components/brand-mark.tsx` does the same thing with `[&_circle]:fill-current` — one
-   SVG file, two grounds, no second copy to keep in step. */
-.nav__mark svg circle {
-  fill: currentColor;
+  color: var(--color-accent);
 }
 
 .nav__wordmark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.125rem;
-  letter-spacing: -0.02em;
-  color: var(--color-navy);
+  display: inline-flex;
+  block-size: 1.125rem;
+}
+
+.nav__wordmark svg {
+  block-size: 100%;
+  inline-size: auto;
 }
 
 /*
@@ -1959,95 +1943,208 @@ h3 {
  |   app (ADR 0016) and there is no reason to import a second brand's palette.
  */
 
+/*
+  The ground, and there is no page-level box on it.
+
+  The whole page used to sit inside one 1400px white card with a min-height of the
+  viewport — a page in a box — with the form naked inside it. The owner asked for the
+  shape of a reference sign-in instead: the tinted ground bare, the brand loose at the
+  reading start, and the form in a card of its own beside the artwork.
+*/
 .auth {
   min-block-size: 100dvh;
-  padding: clamp(0.75rem, 2vw, 1.25rem);
-  background:
-    radial-gradient(1200px 600px at 85% -10%, #eef4fb 0%, transparent 60%),
-    var(--color-page-alt);
-}
-
-.auth__card {
-  background: var(--color-page);
-  border: 1px solid var(--color-hair);
-  border-radius: var(--radius-xl);
-  min-block-size: calc(100dvh - 2.5rem);
-  padding: clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background: var(--color-page-alt);
   display: grid;
-  gap: 2rem;
-  align-content: start;
-  box-shadow: 0 1px 2px rgb(14 27 44 / 0.03), 0 24px 64px -40px rgb(14 27 44 / 0.25);
+  grid-template-rows: auto 1fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
 }
 
 .auth__brand {
+  justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  color: var(--color-navy);
-  letter-spacing: -0.02em;
-  justify-self: start;
+  block-size: 1.25rem;
+  color: var(--color-accent);
 }
 
 .auth__brand svg {
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
-  flex: none;
-}
-
-.auth__body {
-  display: grid;
-  gap: clamp(2rem, 5vw, 4rem);
-  align-items: center;
-}
-
-/* The reference puts the artwork on the inline-start half and the form on the
-   inline-end half. In RTL the first grid column is the right one, so `art` first. */
-@media (min-width: 900px) {
-  .auth__body {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.auth__art {
-  display: none;
-  place-items: center;
-}
-
-@media (min-width: 900px) {
-  .auth__art {
-    display: grid;
-  }
-}
-
-.auth__form {
-  inline-size: min(30rem, 100%);
-  margin-inline: auto;
-}
-
-.auth__title {
-  font-size: 1.75rem;
-  margin-block-end: 1.75rem;
+  block-size: 100%;
+  inline-size: auto;
 }
 
 .auth__grid {
   display: grid;
-  gap: 1rem;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+  inline-size: min(76rem, 100%);
+  margin-inline: auto;
+}
+
+/* Artwork on the reading start — the right, in RTL — and the form card on the other
+   side, which is both where the owner asked for the illustration and how the reference
+   reads: its card sits on the left of the screen. The artwork is declared first, so the
+   grid needs no reordering. */
+@media (min-width: 900px) {
+  .auth__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  }
+}
+
+/* The card. One radius, one soft shadow, no border: on a tinted ground a border under a
+   shadow reads as two edges. */
+.auth__panel {
+  background: var(--color-page);
+  border-radius: var(--radius-xl);
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.04), 0 24px 56px -32px rgb(14 27 44 / 0.28);
+}
+
+.auth__art {
+  display: none;
+}
+
+/* Below 900 the artwork goes rather than stacking under the form: somebody signing in on
+   a phone wants the field, and a decorative column between them and it is in the way. */
+@media (min-width: 900px) {
+  .auth__art {
+    display: block;
+  }
+}
+
+.auth__title {
+  font-size: 1.625rem;
+  margin-block-end: 1.5rem;
+}
+
+.auth__status {
+  color: var(--color-navy-soft);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  margin-block: -0.5rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+/* The visually-hidden label every field still carries. A placeholder is not a label: it
+   disappears the moment somebody types, and it is not read as a name by every screen
+   reader. Off-screen rather than `display:none`, which would drop it from the tree. */
+.auth__sr {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.auth__fields {
+  display: grid;
+  gap: 0.75rem;
   margin-block-end: 1rem;
 }
 
+/* Two fields on one row where they belong together — first name and surname, password and
+   its repeat. Renamed from `.auth__grid`, which now belongs to the PAGE: the form was
+   inheriting the page's `1fr 26rem` columns and every second field came out as an empty
+   box beside a half-width input. */
 @media (min-width: 640px) {
-  .auth__grid--two {
+  .auth__fields--two {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-/* Tall, rounded, placeholder-only — the reference's field shape. The visible label is
-   omitted deliberately to match it; every input still carries an associated <label>
-   for assistive technology, because a placeholder is not a label and disappears the
-   moment somebody types. */
+/* ------------------------------------------------------- security code ---- */
+
+/*
+  The «کد امنیتی» row: refresh, drawing, field — one bordered block, as the reference
+  draws it, so the three read as one control rather than as three things that happen to
+  be adjacent.
+*/
+.auth__code {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-hair);
+  border-radius: var(--radius-md);
+  background: var(--color-page);
+  padding-inline-start: 0.5rem;
+}
+
+/* The field inside the row drops its own frame: the row is the frame. */
+.auth__code .auth__input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.auth__code:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.auth__code-refresh {
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 0.625rem;
+  color: var(--color-navy-mute);
+  cursor: pointer;
+  flex: none;
+}
+
+.auth__code-refresh:hover {
+  background: var(--color-page-alt);
+  color: var(--color-navy);
+}
+
+.auth__code-refresh svg {
+  inline-size: 1.0625rem;
+  block-size: 1.0625rem;
+}
+
+/* The drawing keeps a fixed box so a new code never resizes the row under the cursor. */
+.auth__code-image {
+  display: block;
+  inline-size: 8.25rem;
+  block-size: 2.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-page-alt);
+  overflow: hidden;
+}
+
+.auth__code-image svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.auth__secure {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--color-hair);
+  color: var(--color-navy-mute);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.auth__secure svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: none;
+}
+
+.auth__alert ul {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  list-style: disc;
+}
+
 .auth__field {
   position: relative;
 }

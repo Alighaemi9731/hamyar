@@ -7,7 +7,7 @@
     <form method="POST" action="{{ route('register.store') }}" novalidate>
         @csrf
 
-        <div class="auth__grid auth__grid--two">
+        <div class="auth__fields auth__fields--two">
             <div class="auth__field">
                 <label for="name" class="sr-only" style="position:absolute;inset-inline-start:-9999px">نام فروشگاه</label>
                 <input id="name" name="name" class="auth__input" placeholder="نام فروشگاه"
