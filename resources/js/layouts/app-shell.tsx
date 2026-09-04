@@ -301,23 +301,27 @@ function ShopBadge({
         compact ? 'justify-center px-0' : 'px-5'
       )}
     >
-      {/* The product's mark, on the brand tile, beside the shop's name: the shop is on
-          Hamyar, the way a store sits under its platform's mark in every admin a
-          shopkeeper has used. It replaces a generic store icon that said nothing. */}
-      <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary text-primary-foreground"
-        title={compact ? name : undefined}
-      >
-        <BrandMark tone="mono" className="size-5" />
-      </span>
-      <span className={cn('min-w-0', compact && 'sr-only')}>
-        <span className="block truncate font-display text-sm font-bold">{name}</span>
-        {subdomain && (
-          <span className="ltr-value block truncate text-2xs text-muted-foreground" dir="ltr">
-            {subdomain}
+      {/*
+        The shop's name leads and the product's wordmark sits under it, quiet: this
+        panel belongs to the shop, and Hamyar is where it is hosted. On the rail there
+        is room for one of them, and it is the wordmark — the shop already knows whose
+        counter it is standing at, and the rail's job is to be recognisable at a glance.
+      */}
+      {compact ? (
+        <BrandMark className="h-3.5 text-primary" />
+      ) : (
+        <span className="min-w-0">
+          <span className="block truncate font-display text-sm font-bold">{name}</span>
+          <span className="mt-0.5 flex items-center gap-1.5">
+            <BrandMark className="h-2.5 text-muted-foreground" />
+            {subdomain && (
+              <span className="ltr-value truncate text-2xs text-muted-foreground/70" dir="ltr">
+                · {subdomain}
+              </span>
+            )}
           </span>
-        )}
-      </span>
+        </span>
+      )}
     </div>
   );
 }

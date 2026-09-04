@@ -9,10 +9,12 @@ use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\AccountLookup;
+use App\Support\SecurityCode;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -42,9 +44,23 @@ final class LoginController extends Controller
      * nothing to name here: the tenant is a RESULT of authenticating, not context the
      * page already has.
      */
-    public function create(): View
+    public function create(SecurityCode $code): View
     {
-        return view('auth.login');
+        return view('auth.login', ['securityCode' => $code->render()]);
+    }
+
+    /**
+     * A fresh drawing, for the refresh control beside the field.
+     *
+     * Returns the SVG itself rather than JSON: the page swaps one element's markup, and
+     * a JSON envelope around a string of SVG would be a second thing to parse for no
+     * gain. `no-store` because a cached captcha is not a captcha.
+     */
+    public function securityCode(SecurityCode $code): Response
+    {
+        return response($code->render())
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Cache-Control', 'no-store, max-age=0');
     }
 
     public function store(LoginRequest $request, AccountLookup $accounts, TenantContext $context): RedirectResponse

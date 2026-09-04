@@ -523,3 +523,34 @@ function paginatedOf(object $page, string $key): array
 
     return $block['data'] ?? [];
 }
+
+/**
+ * The security code a sign-in POST has to answer, pre-seeded.
+ *
+ * `SecurityCode` draws a code and remembers it in the session; a test posting straight to
+ * `/login` never rendered the form, so there is nothing to answer. This seeds a known code
+ * and hands back the payload key, so a test says what it means:
+ *
+ *     $this->withSession(securityCodeSession())->post('/login', [
+ *         'mobile' => …, 'password' => …, ...securityCodeAnswer(),
+ *     ]);
+ *
+ * Deliberately NOT a "skip the captcha in tests" flag. A check that is switched off under
+ * test is a check nobody has ever seen work, and this one stands in front of the only
+ * screen a locked-out shopkeeper cannot get past.
+ */
+/**
+ * @return array<string, string>
+ */
+function securityCodeSession(string $code = 'HAMYR'): array
+{
+    return [App\Support\SecurityCode::SESSION_KEY => $code];
+}
+
+/**
+ * @return array{security_code: string}
+ */
+function securityCodeAnswer(string $code = 'HAMYR'): array
+{
+    return ['security_code' => $code];
+}

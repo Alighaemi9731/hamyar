@@ -87,6 +87,10 @@ Route::domain('app.'.config()->string('app.domain'))->group(function (): void {
             ->name('register.store');
 
         Route::get('/login', [LoginController::class, 'create'])->name('login');
+        // The refresh control beside the «کد امنیتی» field. Throttled: it writes a
+        // session value, so an unthrottled loop is a cheap way to churn session storage.
+        Route::get('/login/security-code', [LoginController::class, 'securityCode'])
+            ->middleware('throttle:30,1')->name('login.security-code');
         Route::post('/login', [LoginController::class, 'store'])->name('login.store');
     });
 

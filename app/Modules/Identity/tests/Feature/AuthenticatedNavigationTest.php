@@ -58,7 +58,8 @@ beforeEach(function (): void {
  */
 function logInThroughTheForm(string $url): void
 {
-    test()->post($url.'/login', [
+    test()->withSession(securityCodeSession())->post($url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'password',
     ])->assertRedirect(route('dashboard'));

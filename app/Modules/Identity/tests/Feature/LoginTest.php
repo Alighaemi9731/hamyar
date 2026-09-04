@@ -29,7 +29,8 @@ beforeEach(function (): void {
 });
 
 it('logs a user in with the right credentials', function (): void {
-    $this->post($this->url.'/login', [
+    $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'password',
     ])->assertRedirect(route('dashboard'));
@@ -38,14 +39,16 @@ it('logs a user in with the right credentials', function (): void {
 });
 
 it('accepts Persian digits in the mobile field', function (): void {
-    $this->post($this->url.'/login', [
+    $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '۰۹۱۲۱۲۳۴۵۶۷',
         'password' => 'password',
     ])->assertRedirect(route('dashboard'));
 });
 
 it('rejects a wrong password', function (): void {
-    $this->post($this->url.'/login', [
+    $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'not-the-password',
     ])->assertSessionHasErrors('mobile');
@@ -55,12 +58,14 @@ it('rejects a wrong password', function (): void {
 
 it('gives the same message for an unknown user as for a wrong password', function (): void {
     // Distinguishing them would let anyone enumerate which staff work at a shop.
-    $unknown = $this->post($this->url.'/login', [
+    $unknown = $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09120000000',
         'password' => 'whatever',
     ]);
 
-    $wrongPassword = $this->post($this->url.'/login', [
+    $wrongPassword = $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'wrong',
     ]);
@@ -75,7 +80,8 @@ it('refuses a deactivated account', function (): void {
         fn () => $this->user->forceFill(['is_active' => false])->save()
     );
 
-    $this->post($this->url.'/login', [
+    $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'password',
     ])->assertSessionHasErrors('mobile');
@@ -84,7 +90,7 @@ it('refuses a deactivated account', function (): void {
 });
 
 it('records the login timestamp', function (): void {
-    $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password']);
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
 
     $fresh = app(TenantContext::class)->runFor($this->tenant, fn () => $this->user->fresh());
 
@@ -93,10 +99,10 @@ it('records the login timestamp', function (): void {
 
 it('throttles repeated failures', function (): void {
     foreach (range(1, 5) as $ignored) {
-        $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong']);
+        $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong', ...securityCodeAnswer()]);
     }
 
-    $response = $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong']);
+    $response = $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong', ...securityCodeAnswer()]);
 
     expect($response->getSession()->get('errors')?->first('mobile'))
         ->toContain('تلاش‌های ناموفق زیاد');
@@ -139,7 +145,8 @@ it('refuses a second account on the same mobile number, whichever shop asks', fu
     // The number still signs in the account that claimed it first — and this request
     // could not answer at all on a connection the violation had poisoned, so it doubles
     // as proof the savepoint above did its job.
-    $this->post($this->url.'/login', [
+    $this->withSession(securityCodeSession())->post($this->url.'/login', [
+        ...securityCodeAnswer(),
         'mobile' => '09121234567',
         'password' => 'password',
     ])->assertRedirect(route('dashboard'));
@@ -161,14 +168,14 @@ it('clears the throttle on a successful login', function (): void {
     */
     $key = 'login|central|09121234567|127.0.0.1';
 
-    $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong']);
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'wrong', ...securityCodeAnswer()]);
 
     // Asserted BEFORE the success, deliberately: the final expectation is satisfied just
     // as well by a key nothing was ever recorded under, which is how this test stayed
     // green while the key it named had drifted away from the one the application uses.
     expect(RateLimiter::attempts($key))->toBe(1);
 
-    $this->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password']);
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
 
     expect(RateLimiter::attempts($key))->toBe(0);
 });
