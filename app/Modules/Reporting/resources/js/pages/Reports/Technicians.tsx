@@ -91,6 +91,7 @@ export default function TechnicianReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

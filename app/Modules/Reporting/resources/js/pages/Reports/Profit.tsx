@@ -123,6 +123,7 @@ export default function ProfitReport({ cut, period, can_export: canExport, summa
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

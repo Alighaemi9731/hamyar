@@ -116,6 +116,7 @@ export default function OperationsReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

@@ -3733,3 +3733,26 @@ the duration and curve tokens, and its `lg` size is now the 48px counter action;
 stand on `--density-row` (they measured 39px) with a quiet 13px header; badges are 24px, not
 20; and a dashboard card with nothing to report is one dashed line with its door, not a box
 — a seeded morning used to show five boxes each announcing that nothing was wrong.
+
+## 1404-06-14 (2026-09-04) — the chart is drawn, and the shell has one header, one rail width and a mark (16.4)
+
+The dashboard's 30-day chart was a flex of divs with no axis — the baseline's "stub".
+`BarChart` is now an SVG with the same props: three gridlines with clean ticks (1/2/5 × 10ⁿ)
+in compact toman, the peak day labelled at its cap, bars capped at 24px with a rounded top
+and a square base, a 2px surface gap, and a full-column hit target that reads the hovered
+day out in a fixed line above the plot rather than a tooltip that covers the neighbours and
+leaves the card at 390. Two RTL lessons: SVG geometry ignores `direction`, so the first
+point is placed at the right edge by arithmetic; and `text-anchor` follows reading
+direction, so `start` is what pins a label's right edge to the axis — `end` ran the ticks
+off the card on a phone. Decimals take the Persian separator («۱۲۲٫۹ میلیون»). (#135)
+
+The shell (#136): `AppShell`'s `title` form renders `<PageHeader>` instead of its own copy
+of the row, so there is one header implementation and the lessons written into it hold on
+every page; the rail and the drawer share `--sidebar-width` (15.5rem — 40px back to every
+page; the drawer had never taken the old `w-72`, because the sheet sets its width under a
+`data-[side]` variant, so the token now arrives under the same one); `width="wide"` opens
+1400px for the counter and the seven reports and nothing else; and the product's mark sits
+on the shop tile through `components/brand-mark.tsx`, the one import of
+`resources/brand/mark.svg` — provisional candidate C until the gate picks, a file swap when
+it does. Breadcrumbs from `NAVIGATION` were dropped (two levels that repeat the lit sidebar
+item); the collapsible rail waits for the ink decision.

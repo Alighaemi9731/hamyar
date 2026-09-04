@@ -1,10 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
-import { MenuIcon, StoreIcon } from 'lucide-react';
+import { MenuIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { BrandMark } from '@/components/brand-mark';
 import { AnnouncementBanner } from '@/components/domain/announcement-banner';
+import { PageHeader } from '@/components/domain/page-header';
 import { QuotaBlock } from '@/components/domain/quota-block';
 import { UsageBanner } from '@/components/domain/usage-banner';
 import { BranchSwitcher } from '@/components/domain/branch-switcher';
@@ -32,6 +34,14 @@ import type { SharedProps } from '@/types';
  */
 type AppShellProps = {
   children: ReactNode;
+  /**
+   * How wide the page may run. `default` is the 1110px reading column every screen
+   * gets; `wide` (1400px) is for the two families that are worked, not read — the
+   * counter, where the basket and the catalogue share the width, and the reports,
+   * whose tables run to thirty columns. A form or a register on `wide` is a line
+   * length nobody can follow, so it is opt-in per page, never the default.
+   */
+  width?: 'default' | 'wide';
 } & (
   | {
       title?: string;
@@ -55,7 +65,7 @@ type AppShellProps = {
  * thumb land. Everything positional here is logical (border-s, ms-, start-), so the
  * same markup would mirror correctly if a Latin locale were ever added.
  */
-export function AppShell({ title, actions, header, children }: AppShellProps) {
+export function AppShell({ title, actions, header, width = 'default', children }: AppShellProps) {
   const { announcements } = usePage<SharedProps>().props;
 
   const { props } = usePage<SharedProps>();
@@ -89,7 +99,10 @@ export function AppShell({ title, actions, header, children }: AppShellProps) {
 
       {/* Chrome, not content: `no-print` keeps the sidebar, topbar and toasts off
           paper, so a print layout inside the shell prints only its sheet. */}
-      <aside className="glass no-print sticky top-0 hidden h-dvh w-72 shrink-0 flex-col border-e lg:flex">
+      {/* `--sidebar-width` is the one number the rail, the drawer and the page's
+          arithmetic share; a rail that is 288px in one place and 256px in another is
+          how a drawer stops matching the sidebar it stands in for. */}
+      <aside className="glass no-print sticky top-0 hidden h-dvh w-(--sidebar-width) shrink-0 flex-col border-e lg:flex">
         <ShopBadge name={tenant?.name ?? 'سامانه همیار'} subdomain={tenant?.subdomain ?? null} />
         <SidebarNav currentPath={location} features={features} />
       </aside>
@@ -104,7 +117,14 @@ export function AppShell({ title, actions, header, children }: AppShellProps) {
             </SheetTrigger>
             {/* In RTL, side="right" is the reading-start edge — the drawer slides in
                 from the same side the desktop sidebar occupies. */}
-            <SheetContent side="right" dir="rtl" className="w-72 p-0">
+            {/* The sheet sets its width under `data-[side=right]:`, so the token has to
+                arrive under the same variant to replace it; a bare `w-*` here — the old
+                `w-72` included — loses to that rule and the drawer stays at 75%. */}
+            <SheetContent
+              side="right"
+              dir="rtl"
+              className="p-0 data-[side=right]:w-(--sidebar-width)"
+            >
               <SheetTitle className="sr-only">منوی اصلی</SheetTitle>
               <ShopBadge
                 name={tenant?.name ?? 'سامانه همیار'}
@@ -138,45 +158,24 @@ export function AppShell({ title, actions, header, children }: AppShellProps) {
         <main
           id="main"
           data-print-root
-          className="mx-auto w-full max-w-(--container-shell) flex-1 px-4 py-10 sm:px-8 sm:py-14"
+          className={cn(
+            'mx-auto w-full flex-1 px-4 py-10 sm:px-8 sm:py-14',
+            width === 'wide' ? 'max-w-(--container-wide)' : 'max-w-(--container-shell)'
+          )}
         >
           {/* A page-supplied header owns the `<h1>`; the shell's own row is skipped
               entirely rather than rendered empty. */}
           {header}
 
-          {!header && (title || actions) && (
-            <div className="no-print mb-10 flex flex-wrap items-center justify-between gap-4">
-              {/*
-                The page title is chrome, not content, and its size has to leave room
-                above it for the figure a screen actually exists to show.
-
-                It used to be `text-2xl` — 40px, the same step a treasury total or a
-                dashboard headline wants. A page label and the shop's entire liquidity
-                rendered identically at every width from 640 up, and on a phone the
-                label won outright: 40px against 28px. No page could establish its own
-                anchor without shouting past the shell.
-
-                21px on a phone / 28px from `sm` keeps a clear step over 17px body while
-                leaving `text-2xl` (40px) and `text-3xl` (56px) free for the one figure
-                a page wants read first. Tracking tightens as the size grows, per ADR
-                0008.
-              */}
-              {title && (
-                <h1 className="font-display text-lg font-bold tracking-tight sm:text-xl">
-                  {title}
-                </h1>
-              )}
-              {/*
-                `flex-wrap` is not cosmetic. The outer row wraps, so a long title moves
-                the action group to its own line — and then the group itself, which did
-                not wrap, ran off the edge: three buttons on the products list came to
-                553px inside a 375px viewport and pushed the whole page sideways.
-                Caught by the browser smoke suite (roadmap 11.1b) on its first honest
-                run, on a screen that had been walked by hand several times.
-              */}
-              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-            </div>
-          )}
+          {/*
+            The `title` form is the same `<PageHeader>` a page would build itself, not a
+            second rendering of it. There used to be two: this row and `page-header.tsx`,
+            written to match and free to drift — a size or a wrap fix landing in one and
+            not the other, on the one piece of chrome every screen shares. One
+            implementation, so the 40px-title lesson and the 553px-wrap lesson recorded in
+            `page-header.tsx` hold on every page, whichever form it uses.
+          */}
+          {!header && title && <PageHeader title={title} actions={actions} />}
 
           <div className="no-print">
             {/* The refusal first: it is about what the operator just tried to do, and it
@@ -210,8 +209,11 @@ export function AppShell({ title, actions, header, children }: AppShellProps) {
 function ShopBadge({ name, subdomain }: { name: string; subdomain: string | null }) {
   return (
     <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
-      <span className="flex size-9 items-center justify-center rounded-control bg-primary text-primary-foreground">
-        <StoreIcon className="size-4" />
+      {/* The product's mark, on the brand tile, beside the shop's name: the shop is on
+          Hamyar, the way a store sits under its platform's mark in every admin a
+          shopkeeper has used. It replaces a generic store icon that said nothing. */}
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary text-primary-foreground">
+        <BrandMark tone="mono" className="size-5" />
       </span>
       <span className="min-w-0">
         <span className="block truncate font-display text-sm font-bold">{name}</span>
