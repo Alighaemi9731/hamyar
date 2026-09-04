@@ -3860,3 +3860,16 @@ all six rules except «ثبت نام» on the login and register pages, fixed he
 the glossary specifies. `resources/js/lib/copy.ts` is dropped: a vocabulary module nobody
 imports is dead code, and the glossary lives in the voice document with the gate behind
 it. (#143)
+
+## 1404-06-14 (2026-09-04) — the sidebar folds to a rail (16.4)
+
+On a 1280px laptop the full sidebar cost the counter a fifth of its width for a list of
+links the cashier stopped reading on day two. The sidebar now folds to one icon wide
+(`--sidebar-rail`, 4rem): each link keeps its name for a screen reader and gains a
+tooltip for the pointer, sections become rules, the shop tile keeps the mark, and the
+toggle sits in the sidebar's footer with `aria-expanded` on the nav it controls. The
+choice is remembered per browser in `localStorage` — the counter PC and the owner's
+phone are different places — and read in the state initialiser so a navigation never
+jumps from full to rail. The POS at 1280 goes from 1032px to 1216px of working width.
+The drawer below `lg` is untouched. `tests/Browser/ShellTest.php` toggles it, checks
+that no link lost its name, and reloads. (#144)

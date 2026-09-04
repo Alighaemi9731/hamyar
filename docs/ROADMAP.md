@@ -2282,8 +2282,9 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
 - [ ] Shell: sidebar token + collapsible rail, brand mark, eyebrow labels, `PageHeader`
       crumbs, the 17 `title=` pages, `Deferred` + page skeleton — token, mark (provisional
       C), one header implementation and `width="wide"` landed in #136; crumbs dropped
-      (they repeat the lit sidebar item); the rail waits for the ink decision, `Deferred`
-      for the dashboard split
+      (they repeat the lit sidebar item); the collapsible rail landed in #144 (its colours
+      are tokens, so the ink decision recolours it); `Deferred` waits for the dashboard
+      split
 - [ ] SVG chart primitives on `/design`; dashboard rebuilt as deferred widgets — the
       `BarChart` is an SVG with a scale (#135); the deferred split remains
 - [x] First-run setup checklist (`ShopSetupProgress`) — six steps read from the tables,
