@@ -1,21 +1,15 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { SmartphoneIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 import { type Column, DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
+import { FilterSelect } from '@/components/domain/filter-select';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { StatusBadge } from '@/components/domain/status-badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
@@ -52,8 +46,6 @@ interface Props {
   can: { view_cost: boolean };
 }
 
-const ALL = 'all';
-
 const HAMTA_OPTIONS = [
   { value: 'pending', label: 'انتقال انجام نشده' },
   { value: 'done', label: 'انتقال انجام شده' },
@@ -76,30 +68,20 @@ export default function UnitsIndex({
   warehouses,
   can,
 }: Props) {
-  const [term, setTerm] = useState(filters.q);
-  const first = useRef(true);
-
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-
-      return;
-    }
-
-    const timer = window.setTimeout(() => visit({ q: term }), 300);
-
-    return () => window.clearTimeout(timer);
-  }, [term]);
-
-  function visit(changes: Record<string, string | number | boolean | null>): void {
-    // `filters` carries the server's idea of `q`, which lags a keystroke behind the
-    // box; the local term is spread after it so the two never disagree.
-    router.get(
-      '/inventory/units',
-      { ...filters, q: term, ...changes },
-      { preserveState: true, preserveScroll: true, replace: true }
-    );
+  function visit(changes: Record<string, string | null>): void {
+    router.get('/inventory/units', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
   }
+
+  const filtered =
+    filters.q !== '' ||
+    filters.status !== null ||
+    filters.warehouse_id !== null ||
+    filters.condition !== null ||
+    filters.hamta !== null;
 
   const columns: Column<UnitRow>[] = [
     {
@@ -172,14 +154,20 @@ export default function UnitsIndex({
     <AppShell title="دستگاه‌های سریال‌دار">
       <Head title="دستگاه‌های سریال‌دار" />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FilterSelect
-          label="وضعیت"
-          value={filters.status}
-          options={statuses}
-          allLabel="همه وضعیت‌ها"
-          onChange={(value) => visit({ status: value })}
-        />
+      {/* Status is the one dimension a reader scans at a glance, so it is chips; the
+          other three are selects, or the bar would be sixteen chips wide. */}
+      <FilterBar
+        className="mb-4"
+        search={{
+          value: filters.q,
+          label: 'جستجوی دستگاه',
+          placeholder: 'IMEI، سریال یا نام دستگاه…',
+        }}
+        groups={[{ key: 'status', label: 'وضعیت', value: filters.status, options: statuses }]}
+        onChange={visit}
+        resultCount={units.total}
+        resultUnit="دستگاه"
+      >
         <FilterSelect
           label="انبار"
           value={filters.warehouse_id}
@@ -201,66 +189,37 @@ export default function UnitsIndex({
           allLabel="بدون فیلتر همتا"
           onChange={(value) => visit({ hamta: value })}
         />
-      </div>
+      </FilterBar>
 
       <DataTable
         columns={columns}
         rows={units.rows}
         rowKey={(row) => row.id}
         caption="فهرست دستگاه‌های سریال‌دار فروشگاه"
-        search={{ value: term, onChange: setTerm, placeholder: 'IMEI، سریال یا نام دستگاه…' }}
         onRowClick={(row) => router.visit(`/inventory/units/${row.id}`)}
         empty={
-          <EmptyState
-            icon={SmartphoneIcon}
-            title="هنوز دستگاهی ثبت نشده"
-            description="دستگاه‌ها با ثبت فاکتور خرید و وارد کردن IMEIها ساخته می‌شوند."
-            action={
-              <Button variant="outline" asChild>
-                <Link href="/catalog">رفتن به کالاها</Link>
-              </Button>
-            }
-          />
+          filtered ? (
+            <EmptyState
+              variant="search"
+              title="دستگاهی با این فیلتر نیست"
+              description="جستجو یا فیلتر را تغییر دهید."
+            />
+          ) : (
+            <EmptyState
+              icon={SmartphoneIcon}
+              title="هنوز دستگاهی ثبت نشده"
+              description="دستگاه‌ها با ثبت فاکتور خرید و وارد کردن IMEIها ساخته می‌شوند."
+              action={
+                <Button variant="outline" asChild>
+                  <Link href="/catalog">رفتن به کالاها</Link>
+                </Button>
+              }
+            />
+          )
         }
       />
 
       <Pagination className="mt-6" links={units.links} total={units.total} unit="دستگاه" />
     </AppShell>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  allLabel,
-  onChange,
-}: {
-  label: string;
-  value: string | number | null;
-  options: { value: string; label: string }[];
-  allLabel: string;
-  onChange: (value: string | null) => void;
-}) {
-  return (
-    <label className="space-y-1.5">
-      <span className="text-2xs text-muted-foreground">{label}</span>
-      <Select
-        value={value === null ? ALL : String(value)}
-        onValueChange={(next) => onChange(next === ALL ? null : next)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent dir="rtl">
-          <SelectItem value={ALL}>{allLabel}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </label>
   );
 }

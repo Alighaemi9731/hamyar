@@ -1,20 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { PackageIcon, PlusIcon, PrinterIcon, TagsIcon, UploadIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 import { type Column, DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar, withoutEmpty } from '@/components/domain/filter-bar';
+import { FilterSelect } from '@/components/domain/filter-select';
 import { Num } from '@/components/domain/num';
 import { type PaginationLink, Pagination } from '@/components/domain/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 
 interface ProductRow {
@@ -45,48 +39,29 @@ interface Props {
   types: { value: string; label: string }[];
 }
 
-const ALL = 'all';
-
 /**
  * The catalogue list.
  *
  * Filtering happens on the server, because a shop with four thousand accessory lines
- * cannot ship them all to the browser to filter client-side. The text box is debounced
- * and every visit replaces history rather than stacking it, so Back leaves the screen
- * instead of walking through every keystroke.
+ * cannot ship them all to the browser to filter client-side. The search is debounced by
+ * `FilterBar` and every visit replaces history rather than stacking it, so Back leaves
+ * the screen instead of walking through every keystroke.
  */
 export default function ProductsIndex({ products, filters, categories, brands, types }: Props) {
-  const [term, setTerm] = useState(filters.q);
-  const first = useRef(true);
-
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-
-      return;
-    }
-
-    const timer = window.setTimeout(() => visit({ q: term }), 300);
-
-    return () => window.clearTimeout(timer);
-    // Only the typed term drives this effect; `visit` is stable enough and adding it
-    // would re-fire the search on every render.
-  }, [term]);
-
-  function visit(changes: Record<string, string | number | boolean | null>): void {
-    router.get(
-      '/catalog',
-      {
-        q: term,
-        category_id: filters.category_id,
-        brand_id: filters.brand_id,
-        type: filters.type,
-        include_inactive: filters.include_inactive,
-        ...changes,
-      },
-      { preserveState: true, preserveScroll: true, replace: true }
-    );
+  function visit(changes: Record<string, string | null>): void {
+    router.get('/catalog', withoutEmpty({ ...filters, ...changes }), {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    });
   }
+
+  const filtered =
+    filters.q !== '' ||
+    filters.category_id !== null ||
+    filters.brand_id !== null ||
+    filters.type !== null ||
+    filters.include_inactive;
 
   const columns: Column<ProductRow>[] = [
     {
@@ -181,7 +156,31 @@ export default function ProductsIndex({ products, filters, categories, brands, t
     >
       <Head title="کالاها" />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Type and the inactive toggle are a few states each, so they are chips; the
+          category tree and the brand list are open-ended, so they are selects. */}
+      <FilterBar
+        className="mb-4"
+        search={{ value: filters.q, label: 'جستجوی کالا', placeholder: 'نام کالا یا کد…' }}
+        groups={[
+          {
+            key: 'type',
+            label: 'نوع',
+            value: filters.type,
+            options: types,
+            allLabel: 'عادی و سریال‌دار',
+          },
+          {
+            key: 'include_inactive',
+            label: 'کالاهای غیرفعال',
+            value: filters.include_inactive ? '1' : null,
+            allLabel: 'فقط فعال‌ها',
+            options: [{ value: '1', label: 'با غیرفعال‌ها' }],
+          },
+        ]}
+        onChange={visit}
+        resultCount={products.total}
+        resultUnit="کالا"
+      >
         <FilterSelect
           label="دسته"
           value={filters.category_id}
@@ -196,82 +195,37 @@ export default function ProductsIndex({ products, filters, categories, brands, t
           allLabel="همه برندها"
           onChange={(value) => visit({ brand_id: value })}
         />
-        <FilterSelect
-          label="نوع"
-          value={filters.type}
-          options={types.map((t) => ({ value: t.value, label: t.label }))}
-          allLabel="عادی و سریال‌دار"
-          onChange={(value) => visit({ type: value })}
-        />
-        <FilterSelect
-          label="کالاهای غیرفعال"
-          value={filters.include_inactive ? '1' : null}
-          options={[{ value: '1', label: 'نمایش داده شوند' }]}
-          allLabel="پنهان باشند"
-          onChange={(value) => visit({ include_inactive: value === '1' })}
-        />
-      </div>
+      </FilterBar>
 
       <DataTable
         columns={columns}
         rows={products.rows}
         rowKey={(row) => row.id}
         caption="فهرست کالاهای فروشگاه"
-        search={{ value: term, onChange: setTerm, placeholder: 'نام کالا یا کد…' }}
         onRowClick={(row) => router.visit(`/catalog/products/${row.id}`)}
         empty={
-          <EmptyState
-            icon={PackageIcon}
-            title="هنوز کالایی ثبت نشده"
-            description="با یک مدل گوشی شروع کنید؛ رنگ و حافظه را بعداً به‌صورت ماتریس می‌سازید."
-            action={
-              <Button asChild>
-                <Link href="/catalog/products/create">ثبت اولین کالا</Link>
-              </Button>
-            }
-          />
+          filtered ? (
+            <EmptyState
+              variant="search"
+              title="کالایی با این فیلتر نیست"
+              description="جستجو یا فیلتر را تغییر دهید."
+            />
+          ) : (
+            <EmptyState
+              icon={PackageIcon}
+              title="هنوز کالایی ثبت نشده"
+              description="با یک مدل گوشی شروع کنید؛ رنگ و حافظه را بعداً به‌صورت ماتریس می‌سازید."
+              action={
+                <Button asChild>
+                  <Link href="/catalog/products/create">ثبت اولین کالا</Link>
+                </Button>
+              }
+            />
+          )
         }
       />
 
       <Pagination className="mt-6" links={products.links} total={products.total} unit="کالا" />
     </AppShell>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  allLabel,
-  onChange,
-}: {
-  label: string;
-  value: string | number | null;
-  options: { value: string; label: string }[];
-  allLabel: string;
-  onChange: (value: string | null) => void;
-}) {
-  return (
-    <label className="space-y-1.5">
-      <span className="text-2xs text-muted-foreground">{label}</span>
-      <Select
-        value={value === null ? ALL : String(value)}
-        // The sentinel exists because a Radix Select item may not carry an empty
-        // value; it becomes a real null before it reaches the query string.
-        onValueChange={(next) => onChange(next === ALL ? null : next)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent dir="rtl">
-          <SelectItem value={ALL}>{allLabel}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </label>
   );
 }

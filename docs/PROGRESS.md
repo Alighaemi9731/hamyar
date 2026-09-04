@@ -3772,3 +3772,20 @@ Persian screen. The POS and intake submits say «در حال ثبت…» with a 
 only greying, the Hamta checklist's hand-rolled pill is `StatusBadge`, and the settings
 hub's doors carry glyphs. `tests/Browser/EmptyStatesTest.php` walks a tenant with nothing
 in it. (#137)
+
+## 1404-06-14 (2026-09-04) — five registers on one filter bar, and a select for the dimensions chips cannot hold (16.5)
+
+The catalogue, the price list, the parties, the stock and the serialized-unit registers
+each carried the same three things: a `useState` for the search term, a 300ms timer that
+fired a visit, and a captioned grid of selects above the table — two of them with a
+private copy of the same `FilterSelect` helper. All five now stand on `FilterBar` with
+`withoutEmpty`, so the debounce, the reset, the result count and the below-`md` sheet are
+the one implementation the sales and repairs registers already used. Dimensions with a
+handful of states are chips (type, status, the inactive toggle); open-ended ones — the
+category tree, the brand list, the warehouses — ride in the bar's children slot as a new
+compact `FilterSelect`, whose *all* row names the dimension so the 68px captioned field
+becomes a 40px control beside the search box. Every register now tells a filtered-empty
+from a never-had-anything: the table's own search branch used to do that, and moving the
+search out of the table would otherwise have shown «هنوز کالایی ثبت نشده» to a filter that
+matched nothing. The activity log and the report toolbar are the rest of the roadmap
+line. (#138)
