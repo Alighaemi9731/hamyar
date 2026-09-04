@@ -1759,7 +1759,9 @@ trail worth reading**.*
 > Inventing plausible column names instead would have been the genuinely bad outcome —
 > it would tune the guesser to a fiction **and look tested**. Not doing that remains
 > right; what has changed is that the alternative is no longer waiting to happen.
-- [ ] **Branded error pages (404 / 403 / 419 / 500)** — new, found in production on the
+- [x] **Branded error pages (404 / 403 / 419 / 500)** — closed by 12.14: `bootstrap/app.php`
+      renders every 403/404/419/500/503 through the Inertia `errors/index` page on both hosts
+      (verified 2026-09-04 with a `curl` of a missing path on each) — new, found in production on the
       staging box. `resources/views/errors/` **does not exist**, so every error in this
       Persian, RTL product renders as the framework's bare `<html lang="en">Not Found`.
       That is not only ugly: `ResolveTenant` aborts with written Persian messages —
@@ -2248,11 +2250,14 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       current landing (PR 0.3)
 
 ### 16.1 Brand assets
-- [ ] Logo mark + «همیار» wordmark candidates on `/design`; `favicon.svg` + PNG set +
-      `site.webmanifest` replacing the 0-byte `.ico`; og:image template rendered by `bin/shots`
-- [ ] Branded error pages `resources/views/errors/{403,404,419,500,503}` (closes 11's item)
-      with `tests/Feature/ErrorPagesTest.php`
-- [ ] `/design` type specimen (every candidate pairing on real copy) and navy-ink token sheet
+- [x] Logo mark + «همیار» wordmark candidates on `/design` (A «یک سطر», B «ه», C «همراه» — C
+      recommended); `favicon.svg` + ICO + PNG set + `site.webmanifest` replacing the 0-byte `.ico`,
+      linked from every document head; og:image template at `/design/og` rendered by `bin/shots og`
+      and referenced with `og:image` + Twitter tags (PR 1.1)
+- [x] ~~Branded error pages `resources/views/errors/*`~~ — unnecessary: the Inertia error page
+      already serves both hosts (12.14); the Phase 11 item was stale and is annotated
+- [x] `/design` type specimen (four pairings on real copy) and the navy-ink contrast sheet with
+      WCAG ratios computed in place (PR 1.1)
 
 ### 16.2 Owner gate — direction · type · logo · ink · copy
 - [ ] `docs/brand/positioning.md` + landing copy v1 (`lang/fa/landing.php` form)

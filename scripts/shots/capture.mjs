@@ -31,7 +31,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -154,8 +154,17 @@ async function main() {
 
   const captured = [];
 
+  // The central host (the landing, /design) is the app host without its `app.` label —
+  // `http://app.localhost` beside `http://app.app.localhost`, `http://localhost:8000`
+  // beside `http://app.localhost:8000` in CI. Derived, never spelled out.
+  const centralBase = base.replace('://app.', '://');
+
   for (const screen of screens) {
-    await page.goto(`${base}${screen.path}`, { waitUntil: 'domcontentloaded' });
+    const origin = screen.host === 'central' ? centralBase : base;
+
+    if (screen.viewport) await page.setViewportSize(screen.viewport);
+
+    await page.goto(`${origin}${screen.path}`, { waitUntil: 'domcontentloaded' });
     await settle(page, screen.ready);
 
     if (screen.prepare) {
@@ -164,9 +173,23 @@ async function main() {
     }
 
     const raw = join(RAW_DIR, `${screen.id}.png`);
-    await page.screenshot({ path: raw, scale: 'device' });
+    await page.screenshot({ path: raw, scale: screen.out ? 'css' : 'device' });
 
-    const written = await encode({ raw, outDir: OUT_DIR, id: screen.id, phone: screen.phone, viewport: VIEWPORT });
+    let written;
+
+    if (screen.out) {
+      // A fixed-size artefact shipped as-is (the og:image): copy the CSS-pixel capture
+      // to its home and skip the webp set.
+      const destination = join(ROOT, screen.out);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(raw, destination);
+      written = [screen.out];
+    } else {
+      written = await encode({ raw, outDir: OUT_DIR, id: screen.id, phone: screen.phone, viewport: VIEWPORT });
+    }
+
+    if (screen.viewport) await page.setViewportSize(VIEWPORT);
+
     captured.push({ id: screen.id, path: screen.path, files: written });
     console.log(`  shot   ${screen.id.padEnd(13)} ${written.join('  ')}`);
   }

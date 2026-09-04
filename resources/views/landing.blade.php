@@ -7,6 +7,10 @@
     <title>سامانه همیار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
     <meta name="description" content="سامانه همیار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. پلن رایگان، بدون کارت بانکی.">
     <meta name="theme-color" content="#FFFFFF">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
     <link rel="canonical" href="{{ url('/') }}">
 
     <meta property="og:type" content="website">
@@ -14,6 +18,15 @@
     <meta property="og:description" content="از پذیرش تعمیر تا تسویه، روی یک قبض.">
     <meta property="og:locale" content="fa_IR">
     <meta property="og:url" content="{{ url('/') }}">
+    {{-- Rendered from the brand layer and the dashboard capture by `bin/shots og`; hashed by
+         Vite so a re-capture invalidates the URL every unfurler has cached. --}}
+    <meta property="og:image" content="{{ Vite::asset('resources/landing/og/og.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="سامانه همیار — نرم‌افزار فروشگاه موبایل">
+    <meta name="twitter:description" content="فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — در یک سامانه.">
+    <meta name="twitter:image" content="{{ Vite::asset('resources/landing/og/og.png') }}">
 
     {{-- The two faces the hero paints with, requested before the stylesheet parses.
          `crossorigin` is mandatory even same-origin or the preload is discarded. --}}

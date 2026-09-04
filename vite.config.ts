@@ -29,6 +29,9 @@ export default defineConfig({
         // is what puts a file in the manifest. The `url()` in fonts.css resolves to the
         // same hashed asset, so the preload and the stylesheet agree on one URL.
         ...globSync('resources/fonts/*.woff2').sort(),
+        // The og:image, captured by `bin/shots og` — hashed like the shots, so a re-capture
+        // invalidates the URL every unfurler has cached.
+        ...globSync('resources/landing/og/*.png').sort(),
       ],
       ssr: 'resources/js/ssr.tsx',
       refresh: true,

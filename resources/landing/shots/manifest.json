@@ -1,6 +1,6 @@
 {
-  "captured_at": "2026-09-04T08:22:47.060Z",
-  "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3",
+  "captured_at": "2026-09-04T08:35:08.900Z",
+  "git_sha": "965a7ec13cf8a967298eb0e1b43b63d21e158f55",
   "viewport": {
     "width": 1440,
     "height": 900
@@ -84,6 +84,14 @@
       ],
       "captured_at": "2026-09-04T08:20:29.119Z",
       "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+    },
+    "og": {
+      "path": "/design/og",
+      "files": [
+        "resources/landing/og/og.png"
+      ],
+      "captured_at": "2026-09-04T08:35:08.900Z",
+      "git_sha": "965a7ec13cf8a967298eb0e1b43b63d21e158f55"
     }
   }
 }

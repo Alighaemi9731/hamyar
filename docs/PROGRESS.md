@@ -3680,3 +3680,33 @@ next such defect cannot ship inside an image.
 
 `ShowcaseSeederTest` pins the shape the screenshots depend on (six cases, twelve seconds).
 Nothing deployed — there is no box.
+
+## 1404-06-14 (2026-09-04) — the raw material for the gate: marks, pairings, ink, and a favicon that exists (16.1, PR 1.1)
+
+Three things the owner decides at the 16.2 gate are now real markup on `/design` instead
+of a description. **Three mark candidates**, hand-drawn SVG under `resources/brand/`: A
+«یک سطر» — a handset with the one row the product is about inside its screen; B — the
+letter «ه» set with a handset's proportions; C «همراه» — two brackets facing each other,
+one handset with light between them and the accent dot as the companion. Each is shown at
+64/32/16, on black, as a blue tile, and beside the wordmark, with its honest risk printed
+under it: A reads as a toggle at 16px, B as a padlock, C is thin at 16px and is the
+recommendation. **Four type pairings** on the same real copy — a headline in the
+professional register, a lede, a paragraph, a table row with Latin tabular figures, an IMEI
+and a button — at identical sizes: Estedad re-tuned + Vazirmatn, IBM Plex Sans Arabic
+alone, Noto Kufi Arabic + Vazirmatn, Vazirmatn alone. **The ink sheet** puts ADR 0016's
+open question on one screen: the product's `#1d1d1f`/`#6e6e73` against the landing's navy
+family, every pair with its WCAG ratio computed in the page against white, the current
+alt ground and the proposed one, red where it drops under 4.5.
+
+The favicon existed as a 0-byte file and no document head linked one. `bin/brand-assets`
+rasterises a mark into `favicon.svg`, a two-frame `favicon.ico`, the touch icon and the
+manifest icons; every layout — landing, app, auth, legal, storefront — now links them.
+Provisional, from C; swapped in one command when the gate decides. And the landing has an
+`og:image` for the first time: a page at `/design/og` built from the brand layer and the
+dashboard capture, photographed by `bin/shots og` into a hashed asset, with the Twitter
+tags beside it.
+
+One item came off the list honestly: the roadmap's "branded error pages" was stale —
+`bootstrap/app.php` has rendered every 403/404/419/500/503 through the Inertia error page
+on both hosts since 12.14, verified with a `curl` of a missing path on each. Annotated,
+not built.

@@ -1,4 +1,8 @@
 import { Head } from '@inertiajs/react';
+
+import markA from '../../../brand/mark-a.svg?raw';
+import markB from '../../../brand/mark-b.svg?raw';
+import markC from '../../../brand/mark-c.svg?raw';
 import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -98,6 +102,9 @@ export default function DesignGallery() {
 
       <div className="space-y-6">
         <TokensSection />
+        <MarkSection alt />
+        <TypeSection />
+        <InkSection alt />
         <MoneySection alt />
         <NumSection />
         <DateSection alt />
@@ -174,6 +181,291 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="pt-2 text-xs text-muted-foreground">{label}</span>
       <div className="flex flex-wrap items-center gap-3">{children}</div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Redesign v2 specimens (ROADMAP 16.1). Three things the owner decides at the 16.2 gate,
+   rendered as real markup so the choice is made on what ships, not on a mock: the mark,
+   the type pairing, and the ink. Each carries its honest risk beside it. */
+
+const MARKS = [
+  {
+    id: 'A',
+    name: 'یک سطر',
+    svg: markA,
+    thesis: 'یک گوشی، و داخل صفحه‌اش همان چیزی که محصول دربارهٔ آن است: یک سطر با تاریخچه.',
+    risk: 'در ۱۶ پیکسل شبیه کلید تاگل خوانده می‌شود.',
+    recommended: false,
+  },
+  {
+    id: 'B',
+    name: 'مونوگرام «ه»',
+    svg: markB,
+    thesis: 'حرف اول «همیار» با تناسب یک گوشی؛ برای مخاطب فارسی‌زبان حرف است، برای بقیه یک شیء.',
+    risk: 'شبیه قفل یا آواتار خوانده می‌شود؛ ضعیف‌ترین گزینه.',
+    recommended: false,
+  },
+  {
+    id: 'C',
+    name: 'همراه',
+    svg: markC,
+    thesis: 'دو براکت روبه‌روی هم یک گوشی می‌سازند و نقطهٔ آبی میان‌شان همراهی است که همیشه هست.',
+    risk: 'در ۱۶ پیکسل کمی نازک است؛ ضخامت ۲٫۸ حداقل است.',
+    recommended: true,
+  },
+] as const;
+
+function Mark({ svg, className }: { svg: string; className?: string }) {
+  return (
+    <span
+      className={cn('inline-flex shrink-0 [&>svg]:size-full', className)}
+      // The mark is our own SVG source under resources/brand, imported as text at build
+      // time — no user input reaches this attribute.
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
+
+function MarkSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="نشان — سه گزینه برای دروازهٔ ۱۶٫۲"
+      note="هر نشان در سه اندازه، روی زمینهٔ روشن، روی سیاه و به‌صورت کاشی آبی، و کنار واژه‌نشان. ریسک هر کدام صادقانه نوشته شده؛ پیشنهاد ما علامت خورده است."
+    >
+      <div className="grid gap-6 lg:grid-cols-3">
+        {MARKS.map((mark) => (
+          <div
+            key={mark.id}
+            className={cn(
+              'rounded-card border border-border bg-surface p-6',
+              mark.recommended && 'ring-2 ring-brand'
+            )}
+          >
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h3 className="text-base font-bold">
+                {mark.id} · {mark.name}
+              </h3>
+              {mark.recommended && <Badge>پیشنهاد ما</Badge>}
+            </div>
+
+            <div className="mb-5 grid grid-cols-[4rem_2rem_1rem] items-end gap-4 text-foreground">
+              <Mark svg={mark.svg} className="size-16" />
+              <Mark svg={mark.svg} className="size-8" />
+              <Mark svg={mark.svg} className="size-4" />
+            </div>
+
+            <div className="mb-5 grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-center rounded-control bg-canvas-invert p-4 text-white">
+                <Mark svg={mark.svg} className="size-10" />
+              </div>
+              <div className="flex items-center justify-center rounded-control bg-brand p-4 text-white [&_circle]:fill-white">
+                <Mark svg={mark.svg} className="size-10" />
+              </div>
+            </div>
+
+            <div className="mb-5 flex items-center gap-3 text-foreground">
+              <Mark svg={mark.svg} className="size-9" />
+              <span className="font-display text-2xl font-bold tracking-tight">همیار</span>
+            </div>
+
+            <p className="text-sm leading-relaxed text-muted-foreground">{mark.thesis}</p>
+            <p className="mt-2 text-xs text-warning">ریسک: {mark.risk}</p>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+const PAIRINGS = [
+  {
+    id: '۱',
+    name: 'استعداد + وزیرمتن (فعلی، بازتنظیم‌شده)',
+    display: "'Estedad', 'Vazirmatn', sans-serif",
+    displayWeight: 600,
+    body: "'Vazirmatn', sans-serif",
+    note: 'همان دو خانواده، اما تیتر با وزن ۶۰۰ به‌جای ۸۰۰ و فاصلهٔ خط فشرده‌تر. کم‌ریسک‌ترین گزینه؛ همچنان چهرهٔ آشنای سایت‌های ساخته‌شده با هوش مصنوعی.',
+  },
+  {
+    id: '۲',
+    name: 'IBM Plex Sans Arabic (تیتر و متن)',
+    display: "'IBM Plex Sans Arabic', sans-serif",
+    displayWeight: 600,
+    body: "'IBM Plex Sans Arabic', sans-serif",
+    note: 'یک خانواده برای همه‌چیز، با شخصیت مهندسی. برای فارسی، شکل «ی» و «ک» را در متن بلند بسنجید — گزارش‌هایی از ناسازگاری فارسی ثبت شده است.',
+  },
+  {
+    id: '۳',
+    name: 'نوتو کوفی + وزیرمتن',
+    display: "'Noto Kufi Arabic', sans-serif",
+    displayWeight: 600,
+    body: "'Vazirmatn', sans-serif",
+    note: 'تیتر هندسی و کوفی، متن خنثی. متمایزترین گزینه؛ ریسک آن این است که برای مغازه‌دار ایرانی «عربی» خوانده شود.',
+  },
+  {
+    id: '۴',
+    name: 'وزیرمتن (فقط یک خانواده)',
+    display: "'Vazirmatn', sans-serif",
+    displayWeight: 800,
+    body: "'Vazirmatn', sans-serif",
+    note: 'یک خانواده، تفاوت با وزن. ساده و سبک‌ترین بارگذاری؛ کمترین شخصیت.',
+  },
+] as const;
+
+function TypeSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="آزمون فونت — چهار جفت، یک متن"
+      note="یک تیتر، یک لید، یک بند متن، یک ردیف جدول با ارقام لاتین جدولی و یک IMEI؛ در هر جفت با همان اندازه‌ها. همهٔ چهره‌ها آزاد (OFL) و خودمیزبان هستند. انتخاب در دروازهٔ ۱۶٫۲ قفل می‌شود و بازنده‌ها حذف می‌شوند."
+    >
+      <div className="grid gap-6 xl:grid-cols-2">
+        {PAIRINGS.map((pairing) => (
+          <div key={pairing.id} className="rounded-card border border-border bg-surface p-6 sm:p-8">
+            <p className="mb-6 text-xs text-muted-foreground">
+              {pairing.id} · {pairing.name}
+            </p>
+
+            <h3
+              className="mb-3 text-2xl leading-[1.15] tracking-[-0.015em] text-foreground sm:text-3xl"
+              style={{ fontFamily: pairing.display, fontWeight: pairing.displayWeight }}
+            >
+              همهٔ کارِ فروشگاه موبایل، در یک سامانه
+            </h3>
+
+            <p
+              className="mb-5 text-lg leading-[1.7] text-muted-foreground"
+              style={{ fontFamily: pairing.body }}
+            >
+              فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت می‌شود و سود هر فروش همان لحظه معلوم است.
+            </p>
+
+            <p
+              className="mb-6 max-w-[65ch] text-base leading-[1.8] text-foreground"
+              style={{ fontFamily: pairing.body }}
+            >
+              قبض پذیرش با یک بارکد چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند. هر قسط و هر چک سررسید دارد؛ صبح که فروشگاه را باز می‌کنید معلوم است امروز از چه کسی باید بگیرید و چه کسی عقب افتاده است.
+            </p>
+
+            <div
+              className="mb-4 grid grid-cols-[1fr_auto_auto] items-baseline gap-4 border-t border-border pt-4 text-sm"
+              style={{ fontFamily: pairing.body }}
+            >
+              <span className="text-foreground">آیفون ۱۵ — ۱۲۸ گیگ</span>
+              <span className="tabular text-foreground">74,000,000</span>
+              <span className="text-xs text-muted-foreground">تومان</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="ltr-value tabular text-lg font-semibold text-foreground" style={{ fontFamily: pairing.body }}>
+                356938035643809
+              </span>
+              <span
+                className="inline-flex h-10 items-center rounded-pill bg-brand px-5 text-sm font-semibold text-white"
+                style={{ fontFamily: pairing.body }}
+              >
+                رایگان شروع کنید
+              </span>
+            </div>
+
+            <p className="mt-6 text-xs leading-relaxed text-muted-foreground">{pairing.note}</p>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+/** WCAG contrast of two hex colours, for the ink sheet — measured, not remembered. */
+function contrast(foreground: string, background: string): number {
+  const luminance = (hex: string): number => {
+    const channels = hex
+      .replace('#', '')
+      .match(/.{2}/g)
+      ?.map((part) => parseInt(part, 16) / 255) ?? [0, 0, 0];
+    const [r, g, b] = channels.map((value) =>
+      value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    ) as [number, number, number];
+
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a) as [number, number];
+
+  return Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100;
+}
+
+const INKS = [
+  { family: 'فعلی (ADR 0008)', name: 'ink', value: '#1d1d1f', role: 'متن اصلی' },
+  { family: 'فعلی (ADR 0008)', name: 'ink-soft', value: '#6e6e73', role: 'متن فرعی' },
+  { family: 'پیشنهادی — سرمه‌ای', name: 'navy', value: '#0e1b2c', role: 'متن اصلی' },
+  { family: 'پیشنهادی — سرمه‌ای', name: 'navy-soft', value: '#46586d', role: 'متن فرعی' },
+  { family: 'پیشنهادی — سرمه‌ای', name: 'navy-mute', value: '#5d6b7e', role: 'توضیحات — کف' },
+] as const;
+
+const GROUNDS = [
+  { name: 'canvas', value: '#ffffff' },
+  { name: 'canvas-alt (فعلی)', value: '#f5f5f7' },
+  { name: 'alt پیشنهادی', value: '#edf2f8' },
+] as const;
+
+function InkSection({ alt }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title="جوهر — سیاه فعلی یا سرمه‌ای لندینگ؟"
+      note="ADR 0016 این را باز گذاشت: لندینگ با سرمه‌ای #0E1B2C می‌نویسد و محصول با #1D1D1F. یک جوهر برای هر دو. اعداد، نسبت کنتراست WCAG هستند و همین‌جا محاسبه می‌شوند؛ کف AA برای متن معمولی ۴٫۵ است."
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-muted-foreground">
+              <th className="pb-3 text-start font-medium">خانواده</th>
+              <th className="pb-3 text-start font-medium">توکن</th>
+              <th className="pb-3 text-start font-medium">نقش</th>
+              <th className="pb-3 text-start font-medium">نمونه</th>
+              {GROUNDS.map((ground) => (
+                <th key={ground.name} className="pb-3 text-start font-medium">
+                  روی {ground.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {INKS.map((ink) => (
+              <tr key={ink.name} className="border-t border-border">
+                <td className="py-3 text-muted-foreground">{ink.family}</td>
+                <td className="py-3 font-mono text-xs" dir="ltr">
+                  {ink.name} {ink.value}
+                </td>
+                <td className="py-3">{ink.role}</td>
+                <td className="py-3">
+                  <span className="rounded-inner px-3 py-1" style={{ color: ink.value, backgroundColor: '#ffffff' }}>
+                    فروش امروز ۹۱٬۲۳۰٬۰۰۰ تومان
+                  </span>
+                </td>
+                {GROUNDS.map((ground) => {
+                  const ratio = contrast(ink.value, ground.value);
+
+                  return (
+                    <td key={ground.name} className="py-3">
+                      <span
+                        className={cn('tabular rounded-inner px-2 py-1', ratio < 4.5 ? 'bg-danger/10 text-danger' : '')}
+                        style={{ backgroundColor: ratio < 4.5 ? undefined : ground.value, color: ratio < 4.5 ? undefined : ink.value }}
+                      >
+                        {ratio.toFixed(2)}:1
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   );
 }
 

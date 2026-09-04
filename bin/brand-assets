@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#
+# Rasterise the brand mark into the favicon set.
+#
+#   bin/brand-assets [resources/brand/mark-a.svg]
+#
+# Outputs, all under public/:
+#   favicon.svg            the mark itself, ink on transparent (modern browsers)
+#   favicon.ico            32px, the file every browser still requests at /favicon.ico —
+#                          it was a 0-byte file until 2026-09-04, which every tab showed
+#   apple-touch-icon.png   180px on the brand blue with a white mark, as iOS expects
+#   icon-192.png / icon-512.png   the manifest icons
+#
+# One-off, run locally; the outputs are committed. rsvg-convert (librsvg) rasterises the
+# SVG, Pillow writes the ICO. Both refuse loudly when missing.
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SRC="${1:-resources/brand/mark-a.svg}"
+
+command -v rsvg-convert >/dev/null || { echo "  rsvg-convert missing — brew install librsvg" >&2; exit 1; }
+python3 -c 'import PIL' 2>/dev/null || { echo "  Pillow missing — python3 -m pip install pillow" >&2; exit 1; }
+[[ -f "$SRC" ]] || { echo "  $SRC does not exist" >&2; exit 1; }
+
+INK="#1d1d1f"
+BLUE="#0066cc"
+TMP="$(mktemp -d)"
+
+# The favicon: the mark in ink, on nothing.
+sed "s/currentColor/${INK}/g" "$SRC" > public/favicon.svg
+
+# A padded, filled tile for the touch icon and the manifest: white mark on the brand blue,
+# inset by 18% so iOS's rounding does not clip the stroke.
+tile() {
+  local size="$1" out="$2"
+  local inner=$(( size * 64 / 100 ))
+  local offset=$(( (size - inner) / 2 ))
+  sed -e "s/currentColor/#ffffff/g" -e "s/${BLUE}/#ffffff/g" "$SRC" > "$TMP/white.svg"
+  rsvg-convert -w "$inner" -h "$inner" "$TMP/white.svg" -o "$TMP/inner.png"
+  python3 - "$size" "$offset" "$TMP/inner.png" "$out" "$BLUE" <<'PY'
+import sys
+from PIL import Image
+size, offset, inner, out, blue = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5]
+tile = Image.new("RGBA", (size, size), blue)
+mark = Image.open(inner).convert("RGBA")
+tile.alpha_composite(mark, (offset, offset))
+tile.save(out)
+PY
+}
+
+tile 180 public/apple-touch-icon.png
+tile 192 public/icon-192.png
+tile 512 public/icon-512.png
+
+# The .ico: ink mark on transparent at 32 and 16, both frames in one file.
+rsvg-convert -w 32 -h 32 public/favicon.svg -o "$TMP/32.png"
+rsvg-convert -w 16 -h 16 public/favicon.svg -o "$TMP/16.png"
+python3 - "$TMP/32.png" "$TMP/16.png" public/favicon.ico <<'PY'
+import sys
+from PIL import Image
+big, small, out = sys.argv[1], sys.argv[2], sys.argv[3]
+Image.open(big).convert("RGBA").save(out, format="ICO", sizes=[(32, 32), (16, 16)])
+PY
+
+rm -rf "$TMP"
+ls -la public/favicon.svg public/favicon.ico public/apple-touch-icon.png public/icon-192.png public/icon-512.png | awk '{printf "  %7s %s\n", $5, $9}'

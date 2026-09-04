@@ -194,4 +194,8 @@ Route::middleware('tenant')->group(function (): void {
 
 if (app()->environment('local', 'testing')) {
     Route::get('/design', fn () => Inertia::render('design/index'))->name('design');
+
+    // The og:image as a page, captured by `bin/shots og` into resources/landing/og/og.png.
+    // Same guard as /design: never registered in production.
+    Route::get('/design/og', fn () => view('og.landing'))->name('design.og');
 }
