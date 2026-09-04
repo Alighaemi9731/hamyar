@@ -1,5 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  CreditCardIcon,
+  HistoryIcon,
+  MonitorSmartphoneIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  StoreIcon,
+  UsersIcon,
+} from 'lucide-react';
 
 import { EmptyState } from '@/components/domain/empty-state';
 import { Card } from '@/components/ui/card';
@@ -15,6 +25,20 @@ interface Destination {
 interface Props {
   groups: { key: string; label: string; items: Destination[] }[];
 }
+
+/**
+ * One glyph per door, keyed by the catalogue's destination key. The catalogue is
+ * server-side and permission-filtered; the glyphs live here because they are the
+ * screen's, not the data's. A door added without one gets the cog until it is named.
+ */
+const ICONS: Record<string, LucideIcon> = {
+  users: UsersIcon,
+  branches: StoreIcon,
+  billing: CreditCardIcon,
+  'two-factor': ShieldCheckIcon,
+  sessions: MonitorSmartphoneIcon,
+  activity: HistoryIcon,
+};
 
 /**
  * The settings hub.
@@ -58,24 +82,36 @@ export default function SettingsIndex({ groups }: Props) {
               <h2 className="mb-4 text-sm font-semibold text-muted-foreground">{group.label}</h2>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {group.items.map((item) => (
-                  <Card key={item.key} asChild interactive className="group">
-                    <Link href={item.href}>
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="font-semibold">{item.title}</h3>
-                        {/* The arrow points to the reading end, which in RTL is the
-                            physical left — `rtl:rotate-180` would send it backwards. */}
-                        <ArrowLeftIcon
-                          className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-brand"
-                          aria-hidden
-                        />
-                      </div>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                        {item.description}
-                      </p>
-                    </Link>
-                  </Card>
-                ))}
+                {group.items.map((item) => {
+                  const Icon = ICONS[item.key] ?? SettingsIcon;
+
+                  return (
+                    <Card key={item.key} asChild interactive className="group">
+                      <Link href={item.href}>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="flex min-w-0 items-center gap-3">
+                            <span
+                              aria-hidden
+                              className="flex size-9 shrink-0 items-center justify-center rounded-control bg-accent text-accent-foreground"
+                            >
+                              <Icon className="size-4" />
+                            </span>
+                            <h3 className="font-semibold">{item.title}</h3>
+                          </span>
+                          {/* The arrow points to the reading end, which in RTL is the
+                              physical left — `rtl:rotate-180` would send it backwards. */}
+                          <ArrowLeftIcon
+                            className="mt-2.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-brand"
+                            aria-hidden
+                          />
+                        </div>
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </Link>
+                    </Card>
+                  );
+                })}
               </div>
             </section>
           ))}

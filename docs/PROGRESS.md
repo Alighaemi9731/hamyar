@@ -3756,3 +3756,19 @@ on the shop tile through `components/brand-mark.tsx`, the one import of
 `resources/brand/mark.svg` — provisional candidate C until the gate picks, a file swap when
 it does. Breadcrumbs from `NAVIGATION` were dropped (two levels that repeat the lit sidebar
 item); the collapsible rail waits for the ink decision.
+
+## 1404-06-14 (2026-09-04) — the first morning: empty states that open a door, and a file drop instead of the OS's widget (16.5)
+
+The screens a new shop meets first had no witness: the smoke suite walks a populated shop,
+the one state an empty branch never renders in, so «قسطی در انتظار نیست.» in a bare
+paragraph shipped on three screens and six empty kanban columns stood for "no repairs
+yet". Now the repair board, the collection desk and the storefront's link list render
+`EmptyState` — a noun for what is missing and a door to the next action; the «کارهای من»
+filter with nothing assigned is a `search` state with a way back to everyone's work. Both
+import pages put a drawn `FileDrop` in front of a still-real file input (label opens the
+picker, Tab reaches it, drop checks the extension the `accept` attribute cannot), which
+removes the browser's own «Choose file · No file chosen» — the one English sentence on a
+Persian screen. The POS and intake submits say «در حال ثبت…» with a spinner instead of
+only greying, the Hamta checklist's hand-rolled pill is `StatusBadge`, and the settings
+hub's doors carry glyphs. `tests/Browser/EmptyStatesTest.php` walks a tenant with nothing
+in it. (#137)

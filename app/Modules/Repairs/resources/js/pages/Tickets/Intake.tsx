@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { CameraIcon, CheckCheckIcon, XIcon } from 'lucide-react';
+import { CameraIcon, CheckCheckIcon, LoaderCircleIcon, XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { FormErrors } from '@/components/domain/form-errors';
@@ -496,7 +496,8 @@ export default function TicketIntake({
         <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 p-3 backdrop-blur">
           <div className="mx-auto max-w-xl">
             <Button type="submit" className="h-12 w-full" disabled={processing}>
-              ثبت پذیرش و چاپ قبض
+              {processing && <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />}
+              {processing ? 'در حال ثبت…' : 'ثبت پذیرش و چاپ قبض'}
             </Button>
           </div>
         </div>

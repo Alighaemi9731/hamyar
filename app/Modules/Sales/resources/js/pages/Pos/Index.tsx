@@ -1,5 +1,11 @@
 import { Head, router } from '@inertiajs/react';
-import { FileTextIcon, SaveIcon, ShoppingCartIcon, Trash2Icon } from 'lucide-react';
+import {
+  FileTextIcon,
+  LoaderCircleIcon,
+  SaveIcon,
+  ShoppingCartIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
@@ -328,8 +334,14 @@ export default function PosIndex({
             onClick={() => submit('finalise')}
             data-testid="pos-finalise"
           >
-            <ShoppingCartIcon className="size-4" aria-hidden />
-            ثبت فاکتور
+            {/* The button says what it is doing. Disabled alone reads as "stuck" on a
+                counter where the answer to a slow submit is to press F9 again. */}
+            {processing ? (
+              <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <ShoppingCartIcon className="size-4" aria-hidden />
+            )}
+            {processing ? 'در حال ثبت…' : 'ثبت فاکتور'}
             <kbd className="ms-1 rounded-inner bg-primary-foreground/20 px-1 text-2xs">F9</kbd>
           </Button>
         </div>

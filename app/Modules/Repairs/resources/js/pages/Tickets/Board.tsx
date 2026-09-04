@@ -1,7 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { MoveHorizontalIcon, PlusIcon } from 'lucide-react';
+import { MoveHorizontalIcon, PlusIcon, WrenchIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { EmptyState } from '@/components/domain/empty-state';
 import { Num } from '@/components/domain/num';
 import { Button } from '@/components/ui/button';
 import {
@@ -94,6 +95,10 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
     router.post(`/repairs/tickets/${card.id}/transition`, { status: to }, { preserveScroll: true });
   }
 
+  // Nothing in any column: a bench with no work on it, or a technician with none of it
+  // assigned. Six empty columns say neither; one state that names the next step does.
+  const idle = columns.every((column) => (counts[column.value] ?? 0) === 0);
+
   return (
     <AppShell
       title="تخته تعمیرات"
@@ -127,177 +132,219 @@ export default function TicketsBoard({ columns, tickets, counts, limit, filters,
     >
       <Head title="تخته تعمیرات" />
 
-      {/* Horizontal scroll on the BOARD, never on the page. Six columns do not fit a
-          phone, and squeezing them would make every card unreadable. */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex min-w-max gap-3">
-          {columns.map((column) => {
-            const cards = tickets[column.value] ?? [];
-            const total = counts[column.value] ?? 0;
-            const droppable =
-              dragging !== null &&
-              (columns.find((c) => c.value === dragging.status)?.allows ?? []).includes(
-                column.value
-              );
-
-            // The same `allows` the drop targets read, narrowed to columns that are on the
-            // board. A move the board cannot show is a move the board must not offer.
-            const moves = columns.filter((target) => column.allows.includes(target.value));
-
-            return (
-              <section
-                key={column.value}
-                aria-label={column.label}
-                onDragOver={(event) => {
-                  if (!droppable) return;
-                  event.preventDefault();
-                  setOver(column.value);
-                }}
-                onDragLeave={() =>
-                  setOver((current) => (current === column.value ? null : current))
+      {idle ? (
+        filters.mine ? (
+          <EmptyState
+            variant="search"
+            icon={WrenchIcon}
+            title="کاری به شما سپرده نشده است"
+            description="دستگاه‌هایی که تکنسین آن‌ها شما باشید اینجا می‌آیند. برای دیدن کار همهٔ همکاران، فیلتر را بردارید."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  router.get('/repairs/board', { mine: false }, { preserveState: true })
                 }
-                onDrop={() => {
-                  if (droppable && dragging) move(dragging, column.value);
-                }}
-                className={cn(
-                  'w-72 shrink-0 rounded-card border p-2 transition-colors',
-                  over === column.value && droppable
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border',
-                  // Dimmed while a card is in the air and this column cannot take it —
-                  // the board says no before the drop rather than after.
-                  dragging !== null &&
-                    !droppable &&
-                    dragging.status !== column.value &&
-                    'opacity-40'
-                )}
               >
-                <header className="mb-2 flex items-baseline justify-between px-1">
-                  <h2 className="text-sm font-semibold">{column.label}</h2>
-                  <span className="text-2xs text-muted-foreground">
-                    <Num value={total} variant="prose" />
-                  </span>
-                </header>
+                همهٔ کارها
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={WrenchIcon}
+            title="دستگاهی روی میز تعمیر نیست"
+            description="با پذیرش اولین دستگاه، قبض پذیرش چاپ می‌شود و کارت آن در همین تخته، ستون به ستون، تا تحویل جلو می‌رود."
+            action={
+              can.create ? (
+                <Button asChild>
+                  <Link href="/repairs/intake">
+                    <PlusIcon className="size-4" aria-hidden />
+                    پذیرش دستگاه
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        )
+      ) : (
+        <>
+          {/* Horizontal scroll on the BOARD, never on the page. Six columns do not fit a
+          phone, and squeezing them would make every card unreadable. */}
+          <div className="overflow-x-auto pb-4">
+            <div className="flex min-w-max gap-3">
+              {columns.map((column) => {
+                const cards = tickets[column.value] ?? [];
+                const total = counts[column.value] ?? 0;
+                const droppable =
+                  dragging !== null &&
+                  (columns.find((c) => c.value === dragging.status)?.allows ?? []).includes(
+                    column.value
+                  );
 
-                <ul className="space-y-2">
-                  {cards.map((card) => (
-                    <li
-                      key={card.id}
-                      className={cn(
-                        'relative rounded-control border border-border bg-background',
-                        dragging?.id === card.id && 'opacity-50'
-                      )}
-                    >
-                      <Link
-                        href={`/repairs/tickets/${card.id}`}
-                        draggable={can.update}
-                        onDragStart={() => setDragging(card)}
-                        onDragEnd={() => {
-                          setDragging(null);
-                          setOver(null);
-                        }}
-                        className={cn(
-                          // `pe-12` reserves the lane the move button sits in, so a long
-                          // device name runs under it instead of behind it.
-                          'block rounded-control p-2.5 hover:bg-muted/40',
-                          can.update && 'cursor-grab active:cursor-grabbing pe-12'
-                        )}
-                      >
-                        <span className="flex flex-wrap items-baseline gap-x-2">
-                          <span className="tabular text-sm font-medium text-primary">
-                            {card.code}
-                          </span>
-                          {card.priority === 1 && (
-                            <span className="rounded-pill bg-danger/10 px-1.5 text-2xs text-danger">
-                              فوری
-                            </span>
+                // The same `allows` the drop targets read, narrowed to columns that are on the
+                // board. A move the board cannot show is a move the board must not offer.
+                const moves = columns.filter((target) => column.allows.includes(target.value));
+
+                return (
+                  <section
+                    key={column.value}
+                    aria-label={column.label}
+                    onDragOver={(event) => {
+                      if (!droppable) return;
+                      event.preventDefault();
+                      setOver(column.value);
+                    }}
+                    onDragLeave={() =>
+                      setOver((current) => (current === column.value ? null : current))
+                    }
+                    onDrop={() => {
+                      if (droppable && dragging) move(dragging, column.value);
+                    }}
+                    className={cn(
+                      'w-72 shrink-0 rounded-card border p-2 transition-colors',
+                      over === column.value && droppable
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border',
+                      // Dimmed while a card is in the air and this column cannot take it —
+                      // the board says no before the drop rather than after.
+                      dragging !== null &&
+                        !droppable &&
+                        dragging.status !== column.value &&
+                        'opacity-40'
+                    )}
+                  >
+                    <header className="mb-2 flex items-baseline justify-between px-1">
+                      <h2 className="text-sm font-semibold">{column.label}</h2>
+                      <span className="text-2xs text-muted-foreground">
+                        <Num value={total} variant="prose" />
+                      </span>
+                    </header>
+
+                    <ul className="space-y-2">
+                      {cards.map((card) => (
+                        <li
+                          key={card.id}
+                          className={cn(
+                            'relative rounded-control border border-border bg-background',
+                            dragging?.id === card.id && 'opacity-50'
                           )}
-                        </span>
-
-                        <span className="mt-0.5 block truncate text-sm">{card.device}</span>
-
-                        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
-                          <span className="truncate">{card.party_name ?? 'مشتری گذری'}</span>
-                          {card.technician_name && (
-                            <>
-                              <span aria-hidden>·</span>
-                              <span className="truncate">{card.technician_name}</span>
-                            </>
-                          )}
-                        </span>
-
-                        {card.promised_at && (
-                          <span
+                        >
+                          <Link
+                            href={`/repairs/tickets/${card.id}`}
+                            draggable={can.update}
+                            onDragStart={() => setDragging(card)}
+                            onDragEnd={() => {
+                              setDragging(null);
+                              setOver(null);
+                            }}
                             className={cn(
-                              'mt-1 block text-2xs',
-                              new Date(card.promised_at) < new Date()
-                                ? 'text-danger'
-                                : 'text-muted-foreground'
+                              // `pe-12` reserves the lane the move button sits in, so a long
+                              // device name runs under it instead of behind it.
+                              'block rounded-control p-2.5 hover:bg-muted/40',
+                              can.update && 'cursor-grab active:cursor-grabbing pe-12'
                             )}
                           >
-                            وعده {formatJalali(card.promised_at)}
-                          </span>
-                        )}
-                      </Link>
+                            <span className="flex flex-wrap items-baseline gap-x-2">
+                              <span className="tabular text-sm font-medium text-primary">
+                                {card.code}
+                              </span>
+                              {card.priority === 1 && (
+                                <span className="rounded-pill bg-danger/10 px-1.5 text-2xs text-danger">
+                                  فوری
+                                </span>
+                              )}
+                            </span>
 
-                      {can.update && moves.length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              // Absolutely placed rather than inside the link, because a
-                              // button nested in an anchor is not valid and the click would
-                              // navigate before the menu could open.
-                              className="absolute inset-block-start-1 inset-inline-end-1"
-                              aria-label={`جابه‌جایی ${card.code}`}
-                            >
-                              <MoveHorizontalIcon aria-hidden />
-                            </Button>
-                          </DropdownMenuTrigger>
+                            <span className="mt-0.5 block truncate text-sm">{card.device}</span>
 
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>انتقال به</DropdownMenuLabel>
-                            {moves.map((target) => (
-                              <DropdownMenuItem
-                                key={target.value}
-                                onSelect={() => move(card, target.value)}
+                            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
+                              <span className="truncate">{card.party_name ?? 'مشتری گذری'}</span>
+                              {card.technician_name && (
+                                <>
+                                  <span aria-hidden>·</span>
+                                  <span className="truncate">{card.technician_name}</span>
+                                </>
+                              )}
+                            </span>
+
+                            {card.promised_at && (
+                              <span
+                                className={cn(
+                                  'mt-1 block text-2xs',
+                                  new Date(card.promised_at) < new Date()
+                                    ? 'text-danger'
+                                    : 'text-muted-foreground'
+                                )}
                               >
-                                {target.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                وعده {formatJalali(card.promised_at)}
+                              </span>
+                            )}
+                          </Link>
+
+                          {can.update && moves.length > 0 && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  // Absolutely placed rather than inside the link, because a
+                                  // button nested in an anchor is not valid and the click would
+                                  // navigate before the menu could open.
+                                  className="absolute inset-block-start-1 inset-inline-end-1"
+                                  aria-label={`جابه‌جایی ${card.code}`}
+                                >
+                                  <MoveHorizontalIcon aria-hidden />
+                                </Button>
+                              </DropdownMenuTrigger>
+
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>انتقال به</DropdownMenuLabel>
+                                {moves.map((target) => (
+                                  <DropdownMenuItem
+                                    key={target.value}
+                                    onSelect={() => move(card, target.value)}
+                                  >
+                                    {target.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </li>
+                      ))}
+
+                      {total > cards.length && (
+                        <li className="px-1 py-2 text-2xs text-muted-foreground">
+                          و <Num value={total - cards.length} variant="prose" /> مورد دیگر — برای
+                          دیدن همه از{' '}
+                          <Link href={`/repairs?status=${column.value}`} className="text-primary">
+                            فهرست
+                          </Link>{' '}
+                          استفاده کنید.
+                        </li>
                       )}
-                    </li>
-                  ))}
 
-                  {total > cards.length && (
-                    <li className="px-1 py-2 text-2xs text-muted-foreground">
-                      و <Num value={total - cards.length} variant="prose" /> مورد دیگر — برای دیدن
-                      همه از{' '}
-                      <Link href={`/repairs?status=${column.value}`} className="text-primary">
-                        فهرست
-                      </Link>{' '}
-                      استفاده کنید.
-                    </li>
-                  )}
+                      {total === 0 && (
+                        <li className="px-1 py-4 text-center text-2xs text-muted-foreground">
+                          خالی
+                        </li>
+                      )}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
 
-                  {total === 0 && (
-                    <li className="px-1 py-4 text-center text-2xs text-muted-foreground">خالی</li>
-                  )}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      </div>
-
-      <p className="mt-2 text-2xs text-muted-foreground">
-        هر ستون حداکثر <Num value={limit} variant="prose" /> کارت نشان می‌دهد؛ عدد بالای ستون، تعداد
-        واقعی است.
-      </p>
+          <p className="mt-2 text-2xs text-muted-foreground">
+            هر ستون حداکثر <Num value={limit} variant="prose" /> کارت نشان می‌دهد؛ عدد بالای ستون،
+            تعداد واقعی است.
+          </p>
+        </>
+      )}
     </AppShell>
   );
 }
