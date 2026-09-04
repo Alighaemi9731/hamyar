@@ -37,7 +37,10 @@ export interface Column<TRow> {
    */
   numeric?: boolean;
   sortable?: boolean;
-  /** Hidden below `sm`. Use for columns that are context rather than identity. */
+  /**
+   * Context rather than identity. Hidden in the table below `sm`; the card that
+   * replaces the row there has the room, so it shows it.
+   */
   secondary?: boolean;
   className?: string;
 }
@@ -81,8 +84,15 @@ export interface DataTableProps<TRow> {
  *
  * - **Horizontal scroll is contained.** The wrapper scrolls, never the page. A table
  *   that widens the document breaks every RTL layout around it.
- * - **`secondary` columns disappear below `sm`** rather than the table shrinking them
- *   to unreadability. On a 390px phone, four legible columns beat eight cramped ones.
+ * - **Below `sm` the rows are cards, not a narrower table.** A 390px phone cannot hold
+ *   a register's columns, and a table that scrolls sideways inside its wrapper is
+ *   contained but unread: the money column is off-screen and the eye stops at the
+ *   edge — the 2026-09-03 baseline's finding on the sales register. So under `sm` each
+ *   row is a card: the first column as the headline, every other column (`secondary`
+ *   ones included, a card has the room) as a label and its value, the totals row as a
+ *   closing card. The table stays in the document, hidden, so both views render the
+ *   same rows from the same columns and nothing is built twice by hand. Sorting is a
+ *   header affordance and stays with the table.
  * - **Empty and searching-empty are different states.** "No products yet" wants a
  *   call to action; "nothing matched" wants the search term back and no action at all.
  */
@@ -119,8 +129,8 @@ export function DataTable<TRow>({
         </div>
       ) : null}
 
-      {/* The wrapper scrolls, not the page. */}
-      <div className="overflow-x-auto rounded-card border border-border">
+      {/* The wrapper scrolls, not the page. Hidden below `sm`, where the cards take over. */}
+      <div className="hidden overflow-x-auto rounded-card border border-border sm:block">
         <Table>
           <caption className="sr-only">{caption}</caption>
 
@@ -280,6 +290,155 @@ export function DataTable<TRow>({
           )}
         </Table>
       </div>
+
+      <CardList
+        columns={columns}
+        rows={rows}
+        rowKey={rowKey}
+        onRowClick={onRowClick}
+        loading={loading}
+        footer={footer}
+        empty={
+          searching ? (
+            <EmptyState
+              variant="search"
+              title="نتیجه‌ای پیدا نشد"
+              description={`هیچ رکوردی با «${search?.value}» مطابقت نداشت.`}
+            />
+          ) : (
+            (empty ?? (
+              <EmptyState title="موردی برای نمایش نیست" description="هنوز رکوردی ثبت نشده است." />
+            ))
+          )
+        }
+      />
     </div>
+  );
+}
+
+/**
+ * The same rows as cards, for a phone. Shown only below `sm`; the table above takes
+ * over from there. Every column renders through the same `cell` the table uses, so a
+ * register cannot show one thing on a laptop and another on the counter's phone.
+ */
+function CardList<TRow>({
+  columns,
+  rows,
+  rowKey,
+  onRowClick,
+  loading,
+  footer,
+  empty,
+}: Pick<
+  DataTableProps<TRow>,
+  'columns' | 'rows' | 'rowKey' | 'onRowClick' | 'loading' | 'footer'
+> & {
+  empty: ReactNode;
+}) {
+  const [headline, ...rest] = columns;
+
+  if (loading) {
+    return (
+      <ul className="space-y-3 sm:hidden" aria-busy>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <li
+            key={`card-skeleton-${index}`}
+            className="space-y-3 rounded-card border border-border bg-card p-4"
+          >
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-1/2" />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (rows.length === 0) {
+    return <div className="rounded-card border border-border sm:hidden">{empty}</div>;
+  }
+
+  const totalsTitle = footer && headline ? footer(headline) : null;
+
+  return (
+    <ul className="space-y-3 sm:hidden">
+      {rows.map((row) => (
+        <li key={rowKey(row)}>
+          {/* The card, not the list item, is the control: a `listitem` cannot also be a
+              link, and the list is what tells a screen reader how many rows there are. */}
+          <div
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
+            role={onRowClick ? 'link' : undefined}
+            onKeyDown={
+              onRowClick
+                ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onRowClick(row);
+                    }
+                  }
+                : undefined
+            }
+            className={cn(
+              'rounded-card border border-border bg-card p-4',
+              onRowClick &&
+                'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+            )}
+          >
+            {headline && (
+              <div className="text-sm font-medium [&_a]:inline-flex [&_a]:min-h-10 [&_a]:items-center">
+                {headline.cell(row)}
+              </div>
+            )}
+
+            {rest.length > 0 && (
+              <dl className="mt-2 grid gap-y-2">
+                {rest.map((column) => (
+                  <div
+                    key={column.key}
+                    className="flex items-baseline justify-between gap-4 text-sm"
+                  >
+                    <dt className="shrink-0 text-xs text-muted-foreground">{column.header}</dt>
+                    <dd className={cn('min-w-0 text-end', column.numeric && 'tabular')}>
+                      {column.cell(row)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </li>
+      ))}
+
+      {footer && (
+        <li className="rounded-card border border-border bg-surface p-4">
+          {totalsTitle !== null && totalsTitle !== undefined && (
+            <p className="text-sm font-semibold">{totalsTitle}</p>
+          )}
+          <dl className={cn('grid gap-y-2', totalsTitle && 'mt-2')}>
+            {rest.map((column) => {
+              const cell = footer(column);
+
+              if (cell === null || cell === undefined) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={column.key}
+                  className="flex items-baseline justify-between gap-4 text-sm font-semibold"
+                >
+                  <dt className="shrink-0 text-xs font-medium text-muted-foreground">
+                    {column.header}
+                  </dt>
+                  <dd className={cn('min-w-0 text-end', column.numeric && 'tabular')}>{cell}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </li>
+      )}
+    </ul>
   );
 }
