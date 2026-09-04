@@ -61,8 +61,11 @@ pre-paint in `app.blade.php`.
 10. **No hostname literal anywhere** — `config('app.domain')`, `url()`, `route()`
     (`bin/check-apex-domain`; `lang/` is scanned too).
 11. **Persian strings**: Blade/public pages read `lang/fa/*.php`; React pages carry their
-    strings inline (no i18n layer) but shared vocabulary comes from
-    `resources/js/lib/copy.ts` once it exists and follows `docs/brand/voice.md`.
+    strings inline (no i18n layer). Every string follows `docs/brand/voice.md` — its
+    glossary is the vocabulary — and `bin/check-copy-terms` refuses six of its rules:
+    unverifiable adjectives, Arabic ك/ي or ٠–٩, «!» after Persian, a space where a
+    compound takes a ZWNJ («ثبت‌نام»), and «مغازه»/«توی»/«رُک». Quoted speech keeps its
+    words with a `copy-allow` comment on the line; the baseline is the old landing only.
 12. **z-index from `--z-index-*`** (`z-sticky`, `z-overlay`, `z-popover`, `z-toast`). A
     defined token is not evidence of a generated class — grep the built CSS.
 13. **One theme authority**: the `dark` class on `<html>`, read through `hooks/use-theme.ts`.
