@@ -35,8 +35,29 @@ jobs:
       # lockfile, so this fails builds that changed nothing — which is the point: the
       # day an advisory is published is the day we want to hear about it, not the day
       # somebody happens to touch composer.json.
+      #
+      # Packagist's advisory endpoint is not part of this repository and goes down on its
+      # own schedule: on 2026-09-04 this step failed with `curl error 28 ... Operation
+      # timed out` on a branch whose lockfile was untouched. So it retries, and separates
+      # "the service could not answer" from "the service answered and found something" —
+      # the first is a warning, the second still fails the build. Same treatment, and the
+      # same reasoning, as the npm audit step further down: a gate that goes red on
+      # somebody else's outage is a gate somebody eventually disables.
       - name: Composer audit
-        run: composer audit --no-interaction
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if composer audit --no-interaction 2>&1 | tee audit-php.log; then
+              exit 0
+            fi
+            if ! grep -qiE "curl error|could not be downloaded|timed out|failed to open stream" audit-php.log; then
+              echo "::error::composer audit found a known vulnerability in the dependency tree."
+              exit 1
+            fi
+            echo "advisory endpoint unavailable (attempt ${attempt}/3); retrying in 20s"
+            sleep 20
+          done
+          echo "::warning::composer audit skipped — Packagist's advisory endpoint did not answer after three attempts. Re-run the job later; this is not a finding."
 
       # Two invocations on purpose, and `composer lint:test` runs the same pair.
       #

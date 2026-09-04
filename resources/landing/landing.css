@@ -272,74 +272,147 @@ h3 {
   border-block: 1px solid var(--color-hair);
 }
 
+/* =============================================== THE SECTION HEAD, REVERSED ===
+ | Every section now opens the same way: a brand eyebrow, a heading whose closing
+ | phrase carries the accent, a short rule, and a supporting line. Centred.
+ |
+ | This reverses a v1 decision, and the reversal is the point rather than a drift.
+ | What stood here was a long note arguing that a centred eyebrow over a centred H2 was
+ | "the tell that started all of this", and that the page's eight sections should
+ | therefore each open DIFFERENTLY — a masthead here, a serial lockup there, a running
+ | head, a sticky aside, a CTA lockup. That was a reaction to a fear rather than a
+ | composition, and it produced the thing the owner actually complained about: a page
+ | that reads as eight pages stapled together.
+ |
+ | The owner then looked at a product in our own category, called its UI «عالی» and
+ | asked for its skeleton (ADR 0021). It opens every section this way. A repeated
+ | opening is not a template — it is the rhythm that lets a reader stop parsing the
+ | layout and start reading the argument, and it is what makes a long page feel
+ | designed rather than assembled.
+ |
+ | The accent on the closing phrase is the one device carried over from the fold's
+ | headline, so the page has a single typographic signature instead of eight.
+ */
+.sec__head {
+  margin-inline: auto;
+  margin-block-end: clamp(2.5rem, 4.5vw, 3.75rem);
+  max-inline-size: 46rem;
+  text-align: center;
+}
+
 .sec__eyebrow {
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--color-accent);
-  margin-block-end: 0.75rem;
+  margin-block-end: 1rem;
 }
 
 .sec__title {
   font-size: var(--text-section);
-  margin-block-end: 0.875rem;
+  line-height: 1.15;
+  letter-spacing: -0.026em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.sec__title em {
+  font-style: normal;
+  color: var(--color-accent);
+}
+
+/* A 40px rule under the heading. It is the reference's device and it earns its place:
+   it closes the heading before the supporting line opens, which is what stops the two
+   reading as one four-line paragraph. */
+.sec__rule {
+  display: block;
+  inline-size: 2.5rem;
+  block-size: 2px;
+  border-radius: 2px;
+  margin: 1.25rem auto;
+  background: var(--color-hair);
 }
 
 .sec__lede {
   color: var(--color-navy-soft);
-  max-inline-size: 40rem; /* a reading measure, not the container width */
-}
-
-.sec__head {
-  margin-block-end: clamp(2.25rem, 4vw, 3.25rem);
-}
-
-/* ======================================================= THE MASTHEAD RULE ===
- | Six of the eight sections opened the same way: a heading on one side, a supporting
- | line on the other, baseline-aligned. Repeated six times, an asymmetric masthead is
- | not composition — it is a template, and it is the shape the owner was pointing at.
- |
- | EXACTLY TWO sections keep it, and they keep it because in both cases the asymmetry
- | is structural rather than decorative:
- |
- |   · problems (3) — the head IS the ledger's first row. Title in the complaint
- |     column, lede in the answer column, on the same grid as the six rows beneath
- |     it. Remove the second column and the list loses its header.
- |   · pricing (6)  — title at the inline-start, the billing switch at the inline-end.
- |     The control sits beside the numbers it changes. That is function, and it is
- |     the only place on the page where the far side of a head is interactive.
- |
- | They are three sections apart, which is the other half of the decision: two
- | mastheads back to back would read as the same template twice.
- |
- | The other six open differently, and differently from EACH OTHER:
- |
- |   1 hero    — no head. A kicker: short accent rule running into a caption, then
- |               the title. The only place on the page that device appears.
- |   2 trust   — no head. One sentence with a leader rule running out of it into the
- |               proofs. There is nothing to introduce.
- |   4 imei    — a serial-first lockup. The section names its subject before it says
- |               a word: a real IMEI, Latin and dir="ltr", set in accent-lit above a
- |               single-column H2 at --text-section-lg. Nothing sits opposite it. The
- |               three questions move down into the record and become the timeline's
- |               row labels, which is where they are actually answered.
- |   5 tour    — a single-line running head, already built: title and claim on one
- |               baseline with a hairline under the pair. No second block.
- |   7 faq     — no head above the list at all. Title, lede and the contact line ARE
- |               the sticky aside column beside the questions, and they travel with
- |               the reader down all six.
- |   8 closing — not a head but a CTA lockup: heading and lede at the inline-start,
- |               the two buttons at the inline-end, centre-aligned rather than
- |               baseline-aligned, with no supporting caption and no rule.
- |
- | `.sec__head--center` below is retained for nothing on this page. Do not reach for
- | it: a centred eyebrow over a centred H2 is the tell that started all of this.
- */
-.sec__head--center {
-  text-align: center;
-}
-
-.sec__head--center .sec__lede {
+  max-inline-size: 42rem; /* a reading measure, not the container width */
   margin-inline: auto;
+}
+
+/* --------------------------------------------------------------- cards ---- */
+
+/*
+  The card grid every section below the fold uses. One hairline, one radius, no shadow,
+  and a tinted icon tile whose colour carries the section's mood while the accent stays
+  the page's only chromatic voice — the reference tints its problem tiles warm and its
+  feature tiles blue, and that is the whole of its colour system.
+*/
+.cards {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cards--three {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .cards--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.card {
+  border: 1px solid var(--color-hair);
+  border-radius: 0.875rem;
+  background: var(--color-page);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+}
+
+.card__icon {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 0.75rem;
+  display: grid;
+  place-items: center;
+  margin-block-end: 1rem;
+}
+
+.card__icon svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.card__icon--warm {
+  background: color-mix(in srgb, #b3261e 10%, transparent);
+  color: #b3261e;
+}
+
+.card__icon--brand {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+}
+
+.card h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  margin-block-end: 0.5rem;
+}
+
+.card p {
+  color: var(--color-navy-soft);
+  font-size: 0.9375rem;
+  line-height: 1.8;
 }
 
 /* ---------------------------------------------------------------- chip ---- */
