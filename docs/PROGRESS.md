@@ -3710,3 +3710,26 @@ One item came off the list honestly: the roadmap's "branded error pages" was sta
 `bootstrap/app.php` has rendered every 403/404/419/500/503 through the Inertia error page
 on both hosts since 12.14, verified with a `curl` of a missing path on each. Annotated,
 not built.
+
+## 1404-06-14 (2026-09-04) — the gate is set, and the first fixes that need no decision (16.2 prep, 16.4 start)
+
+Gate 16.2 is prepared and waiting on the owner. The direction roll (impeccable, Persuade,
+seed `fd28c358`) assigned the sixth of seven worlds drawn from the audience's own objects,
+so the landing cannot converge on the category default a third time: **A «جعبه و برچسب»**
+(the page is the label on the box; the real IMEI passport as that label), beside my pick
+**B «دفتر»** (one ruled sheet, the red margin, today's real rows) and **C**, the category
+standard played straight. All three are real markup under `/design/landing/{a,b,c}` on the
+brand layer alone — a gate stylesheet with a static theme, after a comp that loaded the old
+landing's CSS inherited its hero wash, and a non-static theme dropped every token the comps
+reference from inline styles. The decision page is an Artifact with every candidate at 1440
+and 390, the marks, the type pairings, the ink sheet and the copy, and asks for six answers.
+`docs/brand/positioning.md` carries the positioning and the full copy v1; the old FAQ answer
+about a lapsed plan («ورود بسته می‌شود») was wrong by ADR 0018 and is corrected.
+
+While the gate waits, the fixes the baseline named that need no design decision: the POS
+splits at `xl` instead of collapsing to 296px at 1024; the primary button darkens on hover
+to the token that existed unused (`--primary-hover`) instead of fading to 80%, animates on
+the duration and curve tokens, and its `lg` size is now the 48px counter action; table rows
+stand on `--density-row` (they measured 39px) with a quiet 13px header; badges are 24px, not
+20; and a dashboard card with nothing to report is one dashed line with its door, not a box
+— a seeded morning used to show five boxes each announcing that nothing was wrong.

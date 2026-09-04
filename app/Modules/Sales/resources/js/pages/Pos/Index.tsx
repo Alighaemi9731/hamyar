@@ -355,7 +355,11 @@ export default function PosIndex({
         className="mb-4"
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      {/* `xl`, not `lg`: the sidebar arrives at `lg`, so at 1024 this band measured
+          296px for the scan box and basket against a fixed 352px payment column — the
+          exact trap design-system rule 8 documents, on the screen a cashier stares at
+          all day. Found by the 2026-09-03 baseline review. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-4">
           <ScanBox
             ref={scanBox}

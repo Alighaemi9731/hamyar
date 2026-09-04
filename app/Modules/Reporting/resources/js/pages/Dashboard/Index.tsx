@@ -2,12 +2,13 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
-  type LucideIcon,
+  CheckIcon,
   PackagePlusIcon,
   ReceiptIcon,
   ShoppingCartIcon,
   UserPlusIcon,
   WrenchIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -184,163 +185,165 @@ export default function DashboardIndex({
 
           <div className="grid gap-4 lg:grid-cols-2">
             {repairs ? (
-              <Card title="تعمیرات در جریان" href="/repairs/board" linkLabel="تخته کارها">
-                {repairs.total === 0 ? (
-                  <Quiet>هیچ دستگاهی روی میز نیست.</Quiet>
-                ) : (
-                  <ul className="space-y-2">
-                    {repairs.statuses.map((row) => (
-                      <li key={row.status} className="flex items-center gap-3">
-                        <span className="w-32 shrink-0 text-sm text-muted-foreground">
-                          {row.label}
-                        </span>
-                        {/* A bar rather than a bare number: the shape of the queue is
+              <Card
+                title="تعمیرات در جریان"
+                href="/repairs/board"
+                linkLabel="تخته کارها"
+                quiet={repairs.total === 0 ? 'هیچ دستگاهی روی میز نیست.' : undefined}
+              >
+                <ul className="space-y-2">
+                  {repairs.statuses.map((row) => (
+                    <li key={row.status} className="flex items-center gap-3">
+                      <span className="w-32 shrink-0 text-sm text-muted-foreground">
+                        {row.label}
+                      </span>
+                      {/* A bar rather than a bare number: the shape of the queue is
                             the point — twelve waiting on parts is a supplier problem,
                             twelve on the bench is a staffing one. */}
-                        <span className="h-2 flex-1 overflow-hidden rounded-pill bg-muted">
-                          <span
-                            className="block h-full rounded-pill bg-brand"
-                            style={{
-                              width: `${repairs.total === 0 ? 0 : Math.round((row.count / repairs.total) * 100)}%`,
-                            }}
-                          />
-                        </span>
-                        <span className="w-8 shrink-0 text-end text-sm font-semibold tabular">
-                          <Num value={row.count} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                      <span className="h-2 flex-1 overflow-hidden rounded-pill bg-muted">
+                        <span
+                          className="block h-full rounded-pill bg-brand"
+                          style={{
+                            width: `${repairs.total === 0 ? 0 : Math.round((row.count / repairs.total) * 100)}%`,
+                          }}
+                        />
+                      </span>
+                      <span className="w-8 shrink-0 text-end text-sm font-semibold tabular">
+                        <Num value={row.count} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </Card>
             ) : null}
 
             {cheques ? (
-              <Card title="چک‌های این هفته" href="/cheques" linkLabel="همه چک‌ها">
-                {cheques.soonest.length === 0 ? (
-                  <Quiet>این هفته چکی سررسید نمی‌شود.</Quiet>
-                ) : (
-                  <ul className="divide-y">
-                    {cheques.soonest.map((cheque) => (
-                      <li key={cheque.id} className="flex items-center justify-between gap-3 py-2">
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm">
-                            {cheque.party_name ?? 'بدون طرف حساب'}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-xs',
-                              cheque.overdue ? 'text-danger' : 'text-muted-foreground'
-                            )}
-                          >
-                            {cheque.direction === 'issued' ? 'پرداختی' : 'دریافتی'}
-                            {cheque.overdue ? ' · سررسید گذشته' : ''}
-                          </span>
+              <Card
+                title="چک‌های این هفته"
+                href="/cheques"
+                linkLabel="همه چک‌ها"
+                quiet={cheques.soonest.length === 0 ? 'این هفته چکی سررسید نمی‌شود.' : undefined}
+              >
+                <ul className="divide-y">
+                  {cheques.soonest.map((cheque) => (
+                    <li key={cheque.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">
+                          {cheque.party_name ?? 'بدون طرف حساب'}
                         </span>
-                        <Money rial={cheque.amount.value} withUnit className="shrink-0 text-sm" />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        <span
+                          className={cn(
+                            'text-xs',
+                            cheque.overdue ? 'text-danger' : 'text-muted-foreground'
+                          )}
+                        >
+                          {cheque.direction === 'issued' ? 'پرداختی' : 'دریافتی'}
+                          {cheque.overdue ? ' · سررسید گذشته' : ''}
+                        </span>
+                      </span>
+                      <Money rial={cheque.amount.value} withUnit className="shrink-0 text-sm" />
+                    </li>
+                  ))}
+                </ul>
               </Card>
             ) : null}
 
             {installments ? (
-              <Card title="اقساط عقب‌افتاده" href="/installments/collections" linkLabel="میز وصول">
-                {installments.worst.length === 0 ? (
-                  <Quiet>هیچ قسطی عقب نیفتاده است.</Quiet>
-                ) : (
-                  <ul className="divide-y">
-                    {installments.worst.map((row) => (
-                      <li key={row.id} className="flex items-center justify-between gap-3 py-2">
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm">
-                            {row.party_name ?? 'بدون طرف حساب'}
-                          </span>
-                          <span className="text-xs text-danger">
-                            <Num value={row.days_late} /> روز تأخیر
-                          </span>
+              <Card
+                title="اقساط عقب‌افتاده"
+                href="/installments/collections"
+                linkLabel="میز وصول"
+                quiet={installments.worst.length === 0 ? 'هیچ قسطی عقب نیفتاده است.' : undefined}
+              >
+                <ul className="divide-y">
+                  {installments.worst.map((row) => (
+                    <li key={row.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">
+                          {row.party_name ?? 'بدون طرف حساب'}
                         </span>
-                        <Money rial={row.outstanding.value} withUnit className="shrink-0 text-sm" />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        <span className="text-xs text-danger">
+                          <Num value={row.days_late} /> روز تأخیر
+                        </span>
+                      </span>
+                      <Money rial={row.outstanding.value} withUnit className="shrink-0 text-sm" />
+                    </li>
+                  ))}
+                </ul>
               </Card>
             ) : null}
 
             {lowStock ? (
-              <Card title="موجودی رو به اتمام" href="/inventory/low-stock" linkLabel="فهرست کامل">
-                {lowStock.count === 0 ? (
-                  <Quiet>هیچ کالایی به حد سفارش نرسیده است.</Quiet>
-                ) : (
-                  <ul className="divide-y">
-                    {lowStock.lines.map((line) => (
-                      <li
-                        key={line.variant_id}
-                        className="flex items-center justify-between gap-3 py-2"
+              <Card
+                title="موجودی رو به اتمام"
+                href="/inventory/low-stock"
+                linkLabel="فهرست کامل"
+                quiet={lowStock.count === 0 ? 'هیچ کالایی به حد سفارش نرسیده است.' : undefined}
+              >
+                <ul className="divide-y">
+                  {lowStock.lines.map((line) => (
+                    <li
+                      key={line.variant_id}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">{line.product_name}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {line.variant_name}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'shrink-0 text-sm tabular',
+                          line.is_out ? 'font-semibold text-danger' : 'text-warning'
+                        )}
                       >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm">{line.product_name}</span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {line.variant_name}
-                          </span>
-                        </span>
-                        <span
-                          className={cn(
-                            'shrink-0 text-sm tabular',
-                            line.is_out ? 'font-semibold text-danger' : 'text-warning'
-                          )}
-                        >
-                          {line.is_out ? (
-                            'ناموجود'
-                          ) : (
-                            <>
-                              <Num value={line.on_hand} /> / <Num value={line.threshold} />
-                            </>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        {line.is_out ? (
+                          'ناموجود'
+                        ) : (
+                          <>
+                            <Num value={line.on_hand} /> / <Num value={line.threshold} />
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </Card>
             ) : null}
 
             {abandoned ? (
-              <Card title="دستگاه‌های رسوبی" href="/repairs?status=abandoned" linkLabel="همه">
-                {abandoned.count === 0 ? (
-                  <Quiet>دستگاه رسوبی ندارید.</Quiet>
-                ) : (
-                  <>
-                    <p className="mb-3 flex items-center gap-2 text-sm text-warning">
-                      <AlertTriangleIcon className="size-4 shrink-0" aria-hidden />
-                      <span>
-                        <Num value={abandoned.count} /> دستگاه آماده تحویل مانده و کسی نیامده است.
-                      </span>
-                    </p>
-                    <ul className="divide-y">
-                      {abandoned.oldest.map((ticket) => (
-                        <li
-                          key={ticket.id}
-                          className="flex items-center justify-between gap-3 py-2"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm">
-                              {ticket.device || ticket.code}
-                            </span>
-                            <span className="truncate text-xs text-muted-foreground">
-                              {ticket.party_name ?? 'بدون طرف حساب'}
-                            </span>
+              <Card
+                title="دستگاه‌های رسوبی"
+                href="/repairs?status=abandoned"
+                linkLabel="همه"
+                quiet={abandoned.count === 0 ? 'دستگاه رسوبی ندارید.' : undefined}
+              >
+                <>
+                  <p className="mb-3 flex items-center gap-2 text-sm text-warning">
+                    <AlertTriangleIcon className="size-4 shrink-0" aria-hidden />
+                    <span>
+                      <Num value={abandoned.count} /> دستگاه آماده تحویل مانده و کسی نیامده است.
+                    </span>
+                  </p>
+                  <ul className="divide-y">
+                    {abandoned.oldest.map((ticket) => (
+                      <li key={ticket.id} className="flex items-center justify-between gap-3 py-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm">
+                            {ticket.device || ticket.code}
                           </span>
-                          <span className="shrink-0 text-sm tabular text-muted-foreground">
-                            <Num value={ticket.days} /> روز
+                          <span className="truncate text-xs text-muted-foreground">
+                            {ticket.party_name ?? 'بدون طرف حساب'}
                           </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
+                        </span>
+                        <span className="shrink-0 text-sm tabular text-muted-foreground">
+                          <Num value={ticket.days} /> روز
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               </Card>
             ) : null}
           </div>
@@ -638,13 +641,51 @@ function Card({
   title,
   href,
   linkLabel,
+  quiet,
   children,
 }: {
   title: string;
   href: string;
   linkLabel?: string;
-  children: ReactNode;
+  /**
+   * When there is nothing to report, the card says so in one line and gets out of the
+   * way. A seeded morning used to render five boxes each announcing that nothing was
+   * wrong — a briefing with five "nothing" boxes is not calm, it is empty (baseline
+   * review, 2026-09-03). The line keeps the door.
+   */
+  quiet?: string;
+  children?: ReactNode;
 }) {
+  if (quiet !== undefined) {
+    // `min-w-0` on the grid item too: a nowrap line inside a `1fr` track sets that
+    // track's minimum width to the whole sentence (507px on a 375px phone), and the
+    // truncation below never gets a chance.
+    return (
+      <section className="flex min-h-14 min-w-0 items-center justify-between gap-3 rounded-card border border-dashed px-5 py-2 text-sm">
+        {/* `flex-1 min-w-0` on the label and `min-w-0` on the text: without both, the
+            line cannot truncate and a 375px phone scrolls sideways — the smoke suite
+            caught it the first time this shipped. */}
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-muted-foreground">
+          <CheckIcon className="size-4 shrink-0 text-success" aria-hidden />
+          <span className="min-w-0 truncate">
+            <span className="font-medium text-foreground">{title}</span>
+            <span aria-hidden> · </span>
+            {quiet}
+          </span>
+        </span>
+        {linkLabel ? (
+          <Link
+            href={href}
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm text-brand hover:underline"
+          >
+            {linkLabel}
+            <ArrowLeftIcon className="size-4" aria-hidden />
+          </Link>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-card border bg-card p-5">
       <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -665,10 +706,6 @@ function Card({
       {children}
     </section>
   );
-}
-
-function Quiet({ children }: { children: ReactNode }) {
-  return <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
 /**
