@@ -68,6 +68,17 @@ it('records a commit this repository contains for every shot', function (): void
         $this->markTestSkipped('no manifest yet');
     }
 
+    // A shallow checkout — CI fetches the PR at depth 1 — holds the tip and nothing behind
+    // it, so a capture taken on an earlier commit is "missing" there for no reason of its
+    // own. The check is only meaningful where git can answer it; elsewhere it steps aside
+    // rather than turning the suite red on the clone strategy. The first CI run of this
+    // file failed exactly that way.
+    exec('git rev-parse --is-shallow-repository 2>/dev/null', $shallow, $gitStatus);
+
+    if ($gitStatus !== 0 || trim((string) ($shallow[0] ?? '')) !== 'false') {
+        $this->markTestSkipped('not a full git checkout — the capture commits cannot be verified here');
+    }
+
     /** @var array{screens?: array<string, array{git_sha?: string|null}>} $manifest */
     $manifest = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
 
