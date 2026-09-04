@@ -34,6 +34,8 @@ interface Props {
   checklist: ChecklistItem[];
   accessories: string[];
   approval_cap: MoneyValue;
+  /** The device a link handed over (the passport's «پذیرش تعمیر»), or null. */
+  prefill: { device_imei?: string; device_model?: string; device_brand?: string } | null;
 }
 
 /**
@@ -75,6 +77,7 @@ export default function TicketIntake({
   checklist,
   accessories,
   approval_cap: approvalCap,
+  prefill,
 }: Props) {
   const settings = useTenantSettings();
   const toman = settings.currency_display === 'toman';
@@ -88,10 +91,12 @@ export default function TicketIntake({
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Prefilled from the passport when the device is already known to the shop; the
+  // operator still sees and can correct every field before the receipt prints.
   const [form, setForm] = useState({
-    device_brand: '',
-    device_model: '',
-    device_imei: '',
+    device_brand: prefill?.device_brand ?? '',
+    device_model: prefill?.device_model ?? '',
+    device_imei: prefill?.device_imei ?? '',
     device_colour: '',
     reported_issue: '',
     technician_id: '',

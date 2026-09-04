@@ -29,11 +29,17 @@ final class LabelController extends Controller
     /** More than fits on one A4 sheet at the smallest label size; past this, print twice. */
     private const SEARCH_LIMIT = 20;
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $this->authorize('viewAny', Product::class);
 
+        // A term handed over by link (the passport's «چاپ برچسب» carries the product
+        // name). Echoed as a string; the page runs it through the same scoped search.
+        $term = $request->query('q');
+        $term = is_string($term) ? mb_substr(trim($term), 0, 120) : '';
+
         return Inertia::render('Catalog::Labels/Index', [
+            'initial_term' => $term === '' ? null : $term,
             'levels' => PriceLevel::query()
                 ->orderBy('position')
                 ->get(['id', 'code', 'name_fa', 'is_default'])

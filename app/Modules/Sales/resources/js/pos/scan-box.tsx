@@ -23,6 +23,12 @@ interface ScanBoxProps {
   branchId: number;
   /** Called with the chosen candidate. The page appends it to the basket. */
   onPick: (candidate: ScanCandidate) => void;
+  /**
+   * A code handed to the till by a link — the passport's «فروش» button. It is typed
+   * into the box on mount and takes the same path a reader's scan would, including
+   * the finished-scan auto-pick, so a link and a scanner cannot behave differently.
+   */
+  initialTerm?: string;
 }
 
 /** A complete IMEI. At this length the scanner has finished and there is one answer. */
@@ -59,8 +65,8 @@ const DEBOUNCE_MS = 250;
  * charger by barcode, or a product by name — because the person holding the reader does
  * not know which of those they are pointing at, and should not have to.
  */
-export function ScanBox({ ref, partyId, branchId, onPick }: ScanBoxProps) {
-  const [term, setTerm] = useState('');
+export function ScanBox({ ref, partyId, branchId, onPick, initialTerm }: ScanBoxProps) {
+  const [term, setTerm] = useState(initialTerm ?? '');
   const [candidates, setCandidates] = useState<ScanCandidate[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [highlighted, setHighlighted] = useState(0);

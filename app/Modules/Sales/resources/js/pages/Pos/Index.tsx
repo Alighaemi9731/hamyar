@@ -73,6 +73,8 @@ interface Props {
   vat: { rate: number; enabled: boolean };
   rounding: { step: number; direction: RoundingDirection };
   can: { view_profit: boolean; view_cost: boolean };
+  /** A code a link handed to the till (`?imei=`), or null. See `ScanBox.initialTerm`. */
+  scan: string | null;
 }
 
 /**
@@ -116,6 +118,7 @@ export default function PosIndex({
   payment_methods: methods,
   vat,
   rounding,
+  scan,
 }: Props) {
   const settings = useTenantSettings();
   const toman = settings.currency_display === 'toman';
@@ -379,6 +382,7 @@ export default function PosIndex({
             partyId={party?.id ?? null}
             branchId={branch.id}
             onPick={addCandidate}
+            initialTerm={scan ?? undefined}
           />
 
           {lines.length === 0 ? (

@@ -4,9 +4,12 @@ import {
   CheckIcon,
   CopyIcon,
   FileTextIcon,
+  PrinterIcon,
   ShieldCheckIcon,
+  ShoppingCartIcon,
   SmartphoneIcon,
   UserRoundIcon,
+  WrenchIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -32,6 +35,8 @@ interface Unit {
   imei2: string | null;
   serial: string | null;
   product_name: string;
+  /** For the intake handover; the passport itself does not show it. */
+  brand_name: string | null;
   variant_name: string;
   status: string;
   condition: string;
@@ -64,7 +69,7 @@ interface TimelineEvent {
 interface Props {
   unit: Unit;
   timeline: TimelineEvent[];
-  can: { view_cost: boolean };
+  can: { view_cost: boolean; sell: boolean; repair: boolean; label: boolean };
 }
 
 /**
@@ -96,6 +101,7 @@ export default function UnitPassport({ unit, timeline, can }: Props) {
           eyebrow="شناسنامهٔ دستگاه"
           title={unit.product_name}
           back={{ href: '/inventory/units', label: 'فهرست دستگاه‌ها' }}
+          actions={<PassportActions unit={unit} can={can} />}
         />
       }
     >
@@ -117,6 +123,64 @@ export default function UnitPassport({ unit, timeline, can }: Props) {
         <Facts unit={unit} canViewCost={can.view_cost} />
       </div>
     </AppShell>
+  );
+}
+
+/* ---------------------------------------------------------------- actions -- */
+
+/**
+ * The passport's own doors: what a shopkeeper does next with the device in front of
+ * them. The 2026-09-03 baseline scored this as the product's best-structured screen and
+ * noted it had no action at all — every question about a phone ends in selling it,
+ * taking it in for repair, or putting a label on it, and each of those began with
+ * re-typing fifteen digits into another screen.
+ *
+ * Each link hands the device over by query string, and the receiving screen does the
+ * lookup through its own scoped path (the till's scan endpoint, the label search).
+ * Nothing here resolves a device on the reader's behalf.
+ *
+ * «فروش» and «چاپ برچسب» only while the device is on the shelf; a sold phone that comes
+ * back is a repair, which is why intake is offered whatever the status.
+ */
+function PassportActions({ unit, can }: { unit: Unit; can: Props['can'] }) {
+  const code = unit.imei1 ?? unit.serial;
+  const onShelf = unit.status === 'in_stock';
+
+  const intake = new URLSearchParams({ model: unit.product_name });
+  if (unit.imei1) intake.set('imei', unit.imei1);
+  if (unit.brand_name) intake.set('brand', unit.brand_name);
+
+  return (
+    <>
+      {can.sell && onShelf && code && (
+        <Button asChild>
+          <Link href={`/sales/pos?${new URLSearchParams({ imei: code }).toString()}`}>
+            <ShoppingCartIcon aria-hidden />
+            فروش
+          </Link>
+        </Button>
+      )}
+
+      {can.repair && (
+        <Button variant="outline" asChild>
+          <Link href={`/repairs/intake?${intake.toString()}`}>
+            <WrenchIcon aria-hidden />
+            پذیرش تعمیر
+          </Link>
+        </Button>
+      )}
+
+      {can.label && onShelf && (
+        <Button variant="outline" asChild>
+          <Link
+            href={`/catalog/labels?${new URLSearchParams({ q: unit.product_name }).toString()}`}
+          >
+            <PrinterIcon aria-hidden />
+            چاپ برچسب
+          </Link>
+        </Button>
+      )}
+    </>
   );
 }
 
@@ -149,8 +213,15 @@ function Identity({ unit }: { unit: Unit }) {
           {headline === null ? (
             <p className="text-lg font-semibold text-warning">بدون شناسه</p>
           ) : (
-            <p className="flex flex-wrap items-center gap-1">
-              <Num value={headline} variant="ltr" className="text-lg font-semibold" />
+            <p className="flex flex-wrap items-center gap-2">
+              {/* The display step (design-system: reserved for the one figure a screen
+                  exists to show), one step down on a phone so fifteen digits fit a 390px
+                  card without wrapping. Tabular figures in the product's own face. */}
+              <Num
+                value={headline}
+                variant="ltr"
+                className="text-xl font-semibold tracking-wide sm:text-2xl"
+              />
               <CopyButton label={headlineLabel} value={headline} />
             </p>
           )}
