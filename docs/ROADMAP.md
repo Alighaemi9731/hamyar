@@ -2286,7 +2286,9 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       for the dashboard split
 - [ ] SVG chart primitives on `/design`; dashboard rebuilt as deferred widgets — the
       `BarChart` is an SVG with a scale (#135); the deferred split remains
-- [ ] First-run setup checklist (`ShopSetupProgress`) — droppable if the schedule slips
+- [x] First-run setup checklist (`ShopSetupProgress`) — six steps read from the tables,
+      «بعداً» as a tenant setting, on the dashboard for whoever holds `settings.update`;
+      #140, 2026-09-04
 
 ### 16.5 Product consistency + copy
 - [ ] 13 register pages onto `FilterBar`; `ReportToolbar` for the seven reports; the

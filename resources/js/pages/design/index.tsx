@@ -13,6 +13,7 @@ import { DataTable } from '@/components/domain/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
 import { FilterBar } from '@/components/domain/filter-bar';
 import { FilterSelect } from '@/components/domain/filter-select';
+import { SetupChecklist } from '@/components/domain/setup-checklist';
 import { HistoryLink } from '@/components/domain/history-link';
 import { ImeiInput } from '@/components/domain/imei-input';
 import { JDatePicker } from '@/components/domain/jdate-picker';
@@ -115,7 +116,8 @@ export default function DesignGallery() {
         <CheckboxSection alt />
         <PageHeaderSection alt />
         <FilterBarSection />
-        <MoneyLadderSection alt />
+        <SetupChecklistSection alt />
+        <MoneyLadderSection />
         <FormSection />
         <OverlaySection alt />
         <TableSection />
@@ -1124,6 +1126,62 @@ function PageHeaderSection({ alt }: { alt?: boolean }) {
           می‌گیرد یا <code className="ltr-value">header</code> — نه هر دو. این یک union است، پس دادن
           همزمانشان خطای کامپایل می‌دهد، نه یادداشت در بازبینی کد.
         </p>
+      </Row>
+    </Section>
+  );
+}
+
+/**
+ * SetupChecklist — the first morning's card on the dashboard.
+ *
+ * Static data here: the real card reads six facts from the tables and leaves on its own
+ * once they are all true, so the gallery is the only place its middle state is pinned.
+ */
+function SetupChecklistSection({ alt }: { alt?: boolean }) {
+  const steps = [
+    { key: 'product', label: 'اولین کالا را ثبت کنید', description: '', href: '#', done: true },
+    { key: 'party', label: 'اولین طرف حساب', description: '', href: '#', done: true },
+    {
+      key: 'purchase',
+      label: 'اولین فاکتور خرید',
+      description:
+        'دستگاه‌ها با IMEI از همین‌جا وارد انبار می‌شوند و شناسنامه‌شان از همین‌جا شروع می‌شود.',
+      href: '#',
+      done: false,
+    },
+    {
+      key: 'sale',
+      label: 'اولین فروش',
+      description: 'از صندوق: اسکن، پرداخت، چاپ فاکتور.',
+      href: '#',
+      done: false,
+    },
+    {
+      key: 'repair',
+      label: 'اولین پذیرش تعمیر',
+      description: 'قبض پذیرش چاپ می‌شود و دستگاه روی تختهٔ تعمیر می‌نشیند.',
+      href: '#',
+      done: false,
+    },
+    {
+      key: 'staff',
+      label: 'همکاران را دعوت کنید',
+      description: 'هر کس با حساب خودش وارد می‌شود و هر کاری به نام خودش ثبت می‌شود.',
+      href: '#',
+      done: false,
+    },
+  ];
+
+  return (
+    <Section
+      alt={alt}
+      title="SetupChecklist"
+      note="صبح اول یک فروشگاه: شش قدم به ترتیب کار خود فروشگاه؛ قدم بعدی روشن است، انجام‌شده‌ها تیک می‌خورند، «بعداً» برای کل فروشگاه ذخیره می‌شود."
+    >
+      <Row label="۲ از ۶">
+        <div className="w-full">
+          <SetupChecklist setup={{ steps, done: 2, total: 6 }} />
+        </div>
       </Row>
     </Section>
   );

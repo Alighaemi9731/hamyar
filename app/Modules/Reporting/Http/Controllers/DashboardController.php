@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Reporting\Services\DashboardWidgets;
+use App\Modules\Reporting\Services\ShopSetupProgress;
 use App\Modules\Reporting\Support\ReportAccess;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -43,8 +44,12 @@ use Inertia\Response;
  */
 final class DashboardController extends Controller
 {
-    public function __invoke(Request $request, DashboardWidgets $widgets, SubscriptionResolver $plan): Response
-    {
+    public function __invoke(
+        Request $request,
+        DashboardWidgets $widgets,
+        SubscriptionResolver $plan,
+        ShopSetupProgress $setup,
+    ): Response {
         /*
         | Narrowed to the tenant `User` once, here. `$request->user()` may also be a
         | central `PlatformUser` — that account never reaches a tenant hostname, but
@@ -95,6 +100,10 @@ final class DashboardController extends Controller
 
         return Inertia::render('Reporting::Dashboard/Index', [
             ...$props,
+            // The first morning's checklist; null once the shop is set up, dismissed, or
+            // for a viewer whose job it is not. Null rather than `[]`: an empty PHP
+            // array is a truthy JSON array on the client.
+            'setup' => $setup->payload($user),
             'shows_profit' => $withProfit,
             // Quick actions are the one widget everybody gets, but "everybody" still
             // means "what this person can actually do" — a link to a screen that 403s
