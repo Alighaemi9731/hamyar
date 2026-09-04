@@ -135,12 +135,14 @@
             the four that gives it up: the title sits on one line with the claim beside it,
             and the largest screenshot carries the section instead of a heading block.
         --}}
-        {{-- No `.rise` on the head. The page's entry rule is one level per section — the
-             level at which the content is a list of peers — and here that level is
-             `.tour-item`. A section head that fades in is the page assembling itself. --}}
-        <div class="tour-run">
-            <h2 class="tour-title" id="tour-title">همان صفحه‌هایی که هر روز باز می‌کنید</h2>
-            <p class="tour-claim">تصویرها از خود نرم‌افزار گرفته شده‌اند — نه ماکت، نه طرح.</p>
+        {{-- The shared head (ADR 0021). It was a running head — title and claim on one
+             baseline under a hairline — one of the eight different openings this page
+             used to have. --}}
+        <div class="sec__head">
+            <p class="sec__eyebrow">داخل نرم‌افزار</p>
+            <h2 class="sec__title" id="tour-title">همان صفحه‌هایی که هر روز <em>باز می‌کنید</em></h2>
+            <span class="sec__rule" aria-hidden="true"></span>
+            <p class="sec__lede">تصویرها از خود نرم‌افزار گرفته شده‌اند — نه ماکت، نه طرح.</p>
         </div>
 
         <div class="tour-grid">

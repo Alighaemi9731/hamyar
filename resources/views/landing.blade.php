@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>سامانه همیار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
-    <meta name="description" content="سامانه همیار کار روزانهٔ مغازهٔ موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. پلن رایگان، بدون کارت بانکی.">
+    <meta name="description" content="سامانه همیار کار روزانهٔ فروشگاه موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. پلن رایگان، بدون کارت بانکی.">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon.ico" sizes="32x32">

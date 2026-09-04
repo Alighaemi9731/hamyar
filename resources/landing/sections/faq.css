@@ -270,3 +270,20 @@
     transition-delay: 0s !important;
   }
 }
+
+
+/* ADR 0021: the aside column became the shared `.sec__head` above the list, so the list
+   is the section's only column and takes a reading measure of its own. `.qa__grid` and
+   `.qa__aside` are gone from the markup; their rules above are dead and go with the next
+   pass over this file. */
+.qa__list--wide {
+  max-inline-size: 48rem;
+  margin-inline: auto;
+}
+
+.qa__help {
+  margin-block-start: 2rem;
+  text-align: center;
+  color: var(--color-navy-mute);
+  font-size: 0.9375rem;
+}

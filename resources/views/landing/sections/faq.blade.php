@@ -52,7 +52,7 @@
     $questions = [
         [
             'با سامانهٔ همتا چه می‌کند؟',
-            'رُک بگوییم: همتا API عمومی ندارد، پس هیچ نرم‌افزاری — از جمله ما — نمی‌تواند مستقیم در آن ثبت کند و هر کس خلافش را بگوید دارد چیزی می‌فروشد که ندارد. کاری که همیار می‌کند این است: وضعیت همتای هر IMEI را کنار خود دستگاه نگه می‌دارد، دستگاه‌های ثبت‌نشده را یادآوری می‌کند و مرحله‌های کار را نشان می‌دهد. ثبت نهایی را خودتان در سامانه انجام می‌دهید.',
+            'همتا API عمومی ندارد، پس هیچ نرم‌افزاری — از جمله ما — نمی‌تواند مستقیم در آن ثبت کند و هر کس خلافش را بگوید دارد چیزی می‌فروشد که ندارد. کاری که همیار می‌کند این است: وضعیت همتای هر IMEI را کنار خود دستگاه نگه می‌دارد، دستگاه‌های ثبت‌نشده را یادآوری می‌کند و مرحله‌های کار را نشان می‌دهد. ثبت نهایی را خودتان در سامانه انجام می‌دهید.',
         ],
         [
             'سامانهٔ مودیان چطور؟',
@@ -83,21 +83,18 @@
 @endphp
 
 <section class="sec sec--alt" id="faq" aria-labelledby="qa-title">
-    <div class="shell qa__grid">
+    <div class="shell">
 
-        {{-- Not a masthead: this column IS the section's opening, standing beside the
-             list rather than above it. It carries no `.rise` — a heading that fades in
-             is a heading that is missing when the reader looks for it, and the section's
-             entry motion belongs to the questions, which are the peers here. --}}
-        <div class="qa__aside">
-            <h2 class="qa__title" id="qa-title">قبل از اینکه بپرسید</h2>
-            <p class="qa__lede">
-                شش سؤالی که هر مغازه‌داری پیش از خرید می‌پرسد — با جواب رُک، حتی آنجا که
-                جوابش «نه» است.
-            </p>
-            <p class="qa__help">
-                سؤالتان اینجا نبود؟ بنویسید
-                <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>
+        {{-- The shared head, like every section below the fold. It replaces a sticky
+             aside column that stood beside the list: distinctive, and the reason the
+             page read as eight pages stapled together. See `.sec__head` in landing.css. --}}
+        <div class="sec__head">
+            <p class="sec__eyebrow">سؤال‌های پیش از خرید</p>
+            <h2 class="sec__title" id="qa-title">قبل از اینکه <em>بپرسید</em></h2>
+            <span class="sec__rule" aria-hidden="true"></span>
+            <p class="sec__lede">
+                شش سؤالی که هر فروشندهٔ موبایل پیش از خرید می‌پرسد — با جواب صریح، حتی
+                آنجا که جوابش «نه» است.
             </p>
         </div>
 
@@ -105,7 +102,7 @@
              them: not this container, not the aside, not the summary inside. Stagger is
              `min(--i, 3) × 60ms` with `--i` written per-parent by `landing.js`, so the
              sixth question does not arrive a full half-second after the first. --}}
-        <div class="qa__list" data-faq>
+        <div class="qa__list qa__list--wide" data-faq>
             @foreach ($questions as $i => [$question, $answer])
                 <details class="qa__item rise" @if ($i === 0) open @endif>
                     <summary class="qa__q">
@@ -116,6 +113,11 @@
                 </details>
             @endforeach
         </div>
+
+        <p class="qa__help">
+            سؤالتان اینجا نبود؟ بنویسید
+            <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>
+        </p>
 
     </div>
 </section>
