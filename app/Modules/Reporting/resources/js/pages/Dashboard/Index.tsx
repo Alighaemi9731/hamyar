@@ -16,6 +16,7 @@ import { BarChart } from '@/components/domain/bar-chart';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
+import { SetupChecklist, type SetupProgress } from '@/components/domain/setup-checklist';
 import { UsageMeter } from '@/components/domain/usage-meter';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/layouts/app-shell';
@@ -99,6 +100,8 @@ interface Props {
   cheques: ChequesWidget | null;
   installments: InstallmentsWidget | null;
   low_stock: LowStockWidget | null;
+  /** The first morning's checklist; null once set up, dismissed, or not this viewer's job. */
+  setup: SetupProgress | null;
   shows_profit: boolean;
   can: {
     sell: boolean;
@@ -137,6 +140,7 @@ export default function DashboardIndex({
   cheques,
   installments,
   low_stock: lowStock,
+  setup,
   shows_profit: showsProfit,
   can,
 }: Props) {
@@ -164,6 +168,10 @@ export default function DashboardIndex({
         />
       ) : (
         <div className="space-y-14 sm:space-y-16">
+          {/* The first morning, before the numbers: what to do, in the shop's own order.
+              Gone on its own once the shop is set up or the owner says «بعداً». */}
+          {setup ? <SetupChecklist setup={setup} /> : null}
+
           <UsageStrip />
 
           {today ? (

@@ -3806,3 +3806,17 @@ cannot behave differently; the intake form prefills brand, model and IMEI; the l
 sheet searches the product name. No new lookup anywhere, so nothing to isolate. `Num`'s
 `ltr` variant drops `font-mono` for tabular figures in Vazirmatn, on the passport (at the
 display step, one step down on a phone) and in every register that shows an IMEI. (#139)
+
+## 1404-06-14 (2026-09-04) — the first morning has a plan: the setup checklist (16.4)
+
+A shop that has just signed up landed on a dashboard of zeros — correct, and silent about
+what to do. `ShopSetupProgress` (Reporting, beside the widgets that already read across
+modules) answers with six steps in the order the shop's own work happens — a product, a
+party, a purchase, a sale, a repair intake, a colleague — each read from the tables
+rather than from a flag the step would have to set, so the card cannot drift from what
+the shop did and leaves on its own when every step is true. The next undone step is the
+lit one; «بعداً» is a POST that writes the first key the product has ever put in
+`tenants.settings`, so a dismissal holds for the shop, not for one browser. Shown only
+to whoever holds `settings.update`: inviting colleagues is not a salesperson's job. The
+gallery pins the middle state, `SetupChecklistTest` walks the facts and the gate, and
+the empty-states browser suite opens a new shop on it. (#140)

@@ -64,6 +64,16 @@ it('names what is missing and offers the next action on a shop with nothing in i
     'product import' => ['/catalog/import', 'فایل را اینجا رها کنید یا انتخاب کنید', 'دریافت قالب خالی'],
 ]);
 
+it('opens a new shop on the first morning\'s checklist, with the first step lit', function (): void {
+    $this->actingAs($this->owner);
+
+    visit('/dashboard')->inLightMode()->on()->desktop()
+        ->assertNoJavascriptErrors()
+        ->assertSee('راه‌اندازی فروشگاه')
+        ->assertSee('اولین کالا را ثبت کنید')
+        ->assertSee('شروع');
+});
+
 it('tells a technician with no assigned work how to see everyone\'s', function (): void {
     $this->actingAs($this->owner);
 

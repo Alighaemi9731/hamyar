@@ -9,6 +9,7 @@ use App\Modules\Platform\Http\Controllers\ImpersonationController;
 use App\Modules\Platform\Http\Controllers\LandingController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
+use App\Modules\Reporting\Http\Controllers\SetupChecklistController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -165,6 +166,9 @@ Route::middleware('tenant')->group(function (): void {
         | front page; what varies is how many cards are on it. See DashboardController.
         */
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+        // «بعداً» on the first morning's checklist; the dashboard owns the card, so it
+        // owns the dismissal. See SetupChecklistController.
+        Route::post('/dashboard/setup/dismiss', SetupChecklistController::class)->name('dashboard.setup.dismiss');
 
         /*
         | Billing. Not behind `module:platform` — a shop whose subscription has lapsed
