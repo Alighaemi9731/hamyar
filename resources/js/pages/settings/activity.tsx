@@ -1,23 +1,15 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowRightIcon, HistoryIcon, SearchIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ArrowRightIcon, HistoryIcon } from 'lucide-react';
 
 import { EmptyState } from '@/components/domain/empty-state';
+import { FilterBar } from '@/components/domain/filter-bar';
+import { FilterSelect } from '@/components/domain/filter-select';
 import { JDatePicker } from '@/components/domain/jdate-picker';
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { Pagination } from '@/components/domain/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AppShell } from '@/layouts/app-shell';
 import { formatJalali } from '@/lib/jalali';
 
@@ -60,9 +52,6 @@ interface Props {
   /** Present only when the screen is one record's history rather than the whole log. */
   record: { label: string; name: string } | null;
 }
-
-/** The Select primitive cannot hold an empty value, so "no filter" needs a token. */
-const ANY = 'any';
 
 /**
  * Field names as a shopkeeper would say them.
@@ -109,18 +98,18 @@ const MONEY_FIELDS = new Set(['price', 'credit_limit', 'opening_balance']);
 export default function ActivityLog({ activities, filters, subjects, actors, record }: Props) {
   const { errors } = usePage().props;
 
-  const [term, setTerm] = useState(filters.q ?? '');
-  const [from, setFrom] = useState<string | null>(filters.from);
-  const [to, setTo] = useState<string | null>(filters.to);
-
+  // No local copy of the filters: the bar owns the search's debounce, the pickers and
+  // selects apply on change, and the server's `filters` is the one state. Dates go on
+  // the wire as Jalali strings with Latin digits — a URL somebody pastes into a support
+  // thread — and come back as UTC ISO, which is what the picker takes.
   const query = (next: Partial<Record<string, string | number | null>> = {}) => {
     const merged: Record<string, string | number | null> = {
       actor: filters.actor,
       subject: filters.subject,
       record: filters.record,
-      from: from ? formatJalali(from, { persianDigits: false }) : '',
-      to: to ? formatJalali(to, { persianDigits: false }) : '',
-      q: term,
+      from: filters.from ? formatJalali(filters.from, { persianDigits: false }) : '',
+      to: filters.to ? formatJalali(filters.to, { persianDigits: false }) : '',
+      q: filters.q ?? '',
       ...next,
     };
 
@@ -139,19 +128,6 @@ export default function ActivityLog({ activities, filters, subjects, actors, rec
       preserveScroll: true,
     });
   };
-
-  // Debounced, so typing a product name does not fire a request per keystroke into a
-  // query that scans descriptions.
-  useEffect(() => {
-    if ((filters.q ?? '') === term) {
-      return;
-    }
-
-    const timer = setTimeout(() => apply(), 350);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [term]);
 
   const title = record ? `تاریخچه ${record.label} «${record.name}»` : 'گزارش فعالیت';
 
@@ -199,99 +175,69 @@ export default function ActivityLog({ activities, filters, subjects, actors, rec
           </div>
         )}
 
-        <div className="flex flex-wrap items-end gap-3 rounded-card border border-border bg-surface p-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="activity-actor">کاربر</Label>
-            <Select
-              value={filters.actor !== null ? String(filters.actor) : ANY}
-              onValueChange={(value) => apply({ actor: value === ANY ? null : Number(value) })}
-            >
-              <SelectTrigger id="activity-actor" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent dir="rtl">
-                <SelectItem value={ANY}>همه‌ی کاربران</SelectItem>
-                {actors.map((actor) => (
-                  <SelectItem key={actor.id} value={String(actor.id)}>
-                    {actor.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* The same bar every register stands on. The selects and the date pickers
+            ride in its children slot; their *all* rows and placeholders name the
+            dimension, so the captioned 68px fields this used to draw are gone. */}
+        <FilterBar
+          search={{
+            value: filters.q ?? '',
+            label: 'جست‌وجو در فعالیت‌ها',
+            placeholder: 'مثلاً: قیمت',
+          }}
+          onChange={(changes) => apply(changes)}
+          resultCount={activities.total}
+          resultUnit="رویداد"
+        >
+          <FilterSelect
+            label="کاربر"
+            value={filters.actor}
+            options={actors.map((actor) => ({ value: String(actor.id), label: actor.name }))}
+            allLabel="همه‌ی کاربران"
+            onChange={(value) => apply({ actor: value === null ? null : Number(value) })}
+          />
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="activity-subject">نوع رکورد</Label>
-            <Select
-              value={filters.subject ?? ANY}
-              onValueChange={(value) =>
-                // Dropping `record` with the subject on purpose: a record id belongs to
-                // one kind of thing, so carrying it across a change of kind would
-                // filter for a product that is really a party and show nothing.
-                apply({ subject: value === ANY ? null : value, record: null })
-              }
-            >
-              <SelectTrigger id="activity-subject" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent dir="rtl">
-                <SelectItem value={ANY}>همه‌ی رکوردها</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.key} value={subject.key}>
-                    {subject.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="نوع رکورد"
+            value={filters.subject}
+            options={subjects.map((subject) => ({ value: subject.key, label: subject.label }))}
+            allLabel="همه‌ی رکوردها"
+            // Dropping `record` with the subject on purpose: a record id belongs to one
+            // kind of thing, so carrying it across a change of kind would filter for a
+            // product that is really a party and show nothing.
+            onChange={(value) => apply({ subject: value, record: null })}
+          />
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="activity-from">از تاریخ</Label>
-            <JDatePicker
-              id="activity-from"
-              value={from}
-              onChange={(value) => {
-                setFrom(value);
-                apply({ from: value ? formatJalali(value, { persianDigits: false }) : '' });
-              }}
-            />
-          </div>
+          <JDatePicker
+            id="activity-from"
+            className="w-44"
+            value={filters.from}
+            placeholder="از تاریخ"
+            onChange={(value) =>
+              apply({ from: value ? formatJalali(value, { persianDigits: false }) : '' })
+            }
+          />
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="activity-to">تا تاریخ</Label>
-            <JDatePicker
-              id="activity-to"
-              value={to}
-              onChange={(value) => {
-                setTo(value);
-                apply({ to: value ? formatJalali(value, { persianDigits: false }) : '' });
-              }}
-            />
-          </div>
+          <JDatePicker
+            id="activity-to"
+            className="w-44"
+            value={filters.to}
+            placeholder="تا تاریخ"
+            onChange={(value) =>
+              apply({ to: value ? formatJalali(value, { persianDigits: false }) : '' })
+            }
+          />
 
-          <div className="grid grow gap-1.5">
-            <Label htmlFor="activity-q">جست‌وجو</Label>
-            <div className="relative">
-              <SearchIcon
-                className="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                id="activity-q"
-                value={term}
-                onChange={(event) => setTerm(event.target.value)}
-                placeholder="مثلاً: قیمت"
-                className="ps-9"
-              />
-            </div>
-          </div>
-
-          {isFiltered && (
+          {/* The bar's own reset clears only what it owns (the search); this one clears
+              the dimensions it cannot see. Shown when one of those is set. */}
+          {(filters.actor !== null ||
+            filters.subject !== null ||
+            filters.from !== null ||
+            filters.to !== null) && (
             <Button variant="ghost" onClick={() => router.get('/settings/activity')}>
-              پاک کردن فیلترها
+              پاک کردن همه
             </Button>
           )}
-        </div>
+        </FilterBar>
 
         {activities.data.length === 0 ? (
           <EmptyState

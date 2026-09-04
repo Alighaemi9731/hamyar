@@ -3833,3 +3833,15 @@ keyboard path. The table stays in the document, hidden, so both views come from 
 `columns` array and nothing is built twice — and the smoke suite's row witness still
 counts it. Twenty-nine registers change on phones at once; the two browser suites walked
 them all at 390 before the merge. Sorting stays a header affordance. (#141)
+
+## 1404-06-14 (2026-09-04) — the activity log joins the filter bar, and the 16.5 filter line closes (16.5)
+
+The last page with its own debounce: the audit log kept a local copy of the search term,
+the two dates and a 350ms timer, and drew four captioned fields and a search box in a
+card of their own. It now stands on `FilterBar` like every register — the search in the
+bar, the user and record-type selects as `FilterSelect`, the two Jalali pickers with
+their placeholders naming the dimension, and no local state at all: the server's
+`filters` is the one state, dates still travel as Jalali strings with Latin digits (a URL
+somebody pastes into a support thread). The roadmap's `ReportToolbar` is dropped, not
+deferred: `report-view.tsx` already records why the seven report toolbars differ — cuts
+on three, two ranges on one — and they were written together and have not drifted. (#142)
