@@ -246,7 +246,8 @@ contrast checker.
    which owns the single status→colour map for the whole product.
 
 6. **Layout primitives** carry the frame so pages never re-invent spacing:
-   `AppShell` (frosted sticky nav + sidebar, 1110px column), `AuthLayout` (every
+   `AppShell` (frosted sticky nav + a `--sidebar-width` rail, 1110px column; the counter
+   and the reports opt into `width="wide"` for 1400px, nothing else does), `AuthLayout` (every
    unauthenticated screen — login, onboarding, reset, 2FA challenge, invitation) and
    `SettingsSection` (one settings card) — all three built on `Card`, which owns the
    radius, hairline and padding scale. A page that hand-rolls its own auth frame or card

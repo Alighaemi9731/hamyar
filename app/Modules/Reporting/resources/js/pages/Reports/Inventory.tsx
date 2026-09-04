@@ -138,6 +138,7 @@ export default function InventoryReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

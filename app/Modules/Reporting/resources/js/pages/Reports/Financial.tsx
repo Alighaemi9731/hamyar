@@ -201,6 +201,7 @@ export default function FinancialReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

@@ -130,6 +130,7 @@ export default function TaxReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

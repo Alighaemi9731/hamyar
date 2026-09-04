@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="همیار">
+  <!--
+    THE mark the product renders — `components/brand-mark.tsx` imports this file and
+    nothing else. It is PROVISIONAL: candidate C («همراه») until Gate 16.2 picks one of
+    `mark-{a,b,c}.svg`. Swapping the pick is replacing this file; no component changes.
+
+    Two bracket forms facing each other make one handset silhouette with light between
+    them: the shop, and the software beside it. The gap is the mark's signature, and the
+    accent dot in the gap is the companion. Strokes take `currentColor`; the dot is the
+    brand and yields to `[&_circle]:fill-current` on a brand ground.
+  -->
+  <path d="M13 3H11.5A4.5 4.5 0 0 0 7 7.5v17a4.5 4.5 0 0 0 4.5 4.5H13" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M19 3h1.5A4.5 4.5 0 0 1 25 7.5v17a4.5 4.5 0 0 1-4.5 4.5H19" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+  <circle cx="16" cy="16" r="2.6" fill="#0066cc"/>
+</svg>

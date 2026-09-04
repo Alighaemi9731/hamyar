@@ -289,6 +289,7 @@ export default function PosIndex({
 
   return (
     <AppShell
+      width="wide"
       title={invoice ? 'ادامه فاکتور پیش‌نویس' : 'فروش'}
       actions={
         // `flex-wrap`, which `AppShell`'s own comment already warns about and this page

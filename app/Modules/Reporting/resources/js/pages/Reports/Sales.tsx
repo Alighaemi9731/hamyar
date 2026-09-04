@@ -139,6 +139,7 @@ export default function SalesReport({
 
   return (
     <AppShell
+      width="wide"
       header={
         <PageHeader
           eyebrow="گزارش"

@@ -107,6 +107,11 @@
   --density-row: 2.75rem;
   --density-gap: 1rem;
 
+  /* Shell geometry: the rail and the drawer that stands in for it share one width.
+     15.5rem holds the longest item («فروش و صندوق» with its icon) with the same air
+     the 44px rows have, and returns 40px to every page against the 18rem it replaced. */
+  --sidebar-width: 15.5rem;
+
   --chart-1: var(--color-brand);
   --chart-2: #5e5ce6;
   --chart-3: #8a5a00;
