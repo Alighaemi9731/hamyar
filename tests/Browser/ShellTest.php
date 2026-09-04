@@ -9,6 +9,8 @@ use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
 use App\Support\Tenancy\TenantContext;
+use Pest\Browser\Api\AwaitableWebpage;
+use Pest\Browser\Api\Webpage;
 
 /**
  * The shell's rail: the sidebar collapsed to one icon wide, remembered per browser.
@@ -56,27 +58,41 @@ const RAIL_MEASURE = <<<'JS'
     })), 500))
 JS;
 
+/**
+ * @return array{width: int, rail: string, unnamed: int}
+ */
+function railState(Webpage|AwaitableWebpage $page): array
+{
+    // Asserted rather than cast: `script()` returns `mixed`, and a run where the page
+    // never answered would otherwise decode to null and read as "still open".
+    $result = $page->script(RAIL_MEASURE);
+
+    expect($result)->toBeString('The rail measurement must return a JSON string.');
+
+    /** @var string $result */
+    /** @var array{width: int, rail: string, unnamed: int} $measured */
+    $measured = json_decode($result, true);
+
+    return $measured;
+}
+
 it('collapses the sidebar to a rail, keeps every link named, and remembers it across a reload', function (): void {
     $this->actingAs($this->owner);
 
-    // Resolved once, by keeping the return of the first call: every call on the pending
-    // page object opens a fresh visit in a fresh context, so a click on one visit and a
-    // measurement on the next never meet — and a fresh context has no localStorage.
+    // Resolved once, by keeping the return of the first call: calls on the pending page
+    // object can land on separate visits, so a click on one and a measurement on the
+    // next never meet — and a fresh context has no localStorage.
     $page = visit('/dashboard')->inLightMode()->on()->desktop()->assertNoJavascriptErrors();
 
-    /** @var array{width: int, rail: string, unnamed: int} $before */
-    $before = json_decode((string) $page->script(RAIL_MEASURE), true);
+    $before = railState($page);
     expect($before['rail'])->toBe('open');
     expect($before['width'])->toBe(248);
 
     // By the nav it controls rather than by its label: the label carries a ZWNJ that a
     // selector typed by hand may or may not, and the relation is the contract anyway.
-    // A real pointer click through Playwright, with its actionability wait, rather than
-    // `element.click()` from an evaluated script: the latter fired and React never saw it.
     $page->click('button[aria-controls="sidebar-nav"]');
 
-    /** @var array{width: int, rail: string, unnamed: int} $after */
-    $after = json_decode((string) $page->script(RAIL_MEASURE), true);
+    $after = railState($page);
     expect($after['rail'])->toBe('collapsed', 'The toggle did not collapse the rail: '.json_encode($after));
     expect($after['width'])->toBe(64);
     expect($after['unnamed'])->toBe(0);
@@ -84,8 +100,7 @@ it('collapses the sidebar to a rail, keeps every link named, and remembers it ac
     $page->refresh();
     $page->assertNoJavascriptErrors();
 
-    /** @var array{width: int, rail: string, unnamed: int} $again */
-    $again = json_decode((string) $page->script(RAIL_MEASURE), true);
+    $again = railState($page);
     expect($again['rail'])->toBe('collapsed');
     expect($again['width'])->toBe(64);
 });
