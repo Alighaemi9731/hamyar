@@ -339,14 +339,17 @@ function TypeSection({ alt }: { alt?: boolean }) {
               className="mb-5 text-lg leading-[1.7] text-muted-foreground"
               style={{ fontFamily: pairing.body }}
             >
-              فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت می‌شود و سود هر فروش همان لحظه معلوم است.
+              فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت
+              می‌شود و سود هر فروش همان لحظه معلوم است.
             </p>
 
             <p
               className="mb-6 max-w-[65ch] text-base leading-[1.8] text-foreground"
               style={{ fontFamily: pairing.body }}
             >
-              قبض پذیرش با یک بارکد چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند. هر قسط و هر چک سررسید دارد؛ صبح که فروشگاه را باز می‌کنید معلوم است امروز از چه کسی باید بگیرید و چه کسی عقب افتاده است.
+              قبض پذیرش با یک بارکد چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند. هر قسط و هر چک
+              سررسید دارد؛ صبح که فروشگاه را باز می‌کنید معلوم است امروز از چه کسی باید بگیرید و چه
+              کسی عقب افتاده است.
             </p>
 
             <div
@@ -359,7 +362,10 @@ function TypeSection({ alt }: { alt?: boolean }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-              <span className="ltr-value tabular text-lg font-semibold text-foreground" style={{ fontFamily: pairing.body }}>
+              <span
+                className="ltr-value tabular text-lg font-semibold text-foreground"
+                style={{ fontFamily: pairing.body }}
+              >
                 356938035643809
               </span>
               <span
@@ -392,7 +398,10 @@ function contrast(foreground: string, background: string): number {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
 
-  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a) as [number, number];
+  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a) as [
+    number,
+    number,
+  ];
 
   return Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100;
 }
@@ -442,7 +451,10 @@ function InkSection({ alt }: { alt?: boolean }) {
                 </td>
                 <td className="py-3">{ink.role}</td>
                 <td className="py-3">
-                  <span className="rounded-inner px-3 py-1" style={{ color: ink.value, backgroundColor: '#ffffff' }}>
+                  <span
+                    className="rounded-inner px-3 py-1"
+                    style={{ color: ink.value, backgroundColor: '#ffffff' }}
+                  >
                     فروش امروز ۹۱٬۲۳۰٬۰۰۰ تومان
                   </span>
                 </td>
@@ -452,8 +464,14 @@ function InkSection({ alt }: { alt?: boolean }) {
                   return (
                     <td key={ground.name} className="py-3">
                       <span
-                        className={cn('tabular rounded-inner px-2 py-1', ratio < 4.5 ? 'bg-danger/10 text-danger' : '')}
-                        style={{ backgroundColor: ratio < 4.5 ? undefined : ground.value, color: ratio < 4.5 ? undefined : ink.value }}
+                        className={cn(
+                          'tabular rounded-inner px-2 py-1',
+                          ratio < 4.5 ? 'bg-danger/10 text-danger' : ''
+                        )}
+                        style={{
+                          backgroundColor: ratio < 4.5 ? undefined : ground.value,
+                          color: ratio < 4.5 ? undefined : ink.value,
+                        }}
                       >
                         {ratio.toFixed(2)}:1
                       </span>
