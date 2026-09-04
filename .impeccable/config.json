@@ -61,6 +61,69 @@
         ],
         "createdAt": "2026-09-03T20:31:56.025Z",
         "reason": "Agent: the landing carries its own @theme by ADR 0016 (navy grounds, its own display steps and radii) so the product's DESIGN.md is not its palette; the whole directory is replaced in Redesign v2 16.3 and re-documented then."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "resources/js/pages/design/index.tsx"
+        ],
+        "createdAt": "2026-09-04T08:35:37.727Z",
+        "reason": "Agent: the /design gallery renders every type-pairing and ink candidate on purpose for the Redesign v2 gate (ROADMAP 16.1/16.2, owner asked for a rendered type test); it is the specimen, not drift."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "resources/js/pages/design/index.tsx"
+        ],
+        "createdAt": "2026-09-04T08:35:37.754Z",
+        "reason": "Agent: the /design gallery renders every type-pairing and ink candidate on purpose for the Redesign v2 gate (ROADMAP 16.1/16.2, owner asked for a rendered type test); it is the specimen, not drift."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "resources/js/pages/design/index.tsx"
+        ],
+        "createdAt": "2026-09-04T08:35:37.781Z",
+        "reason": "Agent: the /design gallery renders every type-pairing and ink candidate on purpose for the Redesign v2 gate (ROADMAP 16.1/16.2, owner asked for a rendered type test); it is the specimen, not drift."
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "*",
+        "files": [
+          "resources/views/design/landing/**"
+        ],
+        "createdAt": "2026-09-04T09:01:05.179Z",
+        "reason": "Agent: gate 16.2 direction comps are replacement-world candidates from the direction roll (seed fd28c358); DESIGN.md documents the incumbent world they replace. Disposable, local-only routes."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "resources/views/design/landing/**"
+        ],
+        "createdAt": "2026-09-04T09:01:05.206Z",
+        "reason": "Agent: gate 16.2 direction comps are replacement-world candidates from the direction roll (seed fd28c358); DESIGN.md documents the incumbent world they replace. Disposable, local-only routes."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "resources/views/design/landing/**"
+        ],
+        "createdAt": "2026-09-04T09:01:05.235Z",
+        "reason": "Agent: gate 16.2 direction comps are replacement-world candidates from the direction roll (seed fd28c358); DESIGN.md documents the incumbent world they replace. Disposable, local-only routes."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "resources/views/design/landing/**"
+        ],
+        "createdAt": "2026-09-04T09:01:05.263Z",
+        "reason": "Agent: gate 16.2 direction comps are replacement-world candidates from the direction roll (seed fd28c358); DESIGN.md documents the incumbent world they replace. Disposable, local-only routes."
       }
     ]
   }

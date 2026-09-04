@@ -109,6 +109,16 @@ export const SCREENS = [
     phone: null,
     note: 'The register family at its most ordinary — useful as a device-frame filler.',
   },
+  {
+    id: 'og',
+    host: 'central',
+    path: '/design/og',
+    ready: '.og__frame img',
+    viewport: { width: 1200, height: 630 },
+    out: 'resources/landing/og/og.png',
+    phone: null,
+    note: 'The og:image, rendered from the brand layer and the dashboard capture; a PNG, not a webp — link unfurlers want one.',
+  },
 ];
 
 /** The ids the landing tour actually renders, in its own order. */

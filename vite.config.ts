@@ -19,6 +19,9 @@ export default defineConfig({
         // `bin/check-bundle-boundary` refuses any other crossing.
         'resources/landing/landing.css',
         'resources/landing/landing.js',
+        // Gate 16.2's direction comps: the brand layer alone, so the old landing's look cannot
+        // leak into the candidates meant to replace it. Removed with the comps in 16.3.
+        'resources/landing/gate.css',
         // Real product screenshots, referenced from the landing via Vite::asset().
         // Listed as inputs rather than dropped in public/ so they are content-hashed:
         // a re-captured screenshot invalidates its own URL instead of hiding behind a
@@ -29,6 +32,9 @@ export default defineConfig({
         // is what puts a file in the manifest. The `url()` in fonts.css resolves to the
         // same hashed asset, so the preload and the stylesheet agree on one URL.
         ...globSync('resources/fonts/*.woff2').sort(),
+        // The og:image, captured by `bin/shots og` — hashed like the shots, so a re-capture
+        // invalidates the URL every unfurler has cached.
+        ...globSync('resources/landing/og/*.png').sort(),
       ],
       ssr: 'resources/js/ssr.tsx',
       refresh: true,
