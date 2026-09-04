@@ -52,12 +52,6 @@
         are both in the tail.
     --}}
     <div class="signoff signoff--call">
-        {{-- A 52px hairline grid in white, masked to fade out. Its own element and its own
-             rules rather than the page's `.mesh`, so this file stays self-contained: `.mesh`
-             only paints white lines inside `.band` and `.final__card`, and this is neither.
-             It belongs to the top of the tail, so it is rendered once, here. --}}
-        <div class="signoff__mesh" aria-hidden="true"></div>
-
         <section class="shell signoff__cta rise" aria-labelledby="signoff-title">
             <div>
                 <h2 class="signoff__title" id="signoff-title">
