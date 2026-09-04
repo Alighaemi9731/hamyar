@@ -539,6 +539,9 @@ function paginatedOf(object $page, string $key): array
  * test is a check nobody has ever seen work, and this one stands in front of the only
  * screen a locked-out shopkeeper cannot get past.
  */
+/**
+ * @return array<string, string>
+ */
 function securityCodeSession(string $code = 'HAMYR'): array
 {
     return [App\Support\SecurityCode::SESSION_KEY => $code];

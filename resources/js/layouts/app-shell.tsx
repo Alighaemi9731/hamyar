@@ -315,10 +315,7 @@ function ShopBadge({
           <span className="mt-0.5 flex items-center gap-1.5">
             <BrandMark className="h-2.5 text-muted-foreground" />
             {subdomain && (
-              <span
-                className="ltr-value truncate text-2xs text-muted-foreground/70"
-                dir="ltr"
-              >
+              <span className="ltr-value truncate text-2xs text-muted-foreground/70" dir="ltr">
                 · {subdomain}
               </span>
             )}

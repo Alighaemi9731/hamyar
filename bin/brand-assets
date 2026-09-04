@@ -1,67 +1,48 @@
 #!/usr/bin/env bash
-#
-# Rasterise the brand mark into the favicon set.
-#
-#   bin/brand-assets [resources/brand/mark-a.svg]
-#
-# Outputs, all under public/:
-#   favicon.svg            the mark itself, ink on transparent (modern browsers)
-#   favicon.ico            32px, the file every browser still requests at /favicon.ico —
-#                          it was a 0-byte file until 2026-09-04, which every tab showed
-#   apple-touch-icon.png   180px on the brand blue with a white mark, as iOS expects
-#   icon-192.png / icon-512.png   the manifest icons
-#
-# One-off, run locally; the outputs are committed. rsvg-convert (librsvg) rasterises the
-# SVG, Pillow writes the ICO. Both refuse loudly when missing.
-
 set -euo pipefail
+
+# Rasterise the tab mark into the icon set.
+#
+# The source is `public/favicon.svg` — the wordmark's first letter, white on the brand
+# tile, itself generated from the logo's outlines (see docs/design-system.md). It is
+# already a finished, padded, rounded tile, so everything below is a straight rasterise:
+#
+#   apple-touch-icon.png   180px, as iOS expects
+#   icon-192.png / icon-512.png   the manifest icons
+#   favicon.ico            32 and 16px in one file, for the browsers that still ask
+#
+# It used to composite a bare symbol onto a generated blue square at 64% and re-colour
+# `currentColor` on the way. That symbol was retired on 2026-09-04 when the logo became a
+# wordmark; there is nothing left to compose, and a script that builds a tile we already
+# have is a second place for the tile to be wrong.
+#
+# One-off, run locally; the outputs are committed. rsvg-convert (librsvg) rasterises and
+# Pillow packs the .ico, because neither ships with macOS and both are one brew away.
+
 cd "$(dirname "$0")/.."
 
-SRC="${1:-resources/brand/mark-a.svg}"
+SRC="public/favicon.svg"
 
 command -v rsvg-convert >/dev/null || { echo "  rsvg-convert missing — brew install librsvg" >&2; exit 1; }
 python3 -c 'import PIL' 2>/dev/null || { echo "  Pillow missing — python3 -m pip install pillow" >&2; exit 1; }
-[[ -f "$SRC" ]] || { echo "  $SRC does not exist" >&2; exit 1; }
+[[ -f "$SRC" ]] || { echo "  $SRC does not exist — regenerate it first, see docs/design-system.md" >&2; exit 1; }
 
-INK="#1d1d1f"
-BLUE="#0066cc"
 TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-# The favicon: the mark in ink, on nothing.
-sed "s/currentColor/${INK}/g" "$SRC" > public/favicon.svg
+for spec in "180:public/apple-touch-icon.png" "192:public/icon-192.png" "512:public/icon-512.png"; do
+  size="${spec%%:*}"; out="${spec#*:}"
+  rsvg-convert -w "$size" -h "$size" "$SRC" -o "$out"
+  echo "  $out  ${size}px"
+done
 
-# A padded, filled tile for the touch icon and the manifest: white mark on the brand blue,
-# inset by 18% so iOS's rounding does not clip the stroke.
-tile() {
-  local size="$1" out="$2"
-  local inner=$(( size * 64 / 100 ))
-  local offset=$(( (size - inner) / 2 ))
-  sed -e "s/currentColor/#ffffff/g" -e "s/${BLUE}/#ffffff/g" "$SRC" > "$TMP/white.svg"
-  rsvg-convert -w "$inner" -h "$inner" "$TMP/white.svg" -o "$TMP/inner.png"
-  python3 - "$size" "$offset" "$TMP/inner.png" "$out" "$BLUE" <<'PY'
-import sys
-from PIL import Image
-size, offset, inner, out, blue = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5]
-tile = Image.new("RGBA", (size, size), blue)
-mark = Image.open(inner).convert("RGBA")
-tile.alpha_composite(mark, (offset, offset))
-tile.save(out)
-PY
-}
-
-tile 180 public/apple-touch-icon.png
-tile 192 public/icon-192.png
-tile 512 public/icon-512.png
-
-# The .ico: ink mark on transparent at 32 and 16, both frames in one file.
-rsvg-convert -w 32 -h 32 public/favicon.svg -o "$TMP/32.png"
-rsvg-convert -w 16 -h 16 public/favicon.svg -o "$TMP/16.png"
+rsvg-convert -w 32 -h 32 "$SRC" -o "$TMP/32.png"
+rsvg-convert -w 16 -h 16 "$SRC" -o "$TMP/16.png"
 python3 - "$TMP/32.png" "$TMP/16.png" public/favicon.ico <<'PY'
 import sys
 from PIL import Image
-big, small, out = sys.argv[1], sys.argv[2], sys.argv[3]
-Image.open(big).convert("RGBA").save(out, format="ICO", sizes=[(32, 32), (16, 16)])
-PY
 
-rm -rf "$TMP"
-ls -la public/favicon.svg public/favicon.ico public/apple-touch-icon.png public/icon-192.png public/icon-512.png | awk '{printf "  %7s %s\n", $5, $9}'
+big, small, out = sys.argv[1], sys.argv[2], sys.argv[3]
+Image.open(big).convert("RGBA").save(out, sizes=[(32, 32), (16, 16)])
+PY
+echo "  public/favicon.ico  32 + 16px"

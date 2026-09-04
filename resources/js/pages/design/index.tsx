@@ -284,7 +284,6 @@ function MarkSection({ alt }: { alt?: boolean }) {
   );
 }
 
-
 function TypeSection({ alt }: { alt?: boolean }) {
   return (
     <Section
