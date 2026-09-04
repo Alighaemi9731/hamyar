@@ -2301,7 +2301,12 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       tiles with icons; Repairs `Show` section primitives — all but the Repairs `Show`
       primitives landed in #137, plus `FileDrop` on both import pages
 - [ ] `resources/js/lib/copy.ts`; `bin/check-copy-terms`; `clarify` pass over the 20 most-seen
-      screens; `/design` split per section + the 7 missing specimens
+      screens; `/design` split per section + the 7 missing specimens — `check-copy-terms`
+      landed (#143) with six mechanical voice rules and a ten-pair baseline that is all the
+      old landing; the product copy was already clean on them. `copy.ts` dropped: a
+      vocabulary module nobody imports is dead code, and the glossary lives in
+      `docs/brand/voice.md` with the gate behind it. The `clarify` pass and the `/design`
+      split remain
 
 ### 16.6 Closure
 - [ ] `bin/ui-sweep`; `docs/walks/v2/` with a README; `impeccable critique`; `DESIGN.md`

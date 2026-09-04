@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
 | The login page's links have to RESOLVE, not merely render.
 |
-| «ثبت نام» was hand-built as `URL::formatScheme().config('app.domain').'/register'`,
+| «ثبت‌نام» was hand-built as `URL::formatScheme().config('app.domain').'/register'`,
 | which was right while login was served on a shop's hostname and sign-up lived on the
 | central domain. ADR 0017 put both on `app.<apex>`, and that URL went on pointing at the
 | LANDING host, where /register does not exist. The page looked perfect and the link 404'd
@@ -25,7 +25,7 @@ beforeEach(function (): void {
     // Matched by its visible label rather than by the path it points at: asking "where
     // does the register link go" must not presuppose the answer.
     preg_match(
-        '/<a\b[^>]*\bhref="([^"]*)"[^>]*>\s*ثبت نام\s*<\/a>/u',
+        '/<a\b[^>]*\bhref="([^"]*)"[^>]*>\s*ثبت‌نام\s*<\/a>/u',
         (string) $this->page->getContent(),
         $matches,
     );
@@ -43,7 +43,7 @@ it('offers a way to register', function (): void {
     expect($registerHref)->not->toBeNull();
 });
 
-it('links «ثبت نام» to a page that actually resolves', function (): void {
+it('links «ثبت‌نام» to a page that actually resolves', function (): void {
     $this->get((string) $this->registerHref)->assertOk();
 });
 

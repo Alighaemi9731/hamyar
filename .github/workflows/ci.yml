@@ -111,6 +111,13 @@ jobs:
       - name: Bundle-boundary gate
         run: php bin/check-bundle-boundary
 
+      # docs/brand/voice.md, made mechanical: adjectives the reader cannot verify, Arabic
+      # letters and digits in Persian text, exclamation marks, a space where a compound
+      # takes a ZWNJ, and the colloquial register the 2026-09-03 baseline found the landing
+      # in. Ships with a baseline of the old landing's words, which 16.3 replaces.
+      - name: Copy-terms gate
+        run: php bin/check-copy-terms
+
   # ----------------------------------------------------------------- stan ----
   static-analysis:
     name: Larastan (level 8)
