@@ -1,472 +1,273 @@
-/*
- | Hamyar landing — sections 1 and 2: هیرو (with the signature element) and نوار اعتماد.
- |
- | Self-contained. This file declares NO tokens and redefines NO shared class: every
- | colour, font, shadow and radius below is read from the `@theme` block in
- | `landing.css`, and the buttons, the shell, the mesh and `.nums` are that file's
- | components used as-is. Three new block names only — `.pitch`, `.counter`, `.trust` —
- | so nothing here can collide with the sections three other people are building.
- |
- | ## The direction, restated so it is not re-litigated
- |
- | Navy and white, one accent, white as the ground. ADR 0016 records why: a cinematic
- | dark page was built and rejected on taste, and the calm navy page that replaced it
- | came back **بی‌روح**. The diagnosis then was that the answer is *not* more motion —
- | so the energy here comes from type scale, from one dark object placed high on the
- | page, and from a single scroll-advanced moment that is the product's own argument.
- |
- | ## Where the weight is
- |
- | The signature panel is navy-900 and it sits in the first screen. That is deliberate:
- | the previous page was pure white until roughly halfway down, which is most of what
- | «too white» meant. It is a rounded card with paper lying on it, not a full-bleed band
- | — the IMEI section further down is the full-bleed one, and two dark shapes on a page
- | must differ or the second reads as a repeat.
- |
- | ## Motion budget
- |
- | One custom property (`--fold`, 0 → 1) written by `sections/signature.js` from a
- | passive rAF-throttled scroll listener. It drives `rotate`, `translate` and one
- | `opacity` on four elements. `--fold` defaults to **1** — the finished state — so no
- | JavaScript, a narrow viewport, or `prefers-reduced-motion` all render a tidy, complete
- | ledger rather than a half-built one.
- */
+/* ==========================================================================
+   The fold.
 
-/* =========================================================== 1 · هیرو ====== */
+   ADR 0021 replaced the previous hero wholesale. What was here: a navy "counter after
+   hours" panel with four rendered paper slips that squared up into ledger rows as the
+   first half-screen scrolled, driven by a `--fold` custom property written from a
+   passive rAF listener (`sections/signature.js`), plus a 46px hairline `.mesh` over the
+   whole section. It was the third composition the owner rejected, and the baseline had
+   already flagged the mesh as a generated-UI signature.
 
-.pitch {
-  position: relative;
-  /* The mesh and the wash both sit at a negative z-index; without a stacking context
-     of their own they would paint behind the page ground instead of behind the hero. */
-  isolation: isolate;
-  overflow: hidden;
-  padding-block: clamp(2.75rem, 5vw, 4.25rem) clamp(3.5rem, 6vw, 5.5rem);
+   What replaces it is the shape of the reference the owner named, mirrored for RTL:
+   the argument on the reading-start side, and **the product itself** on the other —
+   a real capture of the dashboard in a frame, with three cards floating over it naming
+   moments the software actually produces.
+
+   Two rules this shape has to keep, both learned in ADR 0016:
+
+   · It is never empty on arrival. The image is a static `<picture>` with width and
+     height attributes, painted at first paint. Nothing here waits for scroll, and there
+     is no scroll listener on this page any more.
+   · The capture is real. `bin/shots` produces it from a seeded shop, `LandingShotsTest`
+     fails if the manifest and the files disagree, and the weekly workflow re-takes it —
+     so the fold cannot quietly go stale the way the 22 August captures did.
+   ========================================================================== */
+
+.fold {
+  padding-block: clamp(3rem, 6vw, 5.5rem) clamp(4rem, 7vw, 7rem);
 }
 
-/* The wash. Centred at 50% so it needs no direction, and stopped well above the fold:
-   the hero should read as a lit white surface, not a coloured one. */
-.pitch::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background:
-    radial-gradient(1200px 560px at 50% -30%, #dbe8f8 0%, transparent 66%),
-    linear-gradient(180deg, #f5f9fd 0%, var(--color-page) 52%);
-}
-
-.pitch__grid {
+.fold__grid {
   display: grid;
-  gap: clamp(2.5rem, 5vw, 3.5rem);
+  gap: clamp(2.5rem, 5vw, 4rem);
   align-items: center;
 }
 
 /*
- | 900 — the page's ONE reflow line, and the hero is not exempt from it. This grid was
- | at 1024 while every section below went two-column at 860–980, which opened a window
- | around 1000px where the first screen was a single stacked column and everything
- | under it was a spread. That is the width a laptop half-screen actually lands on.
- |
- | The panel needs ~24rem before its slips wrap; at 900 the shell is 852px and the
- | 0.96 track resolves to ~386px, so the minmax floor is stated rather than assumed.
- | signature.js gates the scroll effect on the same 900, so the composition and the
- | animation still appear together or not at all.
- */
-@media (min-width: 900px) {
-  .pitch__grid {
-    grid-template-columns: minmax(0, 1.04fr) minmax(24rem, 0.96fr);
-    gap: clamp(2.5rem, 5vw, 4.5rem);
+  The stage takes the larger share. The capture is a real 1440px screen, so every pixel
+  it loses is a row of the product nobody can read — at the 520px the even split gave it,
+  the dashboard's own labels were mush. At ~660px its headline figures and its chart read,
+  which is as much as a screenshot on a landing page has ever had to do.
+*/
+@media (min-width: 1024px) {
+  .fold__grid {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 }
 
-/* The kicker. A start-aligned caption with a short accent rule running into it — the
-   centred pill it replaces was the first item on the owner's list of tells, and this
-   says the same eleven words with a device the rest of the page does not repeat.
-   navy-mute on white is 5.4:1. */
-.pitch__kicker {
-  display: flex;
+/* ------------------------------------------------------------------ say ---- */
+
+/*
+  The eyebrow states the category, and it is the smallest promise on the page that has
+  to be true. The reference's equivalent reads «Used by 500+ Phone Shops Worldwide»;
+  we have no such number and `docs/brand/voice.md` rule 3 forbids inventing one, so this
+  says what the product is. It becomes a pilot-shop line the day the owner supplies
+  names and consent — that is a copy change in `landing.php`, not a layout change.
+*/
+.fold__eyebrow {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem 0.375rem 0.75rem;
+  border: 1px solid var(--color-hair);
+  border-radius: 9999px;
+  background: var(--color-page);
+  color: var(--color-navy-soft);
   font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-navy-mute);
-  margin-block-end: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-.pitch__rule {
-  flex: none;
-  inline-size: 2.25rem;
-  block-size: 2px;
-  border-radius: 2px;
+.fold__eyebrow::before {
+  content: '';
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 9999px;
   background: var(--color-accent);
+  flex: none;
 }
 
-.pitch__title {
-  font-size: clamp(2.125rem, 5.6vw, 4.25rem);
+/*
+  60px at 1440 against the reference's 64, and 1.1 leading rather than its 1.0: Persian
+  ascenders and descenders collide at 1.0, and «گ» under «ه» is the pair that shows it.
+  Weight 700, not the 800 the 16.0 baseline measured — that was the heaviest step the
+  old display face had, and nothing on the page needed it.
+*/
+.fold__title {
+  margin-block-start: 1.5rem;
+  font-size: clamp(2.125rem, 5vw, 3.75rem);
   line-height: 1.1;
   letter-spacing: -0.028em;
-  /* Persian at display size sets ragged; balancing keeps the second line from orphaning
-     a single word under a 68px first line. */
+  font-weight: 700;
   text-wrap: balance;
-  margin-block-end: 1.5rem;
 }
 
-/* The one coloured phrase in the section. 5.6:1 on white — the loudest colour on the
-   page costs nothing in contrast. */
-.pitch__title em {
+/* The one place the accent appears in this section, on the phrase the sentence turns
+   on. The reference does the same thing and it is the whole reason its fold reads as
+   one idea rather than as a paragraph. */
+.fold__title .nowrap {
+  white-space: nowrap;
+}
+
+.fold__title em {
   font-style: normal;
   color: var(--color-accent);
 }
 
-.pitch__lede {
-  font-size: clamp(1.0625rem, 1.35vw, 1.25rem);
+.fold__lede {
+  margin-block-start: 1.25rem;
+  max-inline-size: 34rem;
+  font-size: 1.0625rem;
+  line-height: 1.85;
   color: var(--color-navy-soft);
-  max-inline-size: 34rem; /* a reading measure, not the column width */
-  margin-block-end: 2rem;
 }
 
-.pitch__actions {
+.fold__actions {
+  margin-block-start: 2rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.pitch__fine {
-  margin-block-start: 1.25rem;
-  font-size: 0.875rem;
-  color: var(--color-navy-mute);
-}
-
-/* ------------------------------------------------- the signature element --- */
-/*
- | «دفترِ مغازه» — the counter after hours, with the day's paper on it.
- |
- | The panel is the software; the slips are the paper. At `--fold: 0` the slips lie in a
- | pile, tilted, overlapping, in the middle of the panel. At `--fold: 1` they are filed:
- | square, evenly spaced, each with its ثبت mark. Scroll moves the value between the two.
- |
- | Every slip is fully rendered at both ends of that range. Nothing fades in from
- | nothing, and nothing is waiting for a trigger — ADR 0016's blank-sheet-of-paper.
- */
-
-.counter {
-  position: relative;
-  overflow: hidden;
-  /* An ANCHOR — one of exactly two objects entitled to --radius-xl. It was 24px
-     against every other large panel's 20px, which read as a mistake rather than as
-     emphasis; at 28px it is a step, and the step has a meaning. */
-  border-radius: var(--radius-xl);
-  padding: clamp(1.25rem, 2.6vw, 1.75rem);
-  /* Same treatment as the page's other navy surfaces, so this reads as one material
-     with them rather than as a fourth idea. */
-  background:
-    radial-gradient(620px 300px at 50% -18%, color-mix(in srgb, var(--color-accent) 30%, transparent) 0%, transparent 64%),
-    linear-gradient(168deg, var(--color-navy-800) 0%, var(--color-navy-900) 64%);
-  box-shadow: var(--shadow-band);
-  color: var(--color-on-dark-soft);
-
-  /* The finished state is the DEFAULT. Everything that cannot animate — no script, a
-     phone, reduced motion — lands here, and here is the tidy ledger. */
-  --fold: 1;
-  --away: calc(1 - var(--fold));
-}
-
-/* Only when signature.js is running and the viewport is wide enough does the pile exist
-   at all. Same discipline as landing.css's `[data-io='on'] .rise`: the unfinished state
-   is expressed exactly as long as something is guaranteed to finish it. */
-/*
-| One frame with no transition, while signature.js introduces the pile. Without it the
-| module's first write animates the finished ledger apart in front of the visitor — the
-| page's argument, played backwards, on every desktop load.
-*/
-.counter[data-boot] .counter__slip {
-  transition: none !important;
-}
-
-[data-signature='on'] .counter {
-  --fold: 0;
-}
-
-.counter__head {
+.fold__ticks {
+  margin-block-start: 1.75rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block-end: 0.875rem;
-  margin-block-end: 1.125rem;
-  border-block-end: 1px solid color-mix(in srgb, #fff 12%, transparent);
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  color: var(--color-navy-mute);
+  font-size: 0.875rem;
 }
 
-/* White on navy-800 is 14.8:1. */
-.counter__title {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.0625rem;
-  color: var(--color-on-dark);
-  letter-spacing: -0.016em;
-}
-
-/* on-dark-mute on navy-800 is 6.2:1. */
-.counter__day {
+.fold__ticks li {
   display: inline-flex;
   align-items: center;
   gap: 0.4375rem;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--color-on-dark-mute);
 }
 
-.counter__day::before {
-  content: '';
+.fold__ticks svg {
+  inline-size: 1rem;
+  block-size: 1rem;
   flex: none;
-  inline-size: 0.4375rem;
-  block-size: 0.4375rem;
-  border-radius: 999px;
-  background: var(--color-accent-lit);
-}
-
-.counter__list {
-  display: grid;
-  gap: 0.75rem;
-  /* Stated rather than inherited from Tailwind's preflight: this stylesheet has to be
-     correct on its own terms, and an <ol> that suddenly grows markers because the reset
-     moved is a silly way to break a hero. */
-  list-style: none;
-}
-
-/*
- | The slip.
- |
- | Geometry, so the next reader does not have to derive it: `--k` is how many rows this
- | slip must travel to reach the middle of a four-row stack (1.5, 0.5, -0.5, -1.5), and
- | the block-axis translate is `--k` rows of `100% + gap`. A percentage in `translate`
- | resolves against the element's own box, so the pile stays exact if a slip's text
- | wraps to another line and no magic pixel value has to be maintained.
- |
- | Translate rather than margin on purpose: margins would relayout the panel on every
- | scroll frame, transforms do not, and the panel keeps its full height at `--fold: 0`
- | so nothing below it shifts while the pile squares up.
- |
- | `rotate` and `translate` are transforms, not physical offsets — the fan is symmetric
- | and reads identically whichever way the document runs.
- */
-.counter__slip {
-  position: relative;
-  z-index: var(--z, 1);
-  display: grid;
-  gap: 0.1875rem;
-  list-style: none;
-  padding-block: 0.8125rem;
-  /* The inline-end pad is the ثبت mark's seat, reserved in the flow. The mark is
-     absolutely positioned, so without it a long device name would run underneath a
-     filled disc — and «سامسونگ گلکسی A54 — یک دستگاه» is long. */
-  padding-inline: 0.9375rem 2.75rem;
-  border-radius: var(--radius-md);
-  background: var(--color-paper);
-  color: var(--color-navy);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 14px 26px -16px rgb(0 0 0 / 0.7);
-  rotate: calc(var(--r, 0deg) * var(--away));
-  translate:
-    calc(var(--dx, 0rem) * var(--away))
-    calc(var(--k, 0) * (100% + 0.75rem) * var(--away));
-  /* 120ms linear, matching the spine in landing.css: enough to smooth the gap between
-     animation frames, short enough that it never lags the scroll it is following. */
-  transition: rotate 120ms linear, translate 120ms linear;
-}
-
-/* accent on paper is 5.1:1 — AA at this size and weight. */
-.counter__kind {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--color-accent);
-  line-height: 1.6;
-}
-
-/* navy on paper is 17.0:1. */
-.counter__what {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: var(--color-navy);
-}
-
-/* navy-mute on paper is 5.4:1 — the floor, and measured on this ground rather than
-   assumed from the white one. */
-.counter__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  line-height: 1.6;
   color: var(--color-navy-mute);
 }
 
-.counter__amount {
-  font-weight: 700;
-  color: var(--color-navy);
+/* ---------------------------------------------------------------- stage ---- */
+
+.fold__stage {
+  position: relative;
 }
 
 /*
- | The ثبت mark. The one thing on the panel that is not present at `--fold: 0`, and the
- | payoff: the slips do not merely tidy themselves, they get recorded.
- |
- | The clamp maps the last 30% of the fold onto 0 → 1 opacity, so the marks arrive after
- | the pile has visibly squared rather than during. At the default `--fold: 1` the
- | expression is already ≥ 1, which is why the static rendering shows every mark.
- */
-.counter__tick {
-  position: absolute;
-  inset-block-start: 0.8125rem;
-  inset-inline-end: 0.9375rem;
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  border-radius: 999px;
+  The frame says "this is a screen" without pretending to be an operating system: a
+  title bar, three muted dots on the reading-start edge, and the capture under it. No
+  browser chrome, no URL bar, no fake traffic lights in colours that belong to macOS.
+*/
+.frame {
+  border: 1px solid var(--color-hair);
+  border-radius: 1rem;
+  background: var(--color-page);
+  box-shadow: 0 1px 2px rgb(14 27 44 / 0.04), 0 24px 48px -32px rgb(14 27 44 / 0.45);
+  overflow: hidden;
+}
+
+.frame__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-block-end: 1px solid var(--color-hair);
+  background: var(--color-page-alt);
+}
+
+.frame__bar span {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-navy-mute) 35%, transparent);
+}
+
+.frame img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+/* ---------------------------------------------------------------- cards ---- */
+
+/*
+  Three moments the software produces, floating over the frame's edge. They are the
+  reference's device and they earn their place here: each one names a thing this
+  product does that a generic till does not — a device recorded by its own IMEI, a
+  repair with a state, an instalment with a date.
+
+  Sample figures, and they say so by being obviously one shop's day rather than a
+  claim about ours. Persian digits in prose; the IMEI stays Latin and LTR-isolated,
+  because a serial that reorders under bidi is a serial nobody can read back.
+
+  Hidden below `lg`: on a phone they would sit on top of the capture they annotate.
+*/
+.fold__card {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .fold__card {
+    display: flex;
+    position: absolute;
+    z-index: 2;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--color-hair);
+    border-radius: 0.875rem;
+    background: var(--color-page);
+    box-shadow: 0 8px 24px -12px rgb(14 27 44 / 0.28);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    max-inline-size: 15rem;
+  }
+
+  .fold__card--imei {
+    inset-block-start: 8%;
+    inset-inline-start: -2.5rem;
+  }
+
+  .fold__card--repair {
+    inset-block-start: 46%;
+    inset-inline-end: -2rem;
+  }
+
+  .fold__card--instalment {
+    inset-block-end: 9%;
+    inset-inline-start: -1.5rem;
+  }
+}
+
+.fold__card-dot {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: 9999px;
   display: grid;
   place-items: center;
-  color: #fff;
-  background: var(--color-accent);
-  opacity: clamp(0, calc((var(--fold) - 0.7) * 3.4), 1);
-  transition: opacity 120ms linear;
+  flex: none;
 }
 
-/* on-dark-mute on navy-900 is 7.6:1. */
-.counter__note {
-  margin-block-start: 1.125rem;
-  font-size: 0.8125rem;
-  line-height: 1.75;
-  color: var(--color-on-dark-mute);
+.fold__card-dot svg {
+  inline-size: 0.9375rem;
+  block-size: 0.9375rem;
 }
 
-/* =================================================== 2 · نوار اعتماد ======= */
-/*
- | A sentence with a rule running out of it, not a row of icon tiles. The four trades
- | this software is for carry the weight of the line; the connective words step back a
- | step, and that contrast is the entire treatment. No new shape is introduced.
- */
-
-.trust {
-  background: var(--color-page-alt);
-  border-block: 1px solid var(--color-hair);
-  padding-block: 1.5rem;
+.fold__card--imei .fold__card-dot {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
 }
 
-.trust__row {
-  display: grid;
-  gap: 0.875rem;
-  align-items: center;
+.fold__card--repair .fold__card-dot {
+  background: color-mix(in srgb, #8a5a00 12%, transparent);
+  color: #8a5a00;
 }
 
-@media (min-width: 900px) {
-  .trust__row {
-    grid-template-columns: auto minmax(2rem, 1fr) auto;
-    gap: 1.5rem;
-  }
+.fold__card--instalment .fold__card-dot {
+  background: color-mix(in srgb, #0f7b3f 12%, transparent);
+  color: #0f7b3f;
 }
 
-/* navy-mute on page-alt is 4.8:1; the bold trades are navy at 15.4:1. */
-.trust__claim {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.0625rem, 2vw, 1.375rem);
-  line-height: 1.5;
-  color: var(--color-navy-mute);
-  margin: 0;
-}
-
-.trust__claim b {
-  font-weight: 800;
+.fold__card b {
+  display: block;
+  font-weight: 600;
   color: var(--color-navy);
 }
 
-/* The leader. It only exists where the claim and the proofs share a line — stacked, it
-   would be a stray horizontal mark between two paragraphs. The gradient is symmetric,
-   so which end it starts from carries no meaning. */
-.trust__rule {
-  display: none;
-  block-size: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--color-hair) 18%, var(--color-hair) 82%, transparent 100%);
-}
-
-@media (min-width: 900px) {
-  .trust__rule {
-    display: block;
-  }
-}
-
-/* navy-soft on page-alt is 6.5:1. */
-.trust__proofs {
-  display: flex;
-  flex-wrap: wrap;
-  /* Stacked, the proofs are a wrapping list and the gap is the whole of the spacing.
-     No divider here — see below. */
-  gap: 0.125rem 1.125rem;
-  font-size: 0.875rem;
-  line-height: 1.7;
-  color: var(--color-navy-soft);
-  list-style: none;
-}
-
-/*
- | The dividers live behind the SAME 900 query as `.trust__rule`, and for the same
- | reason the rule is behind it — the author guarded one and missed the other.
- |
- | `li + li` on a flex-wrap list draws its separator on the *inline-start edge of the
- | item*, not between two items on a line. At 390px the three claims wrap onto two or
- | three lines, and every item that starts a new line carries a 1px tick hanging in the
- | margin with nothing on the other side of it. A separator only means something where
- | the things it separates are actually side by side, and that is only true at 900,
- | where `.trust__row` puts the claim, the leader and the proofs on one row.
- */
-@media (min-width: 900px) {
-  .trust__proofs {
-    gap: 0;
-  }
-
-  .trust__proofs li {
-    padding-inline-end: 0.875rem;
-  }
-
-  .trust__proofs li + li {
-    padding-inline-start: 0.875rem;
-    border-inline-start: 1px solid var(--color-hair);
-  }
-
-  .trust__proofs li:last-child {
-    padding-inline-end: 0;
-  }
-}
-
-/* ============================================================ entry ======== */
-/*
- | Sections 1 and 2 take NO `.rise`, and that is the page's one entry rule applied, not
- | an exception to it: both are on screen when the observer first fires, so an entry
- | animation here is the visitor watching the page assemble itself. The hero's motion
- | budget is `--fold` and nothing else; the trust strip has none at all.
- |
- | The hero also has no masthead — it opens with the kicker (a short accent rule running
- | into a caption), which is a device that appears nowhere else on the page. The trust
- | strip opens with nothing: it is one sentence. Two sections keep the asymmetric
- | masthead and it is neither of these; the verdict is in landing.css.
- */
-
-/* ========================================================= motion off ====== */
-/*
- | The reduced-motion branch gets the ENDING, not a disabled control: `--fold` is pinned
- | to 1, which is the filed ledger with every mark shown. signature.js also refuses to
- | run under the same query, so this rule is the second of two locks rather than the
- | only one — either alone is sufficient.
- */
-
-@media (prefers-reduced-motion: reduce) {
-  [data-signature='on'] .counter,
-  .counter {
-    --fold: 1 !important;
-  }
-
-  .counter__slip,
-  .counter__tick {
-    transition: none !important;
-  }
+.fold__card span {
+  color: var(--color-navy-mute);
 }

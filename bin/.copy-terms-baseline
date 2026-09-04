@@ -3,14 +3,13 @@
 # listed pair disappears — so this file shrinks and cannot rot.
 #
 # Every line is the old landing's voice («مغازه», «توی کشو», «رُک بگوییم»), which 16.3
-# replaces wholesale. Do not add to it.
+# replaces section by section. The hero's two came off the day the fold was rebuilt.
+# Do not add to it.
 
 resources/views/landing.blade.php:مغازه
 resources/views/landing/sections/closing.blade.php:مغازه‌های
 resources/views/landing/sections/faq.blade.php:رُک
 resources/views/landing/sections/faq.blade.php:مغازه‌داری
-resources/views/landing/sections/hero.blade.php:مغازه
-resources/views/landing/sections/hero.blade.php:توی
 resources/views/landing/sections/imei.blade.php:مغازه
 resources/views/landing/sections/problems.blade.php:مغازه‌دار
 resources/views/landing/sections/problems.blade.php:مغازه

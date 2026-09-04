@@ -41,26 +41,34 @@
 </head>
 <body>
 
-<a href="#main" class="btn btn--quiet" style="position:absolute;inset-inline-start:-9999px"
-   onfocus="this.style.insetInlineStart='1rem';this.style.insetBlockStart='1rem';this.style.zIndex='99'"
-   onblur="this.style.insetInlineStart='-9999px'">پرش به محتوا</a>
+{{-- CSS-only. It carried `onfocus`/`onblur` handlers that the nonce-only CSP refused
+     outright, so the one affordance a keyboard visitor needs was never visible and the
+     console carried two errors on every visit (16.0 baseline, finding 7). --}}
+<a href="#main" class="skip">پرش به محتوا</a>
 
 {{-- ================================================================= nav === --}}
-<header class="nav" data-nav>
+@php
+    // One source for the mark: the same file `components/brand-mark.tsx` imports. The
+    // brand dot becomes `currentColor` through CSS on the tile, not by editing the file.
+    $mark = Illuminate\Support\Facades\File::get(resource_path('brand/mark.svg'));
+    $links = [
+        '#problems' => 'امکانات',
+        '#imei' => 'شناسنامهٔ IMEI',
+        '#pricing' => 'تعرفه‌ها',
+        '#faq' => 'سوالات',
+    ];
+@endphp
+<header class="nav">
     <div class="shell nav__inner">
-        <a href="/" class="nav__brand">
-            <svg class="nav__mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="#0E1B2C" stroke-width="2"/>
-                <path d="M12 24.5h8" stroke="#0066CC" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            همیار
+        <a href="/" class="nav__brand" aria-label="سامانه همیار — صفحهٔ نخست">
+            <span class="nav__mark" aria-hidden="true">{!! $mark !!}</span>
+            <span class="nav__wordmark">سامانه همیار</span>
         </a>
 
         <nav class="nav__links" aria-label="پیمایش اصلی">
-            <a href="#problems">امکانات</a>
-            <a href="#imei">شناسنامهٔ IMEI</a>
-            <a href="#pricing">تعرفه‌ها</a>
-            <a href="#faq">سوالات</a>
+            @foreach ($links as $href => $label)
+                <a href="{{ $href }}">{{ $label }}</a>
+            @endforeach
         </nav>
 
         {{-- Both go to the app host, which is now one address for every shop (ADR 0017). --}}
@@ -68,6 +76,30 @@
             <a href="{{ route('login') }}" class="btn btn--quiet">ورود</a>
             <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
         </div>
+
+        <details class="nav__menu">
+            <summary class="nav__toggle" aria-label="منو">
+                <svg class="nav__toggle-open" viewBox="0 0 24 24" width="22" height="22" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M4 7h16M4 12h16M4 17h16"/>
+                </svg>
+                <svg class="nav__toggle-close" viewBox="0 0 24 24" width="22" height="22" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </summary>
+
+            <div class="nav__panel">
+                @foreach ($links as $href => $label)
+                    <a href="{{ $href }}">{{ $label }}</a>
+                @endforeach
+
+                <div class="nav__panel-actions">
+                    <a href="{{ route('login') }}" class="btn btn--quiet">ورود</a>
+                    <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
+                </div>
+            </div>
+        </details>
     </div>
 </header>
 
