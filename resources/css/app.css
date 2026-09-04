@@ -80,10 +80,10 @@
   /* Hover darkens; the token existed (brand-hover) and nothing consumed it until 2026-09-04. */
   --primary-hover: var(--color-brand-hover);
 
-  /* One step deeper than canvas-alt on purpose: with both set to #f5f5f7 a
+  /* One step deeper than canvas-alt on purpose: with both set to the same value a
      secondary button became invisible on an alternating section, which the gallery
      showed immediately. A filled neutral action has to read on BOTH grounds. */
-  --secondary: #e8e8ed;
+  --secondary: #e2e8f1;
   --secondary-foreground: var(--color-ink);
 
   --accent: var(--color-canvas-alt);
@@ -92,16 +92,18 @@
   --destructive: var(--color-danger);
   --destructive-foreground: #ffffff;
 
-  /* Hairlines. A 1px line at 8% alpha reads as a crease rather than a border,
-     which is what keeps a dense table from looking like a spreadsheet. */
-  --border: rgb(0 0 0 / 0.08);
-  --border-strong: rgb(0 0 0 / 0.14);
-  --input: rgb(0 0 0 / 0.16);
+  /* Hairlines. A 1px line at 10% alpha reads as a crease rather than a border,
+     which is what keeps a dense table from looking like a spreadsheet. Alpha of the
+     ink, not of black: a neutral-grey hairline under navy text is the one place a
+     mixed palette shows, and it shows on every row of every register. */
+  --border: rgb(14 27 44 / 0.1);
+  --border-strong: rgb(14 27 44 / 0.16);
+  --input: rgb(14 27 44 / 0.18);
   --ring: var(--color-brand);
 
   /* Frosted chrome. */
   --chrome: rgb(255 255 255 / 0.72);
-  --chrome-border: rgb(0 0 0 / 0.08);
+  --chrome-border: rgb(14 27 44 / 0.1);
 
   /* Density: POS and table-heavy screens set data-density="compact". */
   --density-row: 2.75rem;
@@ -128,7 +130,7 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--color-canvas-alt);
   --sidebar-accent-foreground: var(--color-ink);
-  --sidebar-border: rgb(0 0 0 / 0.08);
+  --sidebar-border: rgb(14 27 44 / 0.1);
   --sidebar-ring: var(--color-brand);
 }
 
@@ -138,21 +140,21 @@
 }
 
 .dark {
-  --background: #000000;
-  --foreground: #f5f5f7;
+  --background: #0a1628;
+  --foreground: #e9eff7;
 
-  --surface: #1d1d1f;
-  --surface-foreground: #f5f5f7;
-  --surface-muted: #2c2c2e;
+  --surface: #142943;
+  --surface-foreground: #e9eff7;
+  --surface-muted: #1c3452;
 
-  --muted: #1d1d1f;
-  --muted-foreground: #a1a1a6;
+  --muted: #142943;
+  --muted-foreground: #9aadc4;
 
-  --card: #1d1d1f;
-  --card-foreground: #f5f5f7;
+  --card: #142943;
+  --card-foreground: #e9eff7;
 
-  --popover: rgb(29 29 31 / 0.86);
-  --popover-foreground: #f5f5f7;
+  --popover: rgb(20 41 67 / 0.9);
+  --popover-foreground: #e9eff7;
 
   /*
     Lifted: the light-mode semantics are unreadable on black.
@@ -163,10 +165,13 @@
     mode and every status badge, stat card and timeline icon in the app rendered
     below the AA floor:
 
-      #8a5a00 warning on #1d1d1f  →  2.8:1   (now #e0a13a → 7.4:1)
-      #b3261e danger  on #1d1d1f  →  2.6:1   (now #ff6961 → 5.9:1)
-      #0f7b3f success on #1d1d1f  →  3.1:1   (now #4cc47f → 7.5:1)
-      #0066cc brand   on #1d1d1f  →  3.0:1   (now #409cff → 6.5:1)
+      #8a5a00 warning on the dark card  →  2.3:1   (now #e0a13a → 6.5:1)
+      #b3261e danger  on the dark card  →  2.1:1   (now #ff6961 → 5.2:1)
+      #0f7b3f success on the dark card  →  2.5:1   (now #4cc47f → 6.7:1)
+      #0066cc brand   on the dark card  →  2.4:1   (now #409cff → 5.2:1)
+
+    Re-measured against the navy card (#142943) when ADR 0020 moved the dark surfaces
+    off the neutral grey; every step still clears AA.
 
     Remapping the token rather than adding `dark:` variants at each call site is the
     whole point of having tokens (design-system rule: never a per-component colour
@@ -186,11 +191,11 @@
   --primary-foreground: #001227;
   --primary-hover: var(--color-brand-bright);
 
-  --secondary: #3a3a3c;
-  --secondary-foreground: #f5f5f7;
+  --secondary: #24405f;
+  --secondary-foreground: #e9eff7;
 
-  --accent: #2c2c2e;
-  --accent-foreground: #f5f5f7;
+  --accent: #1c3452;
+  --accent-foreground: #e9eff7;
 
   --destructive: var(--color-danger-on-dark);
   --destructive-foreground: #2a0705;
@@ -200,21 +205,21 @@
   --input: rgb(255 255 255 / 0.22);
   --ring: var(--color-brand-on-dark);
 
-  --chrome: rgb(0 0 0 / 0.72);
+  --chrome: rgb(10 22 40 / 0.72);
   --chrome-border: rgb(255 255 255 / 0.12);
 
   --chart-1: var(--color-brand-on-dark);
   --chart-2: #7d7aff;
   --chart-3: var(--color-warning-on-dark);
   --chart-4: var(--color-success-on-dark);
-  --chart-5: #a1a1a6;
+  --chart-5: #9aadc4;
 
-  --sidebar: rgb(0 0 0 / 0.72);
-  --sidebar-foreground: #f5f5f7;
+  --sidebar: rgb(10 22 40 / 0.72);
+  --sidebar-foreground: #e9eff7;
   --sidebar-primary: var(--color-brand-on-dark);
   --sidebar-primary-foreground: #001227;
-  --sidebar-accent: #2c2c2e;
-  --sidebar-accent-foreground: #f5f5f7;
+  --sidebar-accent: #1c3452;
+  --sidebar-accent-foreground: #e9eff7;
   --sidebar-border: rgb(255 255 255 / 0.12);
   --sidebar-ring: var(--color-brand-on-dark);
 }
