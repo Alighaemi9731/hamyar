@@ -2,13 +2,7 @@
 # as `path:term` pairs. The gate fails on anything NOT listed here, and also fails when a
 # listed pair disappears — so this file shrinks and cannot rot.
 #
-# Every line is the old landing's voice («مغازه», «توی کشو», «رُک بگوییم»), which 16.3
-# replaces section by section: the hero's two came off with the fold, the problems
-# section's three with its rewrite.
-# Do not add to it.
-
-resources/views/landing.blade.php:مغازه
-resources/views/landing/sections/closing.blade.php:مغازه‌های
-resources/views/landing/sections/faq.blade.php:رُک
-resources/views/landing/sections/faq.blade.php:مغازه‌داری
-resources/views/landing/sections/imei.blade.php:مغازه
+# It landed with ten pairs, every one the old landing's colloquial voice («مغازه»,
+# «توی کشو», «رُک بگوییم»). All ten came off within the day, section by section, as 16.3
+# rebuilt the pages that carried them. **The list is empty, which is the point of a
+# ratchet.** Do not add to it: a new string that breaks the voice is a string to rewrite.

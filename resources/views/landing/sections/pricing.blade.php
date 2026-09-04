@@ -84,16 +84,22 @@
 
              No `.rise` on the head — the section's entry motion lives on the plan rows
              and nowhere else. --}}
-        <header class="tariff__head">
-            <div>
-                <h2 class="tariff__title" id="tariff-title">قیمت همینی است که می‌بینید</h2>
-                <p class="tariff__lede">
-                    همهٔ امکانات در همهٔ پلن‌ها باز است؛ فقط سهمیهٔ ماهانه فرق می‌کند. پلن پایه
-                    رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را بالا و پایین
-                    ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
-                </p>
-            </div>
+        {{-- The shared head above, the billing switch below it. The switch keeps its
+             own row rather than joining the head: it is the one interactive control in
+             a section opening on this page, and it belongs beside the numbers it
+             changes rather than beside the sentence that introduces them. --}}
+        <div class="sec__head">
+            <p class="sec__eyebrow">تعرفه</p>
+            <h2 class="sec__title" id="tariff-title">قیمت همینی است که <em>می‌بینید</em></h2>
+            <span class="sec__rule" aria-hidden="true"></span>
+            <p class="sec__lede">
+                همهٔ امکانات در همهٔ پلن‌ها باز است؛ فقط سهمیهٔ ماهانه فرق می‌کند. پلن پایه
+                رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را بالا و پایین
+                ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
+            </p>
+        </div>
 
+        <header class="tariff__head">
             <div class="tariff__billing">
                 <div class="tariff__switch" data-plan-toggle role="group" aria-label="دورهٔ پرداخت">
                     <button type="button" data-interval="month" aria-pressed="true">ماهانه</button>
