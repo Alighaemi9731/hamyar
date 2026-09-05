@@ -100,6 +100,16 @@ Structure and convention, none of which is anybody's property:
   Blade, with `lang/fa/landing.php` carrying the strings.
 - The floating hero cards are fed by the same real captures `bin/shots` produces, so they
   cannot go stale silently.
-- Directions A and B are not lost work: they are recorded at `/design/landing/{a,b}` and
-  in `docs/walks/v2/gate-16.2.md`, and the reasoning that produced them is why C is now
+- Directions A and B are not lost work: they are recorded as **captures** in
+  `docs/walks/v2/gate-16.2/` (each direction at 1280 and 390) and in
+  `docs/walks/v2/gate-16.2.md`, and the reasoning that produced them is why C is now
   being executed against a measured bar rather than from memory.
+
+  **Amended 2026-09-05.** This line used to point at the live routes
+  `/design/landing/{a,b,c}`, and those routes are now gone — retired with the phase they
+  served, per the "disposable" note their own registration carried. They were deleted only
+  after being photographed, because this sentence made them the record and deleting a
+  record is not a cleanup. The three templates also still drew the retired symbol beside
+  «همیار» set as text, so leaving them would have left the old brand alive in the
+  repository after every shipping surface had moved on. `resources/brand/mark-c.svg` went
+  with them; it had no other consumer.
