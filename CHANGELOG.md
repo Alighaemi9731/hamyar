@@ -7,6 +7,75 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.24.0 - 2026-09-05
+
+**The owner commissioned a wordmark, and making every surface use it found three that were
+still showing the logo it replaced.** The mark is traced from the supplied artwork to
+hand-authored paths at 99.25% overlap, measured letter by letter — outlines rather than a
+bitmap trace, so it stays crisp at 12px and the browser tab gets its H, white on the brand
+tile, checked at 16×16 rather than assumed. `favicon.ico`, the Apple touch icon and both
+PWA icons were regenerated from it; all four were still the old design.
+
+The three surfaces still carrying the retired symbol were the landing **footer** (so the
+page opened with one logo and closed with another), the **terms and privacy pages** — with
+the brand colours typed into the markup where no token could reach them — and the
+**og:image**, the card every link preview loads and nobody on the team ever looks at. Each
+was missed for the same reason: a Blade `<style>` block is not on the token layer.
+
+**Every price list a shop forwards was rendering in the retired grey palette**, with its
+own seven-step type scale and no display face at all. That file is standalone by design,
+so the ink change of ADR 0020 never reached it. It is on the brand now, with the 14px
+phone floor, because a price list is read in a message thread by somebody who did not ask
+for it.
+
+**The security code could be read out of the page.** Each character was drawn with an SVG
+`<text>` element, so `document.querySelector('[data-security-image]').textContent` returned
+the answer — one line, no OCR, in front of the only door this product has. The test written
+to catch exactly that passed the whole time, because five characters separated by markup
+never form one contiguous string. The glyphs are paths now and the test strips the tags
+before looking. The password-reveal control was also silent: it flipped the field but had
+no pressed state, so over an empty box it appeared to do nothing at all.
+
+**The sidebar's icons became marks on tiles**, following the treatment of a reference the
+owner named, and ten of them started telling the truth — a device passport instead of a
+phone for «شناسنامهٔ IMEI», a signed document for «چک‌ها», a calendar for «اقساط» where a
+credit card meant «کارتخوان» two rows above.
+
+**Six controls were under the 40px floor**, found by sweeping five widths instead of
+trusting one: four on the sign-in pages including the brand link, whose CSS sized the
+anchor to the letters inside it, and two on the landing. The same sweep found a hero card
+losing 8px off the screen edge at 1024 and 1280 — and not at 1440, which is why reviewing
+at the widest width kept passing it.
+
+**The screenshot pipeline had been unable to sign in since the security code shipped.** It
+drives a real browser at the real form, and the form now asks for something only a human
+eye can answer; `capture.mjs` timed out waiting to leave the login page and the weekly
+workflow failed the same way in silence. The landing's promise that its captures are real
+is enforced by a test, and the thing that keeps that promise could not run. It now reads
+its own session's code through a route that exists only outside production — not a way in,
+because the real form and every check behind it still run.
+
+Also: a Blade directive name written inside a Blade comment deleted `</head>` and `<body>`
+from the compiled landing and the page still returned 200 (`docs/lessons.md`); the gate
+mockups are retired, photographed first, because an ADR had made them the record of two
+rejected directions; and it is now written down that a browser test cannot reach a
+domain-constrained route, having been re-derived three times.
+
+## 0.23.0 - 2026-09-05
+
+**`robots.txt` and `sitemap.xml` became routes, and the old static file was allowing
+everything.** It said `Disallow:` with nothing after it — including `/p/{token}`, the
+price-list links a shop forwards to one customer, and `/i/` and `/t/` beside them. Those
+are capability URLs: holding the link is the permission, and unguessable is not the same as
+unindexable once one turns up in a referrer. Both documents are built from
+`config('app.domain')`, and both nginx configs route the paths through PHP.
+
+**Structured data** describes the product to a search engine: `Organization` and
+`SoftwareApplication` with **offers read from the `plans` table**, so a panel edit changes
+the rich result and the pricing section together, and `FAQPage` beside the six questions in
+the section that owns them rather than in a second copy that drifts. No `aggregateRating`
+and no `review` — both are rich-result magnets and both would be invented.
+
 ## 0.22.0 - 2026-09-05
 
 **Two typefaces, and one surface was never rendering in either of them.** The pairing is
