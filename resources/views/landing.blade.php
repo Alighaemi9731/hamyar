@@ -37,6 +37,99 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}">
 
+    {{--
+        Structured data — what a search result is built from, and the one thing on this
+        page written for a machine.
+
+        ## It is a data block, not a script
+
+        `type="application/ld+json"` is inert: the browser never executes it, so CSP's
+        `script-src` does not apply and this needs no nonce. That is the only reason
+        structured data can live on a page whose policy refuses inline script outright.
+
+        ## The prices come from the database, like every other price here
+
+        `$plans` is the same collection the pricing section renders, so a panel edit
+        changes the rich result and the section together. A price typed here would be a
+        second source that drifts silently and is *only* visible in a search result —
+        the one surface nobody on the team looks at.
+
+        Rial, not toman. Schema.org wants a currency code and an amount in that currency;
+        the page renders toman for a human because that is what a shopkeeper says, and
+        `IRR` is what the machine is told. Both read the same integer.
+
+        ## No claim we cannot stand behind
+
+        No `aggregateRating`, no `review`, no `interactionStatistic`. Every one of those
+        is a rich-result magnet and every one would be invented — this product has no
+        published reviews, and a fabricated rating in structured data is the kind of
+        thing that gets a domain penalised as well as being a lie.
+
+        ## Built in a php block, not by the json directive
+
+        That directive hands its argument to Blade's own expression parser, which counts
+        brackets and loses track of an arrow function inside a nested array — the failure
+        is `Unclosed '[' does not match ')'`, pointing at the directive rather than at the
+        thing it could not read. A php block is parsed by PHP itself.
+
+        **Never write a Blade directive name inside a Blade comment** — which is why this
+        whole comment spells them without their sigil. Blade extracts raw php blocks
+        *before* it strips comments, so a directive name written here with its sigil opens
+        a block that closes on the real one below. The comment's own terminator is then
+        inside that extracted region, invisible to the stripper, which runs on to the next
+        terminator it can find — and `</head>` and `<body>` are deleted from the compiled
+        template. The page still returns 200 with no error anywhere. It happened here.
+
+        Note that a *closing* directive name is the same hazard in reverse: written in
+        prose above a real block, it is the token that block's opener would otherwise have
+        paired with. `tests/Feature/LandingSeoTest.php` asserts the document is whole.
+
+        `JSON_HEX_TAG` is the load-bearing flag: without it a plan named with a `<` could
+        close this element and everything after it would be markup. Nothing in the panel
+        stops somebody typing one.
+    --}}
+    @php
+        $structuredData = [
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                [
+                    '@type' => 'Organization',
+                    '@id' => url('/').'#organization',
+                    'name' => 'سامانه همیار',
+                    'url' => url('/'),
+                    'logo' => Vite::asset('resources/landing/og/og.png'),
+                    'email' => 'info@'.config()->string('app.domain'),
+                    'areaServed' => ['@type' => 'Country', 'name' => 'ایران'],
+                ],
+                [
+                    '@type' => 'SoftwareApplication',
+                    'name' => 'سامانه همیار',
+                    'applicationCategory' => 'BusinessApplication',
+                    'applicationSubCategory' => 'نرم‌افزار فروشگاه موبایل',
+                    'operatingSystem' => 'Web',
+                    'inLanguage' => 'fa-IR',
+                    'url' => url('/'),
+                    'publisher' => ['@id' => url('/').'#organization'],
+                    'description' => 'فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود، برای فروشگاه‌های موبایل.',
+                    'offers' => $plans
+                        ->map(fn ($plan): array => [
+                            '@type' => 'Offer',
+                            'name' => $plan->name_fa,
+                            'price' => (string) $plan->price,
+                            'priceCurrency' => 'IRR',
+                            'category' => $plan->price === 0 ? 'free' : 'subscription',
+                            'url' => route('register'),
+                        ])
+                        ->values()
+                        ->all(),
+                ],
+            ],
+        ];
+    @endphp
+    <script type="application/ld+json">
+        {!! json_encode($structuredData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
+    </script>
+
     @vite(['resources/landing/landing.css', 'resources/landing/landing.js'])
 </head>
 <body>

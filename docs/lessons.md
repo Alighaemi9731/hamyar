@@ -472,3 +472,19 @@ Every register's rows were clickable and unreachable by keyboard — `cursor: po
 Thirteen phases of sweeps missed both because the target scan only ever counted `button`
 elements; adding anchors lit up 112 of 344 cases. A measurement is only as good as the
 population it measures; when a sweep passes cleanly, check what it did not look at.
+
+### A directive name inside a Blade comment deleted `</head>`, and the page still returned 200
+
+The landing's structured-data block carried a comment explaining why it used a php block
+instead of the json directive — and it wrote both names with their `@`. Blade extracts raw
+php blocks **before** it strips comments, so the `@php` inside the prose opened a block
+that closed on the real `@endphp` sixty lines below. The comment's own `--}}` was inside
+that extracted region and therefore invisible to the comment stripper, which ran on to the
+next terminator it could find, forty lines further down. Everything between vanished from
+the compiled template: the structured data, the `@vite` call, `</head>` and `<body>`.
+
+Nothing failed. The route returned 200, the page rendered, and the missing pieces were only
+visible by counting them in the response. **Never write a Blade directive name inside a
+Blade comment** — say "a php block", not the spelling with the `@`. The regression test is
+structural: the landing must contain `</head>` and `<body>`, because that is the assertion
+this bug could not have passed and no content assertion would have caught.

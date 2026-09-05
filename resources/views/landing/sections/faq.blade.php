@@ -82,6 +82,35 @@
      */
 @endphp
 
+{{--
+    The same six questions, for a search result.
+
+    It sits here rather than in the document head, beside the array it is built from, so
+    a seventh question cannot appear on the page and be missing from the rich result —
+    which is exactly what a second copy in the head would guarantee within two edits.
+    JSON-LD is valid anywhere in the document and is inert data, so the nonce-only CSP
+    does not apply to it.
+
+    The answers are the *rendered* answers, including the two that say «نه». An FAQ block
+    that quietly drops the unflattering questions is how a page ends up promising in
+    search what it does not promise on the page.
+--}}
+@php
+    $faqData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'inLanguage' => 'fa-IR',
+        'mainEntity' => array_map(fn (array $pair): array => [
+            '@type' => 'Question',
+            'name' => $pair[0],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $pair[1]],
+        ], $questions),
+    ];
+@endphp
+<script type="application/ld+json">
+    {!! json_encode($faqData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
+</script>
+
 <section class="sec sec--alt" id="faq" aria-labelledby="qa-title">
     <div class="shell">
 

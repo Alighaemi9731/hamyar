@@ -3910,3 +3910,36 @@ smallest scale steps now collapse to **14px below 640** and return at `sm`, beca
 Persian on a handset is not small type, it is unread type. The landing's 60px display step
 engages at **1280 and no earlier** — the old clamp reached it on a wide tablet, where a
 headline of that length wraps four times and pushes the product off the screen. (#145)
+
+## 1404-06-15 (2026-09-05) — the landing tells a crawler what it is (16.3)
+
+`robots.txt` and `sitemap.xml` became routes. The static `public/robots.txt` said
+`Disallow:` with nothing after it — which allows everything, including `/p/{token}`, the
+price-list links a shop forwards to one customer, and `/i/` and `/t/` beside them. Those
+are capability URLs: holding the link is the permission, and unguessable is not the same as
+unindexable once one appears in a referrer. All three are disallowed now, `/design` with
+them, and both documents are built from `config('app.domain')` so the same image serves the
+right hostname everywhere. Both nginx configs gained a `try_files` so the two paths reach
+PHP rather than 404ing on files that no longer exist.
+
+Structured data: `Organization` and `SoftwareApplication` in the head with **offers read
+from the `plans` table**, and `FAQPage` beside the six questions in the section that owns
+them, so a seventh question cannot appear on the page and be missing from the rich result.
+No `aggregateRating` and no `review` — both are rich-result magnets and both would be
+invented. `JSON_HEX_TAG` is load-bearing: nothing in the panel stops an operator naming a
+plan with a `<`, and a raw `</script>` inside a JSON-LD block ends the element.
+
+**A directive name inside a Blade comment deleted `</head>` and `<body>`, and the page
+still returned 200.** The comment explaining why the block used a php block rather than the
+json directive wrote both names with their sigil. Blade extracts raw php blocks *before* it
+strips comments, so the one in the prose opened a block that closed on the real terminator
+sixty lines down; the comment's own terminator was then inside that extracted region, and
+the stripper ran on to the next one it could find, taking the structured data, the vite
+call, `</head>` and `<body>` with it. Nothing failed. The regression test is structural —
+the landing must contain `</head>`, `<body>` and `</html>` — and it is the assertion no
+content check would have made. Recorded in `docs/lessons.md`; the comment now spells every
+directive without its sigil and says why.
+
+Also from the day's typography work: `bin/subset-fonts`, the pairing closing at Estedad +
+Vazirmatn, and the Storefront layout that had been rendering every forwarded price list in
+Arial. That entry is above. (#153)
