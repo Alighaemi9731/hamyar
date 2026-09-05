@@ -22,8 +22,10 @@
         .og { position: relative; width: 1200px; height: 630px; }
         .og__copy { position: absolute; inset-block: 0; inset-inline-start: 0; width: 640px; padding: 72px 72px 64px; display: flex; flex-direction: column; justify-content: space-between; }
         /* Height only. The old rule was `width: 52px; height: 52px` — right for the square
-           symbol that used to sit here, and a squashed wordmark now that a 6.5:1 drawing
-           does. Sizing a logo by one axis is the rule everywhere it appears. */
+           symbol that used to sit here, and a squashed wordmark now that an 8.87:1 drawing
+           does. Sizing a logo by one axis is the rule everywhere it appears, and it is why
+           the commissioned mark landing at 8.87:1 instead of 6.5:1 needed nothing here:
+           46px tall is 408px wide, inside the 496px this column has. */
         .og__brand { display: flex; align-items: center; color: var(--color-accent); }
         .og__brand svg { height: 46px; width: auto; }
         /* 800, not the 600 this asked for: Estedad ships 700 and 800 and nothing between

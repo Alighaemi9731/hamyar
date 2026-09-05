@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 322.2 234" fill="currentColor" role="img" aria-label="Hamyar">
+  <!--
+    The wordmark's H, on its own. Byte-identical to the first path of `wordmark.svg` —
+    same coordinates, same 26-unit round on the trailing corner of each stem — so the two
+    files cannot drift apart under anything but a copy-paste, and this one's viewBox is
+    just the H's own bounding box (aspect 1.377 : 1).
+
+    It exists because 8.87 : 1 does not fit everywhere the wordmark is wanted. The
+    collapsed app rail is 4rem: the full mark at a legible height is nearly twice that
+    wide, and a wordmark clipped mid-word is worse than one letter that reads. This is
+    also the letter on the browser tile (`public/favicon.svg`), which is the owner's own
+    instruction — «حرف اولشو هم میتونی برداری به عنوان لوگو تب مرورگر استفاده کنی».
+
+    Same contract as the wordmark: `currentColor`, no per-path fill, no width/height.
+  -->
+  <path d="M0 0H82V82.8H240.5V0H322.2V208A26 26 0 0 1 296.2 234H240.5V147.1H82V208A26 26 0 0 1 56 234H0Z"/>
+</svg>

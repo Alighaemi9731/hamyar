@@ -1,10 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Hamyar">
   <!--
-    The tab mark: the logo's first letter, from the same outlines, on the brand tile.
-    One letter is all a 16px favicon holds — the retired bracket symbol turned to three
-    grey smudges at that size. `rx="7"` echoes the product's control radius and keeps the
-    tile distinguishable from the round favicons either side of it in a tab strip.
+    The tab mark: the wordmark's first letter, lifted from `resources/brand/wordmark.svg`
+    unchanged — same 26-unit round on each stem's trailing corner — and scaled onto the
+    brand tile. One letter is all a 16px favicon holds; the retired bracket symbol turned
+    to three grey smudges at that size. `rx="7"` echoes the product's control radius and
+    keeps the tile distinguishable from the round favicons either side of it in a tab strip.
+
+    The commissioned H is wide — 1.377 : 1 — so it is sized by height (17 of 32, a little
+    over half) and the width follows. Larger and the stems crowd the tile's rounded
+    corners; smaller and the counters close up at 16px. `favicon.ico`, `apple-touch-icon`
+    and the two manifest icons are rasterised from this file at 16/32, 180, 192 and 512.
+
+    Re-derive rather than edit: take the H's path out of the wordmark and rescale it.
   -->
   <rect width="32" height="32" rx="7" fill="#0066cc"/>
-  <path d="M8.448725212464588 24.96V7.039999999999999H12.433767705382436V24.96ZM19.540849858356943 24.96V7.039999999999999H23.551274787535412V24.96ZM10.834674220963173 17.472181303116148V14.020169971671388H20.860736543909347V17.472181303116148Z" fill="#ffffff"/>
+  <path d="M4.3 7.5H10.25V13.52H21.77V7.5H27.7V22.61A1.89 1.89 0 0 1 25.81 24.5H21.77V18.19H10.25V22.61A1.89 1.89 0 0 1 8.36 24.5H4.3Z" fill="#ffffff"/>
 </svg>

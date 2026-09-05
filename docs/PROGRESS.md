@@ -4011,3 +4011,33 @@ the state. Not taken: MUI, the glass treatment, and the `data:` PNG — the SVG 
 FreeType and no font file, which is why it survives on a box where those are missing.
 
 New scars in `docs/lessons.md`. Nothing shipped — there is still no production server. (#154)
+## 1404-06-15 (2026-09-05) — the logo is a drawing now, not a typeface set in caps
+
+The owner commissioned a wordmark and sent it as a raster: HAMYAR in wide geometric caps
+with the cuts that make it a mark rather than a word — a rounded corner dropped from the
+H and the M, each A's crossbar standing free below a gap, points where the M meets, and a
+horizontal slot cut clean through the R. What it replaced was HAMYAR outlined from Outfit
+Bold, which was always a placeholder wearing a logo's clothes.
+
+**It was measured, not traced.** Column and row scans of the source PNG's alpha gave every
+edge, corner, notch and cut angle as a number; lines, circular arcs and two cubics were
+fitted to those numbers and the path data hand-authored from the fit. Rendering the result
+at the source's exact pixel size and compositing put it at **99.2% IoU** — and the letters
+stay crisp at 12px, which is what a tracer's thousands of points would have cost. Two
+departures, both sub-pixel: one A is drawn once and placed twice (the source's second is
+~2.4% wider, which is drawing noise), and the mark is squared to its own bounding box.
+
+**The accent did not change.** The artwork is `#2b4ef9`, a violet-leaning royal blue that
+is not `#0066cc`. The file inherits `currentColor`, so the two never had to agree, and
+adopting the artwork's blue would re-tune every semantic colour and contrast ratio in the
+system — an ADR of its own and a question for the owner, recorded in ADR 0020 rather than
+answered here.
+
+**8.87 : 1 where the old mark was 6.5 : 1** is the change with consequences. Every consumer
+sizes the mark by height, so each got 36% wider; the collapsed 4rem app rail could no
+longer hold it, and now carries the H alone — literally the wordmark's own first path,
+`resources/brand/mark-h.svg`, the same letter the browser tile shows. `favicon.svg` was
+rebuilt from that H at 17 of 32 units, large enough that the counters survive 16px and
+small enough that the stems clear the tile's rounded corners; `favicon.ico`, the
+apple-touch icon and the two manifest icons were rasterised from it. Outfit left the repo
+with its licence: nothing draws letters from it any more.

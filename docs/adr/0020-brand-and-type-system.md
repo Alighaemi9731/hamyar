@@ -80,6 +80,11 @@ between them, and the brand dot in the gap. `resources/brand/mark.svg` already h
 provisionally since #136; the gate confirms it. `components/brand-mark.tsx` is the only
 import site, so the pick was always a file swap.
 
+> **Superseded twice.** The owner retired the symbol on 2026-09-04 and commissioned a
+> wordmark on 2026-09-05; see the second amendment below. §3 stays as written because it
+> records what the gate decided, and «the pick was always a file swap» is the part that
+> held — both replacements were.
+
 ## Amendment, 2026-09-05 — the pairing is Estedad + Vazirmatn
 
 The owner reversed §2 the day after the gate, in an instruction that named the pairing,
@@ -109,6 +114,37 @@ What actually changed under the reversal, beyond the family names:
 - Total shipped type weight: **144KB across five files**, from 505KB of sources.
 
 `docs/design-system.md` §Typography carries the full rules and the measured numbers.
+
+## Amendment, 2026-09-05 — the mark is a commissioned wordmark
+
+§3's symbol lasted a day past its own gate. On 2026-09-04 the owner retired all three
+symbol candidates — «لوگو فعلی سامانمون خوب نیست؛ همین اسم سامانه با یک فونت و حالت خاص
+کافی است» — and the stopgap was HAMYAR converted to outlines from Outfit Bold: a typeface
+set in caps, which is a placeholder wearing a logo's clothes. On 2026-09-05 the owner
+commissioned a real one and sent it as a raster, saying to use the whole thing wherever
+the site needs a logo and its first letter for the browser tab.
+
+What that settles, and what it deliberately does not:
+
+- **The mark is a drawing, not type.** Its letterforms carry the identity — the cut
+  corners, the free-standing A crossbars, the slot through the R. No typeface produces
+  them, which is exactly why it is worth having. `resources/brand/wordmark.svg` holds it
+  as hand-authored paths measured off the artwork; `docs/design-system.md` §The mark
+  records the method and the 99.2% overlay figure that verified it.
+- **Outfit leaves the repo.** It was a build-time input that drew six letters once, and
+  nothing draws letters from it now — the font, its licence and every mention of it go.
+- **The accent does not change.** The commissioned artwork is `#2b4ef9`, a violet-leaning
+  royal blue that is not this product's `#0066cc`. The mark inherits `currentColor` and
+  renders in the token, so the two never had to agree. Adopting the artwork's blue would
+  re-tune every semantic colour, every contrast ratio in §1 and the whole landing — an
+  ADR of its own, and a decision the owner has not been asked for. It is recorded here
+  only so the question stays visible.
+- **8.87 : 1 is a layout fact, not a detail.** The retired wordmark was 6.5 : 1. Every
+  consumer sizes the mark by height, so each one got 36% wider. The collapsed 4rem app
+  rail never actually held a wordmark — 14px tall was already 91px in a 64px box — and at
+  124px the overflow stopped being deniable, so it shows the H alone now, the same letter
+  as the favicon. Which is the honest fix rather than the forced one: six letters do not
+  go in a rail at any ratio.
 
 ## Consequences
 

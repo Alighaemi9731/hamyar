@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 
+import letterMark from '../../../brand/mark-h.svg?raw';
 import wordmark from '../../../brand/wordmark.svg?raw';
 import { PlusIcon, SearchIcon, SmartphoneIcon, TrendingUpIcon, WrenchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -236,14 +237,20 @@ const TYPE_RULES = [
  * Three symbol candidates stood here for the 16.2 gate — a handset silhouette, a
  * receipt, and the bracket pair that was picked provisionally. The owner retired all
  * three on 2026-09-04: «لوگو فعلی سامانمون خوب نیست؛ همین اسم سامانه با یک فونت و حالت
- * خاص کافی است». What is left is a wordmark, and there is no symbol.
+ * خاص کافی است». What stood here next was a stopgap: HAMYAR outlined from Outfit Bold,
+ * which is a typeface set in caps rather than a logo.
+ *
+ * The mark on this page since 2026-09-05 is the owner's commissioned design, re-drawn
+ * from the artwork they sent. It is deliberately shown at 40 / 24 / 16px on all three
+ * grounds, because the only claims worth checking on a gallery page are that one file
+ * takes three colours and that the letterforms survive the smallest size we use them at.
  */
 function MarkSection({ alt }: { alt?: boolean }) {
   return (
     <Section
       alt={alt}
       title="لوگو — واژه‌نشان"
-      note="HAMYAR با حروف Outfit Bold، تبدیل‌شده به مسیر (بدون وابستگی به فونت)، با فاصله‌گذاری ۴۶ در هزار. رنگ از currentColor می‌آید، پس یک فایل روی سفید، روی سرمه‌ای و در نوار بالا کار می‌کند. نشانِ نمادین بازنشسته شد."
+      note="لوگوی سفارشی، که از روی همان تصویر دوباره به مسیر برداری کشیده شده است. بریدگی‌ها بخشی از حروف‌اند: گوشهٔ بریدهٔ H و M، میلهٔ آزاد زیر هر A، و شکاف افقی در R. رنگ از currentColor می‌آید، پس یک فایل روی سفید، روی سرمه‌ای و در نوار بالا کار می‌کند."
     >
       <Row label="روی زمینهٔ روشن">
         <span className="flex items-end gap-8 text-brand">
@@ -265,14 +272,21 @@ function MarkSection({ alt }: { alt?: boolean }) {
         </span>
       </Row>
 
+      <Row label="حرف اول">
+        <span className="flex items-end gap-8 text-brand">
+          <Mark svg={letterMark} className="h-10" />
+          <Mark svg={letterMark} className="h-5" />
+        </span>
+      </Row>
+
       <Row label="نکته‌ها">
         <ul className="max-w-xl list-disc space-y-1 pe-4 text-2xs text-muted-foreground">
-          <li>حرف اول همین لوگو، روی کاشی آبی، نشان تبِ مرورگر است.</li>
+          <li>حرف اول همین لوگو، روی کاشی آبی، نشان تبِ مرورگر است و در نوار جمع‌شده هم می‌آید.</li>
           <li>
-            فایل تولید می‌شود، نه دستی ویرایش. فرمانش در{' '}
+            دستی ویرایش نکنید؛ از روی طرح اصلی دوباره بکشید. روشش در{' '}
             <code className="ltr-value">docs/design-system.md</code> است.
           </li>
-          <li>ارتفاع را تعیین کنید، نه عرض را؛ نسبت ۶٫۵ به ۱ ثابت است.</li>
+          <li>ارتفاع را تعیین کنید، نه عرض را؛ نسبت ۸٫۸۷ به ۱ ثابت است.</li>
         </ul>
       </Row>
     </Section>
