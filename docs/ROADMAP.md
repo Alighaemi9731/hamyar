@@ -2280,7 +2280,13 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
 - [ ] All six auth screens on Blade over one layout; React auth pages deleted;
       `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3)
 - [ ] Finish: detector, finish-reviewer, documenter, Lighthouse ≥ 90/95, LandingTest, owner
-      live review (PR 3.4)
+      live review (PR 3.4) — **Lighthouse done** (2026-09-05, mobile): accessibility 100,
+      best practices 100, SEO 100, 55 audits passed and none failed; LCP 197ms, CLS 0.00.
+      **`LandingTest` is not possible and the reason is now written down**
+      (`docs/testing.md` §Browser): Pest's server binds `127.0.0.1` and the plugin discards
+      the host of any absolute URL, so no browser test can reach a `Route::domain()` route —
+      which is the landing, the legal pages and all six auth screens. `SmokeTest` only works
+      because `/dashboard` resolves by a `domains` row instead. Owner's live review remains.
 
 ### 16.4 Product — type, ink, shell, dashboard, first-run
 - [x] `app.css` on `brand.css` (0.21.0); navy ink and contrast re-measured (ADR 0020, #136);
