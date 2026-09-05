@@ -10,6 +10,7 @@ use App\Modules\Platform\Http\Controllers\LandingController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use App\Modules\Reporting\Http\Controllers\SetupChecklistController;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -63,6 +64,66 @@ Route::domain(config()->string('app.domain'))->group(function (): void {
     Route::view('/terms', 'legal.terms')->name('legal.terms');
     Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
 
+    /*
+    | What a crawler is allowed to read, and where the three pages are.
+    |
+    | ## Routes, not files in `public/`
+    |
+    | `public/robots.txt` was a static file saying `Disallow:` — everything, including
+    | `/p/{token}`, the price-list links a shop forwards to one customer. Those tokens are
+    | unguessable, which is not the same as unindexable: a crawler that meets one in a
+    | referrer or a pasted message will fetch it, and the page has no `noindex` of its
+    | own reason to. The same is true of `/i/` and `/t/`.
+    |
+    | Made routes so both files come from `config('app.domain')` and `route()`. A sitemap
+    | with a hostname baked in is a sitemap that is wrong on every environment but the one
+    | it was written on, and `bin/check-apex-domain` refuses the literal anyway.
+    |
+    | ## Only three URLs, and that is the whole site
+    |
+    | Everything else this application serves is either behind sign-in, tenant-scoped, or
+    | a token nobody should be handed. A sitemap listing three pages is not an oversight;
+    | it is an accurate description of the public surface.
+    |
+    | ## They keep the `web` group, session and all
+    |
+    | Both are stateless and neither needs a session, and dropping `StartSession` from
+    | them was tried: it 500s. `HandleInertiaRequests` is appended to this group and reads
+    | the session unconditionally, so removing the store from under it breaks the request
+    | rather than making it cheaper. The cost is one session per crawl, and unpicking a
+    | group every other route depends on is not worth paying to avoid it.
+    */
+    Route::get('/robots.txt', function (): Response {
+        $lines = [
+            'User-agent: *',
+            // The design gallery and the three landing comps: real markup, no `noindex`
+            // of their own, and indexing them would put four versions of this page in
+            // one result set.
+            'Disallow: /design',
+            // Forwarded price lists, shared invoices and repair tickets. Each is a
+            // capability URL — holding it is the permission — so it must never become a
+            // public address.
+            'Disallow: /p/',
+            'Disallow: /i/',
+            'Disallow: /t/',
+            '',
+            'Sitemap: '.route('sitemap'),
+        ];
+
+        return response(implode("\n", $lines)."\n", 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    })->name('robots');
+
+    Route::get('/sitemap.xml', function (): Response {
+        $urls = [
+            ['loc' => route('welcome'), 'priority' => '1.0', 'changefreq' => 'weekly'],
+            ['loc' => route('legal.terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            ['loc' => route('legal.privacy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+        ];
+
+        return response()
+            ->view('sitemap', ['urls' => $urls])
+            ->header('Content-Type', 'application/xml; charset=UTF-8');
+    })->name('sitemap');
 });
 
 /*
