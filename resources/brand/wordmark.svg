@@ -1,27 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -706 4615 706" fill="currentColor" role="img" aria-label="Hamyar">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2076 234" fill="currentColor" role="img" aria-label="Hamyar">
   <!--
-    The logo: HAMYAR, all caps, geometric, tracked +46/1000em.
+    The logo: HAMYAR, all caps, wide geometric, cut and notched. Aspect 8.87 : 1.
 
-    Drawn from Outfit Bold (SIL Open Font License 1.1; the source face is committed beside
-    this file) and converted to outlines, so it renders identically everywhere, needs no
-    webfont to have loaded, and cannot reflow. It inherits `currentColor`: brand blue on
-    white, white on the navy band, ink where the ground is light.
+    The owner's commissioned design, delivered as a raster on 2026-09-05 and re-drawn here
+    as vectors. It is not a typeface set in caps: the H and M drop their trailing corner to
+    a 26-unit round, each A carries its crossbar as a free-standing trapezoid with a gap
+    above it, the M meets at points, and the R's counter is a horizontal slot with a round
+    cap that cuts clean through the stem. A reader recognises the mark by those.
 
-    Why a geometric face rather than the product's own text face: a logotype is read as a
-    shape, and IBM Plex — a humanist grotesque — draws letters that are excellent in a
-    paragraph and unremarkable at 6 characters. This is the model the owner asked for.
+    Not traced. Every edge was measured off the source PNG — column and row scans of its
+    alpha — and lines, arcs and two cubics fitted to the measurements, because a tracer
+    gives thousands of noisy points, mush at 16px, and nothing anyone can edit. It overlays
+    the source at 99.2% IoU. Two departures, both sub-pixel at any size we use: one A is
+    drawn once and placed twice (the source's second is ~2.4% wider — drawing noise, and
+    two different A's in one word is a defect), and the mark is squared to its own bounding
+    box so cap height and baseline are exactly 0 and 234.
 
-    An earlier draft cut a diagonal slot through the first two letters, echoing the
-    reference's own device. The reference cuts the free ends of a C and an E; HAMYAR has
-    no such terminal, so the slot fell through the middle of the H and the A and left
-    floating shards. Deleted rather than tuned.
+    Contract, relied on by components/brand-mark.tsx and the landing nav: `fill=
+    "currentColor"` on the root and NO fill on any path, so one file serves brand blue on
+    white, white on navy and ink on a light band; and no width/height, so consumers size it
+    by height and the aspect ratio follows.
 
-    GENERATED. Regenerate with the command in docs/design-system.md; do not hand-edit.
+    Do not hand-edit — re-derive from the owner's artwork. Method: docs/design-system.md.
   -->
-  <path d="M68 0V-706H225V0ZM505 0V-706H663V0ZM162 -295V-431H557V-295Z"/>
-  <path d="M791 0 1071 -706H1213L1490 0H1324L1112 -586H1169L954 0ZM950 -128V-256H1335V-128Z"/>
-  <path d="M1619 0V-706H1731L2009 -273H1952L2229 -706H2342V0H2185V-441L2213 -434L2032 -152H1928L1748 -434L1775 -441V0Z"/>
-  <path d="M2740 -263 2468 -706H2650L2859 -348H2742L2951 -706H3129L2855 -263ZM2721 0V-335H2878V0Z"/>
-  <path d="M3203 0 3483 -706H3625L3902 0H3736L3524 -586H3581L3366 0ZM3362 -128V-256H3747V-128Z"/>
-  <path d="M4151 -291V-407H4300Q4347 -407 4372.5 -431.0Q4398 -455 4398 -496Q4398 -534 4373.0 -559.0Q4348 -584 4301 -584H4151V-706H4319Q4389 -706 4442.0 -679.5Q4495 -653 4525.0 -606.0Q4555 -559 4555 -498Q4555 -436 4525.0 -389.5Q4495 -343 4441.0 -317.0Q4387 -291 4314 -291ZM4031 0V-706H4188V0ZM4415 0 4195 -304 4339 -343 4601 0Z"/>
+  <path d="M0 0H82V82.8H240.5V0H322.2V208A26 26 0 0 1 296.2 234H240.5V147.1H82V208A26 26 0 0 1 56 234H0Z"/>
+  <path d="M487.8 0H543.7A40.8 40.8 0 0 1 578.2 19L692.6 200.3A30 30 0 0 1 697.2 216.3V217A17 17 0 0 1 680.2 234H626.1L525.7 75.1A16 16 0 0 0 498.7 75.1L398.3 234H333A9 9 0 0 1 324 225V222.6A18 18 0 0 1 326.8 213L447.9 22A47.1 47.1 0 0 1 487.8 0ZM558.1 153.4A10 10 0 0 1 566.5 158L594.9 202.6A8 8 0 0 1 588.1 214.9H440.8A8 8 0 0 1 434 202.6L462.4 158A10 10 0 0 1 470.8 153.4Z"/>
+  <path d="M704 21A21 21 0 0 1 725 0H761.8A13 13 0 0 1 771.5 4.3L885.1 131.6A2 2 0 0 0 888 131.6L1002.5 7.1A22 22 0 0 1 1018.7 0H1077.2V208A26 26 0 0 1 1051.2 234H995.9V113L905.3 215A24 24 0 0 1 869 214.5L782.3 111V234H704Z"/>
+  <path d="M1159.9 0A15 15 0 0 1 1172.1 6.3L1233.4 91.8A16 16 0 0 0 1259.1 92.2L1324.4 5.9A15 15 0 0 1 1336.4 0H1408.8A4 4 0 0 1 1411.9 6.4L1334.7 108.4C1311.8 138.7 1287.5 151.4 1287.5 176.4V219A15 15 0 0 1 1272.5 234H1206V176.4C1206 151.4 1182.2 139.3 1160.1 108.4L1090.4 11.1A7 7 0 0 1 1096.1 0Z"/>
+  <path d="M1502.2 0H1559.6A41.8 40.8 0 0 1 1594.9 19L1712 200.3A30.7 30 0 0 1 1716.7 216.3V217A17.4 17 0 0 1 1699.3 234H1643.9L1541.1 75.1A16.4 16 0 0 0 1513.4 75.1L1410.7 234H1343.8A9.2 9 0 0 1 1334.6 225V222.6A18.4 18 0 0 1 1337.4 213L1461.5 22A48.2 47.1 0 0 1 1502.2 0ZM1574.3 153.4A10.2 10 0 0 1 1582.9 158L1611.9 202.6A8.2 8 0 0 1 1605 214.9H1454.1A8.2 8 0 0 1 1447.2 202.6L1476.3 158A10.2 10 0 0 1 1484.9 153.4Z"/>
+  <path d="M1726.9 0H1988.1A87.9 87.9 0 0 1 2076 87.9A76 76 0 0 1 2005.7 163.7L2076 234H1966.8L1898.7 165.9H1815.2V234H1753.9A27 27 0 0 1 1726.9 207V129.4A30 30 0 0 1 1756.9 99.4H1978.5A14.6 14.6 0 0 0 1978.5 70.2H1726.9Z"/>
 </svg>

@@ -156,8 +156,9 @@ system font.
   already covers, so the browser never reaches it — 41KB in the repo, 0 bytes on the wire.
   Kept because it is the named Latin fallback and self-hosting it is what makes that claim
   true on a machine whose Vazirmatn subset ever narrows.
-- **Outfit is not a shipped family.** It drew the six letters of the wordmark once, at
-  build time, and no `@font-face` references it. The logo is a drawing.
+- **No family draws the logo.** The wordmark is a drawing of its own, not letters set in
+  a typeface — see *The mark* below. Outfit, which drew the retired one, is gone from the
+  repo.
 - **We do not ship SF Pro**: it is Apple's and not licensed to us.
 - Scale: 12 / 13 / 15 / 17 / 21 / 28 / 40 / 56 / 72, **with a phone floor of 14px** —
   below 640px the two smallest steps both resolve to 14px, because 12px Persian on a
@@ -167,6 +168,40 @@ system font.
   times.
 - No two heading steps sit within 2px of each other. A scale whose steps a reader cannot
   tell apart is a scale doing no work.
+
+### The mark
+
+- **The wordmark is the owner's commissioned design**, delivered as a raster on
+  2026-09-05 and living at `resources/brand/wordmark.svg`. HAMYAR in wide geometric caps
+  with deliberate cuts: the H and M drop their trailing corner to a round, each A carries
+  its crossbar as a free-standing trapezoid with a gap above it, the M meets at points,
+  and the R's counter is a horizontal slot that cuts clean through the stem. **Aspect
+  8.87 : 1** — much wider than the 6.5 : 1 it replaced, which is the number every consumer
+  sizing it by height has to allow for.
+- **It was measured, not traced.** The derivation: read the source PNG's alpha channel
+  with column and row scans to get each edge, corner, notch and cut angle as a number;
+  fit lines, circular arcs and — only where the design genuinely eases, at the Y's two
+  arm-to-stem joins — cubics to those numbers; then hand-author the path data. Verified by
+  rendering the result at the source's exact pixel size and compositing: **99.2%
+  intersection-over-union**. A bitmap tracer was tried and rejected: thousands of noisy
+  points, mush at 16px, and nothing anyone could edit afterwards.
+- **Two deliberate departures from the source**, both sub-pixel at any size we use: one A
+  is drawn once and placed twice (the source's second is ~2.4% wider — drawing noise, and
+  two different A's in one word is a defect); and the mark is squared to its own bounding
+  box, so cap height and baseline are exactly 0 and 234.
+- **The source's blue is `#2b4ef9`**, a violet-leaning royal blue. We did **not** adopt
+  it: the accent stays `#0066cc` (ADR 0020), the file stays `currentColor`, and changing
+  the accent is a decision for the owner, not a side effect of a logo swap.
+- **`fill="currentColor"` on the root, no fill on any path, no width/height.** One file
+  serves brand blue on white, white on navy and ink on a light band; consumers set the
+  height and the aspect follows. Anything that breaks that contract breaks three consumers
+  at once.
+- **The tab mark is the wordmark's H**, white on the brand tile at `rx="7"`, in
+  `public/favicon.svg`; `favicon.ico`, `apple-touch-icon.png` and the two manifest icons
+  are rasterised from that file. The H is also what the collapsed app rail shows —
+  8.87 : 1 does not fit a 4rem rail, and one letter that reads beats six that clip.
+- **Re-derive, never hand-edit.** The measurements live in the artwork, not in the path
+  data; a nudged control point is a lie the next session cannot detect.
 
 ### Shape and depth
 

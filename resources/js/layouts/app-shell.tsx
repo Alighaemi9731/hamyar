@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { BrandMark } from '@/components/brand-mark';
+import { BrandLetter, BrandMark } from '@/components/brand-mark';
 import { AnnouncementBanner } from '@/components/domain/announcement-banner';
 import { PageHeader } from '@/components/domain/page-header';
 import { QuotaBlock } from '@/components/domain/quota-block';
@@ -304,11 +304,17 @@ function ShopBadge({
       {/*
         The shop's name leads and the product's wordmark sits under it, quiet: this
         panel belongs to the shop, and Hamyar is where it is hosted. On the rail there
-        is room for one of them, and it is the wordmark — the shop already knows whose
+        is room for one of them, and it is the mark — the shop already knows whose
         counter it is standing at, and the rail's job is to be recognisable at a glance.
+
+        The rail shows the H alone, not the wordmark. The rail is 4rem; the commissioned
+        wordmark is 8.87 : 1, so at a height anyone can read it is nearly twice that wide
+        and paints over the page beside it. The H is the same letter the browser tab
+        carries, so the two agree, and it is the wordmark's own path rather than a
+        monogram — see `components/brand-mark.tsx`.
       */}
       {compact ? (
-        <BrandMark className="h-3.5 text-primary" />
+        <BrandLetter className="h-5 text-primary" />
       ) : (
         <span className="min-w-0">
           <span className="block truncate font-display text-sm font-bold">{name}</span>

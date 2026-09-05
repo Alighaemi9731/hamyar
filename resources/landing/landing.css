@@ -586,8 +586,14 @@ h3 {
 
   It was a brand tile carrying a bracket symbol beside «سامانه همیار» typed in the display
   face. The owner retired the symbol on 2026-09-04 — «همین اسم سامانه با یک فونت و حالت
-  خاص کافی است» — so what is left is the wordmark, drawn from the product's own typeface
-  as outlines (`resources/brand/wordmark.svg`), inheriting `currentColor`.
+  خاص کافی است» — and commissioned a wordmark on 2026-09-05, which is what
+  `resources/brand/wordmark.svg` now holds: a drawing of HAMYAR rather than letters set in
+  a typeface, inheriting `currentColor` so this rule only has to set a colour.
+
+  It is 8.87 : 1, where the mark it replaced was 6.5 : 1, so at the 18px below it is 160px
+  wide rather than 117px. The nav's `gap` and the link pill absorb that; anything here that
+  starts assuming a width is assuming the wrong one — set the height and let the ratio do
+  the rest.
 */
 .nav__brand {
   display: inline-flex;
