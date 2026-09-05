@@ -3943,3 +3943,39 @@ directive without its sigil and says why.
 Also from the day's typography work: `bin/subset-fonts`, the pairing closing at Estedad +
 Vazirmatn, and the Storefront layout that had been rendering every forwarded price list in
 Arial. That entry is above. (#153)
+
+## 1404-06-15 (2026-09-05) — the sidebar's icons become marks (16.4)
+
+The owner pointed at `invoice_system`, the sibling project on his desktop, and asked where
+its menu icons come from. They are `@mui/icons-material` — MIT, Google's Material Symbols
+redrawn as React components — but the package is not what he was admiring. That layout puts
+each glyph on a 31px rounded tile, filled rather than outlined, 19px inside the tile, over
+the destination's own hue at 14% (light) / 22% (dark), with a white specular gradient and a
+1px inset highlight; the selected row adds a ring, a coloured drop shadow, a frosted ground
+and a 3px accent bar. The tile is the thing. Ours was a bare 16px outline at the end of a
+44px row: decoration nobody looked at, because the Persian label was doing all the work.
+
+So the treatment came across and the palette did not. Every row now carries a 32px tile
+(`.nav-chip`, `radius-inner`) holding an 18px glyph at `strokeWidth` 2.25 — lucide's 2px on
+a 24 grid lands at 1.5px once scaled and reads as a wireframe beside a filled Material
+shape. Three states out of the one accent: a neutral tile at rest so nineteen of them do not
+shout, the accent tinting under the pointer, and the accent filled solid with a soft glow on
+the page you are on. The reference gets that escalation from a different hue per
+destination; a second accent is a bug here, and on the collapsed rail — where the tile *is*
+the row — the one-accent version reads better than a rainbow would.
+
+The gloss and bevel are tokens beside `--chrome` (`--nav-chip-gloss` / `-bevel` / `-glow`),
+so dark mode stays a variable swap: on navy the tile is defined by light along its top edge
+rather than a hairline under it. The gradient runs top-to-bottom and not on the reference's
+145° diagonal, so it has no side to mirror.
+
+Ten of the nineteen glyphs were wrong for what they name, which is the other half of what
+the owner was pointing at. «شناسنامهٔ IMEI» was a phone and is now an identity card — the
+register is a document about a device. «چک‌ها» was a generic file and is now a signed
+instrument; lucide has no cheque and a hand-drawn one collapses at 18px into a rectangle
+with a squiggle. «اقساط» was a bank card, which is «کارتخوان» two rows up, and is now a
+dated clock. «همتا» was a shield — protection — and is now a certification badge. «پیامک»
+was a notification bell for a module that sends messages. «خزانه‌داری» was a banknote for a
+desk that also holds the card terminal and the bank. The nine that were already right were
+left alone. `ShellTest` now measures that every rail row keeps its tile and that exactly one
+is marked, next to the assertions that every link keeps its name.

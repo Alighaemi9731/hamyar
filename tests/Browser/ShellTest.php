@@ -55,11 +55,16 @@ const RAIL_MEASURE = <<<'JS'
         // Every link keeps its name when only its icon shows.
         unnamed: [...document.querySelectorAll('#sidebar-nav a')]
             .filter((a) => a.textContent.trim() === '').length,
+        links: document.querySelectorAll('#sidebar-nav a').length,
+        // On the rail the tile IS the row, so a link that lost its mark is a link
+        // nobody can pick out — and exactly one of them says which page you are on.
+        chips: document.querySelectorAll('#sidebar-nav a > .nav-chip').length,
+        activeChips: document.querySelectorAll('#sidebar-nav a > .nav-chip[data-active="true"]').length,
     })), 500))
 JS;
 
 /**
- * @return array{width: int, rail: string, unnamed: int}
+ * @return array{width: int, rail: string, unnamed: int, links: int, chips: int, activeChips: int}
  */
 function railState(Webpage|AwaitableWebpage $page): array
 {
@@ -70,7 +75,7 @@ function railState(Webpage|AwaitableWebpage $page): array
     expect($result)->toBeString('The rail measurement must return a JSON string.');
 
     /** @var string $result */
-    /** @var array{width: int, rail: string, unnamed: int} $measured */
+    /** @var array{width: int, rail: string, unnamed: int, links: int, chips: int, activeChips: int} $measured */
     $measured = json_decode($result, true);
 
     return $measured;
@@ -96,6 +101,13 @@ it('collapses the sidebar to a rail, keeps every link named, and remembers it ac
     expect($after['rail'])->toBe('collapsed', 'The toggle did not collapse the rail: '.json_encode($after));
     expect($after['width'])->toBe(64);
     expect($after['unnamed'])->toBe(0);
+
+    // Collapsed, the icon tile is the whole of the row a shopkeeper aims at: one per
+    // link, and the one for the page they are on marked. Asserted here rather than in
+    // the open state because this is where losing either would actually cost them —
+    // an unmarked rail is nineteen identical squares.
+    expect($after['chips'])->toBe($after['links'], 'A rail row is missing its icon tile: '.json_encode($after));
+    expect($after['activeChips'])->toBe(1, 'The rail does not mark the current page: '.json_encode($after));
 
     $page->refresh();
     $page->assertNoJavascriptErrors();

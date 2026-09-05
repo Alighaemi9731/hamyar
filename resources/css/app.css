@@ -105,6 +105,15 @@
   --chrome: rgb(255 255 255 / 0.72);
   --chrome-border: rgb(14 27 44 / 0.1);
 
+  /* Nav chips — the light on the sidebar's icon tiles; see `.nav-chip` below.
+     White rather than a palette colour on purpose: a specular edge is a light
+     source, and light is white in both themes. Only the tile's GROUND is coloured,
+     and that comes from the one accent at the call site. */
+  --nav-chip-gloss: linear-gradient(to bottom, rgb(255 255 255 / 0.4) 0%, rgb(255 255 255 / 0) 62%);
+  --nav-chip-bevel:
+    inset 0 0 0 1px rgb(14 27 44 / 0.06), inset 0 1px 0 rgb(255 255 255 / 0.7);
+  --nav-chip-glow: 0 4px 12px -4px color-mix(in oklch, var(--color-brand) 55%, transparent);
+
   /* Density: POS and table-heavy screens set data-density="compact". */
   --density-row: 2.75rem;
   --density-gap: 1rem;
@@ -216,6 +225,16 @@
 
   --chrome: rgb(10 22 40 / 0.72);
   --chrome-border: rgb(255 255 255 / 0.12);
+
+  /* On navy the tile is defined by the light along its top edge, not by a hairline
+     under it — so the bevel inverts and the gloss drops to a sheen the ground can
+     still be seen through. `-bright` is the dark-mode fill (see the note above), and
+     the glow under an active chip is a fill. */
+  --nav-chip-gloss:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.14) 0%, rgb(255 255 255 / 0) 62%);
+  --nav-chip-bevel:
+    inset 0 0 0 1px rgb(255 255 255 / 0.07), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  --nav-chip-glow: 0 4px 14px -4px color-mix(in oklch, var(--color-brand-bright) 50%, transparent);
 
   --chart-1: var(--color-brand-on-dark);
   --chart-2: #7d7aff;
@@ -401,6 +420,42 @@
     background-color: var(--chrome);
     border-color: var(--chrome-border);
     backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /*
+    Nav chips — the sidebar's icon tiles.
+
+    A 16px outline floating at the end of a 44px row is decoration: the eye reads the
+    Persian label and the glyph never gets looked at. The same glyph on a tile becomes
+    the row's *mark*, which is what lets somebody find «چک‌ها» among nineteen items
+    without reading a word — the thing the reference product does well and this sidebar
+    did not do at all.
+
+    The tile is drawn rather than filled: a ground, a light edge along the top, and a
+    sheen falling from it. Those three are the difference between an object and a
+    swatch. The gradient runs top-to-bottom and not on a diagonal precisely so it has no
+    side to mirror — a lit-from-above tile is correct in either direction.
+
+    Colour is NOT here. Ground and glyph come from the one accent at the call site
+    (rest → hover → active), so this rule owns shape and light only.
+  */
+  .nav-chip {
+    background-image: var(--nav-chip-gloss);
+    box-shadow: var(--nav-chip-bevel);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out),
+      /* `scale`, not `transform`: Tailwind v4's `scale-*` sets the individual
+         property, and a transition naming only `transform` never fires. */
+      scale var(--duration-base) var(--ease-out);
+  }
+
+  /* The page you are on gets the glow the reference puts under its selected chip. It
+     is the accent, softened and thrown downward — the tile lifts off the sidebar
+     rather than merely changing colour. */
+  .nav-chip[data-active='true'] {
+    box-shadow: var(--nav-chip-bevel), var(--nav-chip-glow);
   }
 
   /* Alternating section grounds. */
