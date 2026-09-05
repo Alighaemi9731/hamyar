@@ -237,9 +237,22 @@
     inset-inline-start: -2.5rem;
   }
 
+  /*
+    The one card that overhangs OUTWARD, and the only one that can leave the page.
+
+    In RTL the stage sits at the shell's inline-end, so `inset-inline-end` pushes this
+    card toward the viewport's left edge while the other two overhang inward, into the
+    text column, where there is a whole column of room. The shell's gutter is
+    `1.5rem` below 1440 — smaller than this 2rem overhang — so the card landed at -8px
+    and `overflow-x: clip` on the body cut a slice off it at 1024 and at 1280.
+
+    It looked fine at 1440, where the gutter grows to 5rem, which is why a review at the
+    widest width kept passing it. The overhang now steps with the gutter that has to
+    hold it.
+  */
   .fold__card--repair {
     inset-block-start: 46%;
-    inset-inline-end: -2rem;
+    inset-inline-end: -0.75rem;
   }
 
   .fold__card--instalment {
@@ -285,4 +298,12 @@
 
 .fold__card span {
   color: var(--color-navy-mute);
+}
+
+/* The designed overhang returns once the shell's gutter is wide enough to hold it: at
+   1440 the page keeps 5rem on each side, so 2rem outward still leaves 3rem of air. */
+@media (min-width: 1440px) {
+  .fold__card--repair {
+    inset-inline-end: -2rem;
+  }
 }

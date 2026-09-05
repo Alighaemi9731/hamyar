@@ -76,6 +76,13 @@
   /* An address is one long unbreakable token; at 390px it has to be allowed to break
      rather than push the column wider than the shell. */
   overflow-wrap: anywhere;
+  /* 24px tall until now — the one contact link on the page, and the smallest target on
+     it. The footer's copy of the same address already carried the floor; this one was
+     written separately and never got it. `inline-flex` is what lets the min-height
+     apply to an inline anchor at all. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
 }
 
 /* ---------------------------------------------------------------- list ---- */
