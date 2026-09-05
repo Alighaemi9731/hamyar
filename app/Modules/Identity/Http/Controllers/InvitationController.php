@@ -12,8 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
-use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\View\View;
 
 /**
  * The invited user's side: open the link, choose a password, join the shop.
@@ -35,7 +34,17 @@ use Inertia\Response;
  */
 final class InvitationController extends Controller
 {
-    public function accept(string $token): Response|RedirectResponse
+    /**
+     * Blade, not Inertia.
+     *
+     * The person opening this link has never seen the application and has no session; the
+     * first thing they meet is the auth flow's own design language (ADR 0021). Rendering
+     * it through React meant fetching the whole application bundle to be shown two
+     * password fields, in a skin they would not see again until they had used them.
+     *
+     * The token is passed on so the form can post back to its own path — see the view.
+     */
+    public function accept(string $token): View|RedirectResponse
     {
         $invitation = $this->resolve($token);
 
@@ -45,7 +54,7 @@ final class InvitationController extends Controller
             ]);
         }
 
-        return Inertia::render('auth/accept-invitation', [
+        return view('auth.accept-invitation', [
             'token' => $token,
             'name' => $invitation->name,
             'mobile' => $invitation->mobile,

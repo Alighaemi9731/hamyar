@@ -19,6 +19,50 @@ beforeEach(function (): void {
     );
 });
 
+/*
+| Blade, and asserted as Blade.
+|
+| Both of these were `Inertia::render()` until 16.3. Somebody reaches the first by pressing
+| «فراموشی رمز عبور» on the sign-in page and the second from a link in a message — neither
+| of them has a session, and both used to change the entire design out from under the
+| person mid-flow and cost them the application bundle to be shown one or two fields.
+|
+| `assertViewIs` and not `assertSee`: the failure this pins is a page rendering perfectly
+| through the wrong stack, which no assertion on its content can see.
+*/
+it('serves the forgot-password form as Blade on the auth skin', function (): void {
+    $this->get($this->url.'/forgot-password')
+        ->assertOk()
+        ->assertViewIs('auth.forgot-password');
+});
+
+it('serves the reset form as Blade on the auth skin', function (): void {
+    $this->get($this->url.'/reset-password?token=whatever&identifier=09121234567')
+        ->assertOk()
+        ->assertViewIs('auth.reset-password');
+});
+
+it('carries the identifier as well as the token into the reset form', function (): void {
+    /*
+    | `update()` validates token, identifier AND password. The React page this replaced
+    | rendered two of the three, so a link that arrived without its `identifier` — an SMS
+    | truncated at the `&`, a URL half-copied out of a message — rendered normally,
+    | accepted a new password, and did nothing at all on submit.
+    |
+    | Asserted on the rendered markup rather than on the view data: the bug was a missing
+    | INPUT, and a view that receives a variable it never places would pass a data check.
+    */
+    $token = 'token-that-travels';
+
+    $content = (string) $this->get($this->url.'/reset-password?token='.$token.'&identifier=09121234567')
+        ->assertOk()
+        ->getContent();
+
+    expect($content)
+        ->toContain('name="token" value="'.$token.'"')
+        ->toContain('name="identifier" value="09121234567"');
+});
+
 it('issues a token for a known mobile', function (): void {
     $token = app(TenantContext::class)->runFor(
         $this->tenant,

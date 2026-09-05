@@ -98,6 +98,17 @@ Structure and convention, none of which is anybody's property:
   the 16.0 baseline flagged as a generated-UI signature.
 - The landing is rebuilt on the named-line page grid (`content` / `wide` / `full`), in
   Blade, with `lang/fa/landing.php` carrying the strings.
+- **The six auth screens follow it to Blade**, on one `resources/views/auth/layout.blade.php`
+  — the decision ADR 0020 deferred here and did not then get written down. They are read by
+  people arriving from the landing and have to match it; `/login` is the most visited page
+  in the product and stays at landing weight rather than pulling the application bundle to
+  draw two fields; and every one of these flows is POST → redirect, with no client state to
+  hold. This **reverses** `docs/design-system.md` §2 rule 6, which named a React
+  `AuthLayout` as the frame for every unauthenticated screen; that text now says so.
+  Login and register moved on 2026-09-04, the remaining four in 16.3, with
+  `lang/fa/auth.php` for the strings and `tests/Feature/AuthFormErrorsTest.php` guarding the
+  one error region they share. Two-factor *enrolment* is not in scope: it is a settings
+  screen behind the session, inside the app shell, and stays React.
 - The floating hero cards are fed by the same real captures `bin/shots` produces, so they
   cannot go stale silently.
 - Directions A and B are not lost work: they are recorded as **captures** in
