@@ -7,11 +7,13 @@ namespace App\Modules\Identity\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
 use App\Modules\Identity\Services\TwoFactorService;
+use App\Support\Digits;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -102,13 +104,21 @@ final class TwoFactorController extends Controller
 
     /* ------------------------------------------------------------ challenge -- */
 
-    public function challenge(Request $request): Response|RedirectResponse
+    /**
+     * Blade, not Inertia — unlike `show()` above, which is a settings screen inside the
+     * application shell and stays React.
+     *
+     * This one is reached mid-login, straight off the Blade sign-in page, by somebody who
+     * is not authenticated yet. It belongs to the auth flow and looks like the rest of it
+     * (ADR 0021).
+     */
+    public function challenge(Request $request): View|RedirectResponse
     {
         if (! $request->session()->has(self::PENDING_SESSION_KEY)) {
             return redirect()->route('login');
         }
 
-        return Inertia::render('auth/two-factor-challenge');
+        return view('auth.two-factor-challenge');
     }
 
     public function verify(Request $request): RedirectResponse
@@ -142,8 +152,31 @@ final class TwoFactorController extends Controller
             return redirect()->route('login');
         }
 
-        $code = (string) $request->string('code');
-        $recovery = (string) $request->string('recovery_code');
+        /*
+        | Normalised HERE, not only inside the service.
+        |
+        | `TwoFactorService::verify()` has always run `Digits::toLatin` on what it is
+        | handed, so a code typed on a Persian keyboard did reach Google2FA as Latin. What
+        | it could not fix is the line below: this controller decides WHICH factor is being
+        | offered by asking whether `$code` is empty, and it was making that decision on
+        | the raw submission. Everything downstream of an un-normalised value here — the
+        | branch, any future log line or throttle key — reads a string the service happens
+        | to clean up later and nothing else does.
+        |
+        | The RECOVERY code is not a consistency tidy-up, it is a fix. Those are generated
+        | as `Str::random(5).'-'.Str::random(5)` — alphanumeric, so most of them contain
+        | digits — and `consumeRecoveryCode()` compares with `hash_equals` after nothing
+        | but a `trim()`. Somebody reading «a۳f۹k-۲m۸pq» off a printout with their keyboard
+        | still in Persian was failing a constant-time compare against a code they had
+        | typed correctly, on the screen they reach precisely because they have lost their
+        | phone.
+        |
+        | Design-system rule 4: anything a person typed is normalised to Latin digits
+        | before it reaches validation, a comparison or the database. The service keeps its
+        | own call, because it is public API and is reached from the settings screen too.
+        */
+        $code = Digits::toLatin(trim((string) $request->string('code')));
+        $recovery = Digits::toLatin(trim((string) $request->string('recovery_code')));
 
         $passed = $code !== ''
             ? $this->service->verify($user, $code)

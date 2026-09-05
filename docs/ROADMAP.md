@@ -2277,8 +2277,13 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       landing carries Organization + SoftwareApplication with offers read from `plans`, plus
       FAQPage beside the questions. Pricing and FAQ landed in #149. **Still open: the
       closing band, which carries v1's composition.**
-- [ ] All six auth screens on Blade over one layout; React auth pages deleted;
-      `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3)
+- [x] All six auth screens on Blade over one layout; React auth pages deleted;
+      `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3, 2026-09-05) — forgot password, reset
+      password, the 2FA challenge and accepting an invitation join login and register on
+      `auth/layout.blade.php`; `resources/js/pages/auth/*` and `layouts/auth-layout.tsx`
+      deleted (app bundle 163.96 → 163.19 KB gz); `docs/design-system.md` §2 rule 6 reversed
+      to match ADR 0021. `TwoFactorController::verify` did **not** normalise Persian digits —
+      the service covered TOTP, nothing covered recovery codes, which contain digits
 - [ ] Finish: detector, finish-reviewer, documenter, Lighthouse ≥ 90/95, LandingTest, owner
       live review (PR 3.4) — **Lighthouse done** (2026-09-05, mobile): accessibility 100,
       best practices 100, SEO 100, 55 audits passed and none failed; LCP 197ms, CLS 0.00.

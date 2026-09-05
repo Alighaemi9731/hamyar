@@ -4082,3 +4082,44 @@ The reasoning travelled with the sentences: why the eyebrow states no customer c
 the trust bar carries three checkable claims instead of a logo wall, why the HAMTA line is
 one sentence here and the full answer in the FAQ, and why «پیشنهاد ما» is the owner's
 wording, are all comments beside their keys now.
+## 1404-06-15 (2026-09-05) — the last four auth screens leave React (16.3)
+
+Forgot password, reset password, the two-factor challenge and accepting an invitation are
+Blade, on `auth/layout.blade.php` with login and register. Diagnosis item 6 of the redesign
+plan closes with them: pressing «فراموشی رمز عبور» on the new sign-in page used to change
+the entire design mid-flow, because the destination was an Inertia page on the application
+skin. `resources/js/pages/auth/*` and `layouts/auth-layout.tsx` are deleted — nothing else
+imported either — and the app bundle drops to 163.70 KB gz with 4.76 KB of page chunks gone
+with them. `docs/design-system.md` §2 rule 6 named a React `AuthLayout` as the frame for
+every unauthenticated screen; ADR 0021 reversed that and the rule now says so, with the
+three reasons and the one exception (2FA *enrolment*, which is a settings screen).
+
+`lang/fa/auth.php` is a new file and the first thing in `lang/fa` besides `validation.php`.
+CLAUDE.md has always said Blade reads its Persian from `lang/fa/**`; login and register were
+the two pages breaking it, and there was nowhere to put the strings. Laravel's stock
+`failed`/`password`/`throttle` keys are deliberately absent — nothing calls them, this
+product writes its own refusals, and three unused Persian strings are three the copy gate
+has to police.
+
+**`TwoFactorController::verify` was not normalising Persian digits.** `TwoFactorService::verify`
+was, so TOTP worked by way of the service — but `consumeRecoveryCode` compares with
+`hash_equals` after nothing but a `trim()`, and recovery codes are `Str::random(5).'-'.Str::random(5)`,
+so most of them contain digits. Somebody reading «a۳f۹k-۲m۸pq» off a printout with their
+keyboard in Persian was failing a constant-time compare against a code they had typed
+correctly — on the screen they reach *because* they have lost their phone. Normalised in the
+controller now, with a test for each half.
+
+`tests/Feature/AuthFormErrorsTest.php` is new and states an invariant nothing stated before.
+`bin/check-form-errors` gates the React side by insisting a submitting component renders
+`<FormErrors>`; Blade pages are outside its scan entirely, and all six auth forms hang on
+eight lines of `$errors->all()` in one layout. Delete those lines and every check in the
+repository still passes while six forms go silent. So each form is now posted a real
+refusal — the security code added in `withValidator`, an unticked terms box, a dead reset
+link, `required_without` on a recovery field the toggle has hidden — and the message the
+server actually produced is asserted **on the rendered page**, never hardcoded.
+
+The challenge's two fields ship visible and `landing.js` hides one, which is the reverse of
+the password-reveal control and for the reverse reason: the recovery field needs no script,
+so the script tidies a working page rather than switching on a dead control. It also clears
+the hidden field, because `required_without` is satisfied by either key and a half-typed
+code left behind the switch would be the one the server checked.

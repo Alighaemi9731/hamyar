@@ -2077,6 +2077,36 @@ h3 {
   font-size: 0.9375rem;
 }
 
+/*
+  The sentence under the title that says what this screen wants.
+
+  Login and register do not have one — «ورود» over a mobile field explains itself. The
+  four screens added in 16.3 all do: a reset link, a six-digit code and an invitation each
+  arrive with a state the heading alone cannot name. It carried the `description` prop on
+  the React `AuthLayout` these pages replaced.
+
+  Pulled up under the title's 1.5rem, the way `.auth__status` is.
+*/
+.auth__hint {
+  color: var(--color-navy-soft);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  margin-block: -0.75rem 1.25rem;
+}
+
+/* Two hints run together on the invitation screen — what to do, then which number this
+   link is for. They are one thought in two lines, so they close up to 6px rather than
+   keeping the 20px that separates a hint from the form below it. */
+.auth__hint + .auth__hint {
+  margin-block-start: -0.875rem;
+}
+
+/* The confirmation after a submit follows the description on the forgot-password screen.
+   Only the first of the pair pulls up under the title. */
+.auth__hint + .auth__status {
+  margin-block-start: 0;
+}
+
 /* The visually-hidden label every field still carries. A placeholder is not a label: it
    disappears the moment somebody types, and it is not read as a name by every screen
    reader. Off-screen rather than `display:none`, which would drop it from the tree. */
@@ -2259,6 +2289,35 @@ h3 {
 }
 
 /*
+  The six-digit code on the two-factor challenge.
+
+  It is the only thing that screen asks for, and it is read off a phone held in the other
+  hand — so it is centred, spaced and a step larger, which is how every authenticator app
+  presents the same six digits. Latin and LTR-isolated like any other typed identifier;
+  `Digits::toLatin` normalises a Persian keyboard server-side.
+*/
+.auth__input--code {
+  text-align: center;
+  font-size: 1.125rem;
+  letter-spacing: 0.35em;
+  /* Letter-spacing puts a gap AFTER the last digit too, which drags a centred value half
+     a letter off centre. The indent pays it back. */
+  text-indent: 0.35em;
+}
+
+/*
+  The spacing is for six digits, not for the words above them.
+
+  The placeholder here is «کد تأیید» — Persian prose — and it inherited the tracking, which
+  in an RTL script does not read as emphasis: it breaks the joins and renders as «کد  تأیید»
+  with a hole in the middle. Persian letters connect, and letter-spacing is a Latin idea.
+*/
+.auth__input--code::placeholder {
+  letter-spacing: normal;
+  text-indent: 0;
+}
+
+/*
   The show/hide control on a password field.
 
   ## It has a state now, and it shows it
@@ -2412,6 +2471,53 @@ h3 {
 
 .auth__alt a:hover {
   color: var(--color-accent);
+}
+
+/*
+  The switch between the authenticator code and a recovery code.
+
+  A button, not a link: it goes nowhere, it swaps which field the challenge is asking for.
+  It reads as the line under the form because that is what it is — the other way in,
+  offered once the first one has not worked.
+
+  `hidden` until `landing.js` binds it: the recovery FIELD works with no script, so the
+  script's job is to tidy the page down to one field, and a switch that cannot switch
+  anything is absent rather than inert. Same reasoning as `auth/reveal.blade.php`.
+*/
+.auth__toggle {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--color-navy-soft);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.auth__toggle[hidden] {
+  display: none;
+}
+
+.auth__toggle:hover {
+  color: var(--color-accent);
+}
+
+.auth__toggle:focus-visible {
+  outline: none;
+  color: var(--color-navy);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* The challenge's two fields are swapped by `landing.js`, and `.auth__fields` is a grid —
+   a display on the child would beat the UA's `[hidden]`. It has none today; this makes
+   sure it never quietly acquires one. */
+.auth__field[hidden] {
+  display: none;
 }
 
 /* 28px before. It sits in a row beside a checkbox, so the row grows to hold it — the

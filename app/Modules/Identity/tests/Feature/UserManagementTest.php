@@ -112,7 +112,13 @@ it('lets an invited user set a password and join', function (): void {
 
     // The token is a PATH segment since ADR 0017: `tenant.public` reads it as a route
     // parameter to pin the shop that issued it, and no session is involved at all.
-    $this->get($this->url.'/invitations/accept/'.$token)->assertOk();
+    //
+    // Blade since 16.3: the invited person has never seen the application, so the first
+    // thing they meet is the auth flow's own design language rather than the app shell
+    // fetched through React to show them two password fields.
+    $this->get($this->url.'/invitations/accept/'.$token)
+        ->assertOk()
+        ->assertViewIs('auth.accept-invitation');
 
     $this->post($this->url.'/invitations/accept/'.$token, [
         'password' => 'joining-secret-1',

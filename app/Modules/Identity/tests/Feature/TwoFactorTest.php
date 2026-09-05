@@ -127,3 +127,70 @@ it('refuses the challenge with a wrong code', function (): void {
 it('redirects to login when there is no pending challenge', function (): void {
     $this->get($this->url.'/two-factor/challenge')->assertRedirect(route('login'));
 });
+
+it('serves the challenge as Blade on the auth skin', function (): void {
+    /*
+    | Blade since 16.3, and asserted as Blade. This screen sits in the MIDDLE of signing
+    | in — the password is proven, the second factor is not — so it is reached straight off
+    | the Blade sign-in page and has to look like it. `TwoFactorController::show()`, the
+    | enrolment screen in settings, is a different case and stays React.
+    */
+    app(TenantContext::class)->runFor($this->tenant, function (): void {
+        ['secret' => $secret] = $this->service->begin($this->user);
+        $this->service->confirm($this->user, currentCode($secret));
+    });
+
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
+
+    $this->get($this->url.'/two-factor/challenge')
+        ->assertOk()
+        ->assertViewIs('auth.two-factor-challenge');
+});
+
+it('accepts a code typed on a Persian keyboard', function (): void {
+    /*
+    | Golden rule / design-system rule 4: anything a person typed is normalised to Latin
+    | digits before it is compared. An Iranian phone with the keyboard in Persian produces
+    | «۱۲۳۴۵۶», and this is the one screen where being unable to type your own code locks
+    | you out of your own shop.
+    */
+    $secret = app(TenantContext::class)->runFor($this->tenant, function (): string {
+        ['secret' => $secret] = $this->service->begin($this->user);
+        $this->service->confirm($this->user, currentCode($secret));
+
+        return $secret;
+    });
+
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
+
+    $this->post($this->url.'/two-factor/challenge', ['code' => App\Support\Digits::toPersian(currentCode($secret))])
+        ->assertRedirect(route('dashboard'));
+
+    expect(auth()->check())->toBeTrue();
+});
+
+it('accepts a recovery code typed on a Persian keyboard', function (): void {
+    /*
+    | The half `TwoFactorService::verify()` was NOT covering, and the reason
+    | `TwoFactorController::verify()` normalises rather than leaving it to the service.
+    |
+    | Recovery codes are `Str::random(5).'-'.Str::random(5)` — alphanumeric, so most of
+    | them contain digits — and `consumeRecoveryCode()` compares with `hash_equals` after
+    | nothing but a `trim()`. Somebody reading one off a printout with their keyboard still
+    | in Persian was failing a constant-time compare against a code they had typed
+    | correctly, on the screen they reach precisely because they have lost their phone.
+    */
+    $codes = app(TenantContext::class)->runFor($this->tenant, function (): array {
+        ['secret' => $secret] = $this->service->begin($this->user);
+
+        return (array) $this->service->confirm($this->user, currentCode($secret));
+    });
+
+    $this->withSession(securityCodeSession())->post($this->url.'/login', ['mobile' => '09121234567', 'password' => 'password', ...securityCodeAnswer()]);
+
+    $this->post($this->url.'/two-factor/challenge', [
+        'recovery_code' => App\Support\Digits::toPersian((string) $codes[0]),
+    ])->assertRedirect(route('dashboard'));
+
+    expect(auth()->check())->toBeTrue();
+});

@@ -314,11 +314,32 @@ system font.
 
 6. **Layout primitives** carry the frame so pages never re-invent spacing:
    `AppShell` (frosted sticky nav + a `--sidebar-width` rail, 1110px column; the counter
-   and the reports opt into `width="wide"` for 1400px, nothing else does), `AuthLayout` (every
-   unauthenticated screen — login, onboarding, reset, 2FA challenge, invitation) and
-   `SettingsSection` (one settings card) — all three built on `Card`, which owns the
-   radius, hairline and padding scale. A page that hand-rolls its own auth frame or card
-   padding is how the system drifts back to per-page styling; consolidate instead.
+   and the reports opt into `width="wide"` for 1400px, nothing else does) and
+   `SettingsSection` (one settings card) — both built on `Card`, which owns the radius,
+   hairline and padding scale. A page that hand-rolls its own card padding is how the
+   system drifts back to per-page styling; consolidate instead.
+
+   **The unauthenticated screens are the exception, and they are Blade.** This line used
+   to name a React `AuthLayout` as their frame; ADR 0021 reversed it, and 16.3 finished
+   the move. All six — login, register, forgot password, reset password, the 2FA
+   challenge and accepting an invitation — extend
+   `resources/views/auth/layout.blade.php` and are styled from the landing stylesheet.
+
+   Three reasons, and none of them is a preference:
+
+   - They are read by people **arriving from the landing**, and they have to match it. A
+     React frame inherited the *application's* look instead, so the design changed under
+     somebody halfway through signing in — the diagnosis that opened Phase 16.
+   - `/login` is the most visited page in the product, and it stays at landing weight
+     rather than fetching a 163 KB gzipped application bundle to draw two fields.
+   - Every one of these flows is POST → redirect. There is no client state to hold, and
+     the layout renders the **whole** error bag with `$errors->all()` — the invariant in
+     rule 8 below, in eight lines that cannot go out of date per page.
+
+   Their Persian lives in `lang/fa/auth.php`, and `tests/Feature/AuthFormErrorsTest.php`
+   is what stops the error region being quietly lost. `TwoFactorController::show()` — the
+   enrolment screen in settings — is a different case and stays React: it is behind the
+   session, inside the app shell.
 
 7. **Domain components** live in `resources/js/components/domain/` and are used rather
    than rebuilt:

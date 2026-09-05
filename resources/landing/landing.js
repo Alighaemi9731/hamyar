@@ -105,6 +105,76 @@ for (const button of document.querySelectorAll('[data-reveal]')) {
   });
 }
 
+/* ---------------------------------------------- two-factor challenge ------- */
+/*
+ | The switch between the authenticator code and a recovery code.
+ |
+ | ## It hides a field rather than revealing one
+ |
+ | The opposite of the reveal button above, and for the opposite reason. Both fields ship
+ | VISIBLE in `auth/two-factor-challenge.blade.php`, because the recovery field needs no
+ | script whatsoever: it is a plain input on a plain POST, and `required_without:code` on
+ | the controller takes whichever of the two arrives filled. So this tidies a working page
+ | down to one field. With this file blocked the challenge is two labelled fields and a
+ | submit — busier than intended, and not broken.
+ |
+ | The BUTTON is what ships `hidden`, and the line below is what reveals it: a switch that
+ | cannot switch anything is absent rather than inert.
+ |
+ | ## Why the hidden field is emptied
+ |
+ | `required_without` is satisfied by either key, and the controller prefers `code` when it
+ | is non-empty. A half-typed code left behind the switch would therefore be the value the
+ | server checked, and the recovery code the person actually typed would be ignored — a
+ | refusal with no visible cause, on the one screen where a refusal costs them their phone.
+ |
+ | Persian copy travels on data attributes, as it does for the reveal control: the strings
+ | belong to `lang/fa/auth.php`, and a script holding its own copy is a second place to
+ | change the wording.
+ */
+const twoFactorToggle = document.querySelector('[data-two-factor-toggle]');
+const twoFactorFields = {
+  code: document.querySelector('[data-two-factor-field="code"]'),
+  recovery: document.querySelector('[data-two-factor-field="recovery"]'),
+};
+
+if (twoFactorToggle && twoFactorFields.code && twoFactorFields.recovery) {
+  const hint = document.querySelector('[data-two-factor-hint]');
+  let mode = 'code';
+
+  const applyTwoFactorMode = (moveFocus) => {
+    const showing = twoFactorFields[mode];
+    const hiding = mode === 'code' ? twoFactorFields.recovery : twoFactorFields.code;
+
+    showing.hidden = false;
+    hiding.hidden = true;
+
+    const stale = hiding.querySelector('input');
+    if (stale) stale.value = '';
+
+    // Offer the OTHER way in, and describe the one now on screen.
+    twoFactorToggle.textContent =
+      mode === 'code' ? twoFactorToggle.dataset.labelRecovery : twoFactorToggle.dataset.labelCode;
+
+    if (hint) {
+      hint.textContent =
+        mode === 'code' ? twoFactorToggle.dataset.hintCode : twoFactorToggle.dataset.hintRecovery;
+    }
+
+    // Only on a press. On load the code field's own `autofocus` has it, and stealing it
+    // back here would scroll a phone to the field it was already on.
+    if (moveFocus) showing.querySelector('input')?.focus();
+  };
+
+  applyTwoFactorMode(false);
+  twoFactorToggle.hidden = false;
+
+  twoFactorToggle.addEventListener('click', () => {
+    mode = mode === 'code' ? 'recovery' : 'code';
+    applyTwoFactorMode(true);
+  });
+}
+
 /* --------------------------------------------------------------- motion ---- */
 /*
  | The only animation on the page.

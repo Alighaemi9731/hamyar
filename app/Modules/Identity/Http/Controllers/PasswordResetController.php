@@ -14,8 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
-use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\View\View;
 
 /**
  * Per-tenant password reset, reached with no tenant in the session.
@@ -54,9 +53,17 @@ final class PasswordResetController extends Controller
         private readonly TenantContext $context,
     ) {}
 
-    public function create(): Response
+    /**
+     * Blade, not Inertia.
+     *
+     * Somebody arrives here by pressing «فراموشی رمز عبور» on the sign-in page, which is
+     * Blade on the landing's design language (ADR 0021). While this was a React page the
+     * whole design changed under them mid-flow — the diagnosis that opened 16.3 — and
+     * they had to fetch the 163 KB application bundle to be shown one field.
+     */
+    public function create(): View
     {
-        return Inertia::render('auth/forgot-password');
+        return view('auth.forgot-password');
     }
 
     public function store(Request $request): RedirectResponse
@@ -89,9 +96,13 @@ final class PasswordResetController extends Controller
         );
     }
 
-    public function edit(Request $request): Response
+    /**
+     * Both values come off the query string and both are passed on, because `update()`
+     * validates both. The view carries the note about what a lost `identifier` does.
+     */
+    public function edit(Request $request): View
     {
-        return Inertia::render('auth/reset-password', [
+        return view('auth.reset-password', [
             'token' => (string) $request->query('token'),
             'identifier' => (string) $request->query('identifier'),
         ]);
