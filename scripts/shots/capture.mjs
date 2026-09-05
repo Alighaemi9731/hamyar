@@ -73,10 +73,39 @@ function gitSha() {
   }
 }
 
+/**
+ * Sign in through the real form, security code and all.
+ *
+ * The code is drawn as paths so that nothing can read it out of the markup — which is
+ * the point of it, and which also means this script cannot read it either. `/shots/
+ * security-code` returns the answer for *this browser's own session*; it exists only
+ * outside production and it is not a way in, because everything below still posts the
+ * real form with the real credentials. See the route for the full reasoning.
+ *
+ * If that endpoint is missing, the fill is skipped and the submit fails on validation —
+ * so the error says «کد امنیتی» rather than timing out on a navigation that never comes,
+ * which is how this broke the first time and went unnoticed.
+ */
 async function login(page, base) {
   await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' });
   await page.locator('#mobile').fill(OWNER.mobile);
   await page.locator('#password').fill(OWNER.password);
+
+  const code = await page.evaluate(async (origin) => {
+    const response = await fetch(`${origin}/shots/security-code`, { credentials: 'same-origin' });
+
+    return response.ok ? (await response.text()).trim() : '';
+  }, base);
+
+  if (!code) {
+    throw new Error(
+      'no security code from /shots/security-code — the route is local/testing only, so '
+        + 'check APP_ENV on the container serving this run',
+    );
+  }
+
+  await page.locator('#security_code').fill(code);
+
   await Promise.all([page.waitForURL(/\/dashboard/, { timeout: 20000 }), page.locator('form button[type="submit"], form button:not([type])').first().click()]);
 }
 

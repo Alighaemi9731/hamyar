@@ -1,6 +1,6 @@
 {
-  "captured_at": "2026-09-04T08:35:08.900Z",
-  "git_sha": "965a7ec13cf8a967298eb0e1b43b63d21e158f55",
+  "captured_at": "2026-09-05T14:34:52.344Z",
+  "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c",
   "viewport": {
     "width": 1440,
     "height": 900
@@ -73,8 +73,8 @@
         "dashboard@2x.webp",
         "dashboard-phone.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-05T14:31:01.206Z",
+      "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c"
     },
     "sales": {
       "path": "/sales",
@@ -90,9 +90,8 @@
       "files": [
         "resources/landing/og/og.png"
       ],
-      "captured_at": "2026-09-05T13:00:38.000Z",
-      "git_sha": "330c755bfff97b3d41694d0b6f1aed36fff32a1c",
-      "note": "Re-rendered by hand at the pipeline settings (1200x630, scale css) after the wordmark replaced the retired symbol on this card. bin/shots hung on its login step; the route, viewport and scale are identical, so the file is what the pipeline would have written."
+      "captured_at": "2026-09-05T14:34:52.344Z",
+      "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c"
     }
   }
 }

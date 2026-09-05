@@ -10,6 +10,7 @@ use App\Modules\Platform\Http\Controllers\LandingController;
 use App\Modules\Platform\Http\Controllers\OnboardingController;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use App\Modules\Reporting\Http\Controllers\SetupChecklistController;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -275,4 +276,39 @@ if (app()->environment('local', 'testing')) {
 
         return view("design.landing.{$direction}", ['plans' => App\Modules\Platform\Models\Plan::query()->where('is_public', true)->with('limits')->orderBy('position')->get()]);
     })->name('design.landing');
+
+    /*
+    | How `bin/shots` gets past the «کد امنیتی», and why it is not an auth bypass.
+    |
+    | The screenshot pipeline drives a real Chromium at the real sign-in page. Adding the
+    | security code broke it silently: `capture.mjs` fills the mobile and the password,
+    | posts, and validation fails on a field whose answer is a *picture*. Nothing reported
+    | it — the script just timed out waiting to leave `/login`, and the weekly `shots.yml`
+    | run had been failing the same way. The landing's promise that its captures are real
+    | is enforced by `LandingShotsTest`, and it was being kept by a pipeline that could no
+    | longer run at all.
+    |
+    | **This route hands back the caller's OWN session's code, and nothing else.** It is
+    | not a way in: the pipeline still posts the real form, through the real controller,
+    | with the real mobile and password, and every check in `LoginController::store()`
+    | still runs. What it removes is the anti-automation measure, which is precisely and
+    | only what a screenshot robot needs removed.
+    |
+    | That shape was chosen over the obvious alternative — a route that calls
+    | `Auth::login()` directly — because `LoginController::store()` states an invariant in
+    | its own comments: *nothing outside this flow may ever write `tenant_id` into the
+    | session*. A second door would have had to copy the tenant pinning, the `isUsable()`
+    | check and the 2FA branch, and a copy of an auth flow is a copy that drifts.
+    |
+    | The guard is registration: in production this route does not exist. It needs no
+    | signature on top, because the only thing it discloses is the answer to a picture the
+    | same caller is already being shown.
+    */
+    Route::domain('app.'.config()->string('app.domain'))->group(function (): void {
+        Route::get('/shots/security-code', function (Request $request): Response {
+            $code = $request->session()->get(App\Support\SecurityCode::SESSION_KEY);
+
+            return response(is_string($code) ? $code : '', 200, ['Content-Type' => 'text/plain']);
+        })->name('shots.security-code');
+    });
 }
