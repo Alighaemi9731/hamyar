@@ -20,10 +20,11 @@ declare(strict_types=1);
 |
 | **A key whose value carries markup ends in `_html`, and those are the only ones the
 | templates render with `{!! !!}`.** Everything else goes through `{{ }}` and is
-| escaped. Seven headings wrap their last phrase in `<em>` for the accent colour and
-| one wraps a noun phrase in `<span class="nowrap">`; those are the `_html` cases, and
-| there are no others. A new key carrying a tag takes the suffix, or it renders as
-| visible angle brackets.
+| escaped. There are exactly seven: five section headings lighting their last phrase in
+| `<em>` for the accent colour (the hero's also holds «فروشگاه موبایل» together in a
+| `.nowrap` span), the IMEI heading's `<br>`, and the trust bar's claim, whose four
+| trades carry the line in `<b>` while the connective words step back. A new key
+| carrying a tag takes the suffix, or it renders as visible angle brackets.
 |
 | ## What is deliberately NOT here
 |
