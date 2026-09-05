@@ -73,13 +73,16 @@
 
             @yield('form')
 
-            <p class="auth__secure">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
-                </svg>
-                ارتباط رمزگذاری‌شده — اطلاعات هر فروشگاه در پایگاه داده از بقیه جداست.
-            </p>
+            {{--
+                Nothing follows the form.
+
+                A reassurance line used to sit here — a padlock, «ارتباط رمزگذاری‌شده», and a
+                sentence about each shop's rows being separate in the database. The owner had
+                it removed on 2026-09-05: a sign-in page is not where a shop is sold on its
+                architecture, and a claim about the database is a claim the visitor cannot
+                check from this screen. What it asserted is true and is documented where it
+                belongs — golden rule 1 and ADR 0002.
+            --}}
         </div>
 
     </div>

@@ -488,3 +488,47 @@ visible by counting them in the response. **Never write a Blade directive name i
 Blade comment** — say "a php block", not the spelling with the `@`. The regression test is
 structural: the landing must contain `</head>` and `<body>`, because that is the assertion
 this bug could not have passed and no content assertion would have caught.
+
+### The captcha's answer was in the DOM, and the test that checked for it passed
+
+The «کد امنیتی» drawing set each character with an SVG `<text>` element. The feature test
+asserted `assertDontSee($code)` and was green — the five characters are separated by markup,
+so the code never appears as one contiguous string in the HTML. Meanwhile:
+
+```js
+document.querySelector('[data-security-image]').textContent   // "WW6CA"
+```
+
+One line, no OCR, no image processing at all. The obstacle a scripted login had to clear was
+reading a string out of the page it had just downloaded, in front of the only door this
+product has. It shipped that way for the captcha's whole life.
+
+Two lessons, and the second is the general one.
+
+**A picture of a string must not be made of the string.** The glyphs are `<path>` outlines
+now — a hand-authored stroked alphabet in `SecurityCode::GLYPHS` — so the only route back to
+the answer is to look at the drawing. Vector rather than a GD raster because GD needs
+FreeType *and* a TrueType face, this repository ships `woff2`, and a captcha that fails to
+render is a shop that cannot sign in.
+
+**Assert the property the way an attacker would test it, not the way the markup happens to
+spell it.** `assertDontSee` asked "is this substring in the response", which was never the
+question; the question was "can the answer be read out of the page". That is
+`strip_tags($svg)` being empty, and it is now what the test says.
+
+### A toggle with no state of its own reads as a toggle that does not work
+
+The owner reported the password show/hide button as broken. The click was bound, firing, and
+flipping `input.type` correctly the whole time. What was missing was any way for the button
+to say so: one static open eye, no `aria-pressed`, no pressed colour. So over an **empty**
+field — which is how anybody reviewing a form presses a button for the first time — pressing
+it changed nothing on the screen whatsoever, and the honest conclusion from that is that the
+control is dead.
+
+A control whose only feedback is a side effect somewhere else has no feedback when the side
+effect is invisible. The state lives on the button now (`aria-pressed`, two icons swapped by
+CSS off that attribute), which fixes the screen-reader case in the same move.
+
+The button also ships `hidden` and `landing.js` reveals it. A control that cannot work
+should be **absent**, not inert: an eye that does nothing is indistinguishable from broken
+software, and that is the report this whole entry came from.

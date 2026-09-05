@@ -1949,6 +1949,16 @@ h3 {
   .plan:hover {
     translate: none !important;
   }
+
+  /* The fresh-code button's quarter turn. The live region still announces the swap, so
+     nothing about the outcome is carried by the movement alone. */
+  .auth__code-refresh svg {
+    transition: none !important;
+  }
+
+  .auth__code-refresh:active svg {
+    rotate: none !important;
+  }
 }
 
 /* ================================================================== auth === */
@@ -2084,61 +2094,91 @@ h3 {
 /* ------------------------------------------------------- security code ---- */
 
 /*
-  The «کد امنیتی» row: refresh, drawing, field — one bordered block, as the reference
-  draws it, so the three read as one control rather than as three things that happen to
-  be adjacent.
+  The «کد امنیتی» row: field, drawing, fresh-code button.
+
+  ## Three controls at one height, not one box with things inside it
+
+  It used to be a single bordered block with the drawing sunk into it as a grey lozenge
+  and the button floating loose at the start — a 44px picture and a 36px button inside a
+  58px frame, three heights nested, which reads as a rendering fault rather than as a
+  control. Each of the three is now its own 3.5rem box, the same height and radius as
+  every other field on the page, so the row is three peers.
+
+  Order matches reading order: the field is first, so in RTL it sits at the start where
+  the eye and the tab key arrive first, and the picture and its button follow.
 */
 .auth__code {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
+  display: flex;
+  align-items: stretch;
   gap: 0.5rem;
-  border: 1px solid var(--color-hair);
-  border-radius: var(--radius-md);
-  background: var(--color-page);
-  padding-inline-start: 0.5rem;
 }
 
-/* The field inside the row drops its own frame: the row is the frame. */
-.auth__code .auth__input {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.auth__code:focus-within {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+/* The field takes what the other two do not; `min-inline-size: 0` because a flex item's
+   automatic minimum is its content, and without it the input refuses to shrink and the
+   row overflows the card below 380px. */
+.auth__code-entry {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 
 .auth__code-refresh {
   display: grid;
   place-items: center;
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-  border-radius: 0.625rem;
+  flex: none;
+  inline-size: 3.25rem;
+  block-size: 3.5rem;
+  border: 1px solid var(--color-hair);
+  border-radius: var(--radius-md);
+  background: var(--color-page);
   color: var(--color-navy-mute);
   cursor: pointer;
-  flex: none;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .auth__code-refresh:hover {
   background: var(--color-page-alt);
+  border-color: var(--color-navy-mute);
   color: var(--color-navy);
 }
 
-.auth__code-refresh svg {
-  inline-size: 1.0625rem;
-  block-size: 1.0625rem;
+.auth__code-refresh:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
-/* The drawing keeps a fixed box so a new code never resizes the row under the cursor. */
+/* The turn says the code changed. Only on the press, and never under reduced motion —
+   see the block at the end of this file. */
+.auth__code-refresh:active svg {
+  rotate: -90deg;
+}
+
+.auth__code-refresh svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  transition: rotate 220ms ease;
+}
+
+/*
+  The drawing's box.
+
+  `color-scheme: light` and a literal white ground rather than a token, for the same
+  reason `SecurityCode` writes its ink as hex: a security drawing has to look the same to
+  everybody. A themed ground, an inverted dark mode or a contrast filter turns a readable
+  code into a locked-out shopkeeper, and this is the one screen with no way around.
+
+  Fixed size so a fresh code never resizes the row under the cursor.
+*/
 .auth__code-image {
   display: block;
-  inline-size: 8.25rem;
-  block-size: 2.75rem;
-  border-radius: 0.5rem;
-  background: var(--color-page-alt);
+  flex: none;
+  inline-size: 8.5rem;
+  block-size: 3.5rem;
+  border: 1px solid var(--color-hair);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color-scheme: light;
+  forced-color-adjust: none;
   overflow: hidden;
 }
 
@@ -2148,22 +2188,16 @@ h3 {
   block-size: 100%;
 }
 
-.auth__secure {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-block-start: 1.5rem;
-  padding-block-start: 1.25rem;
-  border-block-start: 1px solid var(--color-hair);
-  color: var(--color-navy-mute);
-  font-size: var(--text-fine);
-  line-height: 1.7;
-}
+/* Below 380 the drawing gives up a little width rather than pushing the field out of the
+   card; the glyphs scale with the box, so it stays readable. */
+@media (max-width: 380px) {
+  .auth__code-image {
+    inline-size: 7rem;
+  }
 
-.auth__secure svg {
-  inline-size: 1rem;
-  block-size: 1rem;
-  flex: none;
+  .auth__code-refresh {
+    inline-size: 2.75rem;
+  }
 }
 
 .auth__alert ul {
@@ -2210,22 +2244,78 @@ h3 {
   text-align: end;
 }
 
+/*
+  The show/hide control on a password field.
+
+  ## It has a state now, and it shows it
+
+  The owner reported on 2026-09-05 that this button does not work. The click was bound and
+  the input's `type` did flip — but the icon was one static open eye, there was no pressed
+  state, and over an empty field (which is how anybody reviewing a form first presses it)
+  the screen did not change in any way at all. A toggle that cannot report its own state
+  has, as far as the person pressing it is concerned, done nothing.
+
+  So the icon is two icons and `aria-pressed` picks between them, in CSS: the struck-through
+  eye while the password is hidden, the plain eye while it is shown. `landing.js` sets one
+  attribute; the appearance follows from the markup, which is also what makes the state
+  visible to a screen reader instead of only to the eye.
+
+  `hidden` in the markup until the script binds the click — see `auth/reveal.blade.php`.
+*/
 .auth__reveal {
   position: absolute;
-  inset-inline-end: 0.75rem;
+  inset-inline-end: 0.5rem;
   inset-block-start: 50%;
   translate: 0 -50%;
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
   display: grid;
   place-items: center;
   color: var(--color-navy-mute);
   cursor: pointer;
   border-radius: var(--radius-sm);
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.auth__reveal[hidden] {
+  display: none;
 }
 
 .auth__reveal:hover {
+  background: var(--color-page-alt);
   color: var(--color-navy);
+}
+
+.auth__reveal:focus-visible {
+  outline: none;
+  color: var(--color-navy);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.auth__reveal[aria-pressed='true'] {
+  color: var(--color-accent);
+}
+
+.auth__reveal-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/* One icon at a time: struck-through while hidden, plain eye while shown. */
+.auth__reveal-icon--shown,
+.auth__reveal[aria-pressed='true'] .auth__reveal-icon--hidden {
+  display: none;
+}
+
+.auth__reveal[aria-pressed='true'] .auth__reveal-icon--shown {
+  display: block;
+}
+
+/* Room for the button at the field's inline end, so a long password does not run under
+   it. The input is `direction: ltr`, and its inline start is the same physical edge the
+   button is pinned to on this RTL page — both are the left. */
+.auth__input--reveal {
+  padding-inline-start: 3.25rem;
 }
 
 .auth__error {
