@@ -22,14 +22,19 @@
     the interface is Persian with a Jalali calendar, nothing gets installed, and the data
     comes back out as Excel whenever they ask. Checkable beats impressive.
 
+    The three claims and the line above them are in `lang/fa/landing.php` under `trust`,
+    and that paragraph is restated there beside them — it is the reason those three
+    sentences are the ones on this bar, so it travels with them.
+
     Contrast, both on `--color-page-alt` #edf2f8:
     navy #0e1b2c 15.4:1 · navy-soft #46586d 6.5:1 · navy-mute #5d6b7e 4.8:1 — all AA.
 --}}
 <section class="trust" aria-labelledby="trust-claim">
     <div class="shell trust__row">
-        <p class="trust__claim" id="trust-claim">
-            مناسبِ <b>فروش</b>، <b>تعمیرات</b>، <b>اقساط</b> و <b>چک</b>
-        </p>
+        {{-- An `_html` key: the four trades carry the weight of the line in `<b>`, and
+             the connective words step back — that contrast is the whole design, so the
+             tags are part of the sentence and it is rendered unescaped. --}}
+        <p class="trust__claim" id="trust-claim">{!! __('landing.trust.claim_html') !!}</p>
 
         {{-- The leader rule. Purely a connector between the claim and the proofs, and it
              only exists at the width where the two sit on one line. --}}
@@ -39,9 +44,9 @@
              <ul> whose `list-style` is `none`, and `.trust__proofs` is one. Every
              styled-flat list on this page restates it. --}}
         <ul class="trust__proofs" role="list">
-            <li>فارسی، با تقویم شمسی</li>
-            <li>روی مرورگر — چیزی نصب نمی‌شود</li>
-            <li>خروجی اکسل، هر وقت خواستید</li>
+            @foreach (__('landing.trust.proofs') as $proof)
+                <li>{{ $proof }}</li>
+            @endforeach
         </ul>
     </div>
 </section>

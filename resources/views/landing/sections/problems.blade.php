@@ -20,43 +20,28 @@
     shopkeeper's own nouns (قبض پذیرش، همکار، سررسید، حواله، بهای تمام‌شده) without the
     slang. Each answer names what the software does, not how it feels.
 
+    It lives in `lang/fa/landing.php` under `problems.items`, keyed by the same slugs the
+    array below uses. What stays here is the spine: which six, in what order, and the
+    icon each card carries — the tile is an `<svg>` path, not a sentence.
+
     The numerals are gone with the rows. Numbered markers encode a sequence, and these
     six are not one — they are six independent faults, and numbering them was the
     decorative use of structure the craft rules warn about.
 --}}
 @php
-    /** @var array<int, array{title: string, body: string, icon: string}> */
+    /**
+     * The six, in order, each with its icon. The heading and the answer are
+     * `landing.problems.items.<slug>.title` and `.body`.
+     *
+     * @var array<string, string>
+     */
     $problems = [
-        [
-            'title' => 'ردیابی IMEI و شمارهٔ سریال',
-            'body' => 'گوشی‌ها در موجودی «تعداد» می‌شوند و معلوم نیست کدام دستگاه از کدام همکار آمده و به کدام مشتری رفته. در همیار هر دستگاه یک سطر با شناسهٔ خودش است.',
-            'icon' => 'smartphone',
-        ],
-        [
-            'title' => 'قبض پذیرش دست‌نویس',
-            'body' => 'قبض کاغذی گم می‌شود و مشتری برای خبر گرفتن زنگ می‌زند. قبض پذیرش با بارکد QR چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند.',
-            'icon' => 'wrench',
-        ],
-        [
-            'title' => 'اقساط و چک در دفترچه',
-            'body' => 'سررسیدها در دفترچه و کشو می‌مانند تا روزی که دیر شده باشد. میز وصول هر روز می‌گوید چه کسی باید بیاید، چه کسی عقب افتاده و چقدر وصول نشده.',
-            'icon' => 'calendar',
-        ],
-        [
-            'title' => 'سود واقعی معلوم نیست',
-            'body' => 'وقتی بهای خرید هر دستگاه جایی ثبت نشده، سود آخر ماه یک تخمین است. بهای تمام‌شده در لحظهٔ فروش ثبت می‌شود و سود هر فاکتور همان‌جا معلوم است.',
-            'icon' => 'chart',
-        ],
-        [
-            'title' => 'چند شعبه، چند حساب',
-            'body' => 'موجودی هر شعبه جدا شمرده می‌شود و حواله بین آن‌ها ثبتی ندارد. انبار هر شعبه و حواله‌های بین شعبه‌ها در یک جا و روی یک موجودی است.',
-            'icon' => 'transfer',
-        ],
-        [
-            'title' => 'خبردادن به مشتری، دستی',
-            'body' => 'یادآوری قسط و خبر آماده‌شدن دستگاه یادتان می‌رود یا وقت می‌گیرد. پیامک از روی رویدادهای خود سیستم فرستاده می‌شود.',
-            'icon' => 'message',
-        ],
+        'imei' => 'smartphone',
+        'intake' => 'wrench',
+        'dues' => 'calendar',
+        'profit' => 'chart',
+        'branches' => 'transfer',
+        'sms' => 'message',
     ];
 
     $icons = [
@@ -71,30 +56,25 @@
 <section class="sec sec--alt" id="problems" aria-labelledby="problems-title">
     <div class="shell">
         <div class="sec__head">
-            <p class="sec__eyebrow">مسئله</p>
-            <h2 class="sec__title" id="problems-title">
-                شش گرفتاری که هر فروشندهٔ موبایل <em>می‌شناسد</em>
-            </h2>
+            <p class="sec__eyebrow">{{ __('landing.problems.eyebrow') }}</p>
+            <h2 class="sec__title" id="problems-title">{!! __('landing.problems.title_html') !!}</h2>
             <span class="sec__rule" aria-hidden="true"></span>
-            <p class="sec__lede">
-                هیچ‌کدام از این‌ها از فهرست امکانات درنیامده؛ کارهایی است که یا وقت فروشگاه
-                را می‌گیرد یا پولش را. جلوی هرکدام نوشته‌ایم همیار دقیقاً چه می‌کند.
-            </p>
+            <p class="sec__lede">{{ __('landing.problems.lede') }}</p>
         </div>
 
         {{-- `role="list"` is not redundant: Safari + VoiceOver drop list semantics from a
              <ul> whose `list-style` is `none`, and this is one. --}}
         <ul class="cards" role="list">
-            @foreach ($problems as $problem)
+            @foreach ($problems as $slug => $icon)
                 <li class="card">
                     <span class="card__icon card__icon--warm" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                              stroke-linecap="round" stroke-linejoin="round">
-                            {!! $icons[$problem['icon']] !!}
+                            {!! $icons[$icon] !!}
                         </svg>
                     </span>
-                    <h3>{{ $problem['title'] }}</h3>
-                    <p>{{ $problem['body'] }}</p>
+                    <h3>{{ __("landing.problems.items.{$slug}.title") }}</h3>
+                    <p>{{ __("landing.problems.items.{$slug}.body") }}</p>
                 </li>
             @endforeach
         </ul>

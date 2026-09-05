@@ -22,12 +22,25 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
 
-/** @return list<string> the shot ids the tour actually renders */
+/**
+ * The shot ids the tour actually renders.
+ *
+ * Read from the `$screens` spine in the template, which is `<id> => [span, phone]`: the
+ * key both names the capture file and keys the caption copy in `lang/fa/landing.php`.
+ * Anchored at the start of a line so the nested `'phone' => [...]` on the same line is
+ * not mistaken for a seventh screenshot.
+ *
+ * It was a list of six positional arrays until the landing's copy moved to `lang/fa`
+ * (16.3), and this read the slug off its own line. Do not assert the shape by hoping —
+ * the emptiness check below is what turns a silent zero into a failure.
+ *
+ * @return list<string>
+ */
 function tourShotIds(): array
 {
     $blade = File::get(resource_path('views/landing/sections/tour.blade.php'));
 
-    preg_match_all("~^\s*'([a-z0-9-]+)',\s*$~m", $blade, $matches);
+    preg_match_all("~^\s*'([a-z0-9-]+)' => \[~m", $blade, $matches);
 
     return array_values(array_unique($matches[1]));
 }

@@ -25,6 +25,13 @@
     a number typed into this file would break that promise on the one page a prospect
     actually reads. Every figure below is `money()` over a column.
 
+    That is also the line between this file and `lang/fa/landing.php`, which carries the
+    section's fixed copy under `pricing`. A plan's name, its tagline, its price and the
+    label beside each quota are read from `plans` and the metric registry and are NOT in
+    the lang file — a copy editor who could retype a price there would have two sources
+    for it. Where a computed figure sits inside a sentence, the sentence is in the lang
+    file with a `:placeholder` and the figure is passed in.
+
     ## JavaScript contract (landing.js — do not change it to suit this file)
 
     · `[data-plan-toggle]` wraps `button[data-interval="month|year"]`.
@@ -89,24 +96,20 @@
              a section opening on this page, and it belongs beside the numbers it
              changes rather than beside the sentence that introduces them. --}}
         <div class="sec__head">
-            <p class="sec__eyebrow">تعرفه</p>
-            <h2 class="sec__title" id="tariff-title">قیمت همینی است که <em>می‌بینید</em></h2>
+            <p class="sec__eyebrow">{{ __('landing.pricing.eyebrow') }}</p>
+            <h2 class="sec__title" id="tariff-title">{!! __('landing.pricing.title_html') !!}</h2>
             <span class="sec__rule" aria-hidden="true"></span>
-            <p class="sec__lede">
-                همهٔ امکانات در همهٔ پلن‌ها باز است؛ فقط سهمیهٔ ماهانه فرق می‌کند. پلن پایه
-                رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را بالا و پایین
-                ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.
-            </p>
+            <p class="sec__lede">{{ __('landing.pricing.lede') }}</p>
         </div>
 
         <header class="tariff__head">
             <div class="tariff__billing">
-                <div class="tariff__switch" data-plan-toggle role="group" aria-label="دورهٔ پرداخت">
-                    <button type="button" data-interval="month" aria-pressed="true">ماهانه</button>
-                    <button type="button" data-interval="year" aria-pressed="false">سالانه</button>
+                <div class="tariff__switch" data-plan-toggle role="group" aria-label="{{ __('landing.pricing.billing_aria') }}">
+                    <button type="button" data-interval="month" aria-pressed="true">{{ __('landing.pricing.monthly') }}</button>
+                    <button type="button" data-interval="year" aria-pressed="false">{{ __('landing.pricing.yearly') }}</button>
                 </div>
                 <p class="tariff__saving" data-saving hidden>
-                    ۱۲ ماه به قیمت ۱۰ ماه — {{ $monthsFree }} ماه رایگان.
+                    {{ __('landing.pricing.saving', ['months' => $monthsFree]) }}
                 </p>
             </div>
         </header>
@@ -123,10 +126,11 @@
 
                 <article class="tariff__plan rise" data-recommended="{{ $recommended ? 'true' : 'false' }}">
                     <div class="tariff__id">
-                        {{-- The owner's own words for this mark, from the brief. Navy fill,
-                             white label: 18.1:1, and it does not need the accent. --}}
+                        {{-- Navy fill, white label: 18.1:1, and it does not need the
+                             accent. The label is the owner's own words for this mark,
+                             from the brief — `landing.pricing.recommended`. --}}
                         @if ($recommended)
-                            <span class="tariff__pick">پیشنهاد ما</span>
+                            <span class="tariff__pick">{{ __('landing.pricing.recommended') }}</span>
                         @endif
 
                         <h3 class="tariff__name">{{ $plan->name_fa }}</h3>
@@ -138,17 +142,17 @@
                             {{-- The free rung. No toggle attributes: twelve times nothing is
                                  still nothing, and a «۰ تومان» with a yearly discount beside
                                  it reads as a trick rather than an offer. --}}
-                            <p class="tariff__price">رایگان</p>
-                            <p class="tariff__unit">برای همیشه</p>
-                            <p class="tariff__year">بدون کارت بانکی — هر وقت خواستید ارتقا دهید</p>
+                            <p class="tariff__price">{{ __('landing.pricing.free_price') }}</p>
+                            <p class="tariff__unit">{{ __('landing.pricing.free_unit') }}</p>
+                            <p class="tariff__year">{{ __('landing.pricing.free_note') }}</p>
                         @else
                             <p class="tariff__price nums"
                                data-monthly="{{ money($plan->price, Money::UNIT_TOMAN, true) }}"
                                data-yearly="{{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }}">{{ money($plan->price, Money::UNIT_TOMAN, true) }}</p>
 
                             <p class="tariff__unit" data-unit
-                               data-unit-month="تومان / ماه"
-                               data-unit-year="تومان / سال">تومان / ماه</p>
+                               data-unit-month="{{ __('landing.pricing.unit_month') }}"
+                               data-unit-year="{{ __('landing.pricing.unit_year') }}">{{ __('landing.pricing.unit_month') }}</p>
 
                             {{-- Both totals visible at once, whichever way the toggle is
                                  set. Deliberately NOT swapped by the script: it states the
@@ -156,8 +160,10 @@
                                  never has to flip the control to find out what a year
                                  costs. --}}
                             <p class="tariff__year nums">
-                                معادل سالانه {{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }} تومان
-                                · {{ $monthsFree }} ماه رایگان
+                                {{ __('landing.pricing.year_equivalent', [
+                                    'amount' => money($plan->price * $yearFactor, Money::UNIT_TOMAN, true),
+                                    'months' => $monthsFree,
+                                ]) }}
                             </p>
                         @endif
                     </div>
@@ -165,24 +171,28 @@
                     <div class="tariff__go">
                         <a href="{{ route('register') }}"
                            class="btn {{ $recommended ? 'btn--primary' : 'btn--quiet' }}">
-                            رایگان شروع کنید
+                            {{ __('landing.pricing.cta') }}
                         </a>
                     </div>
 
                     <div class="tariff__included">
-                        <p class="tariff__included__label">سهمیهٔ ماهانه:</p>
+                        <p class="tariff__included__label">{{ __('landing.pricing.included_label') }}</p>
                         <ul class="tariff__mods">
+                            {{-- The number and the label beside it are both computed —
+                                 the credit from `plan_limits`, the noun from the metric
+                                 registry — so a module shipping a new metric changes this
+                                 list without an edit here or in the lang file. --}}
                             @foreach ($shown as $metric)
                                 @php($value = $plan->limit($metric->key))
                                 <li>
                                     @if ($value === null)
-                                        <b>نامحدود</b> {{ $metric->labelFa }}
+                                        <b>{{ __('landing.pricing.unlimited') }}</b> {{ $metric->labelFa }}
                                     @else
                                         <b class="nums">{{ Digits::toPersian(number_format($value)) }}</b> {{ $metric->labelFa }}
                                     @endif
                                 </li>
                             @endforeach
-                            <li data-more="true">و همهٔ ماژول‌های دیگر، بدون استثنا</li>
+                            <li data-more="true">{{ __('landing.pricing.all_modules') }}</li>
                         </ul>
                     </div>
                 </article>
