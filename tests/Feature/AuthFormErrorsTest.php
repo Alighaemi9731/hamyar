@@ -154,14 +154,29 @@ it('shows the reset form the dead-link refusal', function (): void {
 
     $this->get($page)->assertOk();
 
-    $this->post($this->url.'/reset-password', [
+    $response = $this->post($this->url.'/reset-password', [
         'token' => 'expired-or-forged',
         'identifier' => '09121234567',
         'password' => 'brand-new-secret-1',
         'password_confirmation' => 'brand-new-secret-1',
-    ])
-        ->assertRedirect($page)
-        ->assertSessionHasErrors('token');
+    ])->assertSessionHasErrors('token');
+
+    /*
+    | Back to the form with BOTH parameters intact — matched on the pairs, not on the whole
+    | string. `back()` rebuilds the query through the URL generator, which emits the pairs
+    | in alphabetical order rather than the order the emailed link carried them in, and an
+    | exact comparison pins the ordering instead of the property worth having.
+    |
+    | The property worth having is that neither parameter is dropped on the way back: an
+    | `identifier` lost here lands the person on a form that accepts a new password and
+    | does nothing on submit, which is the bug the view's own comment describes.
+    */
+    $location = (string) $response->baseResponse->headers->get('Location');
+
+    expect($location)
+        ->toStartWith($this->url.'/reset-password?')
+        ->toContain('token=expired-or-forged')
+        ->toContain('identifier=09121234567');
 
     $message = refusalFor('token');
     expect($message)->not->toBe('');
