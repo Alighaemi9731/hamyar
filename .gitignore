@@ -70,3 +70,8 @@ Thumbs.db
 # it once reached a commit and turned the RTL gate red on a branch that was clean locally.
 # The gate then failed on CI for a violation the fixture is *supposed* to contain.
 /resources/js/__gate_fixture
+
+# Agent worktrees. `Agent(isolation: "worktree")` checks a second copy of this repo out
+# under here, so the tree shows up as untracked files inside the tree it is a copy of.
+# Committing one would nest the repository in itself.
+/.claude/worktrees/

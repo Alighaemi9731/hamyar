@@ -90,8 +90,9 @@
       "files": [
         "resources/landing/og/og.png"
       ],
-      "captured_at": "2026-09-04T08:35:08.900Z",
-      "git_sha": "965a7ec13cf8a967298eb0e1b43b63d21e158f55"
+      "captured_at": "2026-09-05T13:00:38.000Z",
+      "git_sha": "330c755bfff97b3d41694d0b6f1aed36fff32a1c",
+      "note": "Re-rendered by hand at the pipeline settings (1200x630, scale css) after the wordmark replaced the retired symbol on this card. bin/shots hung on its login step; the route, viewport and scale are identical, so the file is what the pipeline would have written."
     }
   }
 }
