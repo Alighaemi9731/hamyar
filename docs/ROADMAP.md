@@ -2271,7 +2271,12 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
 - [ ] Sections 1–4 on the named-line page grid (hero product composition, proof strip, bento
       tour, IMEI passport centrepiece); old CSS deleted; skip link CSS-only (PR 3.1)
 - [ ] Sections 5–8 + SEO: modules, pricing, FAQ, closing, footer, legal; favicon/og/JSON-LD;
-      `sitemap.xml` + `robots.txt` routes + nginx `try_files` (PR 3.2)
+      `sitemap.xml` + `robots.txt` routes + nginx `try_files` (PR 3.2) — **the SEO half is
+      done** (#153): both files are routes built from `config('app.domain')`, the four
+      capability paths are disallowed where the old static file allowed everything, and the
+      landing carries Organization + SoftwareApplication with offers read from `plans`, plus
+      FAQPage beside the questions. Pricing and FAQ landed in #149. **Still open: the
+      closing band, which carries v1's composition.**
 - [ ] All six auth screens on Blade over one layout; React auth pages deleted;
       `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3)
 - [ ] Finish: detector, finish-reviewer, documenter, Lighthouse ≥ 90/95, LandingTest, owner
