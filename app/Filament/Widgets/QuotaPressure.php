@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Which limit is actually stopping shops, and whether being stopped makes them pay.
@@ -59,6 +60,17 @@ final class QuotaPressure extends BaseWidget
                     ->badge()
                     ->color(fn (UsageEvent $record): string => $this->tone($record)),
             ])
+            /*
+            | The order the reader wants: the limit stopping the most shops, first.
+            |
+            | This is NOT what fixes the widget — see `pressure()`. Stating a default sort
+            | was the obvious guess and it does not work, because Filament appends the
+            | record key *in addition to* the default rather than instead of it; the
+            | rendered SQL was `… desc, "blocked_shops" desc, "usage_events"."id" desc`,
+            | still invalid against a grouped query. The subquery is what makes any
+            | ordering legal. This line only says which one to read by.
+            */
+            ->defaultSort('blocked_shops', 'desc')
             ->emptyStateHeading('هنوز هیچ فروشگاهی به سقفی نخورده است.');
     }
 
@@ -72,13 +84,47 @@ final class QuotaPressure extends BaseWidget
     {
         $since = CarbonImmutable::now()->subDays(30);
 
-        return app(TenantContext::class)->runAsPlatform(static fn (): Builder => UsageEvent::query()
-            ->selectRaw('min(id) as id, metric')
-            ->selectRaw("count(distinct tenant_id) filter (where kind in ('blocked', 'bulk_blocked')) as blocked_shops")
-            ->selectRaw("count(distinct tenant_id) filter (where kind = 'upgraded_after') as converted_shops")
-            ->where('created_at', '>=', $since)
-            ->groupBy('metric')
-            ->orderByRaw("count(distinct tenant_id) filter (where kind in ('blocked', 'bulk_blocked')) desc"));
+        /*
+        | The aggregate is a SUBQUERY, and that is the fix rather than a flourish.
+        |
+        | Filament always appends the record key as a final tiebreaker — `order by
+        | "usage_events"."id" desc` — on top of whatever sort the table declares, so that
+        | pagination is stable. Against a `group by metric` that is invalid SQL, and
+        | Postgres refuses it: "column usage_events.id must appear in the GROUP BY clause
+        | or be used in an aggregate function". Setting `defaultSort` does not help, because
+        | the key sort is added *as well as* the default, not instead of it.
+        |
+        | Selecting `min(id) as id` was already an attempt to give Filament a key. It could
+        | not work: `"usage_events"."id"` in ORDER BY resolves to the table's column, not to
+        | the select alias, and the table's column is not grouped.
+        |
+        | Reading from a derived table makes every column — `id` included — an ordinary
+        | column of that table, so any ordering Filament invents is legal. The alias is
+        | `usage_events` so the model's own key reference still resolves.
+        |
+        | The widget threw a 500 on every dashboard load. Being a widget, the failure
+        | surfaced as a full-screen overlay across the whole panel rather than one broken
+        | card, so the platform panel was unusable — and it is the screen the pricing
+        | decisions rest on.
+        */
+        return app(TenantContext::class)->runAsPlatform(static function () use ($since): Builder {
+            // quota-scope-allow: reading across every shop is the entire point of this
+            // widget — "which limit blocks the most shops" is unanswerable one shop at a
+            // time — and it runs inside `runAsPlatform()`, which is the sanctioned way to
+            // do it (golden rule 1, ADR 0002 amendment). The counts are already DISTINCT
+            // by `tenant_id`, so no shop can dominate the answer by hammering a limit.
+            $aggregate = DB::table('usage_events')
+                ->selectRaw('min(id) as id, metric')
+                ->selectRaw("count(distinct tenant_id) filter (where kind in ('blocked', 'bulk_blocked')) as blocked_shops")
+                ->selectRaw("count(distinct tenant_id) filter (where kind = 'upgraded_after') as converted_shops")
+                ->where('created_at', '>=', $since)
+                ->groupBy('metric');
+
+            // Reads the aggregate above and adds no rows of its own; the model is here for
+            // Filament's record type, not to reach the table.
+            // quota-scope-allow: platform-wide by design, inside runAsPlatform().
+            return UsageEvent::query()->fromSub($aggregate, 'usage_events');
+        });
     }
 
     private function label(string $metric): string
