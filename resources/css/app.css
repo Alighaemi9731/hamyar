@@ -134,6 +134,15 @@
   --sidebar-ring: var(--color-brand);
 }
 
+/* The two smallest steps return to 12 and 13px from 640 up; below it they are both 14,
+   the phone floor set in brand.css. */
+@media (min-width: 640px) {
+  :root {
+    --text-2xs: 0.75rem;
+    --text-xs: 0.8125rem;
+  }
+}
+
 [data-density='compact'] {
   --density-row: 2.25rem;
   --density-gap: 0.5rem;
@@ -300,12 +309,23 @@
     background-color: var(--background);
     color: var(--foreground);
     font-size: var(--text-base);
-    line-height: var(--leading-body);
+    /*
+      The product is UI, not prose: its text is labels, cells and short sentences read in
+      fragments. `--leading-body` (1.7) is the prose measure and belongs to the landing
+      and to anything with paragraphs; at 1.7 a register's rows gain about a fifth of a
+      screen of air and the eye has further to travel between a label and its value.
+    */
+    line-height: var(--leading-ui);
     letter-spacing: var(--tracking-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /*
+    Every heading, on every surface, is Estedad at 700 — the pairing allows 700 and 800
+    and nothing else, and the font file's weight axis is pinned to that span so a stray
+    `font-medium` on a heading clamps visibly rather than sliding.
+  */
   h1,
   h2,
   h3,

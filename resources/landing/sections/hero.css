@@ -80,16 +80,31 @@
 /*
   60px at 1440 against the reference's 64, and 1.1 leading rather than its 1.0: Persian
   ascenders and descenders collide at 1.0, and «گ» under «ه» is the pair that shows it.
-  Weight 700, not the 800 the 16.0 baseline measured — that was the heaviest step the
-  old display face had, and nothing on the page needed it.
+
+  **The 60px step engages at 1280 and no earlier.** The clamp used to reach it on a wide
+  tablet, where a headline of this length wraps to four lines and the fold becomes a wall
+  of type with the product pushed off the screen. Below 1280 it tops out at 44px, which is
+  still a display size and still fits the sentence in two lines at 390. Display type is a
+  function of the column it sits in, not of the viewport it is measured against.
+
+  Weight 800, at Estedad's heavier step — the pairing carries 700 and 800 and this is the
+  one place on the page that earns the top of it (ADR 0020 amendment). Tracking -0.02em
+  per the same rule; the -0.028em here was tuned for a face we no longer ship.
 */
 .fold__title {
   margin-block-start: 1.5rem;
-  font-size: clamp(2.125rem, 5vw, 3.75rem);
-  line-height: 1.1;
-  letter-spacing: -0.028em;
-  font-weight: 700;
+  font-size: clamp(2.125rem, 4.4vw, 2.75rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 800;
   text-wrap: balance;
+}
+
+@media (min-width: 1280px) {
+  .fold__title {
+    font-size: 3.75rem;
+    line-height: 1.1;
+  }
 }
 
 /* The one place the accent appears in this section, on the phrase the sentence turns
@@ -212,7 +227,7 @@
     border-radius: 0.875rem;
     background: var(--color-page);
     box-shadow: 0 8px 24px -12px rgb(14 27 44 / 0.28);
-    font-size: 0.8125rem;
+    font-size: var(--text-fine);
     line-height: 1.5;
     max-inline-size: 15rem;
   }

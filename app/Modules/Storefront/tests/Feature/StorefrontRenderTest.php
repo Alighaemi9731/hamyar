@@ -331,6 +331,71 @@ it('renders the shop’s contact links as working hrefs', function (): void {
         ->and($html)->toContain('href="https://wa.me/989121234567"');
 });
 
+/* ------------------------------------- the typeface that was never loaded -- */
+
+it('declares a face for every typeface it asks for, on every public page', function (string $page): void {
+    /*
+    | The Storefront layout named Vazirmatn in `font-family` and shipped no `@font-face`
+    | for it. There is no bundler on these pages — each carries its own `<style>` — so the
+    | browser looked for a locally installed Vazirmatn, almost never found one, and every
+    | price list a shop forwarded rendered in the system font. Nothing failed, nothing
+    | logged, and the typeface this product is set in was simply absent from the one
+    | surface a customer sees.
+    |
+    | The assertion does not know that the family is Vazirmatn, and deliberately: it reads
+    | the *first* family out of every `font-family` stack on the page and requires an
+    | `@font-face` for each one that is not a system keyword. That is true of any page
+    | whose fonts load and false of this bug, in whatever family the next author names —
+    | which matters, because naming a family is the easy half and everyone remembers it.
+    |
+    | It stops at the declaration. `Vite::asset()` returns an empty string here, because
+    | TestCase disables Vite for feature tests on purpose (the manifest is a gitignored
+    | build artefact and CI would 500 without it), so whether the URL resolves is the
+    | build's job — the Dockerfile asserts the fonts are in the manifest, and the browser
+    | proves they paint.
+    */
+    // Minted here rather than in the dataset: `with()` runs before the test case exists,
+    // so `$this` — and the tenant everything above builds — is not there yet.
+    $path = match ($page) {
+        'list' => '/p/'.($this->mint)()['token'],
+        'print' => '/p/'.($this->mint)()['token'].'/print',
+        default => '/shop/mobile-nemoone',
+    };
+
+    $html = $this->get($this->url.$path)->assertOk()->getContent() ?: '';
+
+    preg_match_all('/font-family:\s*([^;}]+)/i', $html, $stacks);
+    preg_match_all('/@font-face\s*\{[^}]*?font-family:\s*[\'"]?([^\'";}]+)/is', $html, $declared);
+
+    $faces = array_map(trim(...), $declared[1]);
+    $named = [];
+
+    foreach ($stacks[1] as $stack) {
+        $first = trim(explode(',', $stack)[0], " \t\n\r\0\x0B\"'");
+
+        // Generic families and the system stack need no face — they are the fallback.
+        if ($first !== '' && ! in_array(strtolower($first), [
+            'system-ui', 'sans-serif', 'serif', 'monospace', 'ui-monospace', 'inherit',
+        ], true) && ! str_starts_with($first, '-apple-')) {
+            $named[$first] = true;
+        }
+    }
+
+    expect($named)->not->toBeEmpty('the page sets no font at all');
+
+    foreach (array_keys($named) as $family) {
+        // `toContain()` takes needles, not a message — the failure has to carry its own.
+        expect(in_array($family, $faces, true))->toBeTrue(
+            "the page renders in «{$family}» and declares no @font-face for it, so it falls "
+            .'back to the system font on every machine that has not installed it',
+        );
+    }
+})->with([
+    'the shop page' => 'shop',
+    'a forwarded price list' => 'list',
+    'its print sheet' => 'print',
+]);
+
 it('renders the locked screen with a usable form and no catalogue', function (): void {
     $minted = ($this->mint)(['password' => 'hamkar-1404']);
 

@@ -7,6 +7,36 @@ Versions follow `docs/VERSIONING.md`. A release is cut with `bin/release` and is
 release until `bin/smoke` has confirmed, from outside the box, that the site is serving
 it. Tags and published archives: <https://github.com/Alighaemi9731/hamyar/releases>.
 
+## 0.22.0 - 2026-09-05
+
+**Two typefaces, and one surface was never rendering in either of them.** The pairing is
+final: Estedad 700/800 for display, Vazirmatn 400/500 for body and for every figure with
+`tabular-nums` under it, Inter then the system stack behind the Latin. This reverses the
+single-family answer given at the 16.2 gate one day earlier; ADR 0020's amendment records
+that plainly, including that this pairing was the candidate the gate rejected, because the
+next reader of that file would otherwise conclude it was chosen there.
+
+**Every price list a shop forwarded rendered in Arial.** The Storefront layout named
+Vazirmatn in `font-family` and declared no `@font-face` for it. Those pages carry their own
+`<style>` and have no bundler behind them, so the browser looked for a locally installed
+copy, almost never found one, and fell back — silently, with nothing logged, on the one
+surface a shop's customer ever sees. The regression test does not know the family name: it
+requires a declared face for the first family in every `font-family` stack on the page.
+
+Fonts are subset by `bin/subset-fonts` with each family's weight axis pinned to the range
+the pairing actually uses — **505K to 144K across five files, 71% saved** — so a weight
+outside the table is absent from the file rather than merely discouraged. IBM Plex Sans
+Arabic and Noto Kufi Arabic are deleted, and `/design` shows a specimen of the shipped
+pairing instead of a four-way test: a card labelled with a family the browser cannot load
+renders in a fallback and lies about what the reader is looking at.
+
+Measured on a cold cache at 390px, throttled to 200 kbps and 150 ms: **CLS 0.0007**, no
+flash of invisible text, the two Arabic faces preloaded. Small text has a **14px floor
+below 640px** — it was 12 to 13px on the landing, the counter, the sales register and the
+profit report, and Persian at that size is not small type, it is unread type. The landing's
+60px display step now engages at 1280 and no earlier, because the old clamp reached it on a
+wide tablet where a headline that long wraps four times and pushes the product off screen.
+
 ## 0.21.0 - 2026-09-04
 
 **The landing and the app now draw with one set of tokens, and the frosted chrome is

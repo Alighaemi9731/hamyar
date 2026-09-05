@@ -2278,7 +2278,14 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       live review (PR 3.4)
 
 ### 16.4 Product — type, ink, shell, dashboard, first-run
-- [ ] `app.css` on `brand.css`; chosen pairing; heading audit; navy ink; contrast re-measured
+- [x] `app.css` on `brand.css` (0.21.0); navy ink and contrast re-measured (ADR 0020, #136);
+      **the pairing is Estedad + Vazirmatn and is now final** — the owner reversed the
+      gate's single-family answer on 2026-09-05, and the ADR carries the amendment. The
+      heading audit found one violation in 76 pages (platform billing at display weight
+      600) and one hardcoded family: the Storefront layout named Vazirmatn with no
+      `@font-face`, so every forwarded price list rendered in the system font. Fonts
+      subset to 144K from 505K, two preloaded, CLS 0.0007 at 390 on a cold throttled
+      cache, 14px floor on phones, landing display size gated to ≥1280. #145, 2026-09-05
 - [ ] Shell: sidebar token + collapsible rail, brand mark, eyebrow labels, `PageHeader`
       crumbs, the 17 `title=` pages, `Deferred` + page skeleton — token, mark (provisional
       C), one header implementation and `width="wide"` landed in #136; crumbs dropped

@@ -35,9 +35,39 @@
 
         * { box-sizing: border-box; }
 
+        /*
+          The two faces this page paints with, declared here because this sheet is
+          standalone by design (see the note at the top) and therefore has no access to
+          `fonts.css`.
+
+          It named `Vazirmatn` in its font stack and never loaded it, so every price list
+          a shop has ever forwarded rendered in the system font — Arial on Windows — while
+          claiming otherwise. These are the same hashed files the landing and the app
+          serve, so a colleague who has opened either already has them cached; on a cold
+          visit `swap` paints the system font first and exchanges it, which is the right
+          trade on the connection this page is written for.
+        */
+        @font-face {
+            font-family: 'Vazirmatn';
+            font-style: normal;
+            font-weight: 400 600;
+            font-display: swap;
+            src: url('{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}') format('woff2');
+            unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF;
+        }
+
+        @font-face {
+            font-family: 'Vazirmatn';
+            font-style: normal;
+            font-weight: 400 600;
+            font-display: swap;
+            src: url('{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-latin-wght-normal.woff2') }}') format('woff2');
+            unicode-range: U+0000-00FF, U+2000-206F, U+20AC;
+        }
+
         body {
             margin: 0;
-            font-family: Vazirmatn, system-ui, -apple-system, 'Segoe UI', sans-serif;
+            font-family: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', sans-serif;
             font-size: 16px;
             line-height: 1.65;
             color: var(--ink);

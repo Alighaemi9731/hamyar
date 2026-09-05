@@ -184,7 +184,7 @@
 
 .tariff__pick {
   display: inline-block;
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 700;
   color: var(--color-on-dark); /* 18.1:1 on navy-900 */
   background: var(--color-navy-900);
@@ -228,7 +228,7 @@
 }
 
 .tariff__year {
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   color: var(--color-navy-soft);
   font-variant-numeric: tabular-nums;
   margin-block-start: 0.5rem;
@@ -255,7 +255,7 @@
 }
 
 .tariff__included__label {
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 700;
   color: var(--color-navy-soft);
 }
@@ -270,7 +270,7 @@
 }
 
 .tariff__mods li {
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 500;
   line-height: 1.7;
   color: var(--color-navy);

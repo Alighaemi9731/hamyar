@@ -3873,3 +3873,40 @@ phone are different places — and read in the state initialiser so a navigation
 jumps from full to rail. The POS at 1280 goes from 1032px to 1216px of working width.
 The drawer below `lg` is untouched. `tests/Browser/ShellTest.php` toggles it, checks
 that no link lost its name, and reloads. (#144)
+
+## 1404-06-15 (2026-09-05) — the type pairing is closed, and one surface was never in it (16.4)
+
+Two families, final: **Estedad 700/800** for display at -0.02em, **Vazirmatn 400/500** for
+body and every figure with `tabular-nums`, Inter then the system stack behind the Latin.
+The owner named all of it on 2026-09-05, which reverses the single-family answer given at
+the 16.2 gate the day before — candidate 1 on that decision page was this pairing, and it
+lost. ADR 0020's amendment says so plainly rather than quietly re-recording the choice,
+because a future session reading only the ADR would otherwise conclude the gate picked it.
+
+**The heading audit found one violation in 76 pages and one much worse thing elsewhere.**
+The violation was the platform billing figure at display weight 600. The worse thing was
+`app/Modules/Storefront/resources/views/layout.blade.php`, which set `font-family:
+Vazirmatn` and shipped no `@font-face` for it — there is no bundler on those pages, so the
+browser looked for a locally installed Vazirmatn, did not find one, and **every price list
+a shop has ever forwarded rendered in Arial**. Nothing failed and nothing logged. The
+regression test does not know the family name: it reads the first family out of every
+`font-family` stack on the page and requires a face for each one that is not a system
+keyword, which is true of any page whose fonts load and false of this bug in whatever
+family the next author names. It was mutation-checked by putting the bug back.
+
+`bin/subset-fonts` pins each family's weight axis to the range the pairing uses and cuts
+the codepoints to Persian plus Latin basic: **505.1K → 144.4K across five files, 71%
+saved**. The order matters and the file says why — instancing before subsetting crashes on
+`gvar` deltas keyed to glyphs the subsetter then drops. A weight outside the table is now
+not merely discouraged, it is absent from the file. IBM Plex Sans Arabic and Noto Kufi
+Arabic are deleted rather than retired in place, and the `/design` type section became a
+specimen of the shipped pairing: a card labelled with a family the browser cannot load
+renders in a fallback and lies about which typeface the reader is looking at.
+
+Measured, not asserted: **CLS 0.0007** at 390px on a cold cache throttled to 200 kbps /
+150 ms, no FOIT, the two Arabic faces preloaded. The smallest rendered text on a phone was
+12–13px across the landing, POS, the sales register and the profit report; the two
+smallest scale steps now collapse to **14px below 640** and return at `sm`, because 13px
+Persian on a handset is not small type, it is unread type. The landing's 60px display step
+engages at **1280 and no earlier** — the old clamp reached it on a wide tablet, where a
+headline of that length wraps four times and pushes the product off the screen. (#145)

@@ -200,38 +200,33 @@ function Mark({ svg, className }: { svg: string; className?: string }) {
   );
 }
 
-const PAIRINGS = [
+/**
+ * The four rules the pairing is, as rows a reader can check against the page they are on.
+ *
+ * These are not preferences. Each one is enforced somewhere — the families by the two
+ * tokens, the weights by there being no other weight in the subset, the digits by
+ * `.tabular`, the floor by the `--text-2xs`/`--text-xs` media query in `app.css`.
+ */
+const TYPE_RULES = [
   {
-    id: '۱',
-    name: 'استعداد + وزیرمتن (فعلی، بازتنظیم‌شده)',
-    display: "'Estedad', 'Vazirmatn', sans-serif",
-    displayWeight: 600,
-    body: "'Vazirmatn', sans-serif",
-    note: 'همان دو خانواده، اما تیتر با وزن ۶۰۰ به‌جای ۸۰۰ و فاصلهٔ خط فشرده‌تر. کم‌ریسک‌ترین گزینه؛ همچنان چهرهٔ آشنای سایت‌های ساخته‌شده با هوش مصنوعی.',
+    label: 'تیتر',
+    value: 'استعداد ۷۰۰ و ۸۰۰',
+    note: 'تنها همین دو وزن در فایل هست؛ وزن دیگری قابل رندر نیست. فاصلهٔ حروف ۰٫۰۲- در اندازه‌های بزرگ.',
   },
   {
-    id: '۲',
-    name: 'IBM Plex Sans Arabic (تیتر و متن)',
-    display: "'IBM Plex Sans Arabic', sans-serif",
-    displayWeight: 600,
-    body: "'IBM Plex Sans Arabic', sans-serif",
-    note: 'یک خانواده برای همه‌چیز، با شخصیت مهندسی. برای فارسی، شکل «ی» و «ک» را در متن بلند بسنجید — گزارش‌هایی از ناسازگاری فارسی ثبت شده است.',
+    label: 'متن و رابط',
+    value: 'وزیرمتن ۴۰۰ و ۵۰۰',
+    note: 'حداکثر ۶۰۰ برای تأکید. ارتفاع خط ۱٫۷ در متن پیوسته و ۱٫۵ در رابط کاربری.',
   },
   {
-    id: '۳',
-    name: 'نوتو کوفی + وزیرمتن',
-    display: "'Noto Kufi Arabic', sans-serif",
-    displayWeight: 600,
-    body: "'Vazirmatn', sans-serif",
-    note: 'تیتر هندسی و کوفی، متن خنثی. متمایزترین گزینه؛ ریسک آن این است که برای فروشنده ایرانی «عربی» خوانده شود.',
+    label: 'ارقام مالی',
+    value: 'وزیرمتن با tabular-nums',
+    note: 'هر مبلغ، هر ستون جدول، هر سطر فاکتور. کلاس ‎.tabular‎ این را می‌دهد؛ بدون استثنا.',
   },
   {
-    id: '۴',
-    name: 'وزیرمتن (فقط یک خانواده)',
-    display: "'Vazirmatn', sans-serif",
-    displayWeight: 800,
-    body: "'Vazirmatn', sans-serif",
-    note: 'یک خانواده، تفاوت با وزن. ساده و سبک‌ترین بارگذاری؛ کمترین شخصیت.',
+    label: 'لاتین',
+    value: 'Inter، سپس پشتهٔ سیستم',
+    note: 'در عمل هرگز دانلود نمی‌شود: زیرمجموعهٔ لاتین وزیرمتن همان محدوده را پوشش می‌دهد و مرورگر به Inter نمی‌رسد.',
   },
 ] as const;
 
@@ -284,72 +279,87 @@ function MarkSection({ alt }: { alt?: boolean }) {
   );
 }
 
+/**
+ * The type pairing, as the thing itself rather than a description of it.
+ *
+ * This was a four-way comparison until the 16.2 gate closed. It is a specimen now, and
+ * deliberately so: the losing candidates are no longer in `resources/fonts/`, and a card
+ * labelled with a family the browser cannot load renders in a fallback and lies about it.
+ * Nothing here sets `font-family` — every line takes it from `--font-display` or
+ * `--font-body`, so the page breaks the moment those tokens do.
+ */
 function TypeSection({ alt }: { alt?: boolean }) {
   return (
     <Section
       alt={alt}
-      title="آزمون فونت — چهار جفت، یک متن"
-      note="یک تیتر، یک لید، یک بند متن، یک ردیف جدول با ارقام لاتین جدولی و یک IMEI؛ در هر جفت با همان اندازه‌ها. همهٔ چهره‌ها آزاد (OFL) و خودمیزبان هستند. انتخاب در دروازهٔ ۱۶٫۲ قفل می‌شود و بازنده‌ها حذف می‌شوند."
+      title="جفت فونت — قطعی"
+      note="استعداد برای تیتر، وزیرمتن برای متن و ارقام. این بخش دیگر مقایسه نیست؛ نمونه‌برگ همان چیزی است که در تمام سامانه، صفحهٔ فرود و برگهٔ چاپ رندر می‌شود. هیچ خطی در این صفحه فونت را دستی تعیین نمی‌کند."
     >
-      <div className="grid gap-6 xl:grid-cols-2">
-        {PAIRINGS.map((pairing) => (
-          <div key={pairing.id} className="rounded-card border border-border bg-surface p-6 sm:p-8">
-            <p className="mb-6 text-xs text-muted-foreground">
-              {pairing.id} · {pairing.name}
-            </p>
+      <div className="rounded-card border border-border bg-surface p-6 sm:p-8">
+        <p className="mb-6 text-xs text-muted-foreground">مقیاس تیتر — استعداد</p>
 
-            <h3
-              className="mb-3 text-2xl leading-[1.15] tracking-[-0.015em] text-foreground sm:text-3xl"
-              style={{ fontFamily: pairing.display, fontWeight: pairing.displayWeight }}
-            >
-              همهٔ کارِ فروشگاه موبایل، در یک سامانه
-            </h3>
+        <div className="space-y-4 border-b border-border pb-8">
+          <p className="font-display text-4xl font-extrabold leading-[1.1] tracking-display text-foreground sm:text-5xl">
+            همهٔ کارِ فروشگاه موبایل
+          </p>
+          <p className="font-display text-2xl font-bold leading-tight tracking-heading text-foreground">
+            هر گوشی با شناسهٔ خودش
+          </p>
+          <p className="font-display text-lg font-bold text-foreground">سود هر فروش، همان لحظه</p>
+        </div>
 
-            <p
-              className="mb-5 text-lg leading-[1.7] text-muted-foreground"
-              style={{ fontFamily: pairing.body }}
-            >
-              فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت
-              می‌شود و سود هر فروش همان لحظه معلوم است.
-            </p>
+        <p className="mb-4 mt-8 text-xs text-muted-foreground">متن — وزیرمتن</p>
 
-            <p
-              className="mb-6 max-w-[65ch] text-base leading-[1.8] text-foreground"
-              style={{ fontFamily: pairing.body }}
-            >
-              قبض پذیرش با یک بارکد چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند. هر قسط و هر چک
-              سررسید دارد؛ صبح که فروشگاه را باز می‌کنید معلوم است امروز از چه کسی باید بگیرید و چه
-              کسی عقب افتاده است.
-            </p>
+        <p className="mb-4 max-w-[65ch] text-lg leading-[1.7] text-muted-foreground">
+          فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت می‌شود.
+        </p>
 
-            <div
-              className="mb-4 grid grid-cols-[1fr_auto_auto] items-baseline gap-4 border-t border-border pt-4 text-sm"
-              style={{ fontFamily: pairing.body }}
-            >
-              <span className="text-foreground">آیفون ۱۵ — ۱۲۸ گیگ</span>
-              <span className="tabular text-foreground">74,000,000</span>
+        <p className="max-w-[65ch] text-base leading-[1.7] text-foreground">
+          قبض پذیرش با یک بارکد چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند. هر قسط و هر چک
+          سررسید دارد؛ صبح که فروشگاه را باز می‌کنید معلوم است امروز از چه کسی باید بگیرید و چه کسی
+          عقب افتاده است.
+        </p>
+
+        <p className="mb-4 mt-8 text-xs text-muted-foreground">ارقام — وزیرمتن با ارقام هم‌عرض</p>
+
+        <div className="grid max-w-md gap-2 border-t border-border pt-4 text-sm">
+          {[
+            ['آیفون ۱۵ — ۱۲۸ گیگ', '74,000,000'],
+            ['گلس و تاچ گلکسی A55', '5,800,000'],
+            ['اجرت تعمیر', '1,000,000'],
+          ].map(([item, amount]) => (
+            <div key={item} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-4">
+              <span className="text-foreground">{item}</span>
+              <span className="tabular text-foreground">{amount}</span>
               <span className="text-xs text-muted-foreground">تومان</span>
             </div>
+          ))}
+        </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <span
-                className="ltr-value tabular text-lg font-semibold text-foreground"
-                style={{ fontFamily: pairing.body }}
-              >
-                356938035643809
-              </span>
-              <span
-                className="inline-flex h-10 items-center rounded-pill bg-brand px-5 text-sm font-semibold text-white"
-                style={{ fontFamily: pairing.body }}
-              >
-                رایگان شروع کنید
-              </span>
-            </div>
+        <p className="mt-4 max-w-md text-2xs text-muted-foreground">
+          ارقام بالا در ستون خودشان قفل‌اند: رقم‌ها هم‌عرض‌اند، پس هزارگان‌ها زیر هم می‌افتند و چشم
+          می‌تواند دو مبلغ را بدون خواندن مقایسه کند.
+        </p>
 
-            <p className="mt-6 text-xs leading-relaxed text-muted-foreground">{pairing.note}</p>
+        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-6">
+          <span className="ltr-value tabular text-lg font-semibold text-foreground">
+            356938035643809
+          </span>
+          <span className="inline-flex h-10 items-center rounded-pill bg-brand px-5 text-sm font-semibold text-white">
+            رایگان شروع کنید
+          </span>
+        </div>
+      </div>
+
+      <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+        {TYPE_RULES.map((rule) => (
+          <div key={rule.label} className="rounded-card border border-border bg-surface p-5">
+            <dt className="text-2xs text-muted-foreground">{rule.label}</dt>
+            <dd className="mt-1 text-sm font-semibold text-foreground">{rule.value}</dd>
+            <dd className="mt-2 text-2xs leading-relaxed text-muted-foreground">{rule.note}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </Section>
   );
 }

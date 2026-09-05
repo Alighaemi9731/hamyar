@@ -122,6 +122,21 @@
   */
   --text-section-lg: clamp(2rem, 4.4vw, 3.5rem);
 
+  /*
+  | The smallest step the landing is allowed to set, and it has a phone floor.
+  |
+  | Seventeen declarations across six section files each wrote `0.8125rem` (13px) for a
+  | caption, a footnote, a plan's fine print. Thirteen-pixel Persian on a 390px screen is
+  | not small type, it is unread type — the letterforms this script needs simply are not
+  | there at that size, and the reader skips the line rather than squinting at it. So the
+  | step is 14px on a phone and returns to 13 at `sm`, where the reader is a foot further
+  | back from a larger screen.
+  |
+  | It is a token rather than a rule per file because seventeen authors each writing a
+  | literal is exactly how the page came to have five H2 sizes.
+  */
+  --text-fine: 0.875rem;
+
   /* ================================================== THE SHARED CONTRACT ===
    | Four engineers built the eight sections in parallel without one of these, and
    | each invented its own radius scale, its own breakpoints and its own entry
@@ -172,6 +187,15 @@
 }
 
 /* ---------------------------------------------------------------- base ---- */
+
+/* The fine step returns to 13px once the reader is on a screen they hold further away.
+   Outside `@theme` because a theme block cannot carry a media query, and the token has to
+   be *reassigned* rather than shadowed — every `var(--text-fine)` on the page follows it. */
+@media (min-width: 640px) {
+  :root {
+    --text-fine: 0.8125rem;
+  }
+}
 
 html {
   scroll-behavior: smooth;
@@ -301,7 +325,7 @@ h3 {
 }
 
 .sec__eyebrow {
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--color-accent);
@@ -430,7 +454,7 @@ h3 {
   background: var(--color-page-tint);
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 700;
   line-height: 1.6;
 }
@@ -1012,7 +1036,7 @@ h3 {
   margin-inline: auto;
   background: var(--color-paper);
   color: var(--color-navy);
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   line-height: 1.9;
   padding: 1.5rem 1.375rem 1.75rem;
   position: relative;
@@ -1060,7 +1084,7 @@ h3 {
 }
 
 .receipt__kind {
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   color: var(--color-navy-mute);
 }
 
@@ -1534,7 +1558,7 @@ h3 {
 
 .plan__badge {
   align-self: flex-start;
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   font-weight: 700;
   color: var(--color-accent-lit);
   background: color-mix(in srgb, var(--color-accent-lit) 14%, transparent);
@@ -2129,7 +2153,7 @@ h3 {
   padding-block-start: 1.25rem;
   border-block-start: 1px solid var(--color-hair);
   color: var(--color-navy-mute);
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   line-height: 1.7;
 }
 
@@ -2203,7 +2227,7 @@ h3 {
 
 .auth__error {
   color: #b3261e;
-  font-size: 0.8125rem;
+  font-size: var(--text-fine);
   margin-block-start: 0.375rem;
 }
 

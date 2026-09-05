@@ -66,24 +66,46 @@
   --color-label: #ffd84d;
 
   /* --- type ----------------------------------------------------------------
-     Families come from `fonts.css`; each lists its metric-matched fallback face first
-     so a swap moves nothing.
+     THE PAIRING (ADR 0020, revised 2026-09-05). Two families, one job each, and the
+     weights are part of the decision rather than a preference at each call site:
 
-     One family for display and text (pairing 2, chosen at the 16.2 gate — ADR 0020).
-     IBM Plex Sans Arabic is a single neutral grotesque whose Persian and Latin are
-     drawn together, which is what the product needs: an IMEI, a rial figure and a
-     Persian label sit in one row on every screen here, and a two-family pairing made
-     that row three typefaces wide. It ships static 400/500/600/700 — exactly the four
-     weights the product uses — so there is no variable axis to interpolate. */
-  --font-sans:
-    'IBM Plex Sans Arabic', 'IBM Plex Sans Arabic Fallback', ui-sans-serif, system-ui, 'Segoe UI',
-    sans-serif;
+       display  Estedad, 700-800 only. Every heading on every surface — landing, app,
+                auth, print. Nothing else ever renders a heading.
+       body     Vazirmatn, 400-500, and 600 for emphasis at most. Every other word.
+       figures  Vazirmatn with `font-variant-numeric: tabular-nums` — every money
+                figure, every table column, every invoice line, no exceptions. The
+                `.tabular` utility in `app.css` and `<Money>`/`<Num>` apply it; nothing
+                should be reaching for the family directly.
+
+     Each family lists its metric-matched fallback face immediately after it, so the swap
+     from fallback to web font moves nothing, then Inter for Latin, then the system.
+
+     `bin/subset-fonts` pins each file's weight axis to the span above, so the range is
+     enforced by the font rather than by review: Estedad cannot render 400 and Vazirmatn
+     cannot render 800. A component that asks for the wrong weight gets a clamp somebody
+     can see, not a slide nobody notices. */
   --font-display:
-    'IBM Plex Sans Arabic', 'IBM Plex Sans Arabic Fallback', ui-sans-serif, system-ui, sans-serif;
+    'Estedad', 'Estedad Fallback', 'Vazirmatn', 'Inter', ui-sans-serif, system-ui, 'Segoe UI',
+    sans-serif;
+  --font-sans:
+    'Vazirmatn', 'Vazirmatn Fallback', 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
 
-  --text-2xs: 0.75rem; /* 12 */
-  --text-xs: 0.8125rem; /* 13 */
+  /*
+    The two smallest steps carry a PHONE FLOOR.
+
+    12px and 13px are readable at arm's length on a desk monitor and are not readable on
+    a phone held in a shop, which is where this product is used one-handed while a
+    customer waits. Measured at 390 before this change: the POS bottomed out at 12px on
+    «تومان» beside every figure, the register's column heads at 13px.
+
+    Below 640 both steps become 14px — the floor this design sets for anything read on a
+    phone. They stay distinct above it. The 1px gap between them at desktop sizes is a
+    scale smell worth removing later; collapsing the two names touches 431 call sites,
+    which is not a change to make inside a typography pass.
+  */
+  --text-2xs: 0.875rem; /* 14 on a phone */
+  --text-xs: 0.875rem; /* 14 on a phone */
   --text-sm: 0.9375rem; /* 15 */
   --text-base: 1.0625rem; /* 17 — body */
   --text-lg: 1.3125rem; /* 21 */
@@ -92,13 +114,23 @@
   --text-3xl: 3.5rem; /* 56 */
   --text-4xl: 4.5rem; /* 72 — hero only */
 
-  --tracking-display: -0.022em;
-  --tracking-heading: -0.015em;
+  /* Tracking: -0.02em on the large sizes, per the pairing. Estedad's counters close up
+     at display size and negative tracking is what stops a headline reading as a wall;
+     body text keeps its natural fit, because tightening running Persian text costs
+     legibility and buys nothing. */
+  --tracking-display: -0.02em;
+  --tracking-heading: -0.02em;
   --tracking-body: 0em;
 
-  --leading-display: 1.08;
+  /* Leading: 1.7 for prose, 1.5 for UI, and near-solid for display.
+     Persian needs more leading than Latin at the same size — the descenders of «ج» and
+     «ی» reach into the line below — so prose sits at 1.7. UI text is short, dense and
+     read in fragments rather than in paragraphs, and 1.7 there just spreads a table over
+     an extra screen; it sits at 1.5. */
+  --leading-display: 1.1;
   --leading-heading: 1.2;
-  --leading-body: 1.65;
+  --leading-body: 1.7;
+  --leading-ui: 1.5;
 
   /* --- shape --------------------------------------------------------------- */
   --radius-pill: 9999px;

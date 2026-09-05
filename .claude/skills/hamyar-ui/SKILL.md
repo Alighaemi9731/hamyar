@@ -92,14 +92,33 @@ pre-paint in `app.blade.php`.
   print sheet via `useReportView`. Inventing a surface needs a reason in the file.
 - `Card` has no `tone` — a toned callout is a notice, not a card. No nested cards.
 
-## Typography
+## Typography — the pairing is closed
 
-Families and scale live in `brand.css` (`--font-display`, `--font-sans`, 12…72 scale,
-`--tracking-display`, `--leading-display`). Rules that survive any pairing: display weight
-600–700 (never 800 by default); headings tighten tracking as they grow; body ≥ 16px with
-Persian leading (≈1.7–1.8 prose, 1.5 in dense tables); `tabular-nums` on every figure;
-`font-display` only on `h1` and headline figures. **Never SF Pro, never a font the repo does
-not self-host.**
+**Two families. Estedad for display, Vazirmatn for everything else.** Owner's instruction
+2026-09-05; ADR 0020's amendment records it and `docs/design-system.md` §Typography carries
+the numbers. Do not propose a third, and do not re-open the pairing — it has now been
+decided twice.
+
+| role | face | weights | leading |
+|---|---|---|---|
+| display / headings | Estedad | 700, 800 | 1.1, tracking `-0.02em` at large sizes |
+| body / UI | Vazirmatn | 400, 500 (600 to emphasise) | 1.7 prose, 1.5 UI |
+| money | Vazirmatn + `tabular-nums` | — | every figure, column and invoice line |
+
+Working rules:
+
+- **Never write `font-family`.** Two tokens carry it — `--font-display`, `--font-sans` in
+  `brand.css` — and `font-display` is the only class that reaches the first. A hardcoded
+  family has shipped here before and rendered a whole surface in the system font.
+- **Never write a weight the subset does not contain.** `bin/subset-fonts` pins each
+  family's axis to the table above; `font-extrabold` on the body stack renders 500 and a
+  synthesised bold, not 800.
+- `font-display` on `h1`, section heads and headline figures. Not on a label, not on a
+  button, never inside a table row.
+- **14px is the floor below 640px** — the two smallest scale steps collapse to it, and the
+  desktop steps return at `sm`. Never set a literal `text-[12px]` on a phone view.
+- Landing display sizing engages at `min-width: 1280px` only.
+- **Never SF Pro, never a font the repo does not self-host, never a font CDN.**
 
 ## How the global design tooling is used here
 

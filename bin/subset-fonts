@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Subset the shipped fonts to what this product actually renders.
+
+Two passes, and the first is the one that pays:
+
+1.  **Pin the weight axis.** These are variable fonts spanning 100-900. The pairing uses
+    Estedad at 700-800 and Vazirmatn at 400-600 and nothing else (ADR 0020), so the rest
+    of the axis is bytes nobody can ever see. `instantiateVariableFont` with a range
+    keeps the file variable across the weights we use and drops the deltas outside it.
+
+2.  **Cut the codepoints.** Persian, Latin basic, the digits of both, the punctuation
+    Persian actually uses, and the ZWNJ this language cannot be written without.
+
+Run from the repo root. Prints the before/after for every file, because "subset
+aggressively" is a claim that needs a number beside it.
+
+    python3 bin/subset-fonts
+
+The sources are the Fontsource distributions committed under `resources/fonts/src/`.
+Outputs land beside them, and both are committed: a build that fetches fonts is a build
+that fails the day a CDN does.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+from fontTools import subset
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+
+ROOT = Path(__file__).resolve().parent.parent
+FONTS = ROOT / "resources" / "fonts"
+
+# What Persian needs, and nothing else.
+#
+#   0600-06FF  Arabic block: Persian letters, Persian digits ۰-۹, «٬» the thousands
+#              separator, «ٔ» the ezafe hamza.
+#   0750-077F  Arabic Supplement — a handful of forms Persian text still hits.
+#   FB50-FDFF  Presentation Forms-A, FE70-FEFF Forms-B: pre-composed ligatures some
+#              older documents and pasted text carry.
+#   200C-200F  ZWNJ and the direction marks. Persian is unwritable without ZWNJ.
+#   2010-2019  dashes and quotes; 2026 the ellipsis; 20AC the euro sign.
+#   0000-00FF  Latin-1: the Latin alphabet, the ASCII digits, and the punctuation an
+#              IMEI, a phone number and a document code are made of.
+UNICODES = (
+    "U+0000-00FF,U+0131,U+0152-0153,"
+    "U+0600-06FF,U+0750-077F,U+08A0-08FF,"
+    "U+200C-200F,U+2010-2019,U+201C-201D,U+2026,U+2039-203A,U+20AC,"
+    "U+2212,U+2190-2193,U+FB50-FDFF,U+FE70-FEFF"
+)
+
+# The weights each family is allowed to render, from ADR 0020's pairing.
+PLAN = {
+    "estedad-arabic-wght-normal": (700, 800),
+    "estedad-latin-wght-normal": (700, 800),
+    "vazirmatn-arabic-wght-normal": (400, 600),
+    "vazirmatn-latin-wght-normal": (400, 600),
+    "inter-latin-wght-normal": (400, 600),
+}
+
+
+def kb(path: Path) -> float:
+    return os.path.getsize(path) / 1024
+
+
+def process(name: str, low: int, high: int) -> tuple[float, float] | None:
+    src = FONTS / "src" / f"{name}.woff2"
+    out = FONTS / f"{name}.woff2"
+
+    if not src.exists():
+        print(f"  !! missing source {src.relative_to(ROOT)}", file=sys.stderr)
+        return None
+
+    before = kb(src)
+    font = TTFont(src)
+
+    # Codepoints first, THEN the axis.
+    #
+    # The other order crashes: `instantiateVariableFont` rebuilds `gvar` keyed by glyph
+    # name, and subsetting afterwards asks it for glyphs the instancer had already
+    # dropped — `KeyError: afii57596` on Vazirmatn, from a legacy glyph name that
+    # survives in `gvar` but not in the instanced set. Cutting first means the instancer
+    # only ever sees glyphs that exist, and the result is byte-identical either way.
+    options = subset.Options()
+    options.flavor = "woff2"
+    options.layout_features = ["*"]        # Arabic is unreadable without its shaping
+    options.name_IDs = ["*"]
+    options.notdef_outline = True
+    options.recalc_bounds = True
+    options.drop_tables += ["DSIG"]
+
+    subsetter = subset.Subsetter(options=options)
+    subsetter.populate(unicodes=subset.parse_unicodes(UNICODES))
+    subsetter.subset(font)
+
+    if "fvar" in font:
+        axes: dict[str, object] = {"wght": (low, high)}
+
+        # Inter also carries `opsz`. Nothing here selects an optical size, so pinning it
+        # to the text end keeps one design instead of shipping a range no rule asks for.
+        if any(a.axisTag == "opsz" for a in font["fvar"].axes):
+            axes["opsz"] = 16
+
+        font = instantiateVariableFont(font, axes, updateFontNames=False)
+
+    font.flavor = "woff2"
+    font.save(out)
+
+    return before, kb(out)
+
+
+def main() -> int:
+    total_before = total_after = 0.0
+    print(f"\n  weight axis pinned per family; codepoints cut to Persian + Latin basic\n")
+    print(f"  {'file':38s} {'before':>9s} {'after':>9s} {'saved':>8s}")
+    print(f"  {'-' * 38} {'-' * 9} {'-' * 9} {'-' * 8}")
+
+    for name, (low, high) in PLAN.items():
+        result = process(name, low, high)
+
+        if result is None:
+            continue
+
+        before, after = result
+        total_before += before
+        total_after += after
+        print(f"  {name:38s} {before:8.1f}K {after:8.1f}K {100 - after / before * 100:7.0f}%")
+
+    print(f"  {'-' * 38} {'-' * 9} {'-' * 9} {'-' * 8}")
+    print(f"  {'total':38s} {total_before:8.1f}K {total_after:8.1f}K "
+          f"{100 - total_after / total_before * 100:7.0f}%\n")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
