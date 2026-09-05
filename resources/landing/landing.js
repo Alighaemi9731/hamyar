@@ -67,18 +67,41 @@ if (faq) {
 /*
  | Password show/hide on the auth pages.
  |
- | The button is `type="button"` in the markup so that with this file absent it is inert
- | rather than submitting the form — a reveal toggle that posts your half-typed password
- | is the failure worth designing against.
+ | ## What this used to do, and why it read as broken
+ |
+ | It flipped `input.type` and swapped `aria-label`, and that was all. The icon was one
+ | static open eye, so nothing on the screen changed except the field's own contents —
+ | which means that over an EMPTY field, which is how anybody reviewing a form presses a
+ | button for the first time, pressing it did nothing observable whatsoever. Reported by
+ | the owner on 2026-09-05 as a button that does not work, and fairly.
+ |
+ | Now the button owns a state: `aria-pressed` says whether the password is showing, CSS
+ | draws the matching icon off that attribute, and the label comes from the markup rather
+ | than from two Persian string literals in a script — Persian copy belongs in the view.
+ |
+ | ## Why it is hidden until this runs
+ |
+ | The markup ships it `hidden` and the line below is what reveals it, so a control that
+ | cannot work is absent rather than inert. `type="button"` stays regardless: with this
+ | file gone AND the attribute wrong, the eye would submit a half-typed password.
  */
 
 for (const button of document.querySelectorAll('[data-reveal]')) {
+  const input = document.getElementById(button.dataset.reveal);
+  if (!input) continue;
+
+  button.hidden = false;
+
   button.addEventListener('click', () => {
-    const input = document.getElementById(button.dataset.reveal);
-    if (!input) return;
-    const shown = input.type === 'text';
+    const shown = input.type !== 'password';
     input.type = shown ? 'password' : 'text';
-    button.setAttribute('aria-label', shown ? 'نمایش رمز عبور' : 'پنهان کردن رمز عبور');
+    button.setAttribute('aria-pressed', String(!shown));
+    button.setAttribute(
+      'aria-label',
+      (shown ? button.dataset.labelShow : button.dataset.labelHide) ?? button.getAttribute('aria-label'),
+    );
+    // Focus deliberately stays on the button. Sending it to the input would mean a
+    // keyboard user could not press the same control again to hide what they just showed.
   });
 }
 
@@ -207,23 +230,48 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
  */
 const securityRefresh = document.querySelector('[data-security-refresh]');
 const securityImage = document.querySelector('[data-security-image]');
+const securityStatus = document.querySelector('[data-security-status]');
+const securityField = document.getElementById('security_code');
 
 if (securityRefresh && securityImage) {
   securityRefresh.addEventListener('click', async () => {
     securityRefresh.disabled = true;
 
     try {
-      const response = await fetch('/login/security-code', {
+      const response = await fetch(securityRefresh.dataset.securityRefresh, {
         headers: { Accept: 'image/svg+xml' },
         credentials: 'same-origin',
       });
 
-      if (response.ok) {
-        securityImage.innerHTML = await response.text();
-        document.getElementById('security_code')?.focus();
+      if (!response.ok) {
+        // Throttled (the endpoint allows 30 a minute) or offline. Say so, because the
+        // drawing on screen is still the valid one and the visitor needs to know that
+        // rather than to keep pressing a button that appears to do nothing.
+        announce('کد تازه‌ای گرفته نشد. همان کد روی صفحه معتبر است.');
+        return;
       }
+
+      securityImage.innerHTML = await response.text();
+
+      // The answer on screen is now a different one, so whatever was typed is wrong.
+      if (securityField) securityField.value = '';
+      securityField?.focus();
+      announce('کد امنیتی تازه‌ای نشان داده شد.');
+    } catch {
+      announce('کد تازه‌ای گرفته نشد. همان کد روی صفحه معتبر است.');
     } finally {
       securityRefresh.disabled = false;
     }
   });
+}
+
+/*
+ | The swap has no sound and, to a screen reader, no visible change either: the drawing is
+ | one `role="img"` whose name does not change when its contents do. The live region is the
+ | only thing that reports it. Persian copy stays out of this file where it can — these two
+ | are the exception, because they describe an outcome the markup cannot know in advance.
+ */
+function announce(message) {
+  if (!securityStatus) return;
+  securityStatus.textContent = message;
 }

@@ -26,40 +26,64 @@
 
             <div class="auth__field">
                 <label for="password" class="auth__sr">رمز عبور</label>
-                <input id="password" name="password" type="password" class="auth__input auth__input--ltr"
+                <input id="password" name="password" type="password"
+                       class="auth__input auth__input--ltr auth__input--reveal"
                        placeholder="رمز عبور" required autocomplete="current-password"
                        @error('password') aria-invalid="true" @enderror>
-                <button type="button" class="auth__reveal" data-reveal="password" aria-label="نمایش رمز عبور">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
-                </button>
+                @include('auth.reveal', ['field' => 'password'])
             </div>
 
             {{--
-                The security code: the drawing, a refresh control, and the field, in one
-                row — the shape of the reference the owner picked.
+                The «کد امنیتی» row: the field, the drawing, a fresh-code button.
+
+                ## The order, and why it is this one
+
+                Field first. In RTL the first child of the row sits at the reading start,
+                so a person meets the box they type into before the picture and the button
+                — and the tab order follows, which it did not until 2026-09-05: tabbing out
+                of the password landed on «کد امنیتی تازه» and only then on the field, so
+                the first thing a keyboard reached was the control that throws the code away.
+
+                ## Three boxes, not one
+
+                Each of the three is its own 3.5rem control, matching the fields above it.
+                They used to share a single bordered row with the drawing sunk into it as a
+                grey lozenge — a box inside a box, at a third height, which read as a
+                rendering fault rather than a control.
 
                 The drawing is server-generated SVG, not a third-party widget: reCAPTCHA
                 and hCaptcha are served from hosts that are slow or blocked from Iran, and
                 the one screen a shopkeeper cannot get past without is the last place to
-                put a foreign network dependency. See `App\Support\SecurityCode`.
+                put a foreign network dependency. See `App\Support\SecurityCode` — which
+                also says why its glyphs are paths and not text.
             --}}
-            <div class="auth__field auth__code">
-                <button type="button" class="auth__code-refresh" data-security-refresh
-                        aria-label="کد امنیتی تازه">
+            <div class="auth__code">
+                <div class="auth__field auth__code-entry">
+                    <label for="security_code" class="auth__sr">کد امنیتی</label>
+                    <input id="security_code" name="security_code" class="auth__input auth__input--ltr"
+                           placeholder="کد امنیتی" required autocomplete="off" inputmode="latin"
+                           maxlength="5" spellcheck="false" autocapitalize="characters"
+                           @error('security_code') aria-invalid="true" @enderror>
+                </div>
+
+                <span class="auth__code-image" data-security-image>{!! $securityCode !!}</span>
+
+                {{-- The endpoint travels on the attribute rather than as a path in the
+                     bundle: `route()` resolves the apex from config, and rule 1b wants no
+                     URL of ours written by hand anywhere, script included. --}}
+                <button type="button" class="auth__code-refresh"
+                        data-security-refresh="{{ route('login.security-code') }}"
+                        aria-label="کد امنیتی تازه" title="کد امنیتی تازه">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/>
                         <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>
                     </svg>
                 </button>
-
-                <span class="auth__code-image" data-security-image>{!! $securityCode !!}</span>
-
-                <label for="security_code" class="auth__sr">کد امنیتی</label>
-                <input id="security_code" name="security_code" class="auth__input auth__input--ltr"
-                       placeholder="کد امنیتی" required autocomplete="off" inputmode="latin"
-                       maxlength="5" @error('security_code') aria-invalid="true" @enderror>
             </div>
+
+            {{-- The swap is silent on screen, so it is announced. Empty until it happens. --}}
+            <p class="auth__sr" role="status" aria-live="polite" data-security-status></p>
         </div>
 
         <div class="auth__row">

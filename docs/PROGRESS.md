@@ -3979,3 +3979,35 @@ was a notification bell for a module that sends messages. «خزانه‌دار�
 desk that also holds the card terminal and the bank. The nine that were already right were
 left alone. `ShellTest` now measures that every rail row keeps its tile and that exactly one
 is marked, next to the assertions that every link keeps its name.
+
+## 2026-09-05 — the sign-in security code, rebuilt; the password toggle given a state
+
+Four things the owner asked for on the auth pages, against the sign-in they picked out.
+
+**The «کد امنیتی» block.** Rebuilt, and the reason it needed rebuilding was not only that it
+looked wrong. The drawing set its characters with SVG `<text>`, so
+`document.querySelector('[data-security-image]').textContent` returned the answer — a captcha
+solved by reading the page, in front of the only door the product has. The test that was
+supposed to catch this passed, because the code never appears as one contiguous string in the
+markup. Glyphs are `<path>` outlines now, from a hand-authored stroked alphabet, and the test
+asserts what a scraper would: strip the tags and nothing is left. Visually it was a 44px grey
+lozenge and a 36px borderless button nested inside a 58px frame, with the field last in both
+reading and tab order — so the first thing a keyboard reached was the control that throws the
+code away. It is three peer controls at 3.5rem now, field first.
+
+**The reassurance line** under the form («ارتباط رمزگذاری‌شده — …») is gone, at the owner's
+instruction, with the styles only it used.
+
+**The password toggle** was reported as not working and was half working: the click flipped
+`type`, but one static eye and no `aria-pressed` meant that over an empty field nothing on the
+screen changed at all. Two icons swapped by CSS off `aria-pressed`, a pressed colour, a 40px
+target, both labels in the markup, and the button ships `hidden` until the script binds it —
+a control that cannot work is now absent rather than inert. One partial, `auth/reveal.blade.php`,
+replaces three copies; the sign-up page's two eyes had shared one `aria-label`.
+
+Taken from `~/Desktop/invoice_system`: the row order (field, drawing, refresh), three separate
+frames at one height, the forced light ground under the drawing, and the icon that changes with
+the state. Not taken: MUI, the glass treatment, and the `data:` PNG — the SVG needs no GD, no
+FreeType and no font file, which is why it survives on a box where those are missing.
+
+New scars in `docs/lessons.md`. Nothing shipped — there is still no production server. (#154)

@@ -50,6 +50,73 @@ it('draws a code on the sign-in page and remembers it for that session', functio
     $response->assertDontSee($code, false);
 });
 
+/*
+| The assertion this file existed without until 2026-09-05.
+|
+| The drawing used to set each character with an SVG `<text>` element. `assertDontSee`
+| above passed — the five characters are separated by markup, so the code never appears
+| as one contiguous string — while `textContent` on the drawing returned it whole:
+|
+|     document.querySelector('[data-security-image]').textContent   // "WW6CA"
+|
+| A green test, and a captcha any script solved by reading the page it had just fetched.
+| So the property is stated the way a scraper would test it: strip the tags and there must
+| be nothing left to read.
+*/
+it('puts no readable text in the drawing at all', function (): void {
+    $svg = app(SecurityCode::class)->render();
+    $code = session(SecurityCode::SESSION_KEY);
+
+    expect($svg)->toContain('<svg')
+        ->and($svg)->not->toContain('<text')
+        ->and($svg)->not->toContain('<tspan')
+        // What `textContent` returns. Attributes are not text nodes, so `aria-label` and
+        // the path data survive stripping only as markup — this is the visitor-visible
+        // string, and it has to be empty.
+        ->and(trim(strip_tags($svg)))->toBe('');
+
+    /*
+    | And the answer is not hiding in an attribute either.
+    |
+    | The `d` attributes are removed before looking, because those ARE the picture — the
+    | geometry is what a person reads with their eyes and what an attacker would have to
+    | rasterise. Everything else is metadata a scraper gets for free, and the code must
+    | not be in any of it. Stripping them also keeps this deterministic: path data is a
+    | long run of digits and the letters `MCLHVAQTZ`, so a bare `toContain` on the whole
+    | document could match an all-digit code by coincidence and flake once a year.
+    */
+    $metadata = (string) preg_replace('/\sd="[^"]*"/', '', $svg);
+
+    expect($metadata)->not->toContain($code);
+});
+
+it('draws every character of the alphabet, and only from paths', function (): void {
+    $reflection = new ReflectionClass(SecurityCode::class);
+
+    /** @var array<string, string> $glyphs */
+    $glyphs = $reflection->getConstant('GLYPHS');
+    /** @var string $alphabet */
+    $alphabet = $reflection->getConstant('ALPHABET');
+
+    expect(array_keys($glyphs))->toEqualCanonicalizing(str_split($alphabet));
+
+    // A glyph whose path is malformed renders as nothing, and a code with an invisible
+    // character is one a shopkeeper cannot answer. Only the SVG path grammar is allowed.
+    foreach ($glyphs as $character => $path) {
+        expect($path)->toMatch('/^[MmLlHhVvCcSsQqTtAaZz0-9 .,\-]+$/', "Glyph {$character} is not a path.");
+    }
+});
+
+it('draws one path per character of the code', function (): void {
+    $svg = app(SecurityCode::class)->render();
+
+    // The glyph group is the last one; everything before it is noise. Counting the whole
+    // document would count the noise too and pass on a drawing with no letters in it.
+    $glyphGroup = substr($svg, (int) strrpos($svg, '<g '));
+
+    expect(substr_count($glyphGroup, '<path'))->toBe(5);
+});
+
 it('refuses a sign-in with no code, with a wrong code, and with the wrong case-free match', function (string $answer): void {
     $this->withSession([SecurityCode::SESSION_KEY => 'HAMYR'])
         ->post($this->url.'/login', [
