@@ -629,7 +629,10 @@ h3 {
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  min-block-size: 2.25rem;
+  /* 40px, the interactive floor. These were 2.25rem — 36px — which is how the four most
+     used links on the page sat under a floor #125 established for exactly this class of
+     control. The pill around them is the hit area, so the number here IS the target. */
+  min-block-size: 2.5rem;
   padding-inline: 0.875rem;
   border-radius: 9999px;
   transition: color 160ms ease, background-color 160ms ease;
