@@ -4123,3 +4123,34 @@ the password-reveal control and for the reverse reason: the recovery field needs
 so the script tidies a working page rather than switching on a dead control. It also clears
 the hidden field, because `required_without` is satisfied by either key and a half-typed
 code left behind the switch would be the one the server checked.
+
+## 1404-06-15 (2026-09-05) — 16.3 closes, and a lockout on the recovery path (16.3)
+
+The last four auth screens left React for the Blade layout (#166), so all six now render on
+one skin: a shopkeeper who clicks «فراموشی رمز عبور» from the sign-in page no longer watches
+the design change mid-flow, which was diagnosis item 6 of the whole programme. The React
+pages and `layouts/auth-layout.tsx` are deleted. `AuthFormErrorsTest` exists at last — the
+roadmap has asked for it since the phase opened, and it states the invariant
+`bin/check-form-errors` protects: post a failure whose key the form does not place, and the
+message must still be visible.
+
+**`TwoFactorController::verify` was not normalising Persian digits, and the recovery path
+was a real lockout.** `TwoFactorService::verify()` had always run `Digits::toLatin` on the
+TOTP code, so that half was safe. Nothing did it for the recovery code — which is generated
+as two random alphanumeric halves, so most of them contain digits, and
+`consumeRecoveryCode()` compares with `hash_equals` after no normalisation at all. A code
+typed on an Iranian keyboard would simply never match, on the exact screen somebody reaches
+because they have already lost their authenticator. Both values are normalised in the
+controller now, before the branch that decides which factor is being offered.
+
+The landing's copy moved to `lang/fa/landing.php` (#167) — 263 keys, nested by section,
+seven `_html` keys documented one by one. Verified as a move rather than a rewrite: with
+tag-adjacent whitespace normalised the rendered page is byte-identical at 49,477 characters,
+and with all markup stripped the visible text is identical at 8,515. Nothing computed moved
+— plan prices still come from `plans`, the contact address from `config('app.domain')`, the
+year from `jalali(now())`.
+
+Sections 1–4 and 5–8 are ticked on the evidence rather than on intent: `.mesh` was already
+deleted, the IMEI section's unusual head is a documented deliberate exception, and the
+closing band's composition is deliberate — its last v1 leftover was the retired symbol,
+which went in #156. (#166, #167)

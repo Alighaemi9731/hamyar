@@ -2268,15 +2268,25 @@ consent · fonts: free OFL faces chosen by a rendered type test; a FontIran web 
       copy notes, pilot-shop wording → ADR 0020, ADR 0021, direction contract, PRODUCT.md
 
 ### 16.3 Landing v2 + auth
-- [ ] Sections 1–4 on the named-line page grid (hero product composition, proof strip, bento
-      tour, IMEI passport centrepiece); old CSS deleted; skip link CSS-only (PR 3.1)
+- [x] Sections 1–4 on the named-line page grid (hero product composition, proof strip, bento
+      tour, IMEI passport centrepiece); old CSS deleted; skip link CSS-only (PR 3.1) —
+      #147 and #148. The hero is the product in a frame with three floating cards; the proof
+      strip had no stylesheet at all until #147; the IMEI section opens on a serial-first
+      lockup, which is a documented deliberate exception to the shared section head. The
+      `.mesh` overlay is deleted (a tombstone comment in `landing.css` records why) and the
+      skip link is CSS-only, its inline handlers having been refused by the nonce-only CSP
 - [ ] Sections 5–8 + SEO: modules, pricing, FAQ, closing, footer, legal; favicon/og/JSON-LD;
       `sitemap.xml` + `robots.txt` routes + nginx `try_files` (PR 3.2) — **the SEO half is
       done** (#153): both files are routes built from `config('app.domain')`, the four
       capability paths are disallowed where the old static file allowed everything, and the
       landing carries Organization + SoftwareApplication with offers read from `plans`, plus
-      FAQPage beside the questions. Pricing and FAQ landed in #149. **Still open: the
-      closing band, which carries v1's composition.**
+      FAQPage beside the questions. Pricing and FAQ landed in #149. The closing band is
+      done too: its composition is deliberate and documented (one navy tail in two includes,
+      so the CTA stays inside `<main>` while the footer is a real `contentinfo`), and the
+      last v1 leftover in it — the retired symbol beside «همیار» set as text — went in #156
+      along with the same defect on the legal pages and the og:image. Copy moved to
+      `lang/fa/landing.php` in #167, proven byte-identical once tag-adjacent whitespace is
+      normalised.
 - [x] All six auth screens on Blade over one layout; React auth pages deleted;
       `lang/fa/auth.php`; `AuthFormErrorsTest` (PR 3.3, 2026-09-05) — forgot password, reset
       password, the 2FA challenge and accepting an invitation join login and register on
