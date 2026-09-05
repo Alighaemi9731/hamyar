@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Filament\Resources\Plans\Pages\EditPlan;
 use App\Filament\Resources\Plans\Schemas\PlanForm;
+use App\Filament\Widgets\QuotaPressure;
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Models\Announcement;
 use App\Modules\Platform\Models\Plan;
@@ -316,4 +317,47 @@ it('hides an announcement outside its window', function (): void {
     $this->actingAs($user)
         ->get(appUrl().'/dashboard')
         ->assertInertia(fn ($page) => $page->has('announcements', 0));
+});
+
+/* ------------------------------------------------------ the panel renders -- */
+
+/**
+ * The dashboard, actually rendered.
+ *
+ * ## Why this exists
+ *
+ * `QuotaPressure` threw a 500 on every load and shipped that way. Nothing in 1,200 tests
+ * noticed, because nothing had ever rendered this page: the suite asserted access control
+ * (who may reach `/admin`) and resource forms, and never once asked whether the thing a
+ * platform admin sees when they sign in comes back at all.
+ *
+ * It failed on `order by "usage_events"."id"` against a `group by metric` — Filament
+ * appends the record key as a tiebreaker, and Postgres refuses a bare column there. Being
+ * a *widget*, the exception surfaced as a full-screen overlay across the panel rather than
+ * as one broken card, so the whole thing was unusable.
+ *
+ * A 200 on this page is a weak-looking assertion that would have caught it on day one.
+ */
+it('renders the platform dashboard shell', function (): void {
+    $this->actingAs($this->staff, 'platform')
+        ->get($this->admin)
+        ->assertOk();
+});
+
+/**
+ * The widget, actually executed — and this is the assertion that has teeth.
+ *
+ * A plain `GET /admin` does **not** cover it. Filament loads widgets lazily over
+ * Livewire, so the page shell comes back 200 while the widget's query has not run yet;
+ * the test above passes with the bug fully present. That was checked by putting the bug
+ * back, not assumed — and it is the trap `docs/testing.md` calls green without witness.
+ *
+ * No fixture rows on purpose. The failure is in the ORDER BY, which Postgres rejects when
+ * it plans the statement, so an empty table reproduces it exactly. Seeding would add a
+ * tenancy dance that has nothing to do with what is being tested.
+ */
+it('runs the quota-pressure widget query without Postgres refusing it', function (): void {
+    Livewire::actingAs($this->staff, 'platform')
+        ->test(QuotaPressure::class)
+        ->assertOk();
 });
