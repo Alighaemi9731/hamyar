@@ -140,8 +140,11 @@ What that settles, and what it deliberately does not:
   ADR of its own, and a decision the owner has not been asked for. It is recorded here
   only so the question stays visible.
 - **8.87 : 1 is a layout fact, not a detail.** The retired wordmark was 6.5 : 1. Every
-  consumer sizes the mark by height, so each one got 36% wider; the collapsed 4rem app
-  rail could no longer hold it and now shows the H alone, the same letter as the favicon.
+  consumer sizes the mark by height, so each one got 36% wider. The collapsed 4rem app
+  rail never actually held a wordmark — 14px tall was already 91px in a 64px box — and at
+  124px the overflow stopped being deniable, so it shows the H alone now, the same letter
+  as the favicon. Which is the honest fix rather than the forced one: six letters do not
+  go in a rail at any ratio.
 
 ## Consequences
 

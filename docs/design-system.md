@@ -183,8 +183,9 @@ system font.
   fit lines, circular arcs and — only where the design genuinely eases, at the Y's two
   arm-to-stem joins — cubics to those numbers; then hand-author the path data. Verified by
   rendering the result at the source's exact pixel size and compositing: **99.2%
-  intersection-over-union**. A bitmap tracer was tried and rejected: thousands of noisy
-  points, mush at 16px, and nothing anyone could edit afterwards.
+  intersection-over-union**. A bitmap tracer was ruled out before starting rather than
+  compared against: its output is thousands of noisy points, mush at 16px, and nothing
+  anyone can edit afterwards — none of which a good overlay score would have excused.
 - **Two deliberate departures from the source**, both sub-pixel at any size we use: one A
   is drawn once and placed twice (the source's second is ~2.4% wider — drawing noise, and
   two different A's in one word is a defect); and the mark is squared to its own bounding
