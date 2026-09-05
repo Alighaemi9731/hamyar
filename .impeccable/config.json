@@ -124,6 +124,11 @@
         ],
         "createdAt": "2026-09-04T09:01:05.263Z",
         "reason": "Agent: gate 16.2 direction comps are replacement-world candidates from the direction roll (seed fd28c358); DESIGN.md documents the incumbent world they replace. Disposable, local-only routes."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-05T12:27:33.015Z"
       }
     ]
   }
