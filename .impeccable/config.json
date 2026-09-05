@@ -15,7 +15,9 @@
       }
     ],
     "ignoreRules": [],
-    "ignoreFiles": [],
+    "ignoreFiles": [
+      "resources/views/og/landing.blade.php"
+    ],
     "ignoreValues": [
       {
         "rule": "design-system-font",

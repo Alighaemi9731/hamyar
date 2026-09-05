@@ -137,14 +137,24 @@
     <div class="signoff signoff--tail">
         <footer class="shell signoff__foot">
             <div class="signoff__brand">
-                <span class="signoff__brand__name">
-                    {{-- Same mark as the nav, drawn for a dark ground: the body inherits
-                         `currentColor` (white) and only the accent stroke is stated. --}}
-                    <svg class="signoff__mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                        <rect x="6.5" y="2.5" width="19" height="27" rx="4" stroke="currentColor" stroke-width="2"/>
-                        <path class="signoff__mark__lit" d="M12 24.5h8" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    همیار
+                {{--
+                    The same wordmark the nav signs with, and no second logo.
+
+                    This carried the retired symbol — a handset outline in a rounded
+                    rectangle — beside «همیار» set as text, so the page opened with one
+                    logo and closed with a different one. The owner retired that symbol on
+                    2026-09-04 («لوگو فعلی سامانمون خوب نیست؛ همین اسم سامانه کافی است») and
+                    the nav changed the same day; this did not, which is how a page ends up
+                    disagreeing with itself about what it is called.
+
+                    `$wordmark` is read once in `landing.blade.php` and inherited here —
+                    this partial is included twice per request and re-reading the file for
+                    a half that does not use it would be two disk reads for one logo. It
+                    is outlines inheriting `currentColor`, so white on this navy ground
+                    costs nothing but the inherited colour.
+                --}}
+                <span class="signoff__brand__name" aria-label="همیار">
+                    {!! $wordmark !!}
                 </span>
 
                 <p>

@@ -21,9 +21,15 @@
         body { background: var(--color-page); color: var(--color-navy); font-family: var(--font-sans); }
         .og { position: relative; width: 1200px; height: 630px; }
         .og__copy { position: absolute; inset-block: 0; inset-inline-start: 0; width: 640px; padding: 72px 72px 64px; display: flex; flex-direction: column; justify-content: space-between; }
-        .og__brand { display: flex; align-items: center; gap: 16px; font-family: var(--font-display); font-weight: 700; font-size: 34px; letter-spacing: -0.01em; }
-        .og__brand svg { width: 52px; height: 52px; }
-        .og__title { font-family: var(--font-display); font-weight: 600; font-size: 60px; line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+        /* Height only. The old rule was `width: 52px; height: 52px` — right for the square
+           symbol that used to sit here, and a squashed wordmark now that a 6.5:1 drawing
+           does. Sizing a logo by one axis is the rule everywhere it appears. */
+        .og__brand { display: flex; align-items: center; color: var(--color-accent); }
+        .og__brand svg { height: 46px; width: auto; }
+        /* 800, not the 600 this asked for: Estedad ships 700 and 800 and nothing between
+           (ADR 0020 amendment), so 600 was being snapped or synthesised on the one image
+           that represents this product in every link unfurl. */
+        .og__title { font-family: var(--font-display); font-weight: 800; font-size: 60px; line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
         .og__lede { font-size: 24px; line-height: 1.6; color: var(--color-navy-soft); margin: 20px 0 0; }
         .og__domain { font-size: 22px; color: var(--color-navy-mute); font-variant-numeric: tabular-nums; }
         .og__domain b { color: var(--color-accent); font-weight: 600; }
@@ -35,9 +41,20 @@
 <body>
 <div class="og">
     <div class="og__copy">
+        {{--
+            The wordmark, and nothing beside it.
+
+            This showed the retired symbol next to «سامانه همیار» set as text — so the card
+            that represents this product in every Telegram, WhatsApp and Twitter unfurl was
+            the last place still advertising a logo the owner dropped on 2026-09-04. It is
+            also the surface nobody on the team ever looks at, which is why it outlived the
+            symbol everywhere else.
+
+            Re-render with `bin/shots og` after touching this file, or the PNG on disk keeps
+            the old card and the change is invisible where it matters.
+        --}}
         <div class="og__brand">
-            {!! file_get_contents(resource_path('brand/mark-c.svg')) !!}
-            <span>سامانه همیار</span>
+            {!! file_get_contents(resource_path('brand/wordmark.svg')) !!}
         </div>
         <div>
             <h1 class="og__title">همهٔ کارِ فروشگاه موبایل، در یک سامانه</h1>

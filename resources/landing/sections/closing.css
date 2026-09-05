@@ -178,25 +178,30 @@
   }
 }
 
+/*
+  The wordmark, sized by height and nothing else.
+
+  It was a symbol beside «همیار» set in the display face at 20px/800 — a type treatment
+  standing in for a logo, which is what the nav also did before it was given the real
+  file. Now both ends of the page inline the same outlines.
+
+  `inline-size: auto` on the child is the whole sizing rule: the file states a viewBox and
+  no dimensions, so declaring only the height lets it keep its own ratio whatever that
+  ratio becomes. Constraining the width instead would squash it the first time the mark is
+  redrawn at a different proportion.
+
+  Slightly larger than the nav's, because this one sits alone above a paragraph rather
+  than in a row of controls, and a signature at the foot of a page is allowed to be read.
+*/
 .signoff__brand__name {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  letter-spacing: -0.02em;
   color: var(--color-on-dark);
 }
 
-.signoff__mark {
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
-  flex: none;
-}
-
-.signoff__mark__lit {
-  stroke: var(--color-accent-lit);
+.signoff__brand__name > svg {
+  block-size: 1.5rem;
+  inline-size: auto;
 }
 
 .signoff__brand p {
