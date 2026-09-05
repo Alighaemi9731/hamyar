@@ -28,14 +28,14 @@
     <meta name="twitter:description" content="فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — در یک سامانه.">
     <meta name="twitter:image" content="{{ Vite::asset('resources/landing/og/og.png') }}">
 
-    {{-- The two weights the fold paints with — the heading and the text — requested
-         before the stylesheet parses. One family since ADR 0020, so this is 400 and 700
-         of it rather than two families. `crossorigin` is mandatory even same-origin or
-         the preload is discarded and the file fetched twice. --}}
+    {{-- The two faces the fold paints with: Estedad for the headline and Vazirmatn for
+         everything under it. Both are variable and weight-pinned, so two files cover
+         every weight the page uses. `crossorigin` is mandatory even same-origin or the
+         preload is discarded and the file fetched twice. --}}
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2') }}">
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/estedad-arabic-wght-normal.woff2') }}">
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2') }}">
+          href="{{ Illuminate\Support\Facades\Vite::asset('resources/fonts/vazirmatn-arabic-wght-normal.woff2') }}">
 
     @vite(['resources/landing/landing.css', 'resources/landing/landing.js'])
 </head>

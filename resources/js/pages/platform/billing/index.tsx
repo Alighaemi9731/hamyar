@@ -207,7 +207,7 @@ export default function Billing({
                 card". «ماهانه» goes to its own line with it, being a qualifier rather
                 than part of the figure.
               */}
-              <p className="mt-4 font-display text-2xl font-semibold tracking-tight">
+              <p className="mt-4 font-display text-2xl font-bold tracking-tight">
                 {plan.price.value === 0 ? (
                   'رایگان'
                 ) : (

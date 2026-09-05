@@ -20,11 +20,14 @@ export interface BrandMarkProps {
  *
  * ## Outlines, not text
  *
- * `resources/brand/wordmark.svg` holds HAMYAR converted from IBM Plex Sans Arabic Bold —
- * the product's own typeface (ADR 0020) — to paths, at +62/1000em tracking. Outlines
- * rather than `<text>`: it is crisp at any size, it cannot reflow, and it does not wait
- * for a webfont. Regenerate it rather than editing it by hand; the command is in
- * `docs/design-system.md`.
+ * `resources/brand/wordmark.svg` holds HAMYAR converted to paths from Outfit Bold, at
+ * +46/1000em tracking. Outlines rather than `<text>`: it is crisp at any size, it cannot
+ * reflow, and it does not wait for a webfont. Regenerate it rather than editing it by
+ * hand; the command is in `docs/design-system.md`.
+ *
+ * Outfit is not one of the two shipped families and never will be — it is a build-time
+ * input, used once to draw six letters, and no `@font-face` anywhere references it. The
+ * logo is a drawing; the pairing (Estedad + Vazirmatn, ADR 0020) governs text.
  *
  * It inherits `currentColor`, so the brand blue on white, the ink on a light band and
  * white on navy are all the same file.

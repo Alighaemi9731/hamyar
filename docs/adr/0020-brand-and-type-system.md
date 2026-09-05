@@ -80,6 +80,36 @@ between them, and the brand dot in the gap. `resources/brand/mark.svg` already h
 provisionally since #136; the gate confirms it. `components/brand-mark.tsx` is the only
 import site, so the pick was always a file swap.
 
+## Amendment, 2026-09-05 — the pairing is Estedad + Vazirmatn
+
+The owner reversed §2 the day after the gate, in an instruction that named the pairing,
+the weights, the leading and the digit rule outright: display **Estedad 700/800** at
+`-0.02em`, body **Vazirmatn 400/500** at 1.7 prose and 1.5 UI, financial figures
+Vazirmatn with `tabular-nums`, Latin fallback Inter then the system stack.
+
+**This is the pairing the gate replaced.** Candidate 1 on the 16.2 decision page was
+Estedad + Vazirmatn, and the owner picked 2 over it. That is worth stating plainly rather
+than quietly re-recording, because the next session that reads only this file would
+otherwise conclude the gate chose it. Nothing here argues the gate was wrong; the owner
+saw both rendered and changed their mind, which is what a gate is for.
+
+What actually changed under the reversal, beyond the family names:
+
+- **Two roles, two tokens.** §2's argument for one family — that an IMEI, a rial figure
+  and a Persian label share a row — still holds, and is why the split is display-only.
+  Estedad renders headings. It renders nothing inside a row.
+- **The weights are enforced by absence.** `bin/subset-fonts` pins each family's weight
+  axis to the range this pairing uses, so Estedad 400 and Vazirmatn 800 are not
+  discouraged, they are not in the file. A `font-weight` outside the table cannot render.
+- **IBM Plex Sans Arabic and Noto Kufi Arabic are deleted**, not retired in place —
+  files, `@font-face` rules, licences, and the gallery cards that rendered them. A
+  specimen card labelled with a family the browser cannot load renders in a fallback and
+  lies about which typeface the reader is looking at. The `/design` type section is a
+  specimen of the shipped pairing now, not a four-way comparison.
+- Total shipped type weight: **144KB across five files**, from 505KB of sources.
+
+`docs/design-system.md` §Typography carries the full rules and the measured numbers.
+
 ## Consequences
 
 - The change reached 76 pages without one page being edited. That is the whole argument
