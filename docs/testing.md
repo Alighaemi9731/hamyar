@@ -155,6 +155,46 @@ Only six journeys, because browser tests are slow and brittle:
 5. Installment sale → collection → early settlement
 6. Public repair tracking page (no login)
 
+#### A browser test cannot reach a domain-constrained route
+
+**This has now been re-derived three times** — once when `SmokeTest` was written, once by
+whoever tried to cover the sign-in page, and once more on 2026-09-05. It is written down
+here so it is the last time.
+
+Pest's HTTP server binds `127.0.0.1`, and `LaravelHttpServer::rewrite()` **discards the
+host of any absolute URL you pass to `visit()`**: it keeps the path and the query and
+rebuilds the URL against the server's own address. So `visit('http://app.localhost/login')`
+arrives as `Host: 127.0.0.1` exactly like `visit('/login')` does, and `withHost()` moves
+where the server *listens*, not what the page is fetched with.
+
+The consequence is a line down the middle of the routing table:
+
+| routes | reachable from a browser test? |
+|---|---|
+| `Route::middleware('tenant')` — `/dashboard`, the registers, the reports | **yes** |
+| `Route::domain(config('app.domain'))` — the landing, `/terms`, `/privacy` | no |
+| `Route::domain('app.'.config('app.domain'))` — all six auth screens | no |
+
+`SmokeTest` works because `/dashboard` is in the **tenant** group, which resolves by a
+`domains` row rather than by a route constraint — so the fixture gives its shop the
+hostname `127.0.0.1` and the real lookup succeeds. That trick cannot help a route-level
+`Route::domain()`, which is matched before any middleware runs.
+
+**So `tests/Browser/LandingTest.php` and a browser test for the sign-in page are not
+possible today**, and neither is a browser test for the password-reveal toggle. Do not
+write one and watch it 404; do not "fix" it by loosening a route's domain constraint,
+which would put the auth pages on every tenant subdomain.
+
+The one lever that would work is `APP_DOMAIN` in `phpunit.xml`: set to `127.0.0.1` the
+central group becomes reachable — but `app.127.0.0.1` still does not, so it would buy the
+landing and none of the auth screens, and it changes `appUrl()` for every feature test in
+the suite. That is a deliberate decision with a blast radius, not a tidy-up, and it has not
+been taken.
+
+Until it is, those pages are covered by feature tests against rendered output
+(`LandingSeoTest`, `SecurityCodeTest`, `PasswordRevealTest`, `StorefrontRenderTest`) plus a
+human with a browser.
+
 ---
 
 ## 3. Non-negotiables
