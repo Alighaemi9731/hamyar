@@ -364,11 +364,15 @@ function SidebarNav({
           <div key={section.label} className={cn(compact ? 'mb-2' : 'mb-4')}>
             {/* On the rail a section is a rule, not a word: there is no room for the
                 label and the grouping still reads. The group keeps its name for a
-                screen reader. */}
+                screen reader.
+
+                `px-2` matches the rows below it. The chip is now the leading edge of
+                every item, so the heading lines up with the tiles rather than with the
+                text they push inward. */}
             <p
               className={cn(
                 'text-2xs font-medium tracking-wide text-muted-foreground',
-                compact ? 'sr-only' : 'px-3 pb-2'
+                compact ? 'sr-only' : 'px-2 pb-2'
               )}
             >
               {section.label}
@@ -384,15 +388,51 @@ function SidebarNav({
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-pill text-sm transition-colors',
+                      'group flex items-center rounded-pill text-sm transition-colors',
                       'h-[var(--density-row)]',
-                      compact ? 'justify-center px-0' : 'px-3.5',
+                      // The tile carries its own inset, so the row's is smaller than it
+                      // was: 8px of row padding plus a 32px chip puts the mark where the
+                      // bare 16px glyph used to start, and the label lands in the same
+                      // place it always did.
+                      compact ? 'justify-center px-0' : 'gap-2.5 px-2',
                       active
-                        ? 'bg-primary/10 font-semibold text-primary'
+                        ? 'bg-primary/8 font-semibold text-primary'
                         : 'text-foreground/75 hover:bg-accent hover:text-foreground'
                     )}
                   >
-                    <item.icon className="size-4 shrink-0" aria-hidden />
+                    {/*
+                      The mark. `aria-hidden` because it says nothing a screen reader
+                      needs — the label beside it is the accessible name in both states,
+                      and stays in the DOM as `sr-only` on the rail (asserted by
+                      `tests/Browser/ShellTest.php`, which counts links with no text).
+
+                      Three states, one accent: a neutral tile at rest so nineteen of
+                      them do not shout, the accent tinting under the pointer, and the
+                      accent filled solid on the page you are on. The reference product
+                      gets this escalation from a different hue per destination; we get
+                      it from one, because a second accent is a bug here.
+                    */}
+                    <span
+                      aria-hidden
+                      data-active={active}
+                      className={cn(
+                        'nav-chip grid size-8 shrink-0 place-items-center rounded-inner',
+                        'motion-safe:group-hover:scale-105',
+                        active
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-foreground/10 text-muted-foreground group-hover:bg-primary/12 group-hover:text-primary'
+                      )}
+                    >
+                      {/*
+                        18px inside a 32px tile, and a heavier stroke than lucide's
+                        default. Both are about weight: the reference's glyphs are
+                        *filled*, lucide's are 2px outlines on a 24 grid — which lands at
+                        1.5px once scaled to 18 and reads as a wireframe next to a solid
+                        Material shape. 2.25 buys back most of that without turning the
+                        smaller glyphs into blobs.
+                      */}
+                      <item.icon className="size-4.5" strokeWidth={2.25} aria-hidden />
+                    </span>
                     <span className={cn('truncate', compact && 'sr-only')}>{item.label}</span>
                   </Link>
                 );
