@@ -1997,16 +1997,24 @@ h3 {
   gap: clamp(1.5rem, 4vw, 3rem);
 }
 
+/*
+  The wordmark link, and the floor applies to it too.
+
+  `block-size: 1.25rem` sized the ANCHOR to the drawing, so the whole link was a 20px
+  target — #125 raised the landing's brand to the floor and the auth pages were not in
+  that sweep. The drawing stays 20px; the box around it is now 40px, which costs no
+  layout because it is the tallest thing in its grid row anyway.
+*/
 .auth__brand {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  block-size: 1.25rem;
+  min-block-size: 2.5rem;
   color: var(--color-accent);
 }
 
 .auth__brand svg {
-  block-size: 100%;
+  block-size: 1.25rem;
   inline-size: auto;
 }
 
@@ -2346,10 +2354,16 @@ h3 {
   font-size: 0.9375rem;
 }
 
+/*
+  The label is the target, not the 18px box — clicking the words toggles it, so the floor
+  belongs here. `align-items: center` with the min-height replaces the 0.3rem top margin
+  that was nudging the box onto the first line by hand.
+*/
 .auth__check {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.625rem;
+  min-block-size: 2.5rem;
   font-size: 0.9375rem;
   color: var(--color-navy-soft);
   cursor: pointer;
@@ -2359,7 +2373,6 @@ h3 {
 .auth__check input {
   inline-size: 1.125rem;
   block-size: 1.125rem;
-  margin-block-start: 0.3rem;
   flex: none;
   accent-color: var(--color-accent);
   cursor: pointer;
@@ -2382,7 +2395,11 @@ h3 {
   font-size: 0.9375rem;
 }
 
+/* 24px before, and it is the only way to reach sign-up from this page. */
 .auth__alt a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
   color: var(--color-navy);
   font-weight: 700;
 }
@@ -2391,7 +2408,12 @@ h3 {
   color: var(--color-accent);
 }
 
+/* 28px before. It sits in a row beside a checkbox, so the row grows to hold it — the
+   two are the only controls between the password and the submit button. */
 .auth__link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.5rem;
   color: var(--color-navy-soft);
 }
 
