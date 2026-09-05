@@ -4041,3 +4041,44 @@ rebuilt from that H at 17 of 32 units, large enough that the counters survive 16
 small enough that the stems clear the tile's rounded corners; `favicon.ico`, the
 apple-touch icon and the two manifest icons were rasterised from it. Outfit left the repo
 with its licence: nothing draws letters from it any more.
+
+## 1404-06-15 (2026-09-05) — the landing's copy moves to `lang/fa/landing.php` (16.3)
+
+CLAUDE.md has said it since the beginning — «Persian UI strings in `lang/fa/**`; never
+hardcode Farsi in components» — and the one page every prospect reads was the one place
+that ignored it. Every sentence lived in eight Blade templates, so the copy a shopkeeper
+sees was the only copy in the product a copy editor could not find. ADR 0021 and roadmap
+16.3 both name the file; it did not exist, and `lang/fa/` held `validation.php` alone.
+
+217 strings now sit in `lang/fa/landing.php`, nested by section in render order —
+`meta`, `nav`, `hero`, `trust`, `problems`, `imei`, `tour`, `pricing`, `faq`, `closing` —
+read with `__()`. Seven keys carry markup, all of them a heading that lights its last
+phrase with `<em>` (plus the hero's `.nowrap` span and the IMEI head's `<br>`); those end
+in `_html` and are the only ones rendered `{!! !!}`. Everything else is escaped.
+
+**A mechanical extraction, not a rewrite.** No sentence changed a character. The rendered
+page was captured before and after and diffed: the non-whitespace character sequence is
+identical, all 984 attribute values are identical, both JSON-LD blocks are identical, and
+the visible text after HTML whitespace collapsing is identical. The 64 differing
+whitespace runs are all indentation at block-element boundaries.
+
+Two things deliberately stayed in the templates. **Anything computed** — plan names,
+taglines and prices from `plans`, the quota labels from the metric registry, the contact
+address `'info@'.config('app.domain')` (golden rule 1b applies to `lang/` too, and
+`bin/check-apex-domain` scans it), the Jalali year — with three sentences taking a
+`:placeholder` where a computed figure sits inside them. And **the two structured-data
+blocks**, which are written for a crawler and stay beside the markup they describe.
+
+The FAQ's JSON-LD now reads `faq.items` from the lang file, the same array the list
+renders, so a seventh question still cannot appear on the page and be missing from the
+rich result — the property `LandingSeoTest` asserts. Where a section's array carried both
+copy and structure, the structure stayed: the six problem cards keep their icons, the six
+tour tiles keep their span and phone crop, and the three IMEI records keep the order of
+their events, the icon on each and the two states the stylesheet reads. Each is now keyed
+by a slug that also keys its copy. `LandingShotsTest` reads the shot ids out of that
+array by regex and was updated with it — its own failure message asked to be.
+
+The reasoning travelled with the sentences: why the eyebrow states no customer count, why
+the trust bar carries three checkable claims instead of a logo wall, why the HAMTA line is
+one sentence here and the full answer in the FAQ, and why «پیشنهاد ما» is the owner's
+wording, are all comments beside their keys now.

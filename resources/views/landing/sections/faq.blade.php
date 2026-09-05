@@ -43,38 +43,18 @@
     $contactEmail = 'info@'.config()->string('app.domain');
 
     /**
-     * [question, answer] — six, in the order the owner listed them.
+     * The six questions, in the order the owner listed them, read from
+     * `lang/fa/landing.php` under `faq.items` as `['q' => …, 'a' => …]`.
      *
-     * Kept as data rather than six copies of the same markup so a seventh question is a
-     * line here instead of a block below, and so the numbering cannot drift from the
-     * order on screen.
+     * Read ONCE, into one variable, and used by both the JSON-LD below and the list
+     * further down. That is the whole point: a seventh question is one entry in the lang
+     * file, and it cannot appear on the page while being missing from the rich result —
+     * nor the other way round, which is how an unflattering answer gets quietly dropped
+     * from search. `tests/Feature/LandingSeoTest.php` asserts it.
+     *
+     * @var list<array{q: string, a: string}>
      */
-    $questions = [
-        [
-            'با سامانهٔ همتا چه می‌کند؟',
-            'همتا API عمومی ندارد، پس هیچ نرم‌افزاری — از جمله ما — نمی‌تواند مستقیم در آن ثبت کند و هر کس خلافش را بگوید دارد چیزی می‌فروشد که ندارد. کاری که همیار می‌کند این است: وضعیت همتای هر IMEI را کنار خود دستگاه نگه می‌دارد، دستگاه‌های ثبت‌نشده را یادآوری می‌کند و مرحله‌های کار را نشان می‌دهد. ثبت نهایی را خودتان در سامانه انجام می‌دهید.',
-        ],
-        [
-            'سامانهٔ مودیان چطور؟',
-            'ماژول مودیان صورتحساب‌ها را با همان قالبی که سامانه می‌خواهد آماده می‌کند و صف ارسال دارد. ارسال واقعی از راه همان شرکت معتمدی انجام می‌شود که خودتان با آن قرارداد دارید؛ شناسه و کلید حافظهٔ مالیاتی را یک بار در تنظیمات وارد می‌کنید و بعد از آن کاری ندارید.',
-        ],
-        [
-            'از نرم‌افزار قبلی‌ام می‌توانم بیایم؟',
-            'بله، با فایل اکسل: فهرست کالاها، مشتری‌ها و مانده‌حساب‌ها. قبل از ثبت نهایی یک پیش‌نمایش می‌بینید و ستون‌ها را خودتان تطبیق می‌دهید، پس هیچ چیز کورکورانه وارد نمی‌شود و یک فایل به‌هم‌ریخته، انبارتان را به هم نمی‌ریزد.',
-        ],
-        [
-            'داده‌های من مال کیست؟',
-            'مال شما. هر وقت بخواهید از همه‌چیز خروجی اکسل می‌گیرید — کالا، فاکتور، مشتری، چک و قسط — و برای بردن‌شان لازم نیست از کسی اجازه بگیرید. اطلاعات هر فروشگاه هم از بقیه جداست، و این جداسازی در خودِ پایگاه داده اعمال می‌شود، نه فقط در نرم‌افزار.',
-        ],
-        [
-            'پشتیبانی چطور است؟',
-            'وارد کردن فهرست کالاها از فایل اکسل خودتان است و راهنمای مرحله‌به‌مرحله دارد؛ اگر جایی گیر کردید کمک می‌کنیم. پشتیبانی از داخل خود نرم‌افزار و با ایمیل است و کسی جواب می‌دهد که نرم‌افزار را می‌شناسد.',
-        ],
-        [
-            'اگر اشتراکم تمام شود چه می‌شود؟',
-            'داده‌هایتان پاک نمی‌شود و سر جای خودش می‌ماند — ولی تا وقتی تمدید نکنید، ورود به حساب بسته است. پس قبل از سررسید خروجی اکسل بگیرید؛ ما هم از یک هفته قبل یادآوری می‌کنیم. هر وقت تمدید کنید همه‌چیز دقیقاً همان‌جاست که گذاشته بودید.',
-        ],
-    ];
+    $questions = __('landing.faq.items');
 
     /*
      | No ordinals. A <details> list does not need to be counted, and the page already
@@ -85,13 +65,16 @@
 {{--
     The same six questions, for a search result.
 
-    It sits here rather than in the document head, beside the array it is built from, so
-    a seventh question cannot appear on the page and be missing from the rich result —
+    It sits here rather than in the document head, beside the variable it is built from,
+    so a seventh question cannot appear on the page and be missing from the rich result —
     which is exactly what a second copy in the head would guarantee within two edits.
     JSON-LD is valid anywhere in the document and is inert data, so the nonce-only CSP
     does not apply to it.
 
-    The answers are the *rendered* answers, including the two that say «نه». An FAQ block
+    The questions moved to `lang/fa/landing.php` with the rest of the page's copy and
+    this block followed them: it maps over the same `$questions` the list below renders,
+    so the single source is now the lang file rather than an array in this template. The
+    answers are the *rendered* answers, including the two that say «نه». An FAQ block
     that quietly drops the unflattering questions is how a page ends up promising in
     search what it does not promise on the page.
 --}}
@@ -102,8 +85,8 @@
         'inLanguage' => 'fa-IR',
         'mainEntity' => array_map(fn (array $pair): array => [
             '@type' => 'Question',
-            'name' => $pair[0],
-            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $pair[1]],
+            'name' => $pair['q'],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $pair['a']],
         ], $questions),
     ];
 @endphp
@@ -118,13 +101,10 @@
              aside column that stood beside the list: distinctive, and the reason the
              page read as eight pages stapled together. See `.sec__head` in landing.css. --}}
         <div class="sec__head">
-            <p class="sec__eyebrow">سؤال‌های پیش از خرید</p>
-            <h2 class="sec__title" id="qa-title">قبل از اینکه <em>بپرسید</em></h2>
+            <p class="sec__eyebrow">{{ __('landing.faq.eyebrow') }}</p>
+            <h2 class="sec__title" id="qa-title">{!! __('landing.faq.title_html') !!}</h2>
             <span class="sec__rule" aria-hidden="true"></span>
-            <p class="sec__lede">
-                شش سؤالی که هر فروشندهٔ موبایل پیش از خرید می‌پرسد — با جواب صریح، حتی
-                آنجا که جوابش «نه» است.
-            </p>
+            <p class="sec__lede">{{ __('landing.faq.lede') }}</p>
         </div>
 
         {{-- `.rise` goes on the questions, one level, and on nothing above or below
@@ -132,7 +112,7 @@
              `min(--i, 3) × 60ms` with `--i` written per-parent by `landing.js`, so the
              sixth question does not arrive a full half-second after the first. --}}
         <div class="qa__list qa__list--wide" data-faq>
-            @foreach ($questions as $i => [$question, $answer])
+            @foreach ($questions as $i => ['q' => $question, 'a' => $answer])
                 <details class="qa__item rise" @if ($i === 0) open @endif>
                     <summary class="qa__q">
                         <span>{{ $question }}</span>
@@ -144,7 +124,7 @@
         </div>
 
         <p class="qa__help">
-            سؤالتان اینجا نبود؟ بنویسید
+            {{ __('landing.faq.help') }}
             <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>
         </p>
 

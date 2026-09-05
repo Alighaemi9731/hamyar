@@ -4,8 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>سامانه همیار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط</title>
-    <meta name="description" content="سامانه همیار کار روزانهٔ فروشگاه موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. پلن رایگان، بدون کارت بانکی.">
+    {{-- Every sentence on this page is in `lang/fa/landing.php`, nested by section
+         (CLAUDE.md, «Persian UI strings in lang/fa/**»). The two exceptions are
+         deliberate and both are below: anything computed — prices, the contact
+         address, the year — and the structured-data blocks, which are written for a
+         machine and stay beside the markup they describe. --}}
+    <title>{{ __('landing.meta.title') }}</title>
+    <meta name="description" content="{{ __('landing.meta.description') }}">
     <meta name="theme-color" content="#FFFFFF">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -14,8 +19,8 @@
     <link rel="canonical" href="{{ url('/') }}">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="سامانه همیار — نرم‌افزار فروشگاه موبایل">
-    <meta property="og:description" content="از پذیرش تعمیر تا تسویه، روی یک قبض.">
+    <meta property="og:title" content="{{ __('landing.meta.og_title') }}">
+    <meta property="og:description" content="{{ __('landing.meta.og_description') }}">
     <meta property="og:locale" content="fa_IR">
     <meta property="og:url" content="{{ url('/') }}">
     {{-- Rendered from the brand layer and the dashboard capture by `bin/shots og`; hashed by
@@ -24,8 +29,8 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="سامانه همیار — نرم‌افزار فروشگاه موبایل">
-    <meta name="twitter:description" content="فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — در یک سامانه.">
+    <meta name="twitter:title" content="{{ __('landing.meta.twitter_title') }}">
+    <meta name="twitter:description" content="{{ __('landing.meta.twitter_description') }}">
     <meta name="twitter:image" content="{{ Vite::asset('resources/landing/og/og.png') }}">
 
     {{-- The two faces the fold paints with: Estedad for the headline and Vazirmatn for
@@ -57,6 +62,14 @@
         Rial, not toman. Schema.org wants a currency code and an amount in that currency;
         the page renders toman for a human because that is what a shopkeeper says, and
         `IRR` is what the machine is told. Both read the same integer.
+
+        ## Its Persian stays here, unlike the rest of the page
+
+        Every sentence a visitor reads moved to `lang/fa/landing.php`. These strings did
+        not, and the difference is the audience: this block is read by a crawler, its
+        wording is bound to the schema.org vocabulary around it, and a copy editor
+        opening the lang file to reword a heading has no business silently changing what
+        a search engine is told the product is. Two of them read alike on purpose.
 
         ## No claim we cannot stand behind
 
@@ -137,27 +150,29 @@
 {{-- CSS-only. It carried `onfocus`/`onblur` handlers that the nonce-only CSP refused
      outright, so the one affordance a keyboard visitor needs was never visible and the
      console carried two errors on every visit (16.0 baseline, finding 7). --}}
-<a href="#main" class="skip">پرش به محتوا</a>
+<a href="#main" class="skip">{{ __('landing.skip') }}</a>
 
 {{-- ================================================================= nav === --}}
 @php
     // One source for the logo: the same file `components/brand-mark.tsx` imports. It is
     // outlines, so it inherits `currentColor` and needs no webfont to have loaded.
     $wordmark = Illuminate\Support\Facades\File::get(resource_path('brand/wordmark.svg'));
+    // The labels are in `lang/fa/landing.php` under `nav.links`; the anchors stay here,
+    // because each one has to match a section id this page actually carries.
     $links = [
-        '#problems' => 'امکانات',
-        '#imei' => 'شناسنامهٔ IMEI',
-        '#pricing' => 'تعرفه‌ها',
-        '#faq' => 'سوالات',
+        '#problems' => __('landing.nav.links.problems'),
+        '#imei' => __('landing.nav.links.imei'),
+        '#pricing' => __('landing.nav.links.pricing'),
+        '#faq' => __('landing.nav.links.faq'),
     ];
 @endphp
 <header class="nav">
     <div class="shell nav__inner">
-        <a href="/" class="nav__brand" aria-label="همیار — صفحهٔ نخست">
+        <a href="/" class="nav__brand" aria-label="{{ __('landing.nav.brand_label') }}">
             <span class="nav__wordmark" aria-hidden="true">{!! $wordmark !!}</span>
         </a>
 
-        <nav class="nav__links" aria-label="پیمایش اصلی">
+        <nav class="nav__links" aria-label="{{ __('landing.nav.aria') }}">
             @foreach ($links as $href => $label)
                 <a href="{{ $href }}">{{ $label }}</a>
             @endforeach
@@ -165,12 +180,12 @@
 
         {{-- Both go to the app host, which is now one address for every shop (ADR 0017). --}}
         <div class="nav__cta">
-            <a href="{{ route('login') }}" class="btn btn--quiet">ورود</a>
-            <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
+            <a href="{{ route('login') }}" class="btn btn--quiet">{{ __('landing.nav.login') }}</a>
+            <a href="{{ route('register') }}" class="btn btn--primary">{{ __('landing.nav.register') }}</a>
         </div>
 
         <details class="nav__menu">
-            <summary class="nav__toggle" aria-label="منو">
+            <summary class="nav__toggle" aria-label="{{ __('landing.nav.menu') }}">
                 <svg class="nav__toggle-open" viewBox="0 0 24 24" width="22" height="22" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                     <path d="M4 7h16M4 12h16M4 17h16"/>
@@ -187,8 +202,8 @@
                 @endforeach
 
                 <div class="nav__panel-actions">
-                    <a href="{{ route('login') }}" class="btn btn--quiet">ورود</a>
-                    <a href="{{ route('register') }}" class="btn btn--primary">ثبت‌نام</a>
+                    <a href="{{ route('login') }}" class="btn btn--quiet">{{ __('landing.nav.login') }}</a>
+                    <a href="{{ route('register') }}" class="btn btn--primary">{{ __('landing.nav.register') }}</a>
                 </div>
             </div>
         </details>

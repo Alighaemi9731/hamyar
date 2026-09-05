@@ -36,10 +36,24 @@
     data. They are deliberately three *different* stories — a phone bought and sold, a
     trade-in repaired before resale, and one still sitting on a shelf in the second
     branch — because a shopkeeper recognises the third case as fast as the first.
+
+    All of it — the handsets, the dates, the amounts, the notes — is in
+    `lang/fa/landing.php` under `imei.records`, keyed by the slugs below. What stays here
+    is the timeline's shape: which events each record carries, in which order, which icon
+    marks each one, and the two states the stylesheet reads.
 --}}
 @php
     /**
-     * The three sample records.
+     * The three sample records, as a spine.
+     *
+     * `events` is `<event slug> => <icon>`, and its ORDER is the order the timeline
+     * renders in — which differs per record on purpose: the second handset was repaired
+     * before it was sold, the third has not been sold at all. The copy for each event is
+     * `landing.imei.records.<record>.events.<event>`.
+     *
+     * `pending` names the one event that has not happened yet (a `data-pending` row); the
+     * third record's sale is the only one. `muted` greys the result footer for the same
+     * record, whose profit is not knowable until it sells.
      *
      * Rule on digits, applied here and not everywhere else on this page yet: prose and
      * money carry Persian digits; IMEI, and invoice/receipt/transfer numbers stay Latin
@@ -49,135 +63,34 @@
      * `state` is the record's own word for where the unit is, not a colour: a green
      * "sold" pill would be a second accent hue, which this page does not have.
      *
-     * @var array<int, array{
-     *     imei: string, name: string, state: string, events: array<int, array<string, string|bool|null>>,
-     *     result: array{label: string, value: string, muted: bool}
-     * }>
+     * @var array<string, array{events: array<string, string>, pending: string|null, muted: bool}>
      */
-    $devices = [
-        [
-            'imei' => '354879116234901',
-            'name' => 'اپل آیفون ۱۳ — ۱۲۸ گیگ',
-            'state' => 'فروخته شده',
-            'events' => [
-                [
-                    'icon' => 'store',
-                    'ask' => 'از که خریدم؟',
-                    'title' => 'خرید از پخش موبایل ایرانیان',
-                    'date' => '۱۴۰۵/۰۲/۱۱',
-                    'doc' => 'PUR-00924',
-                    'note' => 'همان روز با اسکن IMEI وارد انبار شد.',
-                    'label' => 'بهای تمام‌شده',
-                    'amount' => '۴۱٬۲۰۰٬۰۰۰ تومان',
-                ],
-                [
-                    'icon' => 'trend',
-                    'ask' => 'به که فروختم؟',
-                    'title' => 'فروش به سمیرا احمدی',
-                    'date' => '۱۴۰۵/۰۳/۰۴',
-                    'doc' => 'INV-001873',
-                    'note' => 'شش قسط ماهانه، با دو چک ضمانت.',
-                    'label' => 'مبلغ فاکتور',
-                    'amount' => '۴۴٬۹۰۰٬۰۰۰ تومان',
-                ],
-                [
-                    'icon' => 'wrench',
-                    'ask' => 'کِی تعمیر شد؟',
-                    'title' => 'تعمیر: تعویض گلس',
-                    'date' => '۱۴۰۵/۰۵/۲۹',
-                    'doc' => 'REP-000184',
-                    'note' => 'شش ماه بعد از فروش، خارج از گارانتی؛ هزینه از مشتری گرفته شد.',
-                    'label' => 'اجرت تعمیر',
-                    'amount' => '۴۲۰٬۰۰۰ تومان',
-                ],
-            ],
-            'result' => ['label' => 'سود این دستگاه', 'value' => '۳٬۷۰۰٬۰۰۰ تومان', 'muted' => false],
+    $records = [
+        'iphone-13' => [
+            'events' => ['bought' => 'store', 'sold' => 'trend', 'repaired' => 'wrench'],
+            'pending' => null,
+            'muted' => false,
         ],
-        [
-            'imei' => '356938035643809',
-            'name' => 'سامسونگ گلکسی A54',
-            'state' => 'فروخته شده',
-            'events' => [
-                [
-                    'icon' => 'store',
-                    'ask' => 'از که خریدم؟',
-                    'title' => 'معاوضه از مرتضی کاظمی',
-                    'date' => '۱۴۰۵/۰۴/۱۸',
-                    'doc' => 'INV-001902',
-                    'note' => 'به‌عنوان معاوضه، پای فاکتور فروش یک گوشی دیگر تحویل گرفته شد.',
-                    'label' => 'بهای تمام‌شده',
-                    'amount' => '۱۴٬۳۰۰٬۰۰۰ تومان',
-                ],
-                [
-                    'icon' => 'wrench',
-                    'ask' => 'کِی تعمیر شد؟',
-                    'title' => 'تعویض باتری، پیش از فروش',
-                    'date' => '۱۴۰۵/۰۴/۲۱',
-                    'doc' => 'REP-000171',
-                    'note' => 'باتری از انبار کم شد و هزینه‌اش روی بهای تمام‌شدهٔ همین دستگاه نشست.',
-                    'label' => 'هزینهٔ قطعه',
-                    'amount' => '۹۸۰٬۰۰۰ تومان',
-                ],
-                [
-                    'icon' => 'trend',
-                    'ask' => 'به که فروختم؟',
-                    'title' => 'فروش به فاطمه رستمی',
-                    'date' => '۱۴۰۵/۰۵/۰۹',
-                    'doc' => 'INV-001955',
-                    'note' => 'نقدی، با کارتخوان فروشگاه.',
-                    'label' => 'مبلغ فاکتور',
-                    'amount' => '۱۷٬۵۰۰٬۰۰۰ تومان',
-                ],
-            ],
-            'result' => ['label' => 'سود این دستگاه', 'value' => '۲٬۲۲۰٬۰۰۰ تومان', 'muted' => false],
+        'galaxy-a54' => [
+            'events' => ['bought' => 'store', 'repaired' => 'wrench', 'sold' => 'trend'],
+            'pending' => null,
+            'muted' => false,
         ],
-        [
-            'imei' => '861234037654321',
-            'name' => 'شیائومی ردمی نوت ۱۲',
-            'state' => 'موجود در انبار',
-            'events' => [
-                [
-                    'icon' => 'store',
-                    'ask' => 'از که خریدم؟',
-                    'title' => 'خرید از پخش موبایل ایرانیان',
-                    'date' => '۱۴۰۵/۰۵/۰۲',
-                    'doc' => 'PUR-01037',
-                    'note' => 'یکی از هفت دستگاه همان فاکتور؛ هرکدام سطر خودش را دارد.',
-                    'label' => 'بهای تمام‌شده',
-                    'amount' => '۹٬۶۵۰٬۰۰۰ تومان',
-                ],
-                [
-                    'icon' => 'arrow',
-                    'ask' => 'الان کجاست؟',
-                    'title' => 'حواله از انبار مرکزی به شعبهٔ ۲',
-                    'date' => '۱۴۰۵/۰۵/۲۰',
-                    'doc' => 'TRF-000318',
-                    'note' => 'همان دستگاه، همان شناسه، انبار دیگر — نه یک ردیف جدید.',
-                    'label' => null,
-                    'amount' => null,
-                ],
-                [
-                    'icon' => 'calendar',
-                    'ask' => 'به که فروختم؟',
-                    'title' => 'هنوز فروخته نشده',
-                    'date' => null,
-                    'doc' => null,
-                    'note' => 'روی رَف شعبهٔ ۲ است. تا وقتی نرود، این سطر خالی می‌ماند.',
-                    'label' => null,
-                    'amount' => null,
-                    'pending' => true,
-                ],
-            ],
-            'result' => ['label' => 'سود این دستگاه', 'value' => 'بعد از فروش', 'muted' => true],
+        'redmi-note-12' => [
+            'events' => ['bought' => 'store', 'moved' => 'arrow', 'sold' => 'calendar'],
+            'pending' => 'sold',
+            'muted' => true,
         ],
     ];
 
     /**
      * The serial in the masthead is the FIRST record's, not a fourth invented number:
      * the head names the subject, the input below is placeheld with it, and the record
-     * open on arrival is the one it belongs to. Three places, one handset.
+     * open on arrival is the one it belongs to. Three places, one handset — and read
+     * from the same key the record itself renders, so reordering the three above cannot
+     * leave the masthead pointing at a handset that is no longer open.
      */
-    $lead = $devices[0]['imei'];
+    $lead = __('landing.imei.records.'.array_key_first($records).'.imei');
 @endphp
 
 <section class="sec band imei" id="imei" aria-labelledby="imei-title">
@@ -202,13 +115,12 @@
         <header class="imei-head">
             <p class="imei-serial nums" dir="ltr">{{ $lead }}</p>
 
-            <h2 class="imei-title" id="imei-title">این شناسه را بزنید،<br>بقیه‌اش پیداست.</h2>
+            {{-- An `_html` key: the heading breaks after the comma with a `<br>`, and
+                 where that break falls is the sentence's own rhythm rather than the
+                 layout's — so it travels with the words. --}}
+            <h2 class="imei-title" id="imei-title">{!! __('landing.imei.title_html') !!}</h2>
 
-            <p class="imei-lede">
-                گوشی در همیار «تعداد» نیست؛ هر دستگاه یک سطر با شناسهٔ خودش است.
-                هر خرید، تعمیر، حواله و فروشی که رویش ثبت شود زیر همان شناسه می‌ماند —
-                حتی اگر دو سال بعد سراغش را بگیرید.
-            </p>
+            <p class="imei-lede">{{ __('landing.imei.lede') }}</p>
         </header>
 
         {{-- No `.rise` on this container either. THE RULE puts the section's one entry
@@ -220,7 +132,7 @@
         <div class="imei-console">
             {{-- The query side. --}}
             <div class="imei-pick">
-                <label class="imei-pick__label" for="imei-input">شناسهٔ دستگاه را وارد کنید</label>
+                <label class="imei-pick__label" for="imei-input">{{ __('landing.imei.field_label') }}</label>
 
                 <div class="imei-field">
                     <input class="imei-field__input nums" id="imei-input" type="text"
@@ -232,15 +144,13 @@
                     </span>
                 </div>
 
-                <p class="imei-hint" id="imei-hint">
-                    سه پروندهٔ نمونه از یک فروشگاه آزمایشی. یکی را انتخاب کنید، یا شناسه را
-                    رقم‌به‌رقم تایپ کنید.
-                </p>
+                <p class="imei-hint" id="imei-hint">{{ __('landing.imei.hint') }}</p>
 
                 {{-- `role="list"`: Safari + VoiceOver drop list semantics from a list
                      styled `list-style: none`, and this is one. --}}
                 <ul class="imei-devices" role="list" data-imei-devices>
-                    @foreach ($devices as $device)
+                    @foreach ($records as $slug => $record)
+                        @php($device = __("landing.imei.records.{$slug}"))
                         {{-- The section's one `.rise` level: a list of peers, always in
                              the document and never hidden, so the observer can always
                              finish what it starts. `--i` is written per-parent by
@@ -263,7 +173,8 @@
                 carries `display:grid`, which would otherwise beat the UA's [hidden] rule.
             --}}
             <div class="imei-stage" data-imei-stage>
-                @foreach ($devices as $device)
+                @foreach ($records as $slug => $record)
+                    @php($device = __("landing.imei.records.{$slug}"))
                     <article class="imei-record" data-imei-panel
                              data-imei="{{ $device['imei'] }}"
                              data-imei-name="{{ $device['name'] }}"
@@ -280,11 +191,12 @@
                              the stylesheet's own row delay on a panel swap, not the
                              entry stagger — these rows carry no `.rise`. --}}
                         <ol class="imei-track" role="list">
-                            @foreach ($device['events'] as $event)
+                            @foreach ($record['events'] as $eventSlug => $icon)
+                                @php($event = $device['events'][$eventSlug])
                                 <li class="imei-ev" style="--i:{{ $loop->index }}"
-                                    @if ($event['pending'] ?? false) data-pending @endif>
+                                    @if ($record['pending'] === $eventSlug) data-pending @endif>
                                     <span class="imei-ev__mark" aria-hidden="true">
-                                        @include('landing.icon', ['name' => $event['icon'], 'size' => 15])
+                                        @include('landing.icon', ['name' => $icon, 'size' => 15])
                                     </span>
 
                                     <p class="imei-ev__ask">{{ $event['ask'] }}</p>
@@ -313,7 +225,7 @@
                             @endforeach
                         </ol>
 
-                        <footer class="imei-result" @if ($device['result']['muted']) data-muted @endif>
+                        <footer class="imei-result" @if ($record['muted']) data-muted @endif>
                             <span>{{ $device['result']['label'] }}</span>
                             <b class="nums">{{ $device['result']['value'] }}</b>
                         </footer>
@@ -323,8 +235,8 @@
                 {{-- Typed digits that match no sample. A dead end is a bad answer, so this
                      one says what the visitor would actually get in their own account. --}}
                 <p class="imei-miss" data-imei-miss hidden>
-                    این شناسه بین سه نمونهٔ بالا نیست.
-                    <span>در حساب خودتان، هر دستگاهی که ثبت کرده باشید همین صفحه را می‌سازد.</span>
+                    {{ __('landing.imei.miss') }}
+                    <span>{{ __('landing.imei.miss_detail') }}</span>
                 </p>
 
                 <p class="imei-say" role="status" aria-live="polite" data-imei-say></p>
@@ -338,9 +250,6 @@
             paragraphs opening with the same word, 120 words apart, on the page's most
             negative message. One line here, the full answer there.
         --}}
-        <p class="imei-honesty">
-            همتا API عمومی ندارد، پس ثبت نهایی را خودتان انجام می‌دهید — همیار وضعیت هر
-            دستگاه را نگه می‌دارد و یادآوری می‌کند.
-        </p>
+        <p class="imei-honesty">{{ __('landing.imei.honesty') }}</p>
     </div>
 </section>

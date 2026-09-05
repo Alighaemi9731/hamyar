@@ -54,25 +54,20 @@
     <div class="signoff signoff--call">
         <section class="shell signoff__cta rise" aria-labelledby="signoff-title">
             <div>
-                <h2 class="signoff__title" id="signoff-title">
-                    اولین فاکتورتان را همین امروز بزنید
-                </h2>
-                <p class="signoff__lede">
-                    چیزی نصب نمی‌شود. فروشگاه را می‌سازید، فهرست کالا را از اکسل وارد می‌کنید و
-                    پشت پیشخوان شروع می‌کنید. راه‌اندازی کار یک بعدازظهر است، نه یک پروژه.
-                </p>
+                <h2 class="signoff__title" id="signoff-title">{{ __('landing.closing.title') }}</h2>
+                <p class="signoff__lede">{{ __('landing.closing.lede') }}</p>
             </div>
 
             <div class="signoff__act">
                 <div class="signoff__actions">
                     <a href="{{ route('register') }}" class="btn btn--light btn--lg">
-                        رایگان شروع کنید
+                        {{ __('landing.closing.cta_primary') }}
                         @include('landing.icon', ['name' => 'arrow', 'size' => 16])
                     </a>
-                    <a href="#pricing" class="btn btn--ghost btn--lg">دیدن تعرفه‌ها</a>
+                    <a href="#pricing" class="btn btn--ghost btn--lg">{{ __('landing.closing.cta_secondary') }}</a>
                 </div>
 
-                <p class="signoff__note">بدون کارت بانکی · بدون قرارداد سالانه · خروجی اکسل هر وقت خواستید</p>
+                <p class="signoff__note">{{ __('landing.closing.note') }}</p>
             </div>
         </section>
     </div>
@@ -96,14 +91,17 @@
          * reports nothing. The ids are the ones in the nav, plus the two the nav has no
          * room for.
          *
+         * The anchors stay here for that reason; the labels are in `lang/fa/landing.php`
+         * under `closing.footer.product`.
+         *
          * @var list<array{0: string, 1: string}>
          */
         $product = [
-            ['#problems', 'امکانات'],
-            ['#imei', 'شناسنامهٔ IMEI'],
-            ['#tour', 'گشتی در نرم‌افزار'],
-            ['#pricing', 'تعرفه‌ها'],
-            ['#faq', 'سؤالات پرتکرار'],
+            ['#problems', __('landing.closing.footer.product.problems')],
+            ['#imei', __('landing.closing.footer.product.imei')],
+            ['#tour', __('landing.closing.footer.product.tour')],
+            ['#pricing', __('landing.closing.footer.product.pricing')],
+            ['#faq', __('landing.closing.footer.product.faq')],
         ];
 
         /**
@@ -113,16 +111,7 @@
          *
          * @var list<string>
          */
-        $modules = [
-            'فروش و صندوق',
-            'انبار سریال‌دار و IMEI',
-            'تعمیرات',
-            'اقساط و چک',
-            'خزانه و بانک',
-            'پیامک',
-            'گزارش سود',
-            'چندشعبه و حواله',
-        ];
+        $modules = __('landing.closing.footer.modules');
     @endphp
 
     {{--
@@ -153,14 +142,11 @@
                     is outlines inheriting `currentColor`, so white on this navy ground
                     costs nothing but the inherited colour.
                 --}}
-                <span class="signoff__brand__name" aria-label="همیار">
+                <span class="signoff__brand__name" aria-label="{{ __('landing.closing.footer.brand_label') }}">
                     {!! $wordmark !!}
                 </span>
 
-                <p>
-                    نرم‌افزار ابری فروشگاه‌های موبایل: فروش سریال‌دار، تعمیرات، اقساط و چک، پیامک و
-                    گزارش سود. فارسی، تقویم شمسی، و ساخته‌شده برای بازار ایران.
-                </p>
+                <p>{{ __('landing.closing.footer.about') }}</p>
 
                 <a class="signoff__mail" href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>
             </div>
@@ -169,9 +155,9 @@
                  semantics from exactly those — so each one restates `role="list"`. Four
                  lists, four statements; a footer that announces "list, 5 items" is how a
                  screen-reader user knows the column ended. --}}
-            <nav class="signoff__cols" aria-label="پیوندهای فوتر">
+            <nav class="signoff__cols" aria-label="{{ __('landing.closing.footer.nav_aria') }}">
                 <div class="signoff__col">
-                    <h3>محصول</h3>
+                    <h3>{{ __('landing.closing.footer.product_heading') }}</h3>
                     <ul role="list">
                         @foreach ($product as [$anchor, $label])
                             <li><a href="{{ $anchor }}">{{ $label }}</a></li>
@@ -180,7 +166,7 @@
                 </div>
 
                 <div class="signoff__col">
-                    <h3>ماژول‌ها</h3>
+                    <h3>{{ __('landing.closing.footer.modules_heading') }}</h3>
                     <ul role="list">
                         @foreach ($modules as $module)
                             <li><span>{{ $module }}</span></li>
@@ -189,30 +175,32 @@
                 </div>
 
                 <div class="signoff__col">
-                    <h3>شروع کنید</h3>
+                    <h3>{{ __('landing.closing.footer.start_heading') }}</h3>
                     <ul role="list">
-                        <li><a href="{{ route('register') }}">ساخت فروشگاه</a></li>
-                        <li><a href="{{ route('login') }}">ورود به حساب</a></li>
-                        <li><a href="mailto:{{ $contactEmail }}">تماس با ما</a></li>
+                        <li><a href="{{ route('register') }}">{{ __('landing.closing.footer.register') }}</a></li>
+                        <li><a href="{{ route('login') }}">{{ __('landing.closing.footer.login') }}</a></li>
+                        <li><a href="mailto:{{ $contactEmail }}">{{ __('landing.closing.footer.contact') }}</a></li>
                     </ul>
                 </div>
 
                 <div class="signoff__col">
-                    <h3>قوانین</h3>
+                    <h3>{{ __('landing.closing.footer.legal_heading') }}</h3>
                     <ul role="list">
-                        <li><a href="{{ route('legal.terms') }}">قوانین و شرایط</a></li>
-                        <li><a href="{{ route('legal.privacy') }}">حریم خصوصی</a></li>
-                        <li><a href="#faq">مالکیت داده‌های شما</a></li>
+                        <li><a href="{{ route('legal.terms') }}">{{ __('landing.closing.footer.terms') }}</a></li>
+                        <li><a href="{{ route('legal.privacy') }}">{{ __('landing.closing.footer.privacy') }}</a></li>
+                        <li><a href="#faq">{{ __('landing.closing.footer.data') }}</a></li>
                     </ul>
                 </div>
             </nav>
         </footer>
 
         {{-- The year is rendered, not typed: a hardcoded «۱۴۰۵» is correct for four more
-             months and then quietly wrong on the one page every prospect reads. --}}
+             months and then quietly wrong on the one page every prospect reads. It is
+             passed into the sentence rather than concatenated onto it, so the whole line
+             stays one editable string in `lang/fa/landing.php`. --}}
         <div class="shell signoff__base">
-            <span>© {{ jalali(now(), 'Y') }} همیار — همهٔ حقوق محفوظ است.</span>
-            <span>ساخته‌شده برای فروشگاه‌های موبایل ایران.</span>
+            <span>{{ __('landing.closing.footer.copyright', ['year' => jalali(now(), 'Y')]) }}</span>
+            <span>{{ __('landing.closing.footer.made_for') }}</span>
         </div>
     </div>
 

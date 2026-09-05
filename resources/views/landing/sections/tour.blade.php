@@ -33,11 +33,16 @@
     So below `--bp-s` (640) the section shows THREE shots, each cropped to a meaningful
     region at about 4:3 and enlarged so the interface inside is actually readable, and the
     other three are removed from the layout and from the accessibility tree. Which three
-    is a content decision and it lives here, beside the copy, in `$screens`: صندوق فروش
+    is a content decision and it is the `phone` key in `$screens` below: صندوق فروش
     (the screen a shop is open on all day), بورد تعمیرات (the second module they buy) and
     پروندهٔ دستگاه (the callback to the IMEI section directly above). The three that go are
     the three whose value is a dense table — اقساط, گزارش سود, پیامک — which is precisely
     the kind of screen a phone-sized crop cannot rescue.
+
+    ## The copy
+
+    The caption, its sentence and the alt text of all six are in `lang/fa/landing.php`
+    under `tour.screens`, keyed by the same slug that names the capture file.
 
     ## Cost
 
@@ -46,7 +51,9 @@
 --}}
 @php
     /**
-     * [file, name, body, span, alt, phone].
+     * `<slug> => [span, phone]`, where the slug both names the capture file
+     * (`resources/landing/shots/<slug>.webp`) and keys the caption copy in
+     * `lang/fa/landing.php` under `tour.screens`.
      *
      * `span` is the desktop column count out of twelve; it is read by the stylesheet as
      * `data-span` and applies only from 1200px (`--bp-l`), where the twelve-column grid
@@ -66,60 +73,18 @@
      * hand in the section above, and this is the same thing inside the software. A tour
      * that ends by pointing back at the argument is a page, not a list.
      *
-     * @var array<int, array{0:string,1:string,2:string,3:int,4:string,5:null|array{focus:string,zoom:string}}>
+     * @var array<string, array{span: int, phone: null|array{focus: string, zoom: string}}>
      */
     $screens = [
-        [
-            'pos',
-            'صندوق فروش',
-            'بارکد یا IMEI را می‌زنید و دستگاه با همان شناسه روی فاکتور می‌نشیند. معاوضه، تخفیف و چند روش پرداخت، همه روی همین یک صفحه.',
-            7,
-            'صفحهٔ صندوق فروش همیار: سبد فاکتور با یک گوشی سریال‌دار، جعبهٔ اسکن بارکد و روش‌های پرداخت.',
-            // The invoice lines and the scan box, high on the start side.
-            ['focus' => '86% 26%', 'zoom' => '2.3'],
-        ],
-        [
-            'repairs',
-            'بورد تعمیرات',
-            'هر قبض پذیرش یک کارت است و بین وضعیت‌های واقعی کارگاه جابه‌جا می‌شود: پذیرش، در دست تعمیر، آمادهٔ تحویل، رسوبی.',
-            5,
-            'بورد تعمیرات همیار: کارت‌های قبض پذیرش در ستون‌های پذیرش، در دست تعمیر و آمادهٔ تحویل.',
-            // The first kanban column with its header and top two cards.
-            ['focus' => '88% 34%', 'zoom' => '2.2'],
-        ],
-        [
-            'installments',
-            'جدول اقساط',
-            'چه کسی امروز باید بیاید، چه کسی عقب افتاده و چقدر هنوز وصول نشده — به‌جای دفترچه‌ای که فقط خودتان می‌توانید بخوانید.',
-            5,
-            'جدول اقساط همیار: سررسیدها، مبلغ هر قسط و وضعیت وصول برای چند مشتری.',
-            null,
-        ],
-        [
-            'profit',
-            'گزارش سود',
-            'بهای تمام‌شده در همان لحظهٔ فروش ثبت می‌شود، پس سود آخر ماه سود واقعی است، نه تفاضل قیمت امروز با قیمت خرید.',
-            7,
-            'گزارش سود همیار: فروش، بهای تمام‌شده و سود به تفکیک کالا در یک بازهٔ شمسی.',
-            null,
-        ],
-        [
-            'sms',
-            'پیامک',
-            'پیامکِ «دستگاه آماده است» و یادآوری قسط از روی رویدادهای خود سیستم می‌رود، نه از روی فهرستی که باید یادتان بماند.',
-            4,
-            'صفحهٔ پیامک همیار: قالب‌های آماده و سیاههٔ پیامک‌های ارسال‌شده به مشتریان.',
-            null,
-        ],
-        [
-            'imei',
-            'پروندهٔ دستگاه',
-            'همان پرونده‌ای که بالاتر ورق زدید، این بار داخل نرم‌افزار: خرید، تعمیر، حواله و فروش، همه زیر یک شناسه.',
-            8,
-            'پروندهٔ یک دستگاه در همیار: شناسهٔ IMEI و سابقهٔ خرید، تعمیر و فروش همان گوشی.',
-            // The serial header and the first rows of the device's history.
-            ['focus' => '84% 30%', 'zoom' => '2.4'],
-        ],
+        // The invoice lines and the scan box, high on the start side.
+        'pos' => ['span' => 7, 'phone' => ['focus' => '86% 26%', 'zoom' => '2.3']],
+        // The first kanban column with its header and top two cards.
+        'repairs' => ['span' => 5, 'phone' => ['focus' => '88% 34%', 'zoom' => '2.2']],
+        'installments' => ['span' => 5, 'phone' => null],
+        'profit' => ['span' => 7, 'phone' => null],
+        'sms' => ['span' => 4, 'phone' => null],
+        // The serial header and the first rows of the device's history.
+        'imei' => ['span' => 8, 'phone' => ['focus' => '84% 30%', 'zoom' => '2.4']],
     ];
 @endphp
 
@@ -139,14 +104,14 @@
              baseline under a hairline — one of the eight different openings this page
              used to have. --}}
         <div class="sec__head">
-            <p class="sec__eyebrow">داخل نرم‌افزار</p>
-            <h2 class="sec__title" id="tour-title">همان صفحه‌هایی که هر روز <em>باز می‌کنید</em></h2>
+            <p class="sec__eyebrow">{{ __('landing.tour.eyebrow') }}</p>
+            <h2 class="sec__title" id="tour-title">{!! __('landing.tour.title_html') !!}</h2>
             <span class="sec__rule" aria-hidden="true"></span>
-            <p class="sec__lede">تصویرها از خود نرم‌افزار گرفته شده‌اند — نه ماکت، نه طرح.</p>
+            <p class="sec__lede">{{ __('landing.tour.lede') }}</p>
         </div>
 
         <div class="tour-grid">
-            @foreach ($screens as [$file, $name, $body, $span, $alt, $phone])
+            @foreach ($screens as $file => ['span' => $span, 'phone' => $phone])
                 <figure class="tour-item rise"
                         data-span="{{ $span }}"
                         data-phone="{{ $phone ? 'on' : 'off' }}"
@@ -156,7 +121,7 @@
                             <span class="frame__dot"></span><span class="frame__dot"></span><span class="frame__dot"></span>
                         </div>
                         <img src="{{ Vite::asset("resources/landing/shots/{$file}.webp") }}"
-                             alt="{{ $alt }}"
+                             alt="{{ __("landing.tour.screens.{$file}.alt") }}"
                              width="1440" height="900" loading="lazy" decoding="async">
                     </div>
 
@@ -169,8 +134,8 @@
                              hat. The mosaic's unequal tile sizes already carry the ranking,
                              which is this file's own argument for the layout. --}}
                         <span class="tour-cap__text">
-                            <b class="tour-name">{{ $name }}</b>
-                            <span class="tour-body">{{ $body }}</span>
+                            <b class="tour-name">{{ __("landing.tour.screens.{$file}.name") }}</b>
+                            <span class="tour-body">{{ __("landing.tour.screens.{$file}.body") }}</span>
                         </span>
                     </figcaption>
                 </figure>

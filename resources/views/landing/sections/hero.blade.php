@@ -35,32 +35,34 @@
     The three cards carry sample figures from one shop's day. Persian digits in prose;
     the IMEI stays Latin and `dir="ltr"`, because a serial that reorders under bidi is a
     serial nobody can read back to a customer.
+
+    ## The copy
+
+    In `lang/fa/landing.php` under `hero`. The two reasons above that are about a
+    sentence rather than about the composition — the eyebrow that states no customer
+    count, and the alt text `bin/shots` keeps true — are restated beside their keys.
 --}}
 <section class="sec fold" id="hero">
     <div class="shell shell--wide fold__grid">
         <div class="fold__say">
-            <p class="fold__eyebrow">نرم‌افزار ابری فروشگاه موبایل</p>
+            <p class="fold__eyebrow">{{ __('landing.hero.eyebrow') }}</p>
 
-            {{-- «فروشگاه موبایل» is one noun phrase and the category the headline exists to
-                 name; `text-wrap: balance` was splitting it across the two lines. --}}
-            <h1 class="fold__title">
-                همهٔ کارِ <span class="nowrap">فروشگاه موبایل</span>، در <em>یک سامانه</em>
-            </h1>
+            {{-- One of the seven `_html` keys on the page: the headline holds
+                 «فروشگاه موبایل» together in a `.nowrap` span and lights its last phrase
+                 with `<em>`, so the string carries markup and is rendered unescaped. --}}
+            <h1 class="fold__title">{!! __('landing.hero.title_html') !!}</h1>
 
-            <p class="fold__lede">
-                فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ
-                خودش ثبت می‌شود و سود هر فروش همان لحظه معلوم است.
-            </p>
+            <p class="fold__lede">{{ __('landing.hero.lede') }}</p>
 
             <div class="fold__actions">
-                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">رایگان شروع کنید</a>
+                <a href="{{ route('register') }}" class="btn btn--primary btn--lg">{{ __('landing.hero.cta_primary') }}</a>
                 {{-- `quiet`, not `ghost`: ghost is white-on-transparent for the navy
                      band, and on this white ground it was an invisible button. --}}
-                <a href="#tour" class="btn btn--quiet btn--lg">دیدن نرم‌افزار</a>
+                <a href="#tour" class="btn btn--quiet btn--lg">{{ __('landing.hero.cta_secondary') }}</a>
             </div>
 
             <ul class="fold__ticks">
-                @foreach (['بدون کارت بانکی', 'در مرورگر، بدون نصب', 'تقویم شمسی و تومان'] as $tick)
+                @foreach (__('landing.hero.ticks') as $tick)
                     <li>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -84,7 +86,7 @@
                          browser otherwise discovers it after the stylesheet. --}}
                     <img src="{{ Illuminate\Support\Facades\Vite::asset('resources/landing/shots/dashboard.webp') }}"
                          width="1440" height="900" fetchpriority="high" decoding="async"
-                         alt="داشبورد همیار: فروش امروز، نمودار درآمد ۳۰ روز، چک‌ها و اقساط سررسیدشده.">
+                         alt="{{ __('landing.hero.shot_alt') }}">
                 </picture>
             </div>
 
@@ -96,8 +98,8 @@
                     </svg>
                 </span>
                 <span>
-                    <b>دستگاه ثبت شد</b>
-                    <span class="nums" dir="ltr">356938035643809</span>
+                    <b>{{ __('landing.hero.cards.imei.title') }}</b>
+                    <span class="nums" dir="ltr">{{ __('landing.hero.cards.imei.value') }}</span>
                 </span>
             </div>
 
@@ -109,8 +111,8 @@
                     </svg>
                 </span>
                 <span>
-                    <b>تعمیر آمادهٔ تحویل</b>
-                    <span>پیامک برای مشتری رفت</span>
+                    <b>{{ __('landing.hero.cards.repair.title') }}</b>
+                    <span>{{ __('landing.hero.cards.repair.value') }}</span>
                 </span>
             </div>
 
@@ -122,8 +124,8 @@
                     </svg>
                 </span>
                 <span>
-                    <b>قسط وصول شد</b>
-                    <span class="nums">۴٬۲۰۰٬۰۰۰ تومان</span>
+                    <b>{{ __('landing.hero.cards.instalment.title') }}</b>
+                    <span class="nums">{{ __('landing.hero.cards.instalment.value') }}</span>
                 </span>
             </div>
         </div>
