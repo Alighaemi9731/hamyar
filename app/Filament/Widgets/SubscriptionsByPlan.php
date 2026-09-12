@@ -17,6 +17,17 @@ use Filament\Widgets\ChartWidget;
  */
 final class SubscriptionsByPlan extends ChartWidget
 {
+    /**
+     * One slice colour per rung, cycled rather than indexed.
+     *
+     * It was a bare three-item array, which is the same bug as a hardcoded plan count:
+     * the catalogue became four rungs on 2026-09-12 and Chart.js drew the fourth slice
+     * with no fill at all — an invisible wedge on the one chart that exists to show how
+     * the ladder is selling. The modulo means the next rung is grey-on-grey at worst,
+     * never absent.
+     */
+    private const SLICE_COLOURS = ['#0066cc', '#0f7b3f', '#8a5a00', '#6a3fa0'];
+
     protected ?string $heading = 'توزیع پلن‌ها';
 
     protected function getType(): string
@@ -26,18 +37,22 @@ final class SubscriptionsByPlan extends ChartWidget
 
     protected function getData(): array
     {
-        $plans = Plan::query()->orderBy('position')->get();
+        $plans = Plan::query()->orderBy('position')->get()->values();
 
         $counts = $plans->map(fn (Plan $plan): int => Subscription::query()
             ->where('plan_id', $plan->getKey())
             ->whereIn('status', [Subscription::STATUS_ACTIVE, Subscription::STATUS_TRIALING])
             ->count());
 
+        $colours = $plans->map(
+            fn (Plan $plan, int $index): string => self::SLICE_COLOURS[$index % count(self::SLICE_COLOURS)]
+        );
+
         return [
             'datasets' => [[
                 'label' => 'اشتراک‌ها',
                 'data' => $counts->values()->all(),
-                'backgroundColor' => ['#0066cc', '#0f7b3f', '#8a5a00'],
+                'backgroundColor' => $colours->values()->all(),
             ]],
             'labels' => $plans->pluck('name_fa')->values()->all(),
         ];
