@@ -113,8 +113,10 @@ it('saves what a customer ends up holding', function (): void {
         ->and($print['show_qr'])->toBeFalse();
 
     /** @var PrintSettings $resolved */
+    // `refresh()`, because `$this->tenant` is the instance loaded before the request and
+    // still holds the old document — the reader would be judged on a stale copy.
     $resolved = app(TenantContext::class)->runFor(
-        $this->tenant,
+        $this->tenant->refresh(),
         fn (): PrintSettings => app(ShopSettings::class)->print(),
     );
 
@@ -226,8 +228,9 @@ it('writes a real boolean for every automation, on and off alike', function (): 
         ->and($automations[AutomationKey::InvoiceIssued->value])->toBeFalse();
 
     /** @var MessagingSettings $resolved */
+    // `refresh()` for the same reason as the print test: the pre-request instance is stale.
     $resolved = app(TenantContext::class)->runFor(
-        $this->tenant,
+        $this->tenant->refresh(),
         fn (): MessagingSettings => app(ShopSettings::class)->messaging(),
     );
 
