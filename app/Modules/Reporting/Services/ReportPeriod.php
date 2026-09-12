@@ -134,6 +134,25 @@ final readonly class ReportPeriod
     }
 
     /**
+     * The first shop day, as `Y-m-d` — for a filename or a `date` column.
+     *
+     * Not `$from->toDateString()`: `from` is Tehran midnight, 20:30 UTC the evening before,
+     * and its UTC date is the day before the range begins. Every export was named that way.
+     */
+    public function firstDay(): string
+    {
+        return Jalali::calendarDate($this->from)->toDateString();
+    }
+
+    /**
+     * The last shop day, as `Y-m-d`.
+     */
+    public function lastDay(): string
+    {
+        return Jalali::calendarDate($this->to)->toDateString();
+    }
+
+    /**
      * @return array{from: string, to: string, from_jalali: string, to_jalali: string}
      */
     public function toArray(): array

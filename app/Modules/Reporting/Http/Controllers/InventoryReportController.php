@@ -116,7 +116,8 @@ final class InventoryReportController extends Controller
                 ];
         }
 
-        $name = sprintf('inventory-%s-%s.xlsx', $cut, $asOf->toDateString());
+        // The shop's date: "now" after 20:30 UTC is already tomorrow in Tehran.
+        $name = sprintf('inventory-%s-%s.xlsx', $cut, Jalali::calendarDate($asOf)->toDateString());
 
         /*
         | The credit, after the workbook is built and before it is handed over.

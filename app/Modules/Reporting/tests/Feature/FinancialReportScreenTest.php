@@ -19,6 +19,7 @@ use App\Modules\Reporting\Services\FinancialReports;
 use App\Support\Jalali;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Aging, the cheque calendar and the instalment book.
@@ -463,6 +464,29 @@ it('downloads a workbook for each cut', function (): void {
 
         expect($response->headers->get('content-disposition'))->toContain('.xlsx');
     }
+});
+
+/*
+| The filename's date is the shop's. At 00:30 on ۱ شهریور in Tehran — 21:00 UTC on
+| 2026-08-22 — the aging export "as of now" was stamped with the UTC date, ۳۱ مرداد, and a
+| Jalali range was stamped with the UTC date of its Tehran-midnight lower bound, also the
+| day before it begins.
+*/
+it('stamps the export with the shop date, just after Tehran midnight', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-22 21:00:00', 'UTC'));
+
+    Excel::fake();
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/financial/export?cut=aging')
+        ->assertOk();
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/financial/export?'.http_build_query(['cut' => 'cheques', 'from' => '۱۴۰۵/۰۶/۰۱', 'to' => '۱۴۰۵/۰۶/۳۱']))
+        ->assertOk();
+
+    Excel::assertDownloaded('financial-aging-2026-08-23.xlsx');
+    Excel::assertDownloaded('financial-cheques-2026-08-23.xlsx');
 });
 
 /* ----------------------------------------------------------- isolation -- */

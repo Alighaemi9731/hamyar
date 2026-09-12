@@ -104,7 +104,7 @@ final class TaxReportController extends Controller
                 ];
         }
 
-        $name = sprintf('vat-%s-%s.xlsx', $cut, $period->from->toDateString());
+        $name = sprintf('vat-%s-%s.xlsx', $cut, $period->firstDay());
 
         /*
         | The credit, after the workbook is built and before it is handed over.

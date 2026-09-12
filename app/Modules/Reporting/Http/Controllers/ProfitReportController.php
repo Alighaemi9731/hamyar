@@ -108,7 +108,7 @@ final class ProfitReportController extends Controller
                 : [$row['label'], $row['count'], ...$money];
         }
 
-        $name = sprintf('profit-%s-%s-%s.xlsx', $cut, $period->from->toDateString(), $period->to->toDateString());
+        $name = sprintf('profit-%s-%s-%s.xlsx', $cut, $period->firstDay(), $period->lastDay());
 
         /*
         | The credit, after the workbook is built and before it is handed over.

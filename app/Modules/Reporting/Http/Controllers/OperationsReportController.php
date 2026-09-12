@@ -91,7 +91,7 @@ final class OperationsReportController extends Controller
             ];
         }
 
-        $name = sprintf('sms-usage-%s.xlsx', $period->from->toDateString());
+        $name = sprintf('sms-usage-%s.xlsx', $period->firstDay());
 
         /*
         | The credit, after the workbook is built and before it is handed over.
