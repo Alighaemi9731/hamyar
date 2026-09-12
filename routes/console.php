@@ -41,6 +41,29 @@ Schedule::command('repairs:sweep-abandoned')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Hourly, and not once a day at a chosen hour, because the hour is not ours to choose.
+// Quiet hours are per shop (`messaging.quiet_until_hour` / `quiet_from_hour`), and a single
+// 10:00 run would silently overrule a shop that opens at 11 — or never reach one whose
+// window starts after it. So the sweep runs every hour and asks each shop, on Tehran's
+// clock, whether now is a decent time; out of hours it returns empty-handed and the next
+// run inside the window picks the same day up. On the hour in Tehran, so a 09:00 opening
+// is met at 09:00 and not at 09:30.
+//
+// Twenty-four runs a day are safe because the sweep is idempotent by design: each message
+// is keyed by the shop's Jalali date (or year, for a birthday) under a unique index, so
+// a later run the same day finds every key taken in `SendSms` and sends nothing, charges
+// nothing. `withoutOverlapping` and `onOneServer` spare the work, as with the repairs
+// sweep; they are not the guarantee.
+//
+// The overlap lock expires after an hour rather than the default day: a run killed
+// mid-sweep (a deploy, an OOM) leaves its mutex behind, and a day-long lock would silence
+// every shop's reminders until tomorrow for the sake of one lost run.
+Schedule::command('messaging:sweep')
+    ->hourly()
+    ->timezone('Asia/Tehran')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
 // Just after Tehran midnight, so a shop that lapsed overnight is already on the fallback
 // plan's limits when it opens rather than three hours into the day. The command is
 // idempotent — it moves rows by state and date, so a second run finds nothing to move.

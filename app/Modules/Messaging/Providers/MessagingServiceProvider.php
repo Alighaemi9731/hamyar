@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Messaging\Providers;
 
+use App\Modules\Messaging\Console\SweepScheduledMessages;
 use App\Modules\Messaging\Contracts\SmsDriver;
 use App\Modules\Messaging\Drivers\FakeSmsDriver;
 use App\Modules\Messaging\Drivers\KavenegarDriver;
@@ -92,5 +93,16 @@ final class MessagingServiceProvider extends ModuleServiceProvider
         Event::listen(InvoiceFinalised::class, SendInvoiceIssuedSms::class);
 
         Gate::policy(Message::class, MessagePolicy::class);
+
+        /*
+        | Registered explicitly. Laravel discovers commands in `app/Console/Commands` only,
+        | so a command living in a module that is not listed here does not exist — and the
+        | scheduler entry naming it fails every hour into a log nobody reads.
+        */
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                SweepScheduledMessages::class,
+            ]);
+        }
     }
 }
