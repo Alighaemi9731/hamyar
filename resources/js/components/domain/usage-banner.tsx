@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { AlertTriangleIcon, OctagonAlertIcon } from 'lucide-react';
 
+import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import type { UsageState } from '@/types';
 
@@ -103,11 +104,14 @@ function describe(meters: { label: string; level: string; window: string }[]): s
     return 'سهمیهٔ این ماه رو به پایان است.';
   }
 
-  const others = meters.length - 1;
+  const count = meters.length - 1;
+  // Persian digits, because this is prose: a bare `${count}` rendered «و 2 مورد دیگر»,
+  // a Latin digit in the middle of a Persian sentence on every page the banner reaches.
+  const others = toPersianDigits(String(count));
   const verb = first.level === 'blocked' ? 'تمام شده است' : 'رو به پایان است';
   const monthly = first.window === 'month';
 
-  if (others === 0) {
+  if (count === 0) {
     return monthly ? `سهمیهٔ ${first.label} این ماه ${verb}.` : `ظرفیت ${first.label} ${verb}.`;
   }
 
