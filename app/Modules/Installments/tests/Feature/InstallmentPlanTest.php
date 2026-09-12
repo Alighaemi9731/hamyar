@@ -19,6 +19,7 @@ use App\Modules\Platform\Services\TenantProvisioner;
 use App\Modules\Sales\Models\SalesInvoice;
 use App\Support\Jalali;
 use App\Support\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 
 /**
  * فروش اقساطی, from a real sale.
@@ -243,6 +244,50 @@ it('accepts a first-due date typed on a Persian keypad', function (): void {
         $plan = InstallmentPlan::query()->with('rows')->firstOrFail();
 
         expect(Jalali::format($plan->rows->first()?->due_at, Jalali::DATE, false))->toBe('1405/06/15');
+    });
+});
+
+/*
+| «۱۴۰۵/۶/۲» passes this form's own rule (`\d{1,2}` for month and day) and then crashed
+| the parse with an undefined array key inside the date package — a 500 on the store, and
+| an error in place of the preview table.
+|
+| Run at 21:00 UTC on 2026-08-23, which is 00:30 on ۲ شهریور in Tehran. The crash did not
+| depend on the hour; the hour is here so the day stored is checked at the one time of
+| night a UTC reading would name a different day.
+*/
+it('accepts a first-due date with a one-digit month and day, in Persian digits', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-23 21:00:00', 'UTC'));
+
+    $invoice = saleWithDownPayment(0);
+
+    $preview = $this->actingAs($this->owner)
+        ->getJson($this->url.'/installments/invoices/'.$invoice->id.'/plan/preview?'.http_build_query([
+            'count' => 2, 'profit_percent' => 0, 'interval_months' => 1, 'first_due' => '۱۴۰۵/۶/۲',
+        ]))
+        ->assertOk();
+
+    expect($preview->json('error'))->toBeNull()
+        ->and($preview->json('rows.0.due_at_jalali'))->toBe('1405/06/02')
+        ->and($preview->json('rows.1.due_at_jalali'))->toBe('1405/07/02');
+
+    $this->actingAs($this->owner)
+        ->post($this->url.'/installments/invoices/'.$invoice->id.'/plan', [
+            'count' => 2,
+            'profit_percent' => 0,
+            'interval_months' => 1,
+            'first_due' => '۱۴۰۵/۶/۲',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    ($this->inTenant)(function (): void {
+        $plan = InstallmentPlan::query()->with('rows')->firstOrFail();
+
+        // Tehran midnight of ۲ شهریور, as the plan screen always stores a due day.
+        expect($plan->first_due_at->toIso8601String())->toBe('2026-08-23T20:30:00+00:00')
+            ->and($plan->rows->map(fn ($row): string => Jalali::format($row->due_at, Jalali::DATE, false))->all())
+            ->toBe(['1405/06/02', '1405/07/02']);
     });
 });
 

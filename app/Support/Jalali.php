@@ -77,6 +77,16 @@ final class Jalali
      *
      * Persian digits are normalised first, so a value typed on a Persian keyboard
      * (۱۴۰۵/۰۵/۱۵) parses identically to its Latin form.
+     *
+     * ## A short month or day is padded here, once
+     *
+     * `Jalalian::fromFormat('Y/m/d')` needs two-digit parts. Handed «1405/6/2» it does not
+     * throw an exception anyone can catch — it reads an undefined array key inside the
+     * package, which Laravel turns into an `ErrorException` and a 500. And the short shape
+     * is exactly what people type: the daily close and the instalment wizard both accept
+     * `\d{1,2}` in their validation, as a shop's staff write dates on paper. So the parts
+     * are padded before the package sees them, and every caller is fixed at the source
+     * rather than each remembering to pad.
      */
     public static function parse(string $value, string $format = self::DATE): CarbonImmutable
     {
@@ -86,11 +96,30 @@ final class Jalali
             throw new InvalidArgumentException('Cannot parse an empty Jalali date.');
         }
 
+        if (str_starts_with($format, self::DATE)) {
+            $normalised = self::padDate($normalised);
+        }
+
         return CarbonImmutable::instance(
             Jalalian::fromFormat($format, $normalised)
                 ->toCarbon()
                 ->setTimezone(self::displayTimezone())
         )->utc();
+    }
+
+    /**
+     * «1405/6/2» → «1405/06/02», and anything after the date (a time) left as it was.
+     *
+     * A value that does not start with a Y/m/d date is returned unchanged, so the package
+     * still rejects it the way it always has.
+     */
+    private static function padDate(string $value): string
+    {
+        return preg_replace_callback(
+            '/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?!\d)/',
+            static fn (array $parts): string => sprintf('%s/%02d/%02d', $parts[1], (int) $parts[2], (int) $parts[3]),
+            $value,
+        ) ?? $value;
     }
 
     /**
@@ -162,10 +191,9 @@ final class Jalali
             return CarbonImmutable::parse($normalised, 'UTC')->startOfDay();
         }
 
-        $instant = preg_match('/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/', $normalised, $jalali) === 1
-            // Padded first: `Jalalian::fromFormat('Y/m/d')` needs two-digit parts and does
-            // not throw on «1405/6/2» — it fails inside the package with an undefined key.
-            ? self::parse(sprintf('%s/%02d/%02d', $jalali[1], (int) $jalali[2], (int) $jalali[3]))
+        $instant = preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $normalised) === 1
+            // `parse()` pads «1405/6/2» itself — see its docblock.
+            ? self::parse($normalised)
             : CarbonImmutable::parse($normalised, 'UTC');
 
         return self::dateOf($instant->setTimezone(self::displayTimezone()));
