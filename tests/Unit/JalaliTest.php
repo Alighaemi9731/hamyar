@@ -80,3 +80,66 @@ it('never lets a Jalali string reach storage', function (): void {
     // The parse result is what a repository would persist: a real UTC instant.
     expect(Jalali::parse('1405/01/01'))->toBeInstanceOf(CarbonImmutable::class);
 });
+
+/* ------------------------------------------------------- calendar dates -- */
+
+/*
+| `calendarDate()` is what a `date` column is filled from and what "is it due yet" is
+| asked of. The first case is the bug: the picker's value for ۱۴۰۵/۰۶/۲۲ is 20:30 UTC on
+| the 21st, and a `date` cast handed that string stored the 21st.
+*/
+it('reads the picker instant for a Tehran midnight as that Tehran day', function (): void {
+    expect(Jalali::calendarDate('2026-09-12T20:30:00.000Z')->toDateString())->toBe('2026-09-13');
+});
+
+it('takes a bare Gregorian date as the date it already is', function (): void {
+    expect(Jalali::calendarDate('2026-09-13')->toDateString())->toBe('2026-09-13');
+});
+
+it('puts an instant after 20:30 UTC on the next Tehran day', function (): void {
+    // 21:00 UTC is 00:30 in Tehran — already the 13th.
+    expect(Jalali::calendarDate('2026-09-12T21:00:00Z')->toDateString())->toBe('2026-09-13');
+});
+
+it('keeps an instant before 20:30 UTC on its own day', function (): void {
+    // 19:00 UTC is 22:30 in Tehran — still the 12th, the same day as its UTC date.
+    expect(Jalali::calendarDate('2026-09-12T19:00:00Z')->toDateString())->toBe('2026-09-12');
+});
+
+it('returns midnight UTC, the value a date cast reads back', function (): void {
+    $date = Jalali::calendarDate('2026-09-12T20:30:00.000Z');
+
+    expect($date)->toBeUtc()
+        ->and($date->format('H:i:s'))->toBe('00:00:00')
+        // …and renders as the day that was picked, which is the whole point.
+        ->and(Jalali::format($date, Jalali::DATE, false))->toBe('1405/06/22');
+});
+
+it('reads back what a date column is sent to the client as, unchanged', function (): void {
+    // An edit form posts the prop straight back when the field is not touched: the
+    // `toIso8601String()` of a date cast. It must not drift a day on every save.
+    expect(Jalali::calendarDate('2026-09-13T00:00:00+00:00')->toDateString())->toBe('2026-09-13')
+        ->and(Jalali::calendarDate(Jalali::calendarDate('2026-09-12T20:30:00Z'))->toDateString())->toBe('2026-09-13');
+});
+
+it('reads a DateTimeInterface on the shop clock, whatever zone it carries', function (): void {
+    $instant = CarbonImmutable::parse('2026-09-12T20:30:00Z');
+
+    expect(Jalali::calendarDate($instant)->toDateString())->toBe('2026-09-13')
+        ->and(Jalali::calendarDate($instant->setTimezone('Asia/Tehran'))->toDateString())->toBe('2026-09-13');
+});
+
+it('reads a Jalali date in either digit set, padded or not', function (): void {
+    expect(Jalali::calendarDate('۱۴۰۵/۰۶/۲۲')->toDateString())->toBe('2026-09-13')
+        ->and(Jalali::calendarDate('1405/6/22')->toDateString())->toBe('2026-09-13');
+});
+
+it('reads a picker instant from a year Tehran kept summer time', function (): void {
+    // 1370/05/23 is 1991-08-14, when Tehran was UTC+04:30. The picker still encodes
+    // +03:30, so its instant is 01:00 local — still the right day.
+    expect(Jalali::calendarDate('1991-08-13T20:30:00.000Z')->toDateString())->toBe('1991-08-14');
+});
+
+it('refuses an empty value rather than inventing today', function (): void {
+    expect(fn () => Jalali::calendarDate(''))->toThrow(InvalidArgumentException::class);
+});

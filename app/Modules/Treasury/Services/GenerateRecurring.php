@@ -52,7 +52,13 @@ final class GenerateRecurring
      */
     public function run(?CarbonImmutable $asOf = null, ?int $actorId = null): array
     {
-        $asOf ??= CarbonImmutable::now();
+        /*
+        | The shop's date, not the instant. A period's due date is a calendar date (midnight
+        | UTC of the day, what `dayInMonthOf()` returns), and compared with the UTC clock
+        | the first of the month did not arrive until 03:30 Tehran — a run at 00:30 booked
+        | nothing for a month that had already begun.
+        */
+        $asOf = Jalali::calendarDate($asOf ?? CarbonImmutable::now());
 
         $generated = 0;
         $skipped = 0;
@@ -136,6 +142,9 @@ final class GenerateRecurring
 
     /**
      * Every Jalali period from `starts` up to `asOf`, keyed `1405-06` with its due date.
+     *
+     * `$asOf` is the shop's calendar date ({@see Jalali::calendarDate()}), so a period
+     * due today is due, whatever the UTC clock says.
      *
      * @return array<string, CarbonImmutable>
      */

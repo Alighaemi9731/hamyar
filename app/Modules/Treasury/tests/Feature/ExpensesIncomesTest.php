@@ -216,6 +216,34 @@ it('stops generating after a template ends', function (): void {
     });
 });
 
+it('books the first of a Jalali month from the first minute of it, on the shop clock', function (string $asOf, array $periods): void {
+    ($this->inTenant)(function () use ($asOf, $periods): void {
+        /** @var RecurringTemplate $template */
+        $template = RecurringTemplate::query()->create([
+            'transaction_category_id' => $this->rent->id,
+            'account_id' => $this->till->id,
+            'name' => 'اجاره اول ماه',
+            'direction' => CashDirection::Expense,
+            'amount' => 10_000_000,
+            'day_of_month' => 1,
+            // ۱ شهریور ۱۴۰۵.
+            'starts_on' => '2026-08-23',
+        ]);
+
+        app(GenerateRecurring::class)->run(CarbonImmutable::parse($asOf));
+
+        $keys = CashTransaction::query()->orderBy('occurred_at')->pluck('generated_key')->all();
+
+        expect($keys)->toBe(array_map(fn (string $period): string => "template:{$template->id}:{$period}", $periods));
+    });
+})->with([
+    // 23:30 Tehran on ۳۱ شهریور: Mehr has not begun.
+    'last evening of Shahrivar' => ['2026-09-22 20:00:00', ['1405-06']],
+    // 00:30 Tehran on ۱ مهر. The UTC date is still the 22nd, and the old comparison
+    // against the instant left Mehr's rent unbooked until 03:30.
+    'first minutes of Mehr' => ['2026-09-22 21:00:00', ['1405-06', '1405-07']],
+]);
+
 /* ----------------------------------------------------- rentals -- */
 
 it('earns rent from a leased desk, month after month', function (): void {

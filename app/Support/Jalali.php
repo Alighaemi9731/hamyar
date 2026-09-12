@@ -110,6 +110,76 @@ final class Jalali
     }
 
     /**
+     * The shop's calendar date a value names, as midnight UTC of that date.
+     *
+     * For `date` columns — a cheque's due date, a birthday, the start of a lease — and for
+     * any "is it due yet / how many days late" question. Those are days printed on paper,
+     * not instants, and a day belongs to the shop's calendar, not to UTC.
+     *
+     * ## The 20:30 UTC trap
+     *
+     * `<JDatePicker>` submits a date-only choice as the UTC instant of Tehran midnight:
+     * ۱۴۰۵/۰۶/۲۲ goes over the wire as `2026-09-12T20:30:00.000Z`. Handed straight to a
+     * `date` cast, that keeps its UTC date — the 12th — so the shopkeeper picked the 22nd
+     * and read the 21st back after saving, and the cheque reminder and the birthday
+     * greeting fired on the wrong day. The same trap is `startOfDay()` on a stored instant:
+     * an instalment due at Tehran midnight is 20:30 UTC the evening before, and counting
+     * days from its UTC date made every due day look a day late.
+     *
+     * So the value is read on the shop's wall clock (`app.display_timezone`) first and
+     * only then reduced to a date:
+     *
+     * - an instant — the picker's ISO string, or any `DateTimeInterface` — is shifted
+     *   into the shop's timezone and its date taken;
+     * - a bare `Y-m-d` is already a calendar date and is taken as it is, never shifted;
+     * - a Jalali `Y/m/d`, Persian or Latin digits, is the shape the rest of the product
+     *   types (`ReportPeriod`, the daily close, the instalment wizard) and is converted.
+     *
+     * ## Why midnight UTC
+     *
+     * It is exactly what an `immutable_date` cast reads back, so the result compares
+     * directly with `$cheque->due_date`, stores as the right day, and feeds back into
+     * this method or `format()` as the same day. That round trip relies on the display
+     * timezone being east of UTC — true of Asia/Tehran, and already assumed by every
+     * `toIso8601String()` a date column is sent to the client as.
+     *
+     * @throws InvalidArgumentException for an empty or unreadable value — Carbon's
+     *                                  `InvalidFormatException` is one. Validate first.
+     */
+    public static function calendarDate(DateTimeInterface|string $value): CarbonImmutable
+    {
+        if ($value instanceof DateTimeInterface) {
+            return self::dateOf(CarbonImmutable::instance($value)->setTimezone(self::displayTimezone()));
+        }
+
+        $normalised = Digits::toLatin(trim($value));
+
+        if ($normalised === '') {
+            throw new InvalidArgumentException('Cannot read a calendar date from an empty value.');
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $normalised) === 1) {
+            return CarbonImmutable::parse($normalised, 'UTC')->startOfDay();
+        }
+
+        $instant = preg_match('/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/', $normalised, $jalali) === 1
+            // Padded first: `Jalalian::fromFormat('Y/m/d')` needs two-digit parts and does
+            // not throw on «1405/6/2» — it fails inside the package with an undefined key.
+            ? self::parse(sprintf('%s/%02d/%02d', $jalali[1], (int) $jalali[2], (int) $jalali[3]))
+            : CarbonImmutable::parse($normalised, 'UTC');
+
+        return self::dateOf($instant->setTimezone(self::displayTimezone()));
+    }
+
+    /**
+     * A wall-clock moment's date, as midnight UTC of that date.
+     */
+    private static function dateOf(CarbonImmutable $local): CarbonImmutable
+    {
+        return CarbonImmutable::parse($local->toDateString(), 'UTC');
+    }
+
+    /**
      * The same day of the month, N Jalali months later.
      *
      * ## Why this is not `addMonths()` on the underlying Carbon instance

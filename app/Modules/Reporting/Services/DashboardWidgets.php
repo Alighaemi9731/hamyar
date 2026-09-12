@@ -241,7 +241,9 @@ final class DashboardWidgets
                     'party_name' => $cheque->party?->name,
                     'amount' => Money::toArray($cheque->outstanding()),
                     'due_date' => $cheque->due_date->toIso8601String(),
-                    'overdue' => $cheque->due_date->lessThan($asOf->startOfDay()),
+                    // The shop's date, as `ChequeCalendar` decides it — not the UTC one,
+                    // which is still yesterday until 03:30 Tehran.
+                    'overdue' => $cheque->due_date->lessThan(Jalali::calendarDate($asOf)),
                 ];
             }
         }
@@ -278,10 +280,19 @@ final class DashboardWidgets
     {
         $asOf ??= CarbonImmutable::now();
 
+        /*
+        | Late means due before the shop's today began. `due_at` is Tehran midnight, 20:30
+        | UTC the evening before, so the UTC start of day put every row on this card on the
+        | day it fell due. The bound goes back to UTC because that is what is stored — the
+        | query builder formats a Carbon as it finds it, without converting.
+        */
+        $today = Jalali::calendarDate($asOf);
+        $startOfToday = $asOf->setTimezone(config()->string('app.display_timezone'))->startOfDay()->utc();
+
         $rows = InstallmentRow::query()
             ->with('plan.party:id,name')
             ->whereIn('status', [InstallmentRow::STATUS_PENDING, InstallmentRow::STATUS_OVERDUE])
-            ->where('due_at', '<', $asOf->startOfDay())
+            ->where('due_at', '<', $startOfToday)
             ->orderBy('due_at')
             ->limit(200)
             ->get();
@@ -311,7 +322,7 @@ final class DashboardWidgets
                     'plan_number' => $plan instanceof InstallmentPlan ? $plan->number : '',
                     'party_name' => $plan instanceof InstallmentPlan ? $plan->party?->name : null,
                     'outstanding' => Money::toArray($outstanding),
-                    'days_late' => max(0, (int) $row->due_at->startOfDay()->diffInDays($asOf->startOfDay(), false)),
+                    'days_late' => max(0, (int) Jalali::calendarDate($row->due_at)->diffInDays($today, false)),
                 ];
             }
         }

@@ -7,6 +7,7 @@ namespace App\Modules\Cheques\Http\Requests;
 use App\Modules\Cheques\Enums\ChequeDirection;
 use App\Modules\CRM\Models\Account;
 use App\Support\Digits;
+use App\Support\Jalali;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -108,7 +109,7 @@ final class ChequeRequest extends FormRequest
     }
 
     /**
-     * The columns `RegisterCheque` writes, with both dates already converted to UTC.
+     * The columns `RegisterCheque` writes, with both dates already converted for storage.
      *
      * Conversion happens here rather than in the service because this is the boundary the
      * Jalali string arrives at — golden rule 5 says store UTC, and the further that string
@@ -125,7 +126,16 @@ final class ChequeRequest extends FormRequest
         /** @var array<string, mixed> $data */
         $data = $this->safe()->except(['direction', 'account_id', 'due_date', 'received_at']);
 
-        $data['due_date'] = CarbonImmutable::parse($this->string('due_date')->value());
+        /*
+        | The due date is a DAY, the one printed on the paper — not an instant. The picker
+        | sends Tehran midnight as UTC (`…T20:30:00Z` the evening before), and parsed as it
+        | stands a `date` column keeps that UTC date: the shopkeeper picked the 22nd and read
+        | the 21st back. `calendarDate()` reads it on the shop's clock first.
+        |
+        | `received_at` stays an instant: it is a timestamp column, and Tehran midnight of
+        | the day picked is exactly the moment it means.
+        */
+        $data['due_date'] = Jalali::calendarDate($this->string('due_date')->value());
 
         $received = $this->string('received_at')->value();
 

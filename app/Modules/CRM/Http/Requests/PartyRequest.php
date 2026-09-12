@@ -8,6 +8,7 @@ use App\Modules\CRM\Enums\PartyKind;
 use App\Modules\CRM\Models\Party;
 use App\Modules\CRM\Models\PartyContact;
 use App\Support\Digits;
+use App\Support\Jalali;
 use App\Support\Money;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -94,7 +95,10 @@ final class PartyRequest extends FormRequest
             // Null survives as null: "nobody decided" is a different fact from zero.
             'credit_limit' => $limit === null ? null : ($toman ? Money::fromToman($limit) : $limit),
             'opening_balance' => $toman ? Money::fromToman($opening) : $opening,
-            'birthday' => $this->filled('birthday') ? $this->string('birthday')->value() : null,
+            // A day, not an instant: the picker sends Tehran midnight as UTC, which is the
+            // evening before in UTC and would store the day before the one picked — and the
+            // birthday greeting would go out a day late. Read on the shop's calendar.
+            'birthday' => $this->filled('birthday') ? Jalali::calendarDate($this->string('birthday')->value()) : null,
             'is_active' => $this->boolean('is_active'),
             'notes' => $this->filled('notes') ? $this->string('notes')->value() : null,
         ];

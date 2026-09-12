@@ -218,6 +218,36 @@ function inTenantContext(App\Modules\Platform\Models\Tenant $tenant, Closure $ca
 }
 
 /**
+ * What `<JDatePicker>` submits for a Jalali day: the UTC ISO instant of Tehran midnight.
+ *
+ * Built the way `jalaliToUtcISO()` in `resources/js/lib/jalali.ts` builds it — the
+ * Gregorian date with an explicit `+03:30`, then `toISOString()` — so a test posts the
+ * string a browser posts. ۱۴۰۵/۰۶/۲۲ is `2026-09-12T20:30:00.000Z`: the evening BEFORE, in
+ * UTC. A fixture that posts a tidy `2026-09-13` instead is the one that let a `date`
+ * column store the day before the one picked, because it never sent the trap.
+ *
+ * @param  string  $jalali  `Y/m/d`, two-digit month and day
+ */
+function jDatePickerValue(string $jalali): string
+{
+    $gregorian = App\Support\Jalali::parse($jalali)->toDateString();
+
+    return Carbon\CarbonImmutable::parse($gregorian.'T00:00:00+03:30')->utc()->format('Y-m-d\TH:i:s.v\Z');
+}
+
+/**
+ * The day a browser renders for an ISO string: `formatJalali()` in the client shifts it
+ * into Tehran and converts, and so does this. Latin digits, so assertions read plainly.
+ */
+function jalaliDayOnScreen(mixed $iso): string
+{
+    expect($iso)->toBeString()->not->toBe('');
+
+    /** @var string $iso */
+    return App\Support\Jalali::format($iso, App\Support\Jalali::DATE, false);
+}
+
+/**
  * Turn metering off for one test that genuinely does more than a plan allows.
  *
  * ## Why this is opt-IN and never the default
