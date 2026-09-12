@@ -4173,3 +4173,33 @@ window is refused when it closes before it opens, because that pair silences the
 trace. Not done, and recorded in the PR: `img-src` in the CSP admits only `'self' data: blob:`,
 so an external logo URL cannot render anywhere yet; `DailyMessagingSweep` compares the UTC hour
 with a window documented as shop-local, and nothing schedules the sweep.
+
+The last two lines above are closed by #180: `messaging:sweep` runs hourly on Tehran's clock
+for every usable shop, and the quiet window is read in Tehran time.
+
+## 2026-09-13 — the owner's review round: three paid plans, honest landing copy, the sweeps that never ran
+
+Owner review of the landing and the product, landed as #171–#180 (merged on green; no box).
+
+- **Plans (#171).** «پایه» stays free and outside the count; three paid rungs above it —
+  «کسب‌وکار» ۲۹۰٬۰۰۰ is new, at the bottom of the paid ladder where the common one-counter
+  shop was forced to buy four times its work. ADR 0018 amended; `SubscriptionsByPlan` had a
+  three-colour array that would have drawn the fourth slice unfilled.
+- **Landing (#172, #176, #179).** Copy rewritten around the day a shop actually has, tab title
+  just «سامانه همیار». The IMEI band became an inset panel on the page's wide track with the
+  shared section head; its input icon stopped covering the first digit and its demo, which no
+  module imported, runs. Standalone amounts and tariff prices use proportional figures:
+  Estedad's tabular «۰» and «٬» are digit-wide and read «۲۹۰ , ۰۰۰». The first attempt
+  missed that `.nums` — declared after the section sheets — re-imposed tabular on the price;
+  caught by measuring in the browser after the merge, not before.
+- **Doors that were missing.** Moadian credentials (#173; the key never reaches the browser,
+  blank means unchanged), print and messaging settings (#177), the privacy page's non-existent
+  support panel (#174).
+- **Sweeps (#180).** The messaging sweep was built and never scheduled; `repairs:sweep-abandoned`
+  was scheduled and never registered (lessons: *A module command is not a command until its
+  provider registers it*). Also fixed in the sweep: «due today» sent a day early, and birthday
+  keys built from «۱۴» so no customer could be greeted twice before 1500.
+- **Found, in progress.** Date-only fields (`cheques.due_date`, `parties.birthday`, …) store the
+  UTC date of Tehran midnight, so a picked ۲۲ shows as ۲۱ after saving — reproduced in tinker,
+  fix under way on its own branch.
+- `/design` gained the `.nav-chip` specimen (#175); the quota banner lost a Latin digit (#178).
