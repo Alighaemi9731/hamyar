@@ -58,12 +58,20 @@ return [
     | and they are the only copy on the page nobody on the team ever sees rendered.
     */
     'meta' => [
-        'title' => 'سامانه همیار — نرم‌افزار فروشگاه موبایل: فروش، تعمیرات، اقساط',
-        'description' => 'سامانه همیار کار روزانهٔ فروشگاه موبایل را می‌بندد: فروش سریال‌دار با IMEI، تعمیرات، اقساط و چک، پیامک خودکار و گزارش سود. پلن رایگان، بدون کارت بانکی.',
+        /*
+        | The tab, and nothing else. It was three clauses until the owner read it in a
+        | browser tab («خیلی طولانیه… همین عادی بنویسه سامانه همیار کافیه») — a tab strip
+        | shows about twenty characters, so every keyword after the dash was paying rent
+        | in a search result while making the tab unreadable. The keywords moved into
+        | `description`, which is the line under the title in a result and is read; the
+        | unfurl titles below are not tabs and keep the category beside the name.
+        */
+        'title' => 'سامانه همیار',
+        'description' => 'نرم‌افزار فروشگاه موبایل: فروش با IMEI، قبض پذیرش تعمیر، اقساط و چک، پیامک و گزارش سود. در مرورگر، با تقویم شمسی و تومان. پلن پایه رایگان و بدون کارت بانکی.',
         'og_title' => 'سامانه همیار — نرم‌افزار فروشگاه موبایل',
-        'og_description' => 'از پذیرش تعمیر تا تسویه، روی یک قبض.',
+        'og_description' => 'هر گوشی پروندهٔ خودش را دارد: خرید، تعمیر، حواله و فروش، زیر یک شناسه.',
         'twitter_title' => 'سامانه همیار — نرم‌افزار فروشگاه موبایل',
-        'twitter_description' => 'فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — در یک سامانه.',
+        'twitter_description' => 'فاکتور فروش، قبض پذیرش، قسط و چک — همه در یک حساب، با تقویم شمسی.',
     ],
 
     // The first focusable thing on the page, and CSS-only since the 16.0 baseline.
@@ -84,7 +92,7 @@ return [
             'problems' => 'امکانات',
             'imei' => 'شناسنامهٔ IMEI',
             'pricing' => 'تعرفه‌ها',
-            'faq' => 'سوالات',
+            'faq' => 'سؤالات',
         ],
     ],
 
@@ -106,15 +114,27 @@ return [
         */
         'title_html' => 'همهٔ کارِ <span class="nowrap">فروشگاه موبایل</span>، در <em>یک سامانه</em>',
 
-        'lede' => 'فروش با IMEI، تعمیرات، اقساط و چک، پیامک و گزارش سود — هر گوشی با شناسهٔ خودش ثبت می‌شود و سود هر فروش همان لحظه معلوم است.',
+        /*
+        | Not the module list again — the head already names the category and the trust
+        | bar below names the four trades. This says what the shopkeeper ends the day
+        | holding: the four documents the work actually produces, and the one number a
+        | ruled ledger never gives back.
+        */
+        'lede' => 'فاکتور فروش، قبض پذیرش، سررسید قسط و چک — همه در یک حساب. سودِ هر دستگاه هم پای همان فاکتور معلوم است.',
 
         'cta_primary' => 'رایگان شروع کنید',
         'cta_secondary' => 'دیدن نرم‌افزار',
 
+        /*
+        | The offer, not the product: three lines about what starting costs. The product
+        | facts (Persian and Jalali, the browser, Excel) are the trust bar's three, one
+        | screen below — the two lists said «در مرورگر» and «تقویم شمسی» twice between
+        | them, which is how a page starts sounding like it is padding.
+        */
         'ticks' => [
+            'پلن پایه رایگان',
             'بدون کارت بانکی',
-            'در مرورگر، بدون نصب',
-            'تقویم شمسی و تومان',
+            'هر ماه، بدون قرارداد سالانه',
         ],
 
         /*
@@ -134,9 +154,12 @@ return [
                 'title' => 'دستگاه ثبت شد',
                 'value' => '356938035643809',
             ],
+            // Not «پیامک برای مشتری رفت»: the SMS automations ship off and no screen
+            // enables them (see `problems.items.sms`). The QR on the قبض پذیرش needs no
+            // setting at all — `/t/{token}` is public and the receipt prints it.
             'repair' => [
                 'title' => 'تعمیر آمادهٔ تحویل',
-                'value' => 'پیامک برای مشتری رفت',
+                'value' => 'مشتری با QR پیگیری می‌کند',
             ],
             'instalment' => [
                 'title' => 'قسط وصول شد',
@@ -148,59 +171,88 @@ return [
     /* ------------------------------------------------------------ 2. trust -- */
 
     'trust' => [
-        'claim_html' => 'مناسبِ <b>فروش</b>، <b>تعمیرات</b>، <b>اقساط</b> و <b>چک</b>',
+        // «مناسبِ» is what a brochure says about a product it is not sure of. The shop
+        // does all four in one day; the line says that in the way it would be said aloud.
+        'claim_html' => 'هم <b>فروش</b>، هم <b>تعمیرات</b>، هم <b>اقساط</b> و <b>چک</b>',
 
         /*
         | Where a SaaS page would carry customer logos or a shop count. This product has
         | no paying customers yet, so any number or logo on this line would be invented.
         | These three are true today and a shopkeeper can check every one of them on the
         | free plan before paying anybody — checkable beats impressive.
+        |
+        | The third one says «گزارش‌ها» and not «همه‌چیز» on purpose: the seven report
+        | screens each carry an Excel button, and the product, invoice and party LISTS
+        | do not. The wider claim was on this bar and in the FAQ, and neither was true.
         */
         'proofs' => [
-            'فارسی، با تقویم شمسی',
-            'روی مرورگر — چیزی نصب نمی‌شود',
-            'خروجی اکسل، هر وقت خواستید',
+            'فارسی، با تقویم شمسی و تومان',
+            'در مرورگر باز می‌شود؛ چیزی نصب نمی‌شود',
+            'گزارش‌ها، با خروجی اکسل',
         ],
     ],
 
     /* --------------------------------------------------------- 3. problems -- */
 
     'problems' => [
-        'eyebrow' => 'مسئله',
+        /*
+        | «مسئله» named a category and said nothing. What these six have in common is
+        | what the kicker now says — each one costs the shop either an hour or a sum —
+        | and the lede no longer spends twenty-five words explaining that the page is
+        | not a feature list, which is a sentence about the page rather than about the
+        | shop.
+        */
+        'eyebrow' => 'وقت و پولِ فروشگاه',
         'title_html' => 'شش گرفتاری که هر فروشندهٔ موبایل <em>می‌شناسد</em>',
-        'lede' => 'هیچ‌کدام از این‌ها از فهرست امکانات درنیامده؛ کارهایی است که یا وقت فروشگاه را می‌گیرد یا پولش را. جلوی هرکدام نوشته‌ایم همیار دقیقاً چه می‌کند.',
+        'lede' => 'زیر هرکدام نوشته‌ایم همیار چه می‌کند.',
 
         /*
         | Six independent faults, not a sequence — which is why they carry no ordinals.
-        | Each complaint is in the shopkeeper's own nouns (قبض پذیرش، همکار، سررسید،
-        | حواله، بهای تمام‌شده) and each answer names what the software does, not how it
-        | feels. The order they render in, and the icon each card carries, are in
+        |
+        | **The heading is a moment, not a category.** «ردیابی IMEI و شمارهٔ سریال» is a
+        | feature-list row; «مشتری با همان گوشی برمی‌گردد» is a Tuesday afternoon, and a
+        | shopkeeper recognises the second before reading the body. The body then answers
+        | that moment with what the software does — in the shopkeeper's own nouns (قبض
+        | پذیرش، همکار، سررسید، حواله، بهای تمام‌شده), never in how it feels.
+        |
+        | Statements, not questions: `docs/brand/voice.md` rule 5 keeps rhetorical
+        | questions to the FAQ, where a question is the actual form of the content.
+        |
+        | The order they render in, and the icon each card carries, are in
         | `resources/views/landing/sections/problems.blade.php`.
         */
         'items' => [
             'imei' => [
-                'title' => 'ردیابی IMEI و شمارهٔ سریال',
-                'body' => 'گوشی‌ها در موجودی «تعداد» می‌شوند و معلوم نیست کدام دستگاه از کدام همکار آمده و به کدام مشتری رفته. در همیار هر دستگاه یک سطر با شناسهٔ خودش است.',
+                'title' => 'مشتری با همان گوشی برمی‌گردد',
+                'body' => 'شمارهٔ سریال را می‌زنید و همان‌جا معلوم است دستگاه از کدام همکار آمده، کِی و به چه قیمتی فروخته شده و قبلاً چه تعمیری داشته. گشتن در فاکتورهای پارسال لازم نیست.',
             ],
             'intake' => [
-                'title' => 'قبض پذیرش دست‌نویس',
-                'body' => 'قبض کاغذی گم می‌شود و مشتری برای خبر گرفتن زنگ می‌زند. قبض پذیرش با بارکد QR چاپ می‌شود و مشتری وضعیت دستگاهش را خودش می‌بیند.',
+                'title' => 'تلفن‌های پیاپی برای خبر گرفتن از تعمیر',
+                'body' => 'قبض پذیرش با بارکد QR چاپ می‌شود؛ مشتری همان را اسکن می‌کند و وضعیت دستگاهش را خودش می‌بیند. یک قبض کاغذیِ گم‌شده هم دیگر پروندهٔ تعمیر را گم نمی‌کند.',
             ],
             'dues' => [
-                'title' => 'اقساط و چک در دفترچه',
-                'body' => 'سررسیدها در دفترچه و کشو می‌مانند تا روزی که دیر شده باشد. میز وصول هر روز می‌گوید چه کسی باید بیاید، چه کسی عقب افتاده و چقدر وصول نشده.',
+                'title' => 'چکی که سررسیدش را کسی یادش نبود',
+                'body' => 'چک‌ها و اقساط یک میز وصول دارند: امروز چه کسی باید بیاید، چه کسی عقب افتاده و چقدر هنوز وصول نشده است.',
             ],
             'profit' => [
-                'title' => 'سود واقعی معلوم نیست',
-                'body' => 'وقتی بهای خرید هر دستگاه جایی ثبت نشده، سود آخر ماه یک تخمین است. بهای تمام‌شده در لحظهٔ فروش ثبت می‌شود و سود هر فاکتور همان‌جا معلوم است.',
+                'title' => 'فروش خوب بوده، سود معلوم نیست',
+                'body' => 'بهای خرید هر دستگاه سرِ فروش روی همان فاکتور می‌نشیند، پس سود آخر ماه تفاوت واقعی خرید و فروش است، نه تخمینی از روی قیمت امروز.',
             ],
             'branches' => [
-                'title' => 'چند شعبه، چند حساب',
-                'body' => 'موجودی هر شعبه جدا شمرده می‌شود و حواله بین آن‌ها ثبتی ندارد. انبار هر شعبه و حواله‌های بین شعبه‌ها در یک جا و روی یک موجودی است.',
+                'title' => 'مشتری چیزی می‌خواهد که شعبهٔ دیگر دارد',
+                'body' => 'موجودی هر دو شعبه را از همین‌جا می‌بینید و جابه‌جایی دستگاه را با حواله ثبت می‌کنید: همان شناسه، انبار دیگر، بدون یک ردیف تازه.',
             ],
+            /*
+            | The only card that states a limit, because the alternative was to state
+            | something untrue. The listeners are wired and the send is queued —
+            | `SendRepairStatusSms` and `SendInvoiceIssuedSms` — but every automation
+            | ships off and **no screen turns one on**: `/messaging` is a read-only log
+            | and no route writes the shop's settings. Until one does, «پیامک خودکار»
+            | with no caveat would be selling a switch that is not on any screen.
+            */
             'sms' => [
-                'title' => 'خبردادن به مشتری، دستی',
-                'body' => 'یادآوری قسط و خبر آماده‌شدن دستگاه یادتان می‌رود یا وقت می‌گیرد. پیامک از روی رویدادهای خود سیستم فرستاده می‌شود.',
+                'title' => 'خبر دادن به مشتری، یکی‌یکی و با تلفن',
+                'body' => 'پیامکِ «دستگاه آماده است» و «فاکتور ثبت شد» را خود سامانه از روی رویدادهای فروشگاه می‌فرستد. روشن‌کردنشان فعلاً دست ماست، نه یک کلید در تنظیمات.',
             ],
         ],
     ],
@@ -209,10 +261,12 @@ return [
 
     'imei' => [
         'title_html' => 'این شناسه را بزنید،<br>بقیه‌اش پیداست.',
-        'lede' => 'گوشی در همیار «تعداد» نیست؛ هر دستگاه یک سطر با شناسهٔ خودش است. هر خرید، تعمیر، حواله و فروشی که رویش ثبت شود زیر همان شناسه می‌ماند — حتی اگر دو سال بعد سراغش را بگیرید.',
+        // «هر دستگاه یک سطر با شناسهٔ خودش است» is the data model; a shopkeeper buys the
+        // four answers, not the row. The four are the timeline's own questions below.
+        'lede' => 'هر گوشی که وارد فروشگاه می‌شود پروندهٔ خودش را باز می‌کند: از که خریدید، چه تعمیری شد، کجا رفت و به که فروختید. دو سال بعد هم همان‌جاست.',
 
         'field_label' => 'شناسهٔ دستگاه را وارد کنید',
-        'hint' => 'سه پروندهٔ نمونه از یک فروشگاه آزمایشی. یکی را انتخاب کنید، یا شناسه را رقم‌به‌رقم تایپ کنید.',
+        'hint' => 'سه پروندهٔ نمونه از یک فروشگاه آزمایشی. یکی را انتخاب کنید یا شناسه را تایپ کنید.',
 
         // Typed digits that match no sample. A dead end is a bad answer, so this one
         // says what the visitor would actually get in their own account.
@@ -226,7 +280,9 @@ return [
         | arrived as near-identical paragraphs 120 words apart on the page's most
         | negative message.
         */
-        'honesty' => 'همتا API عمومی ندارد، پس ثبت نهایی را خودتان انجام می‌دهید — همیار وضعیت هر دستگاه را نگه می‌دارد و یادآوری می‌کند.',
+        // «یادآوری می‌کند» was not true: the module keeps a status per unit and a list
+        // of the unregistered ones, and nothing sends a reminder about either.
+        'honesty' => 'همتا API عمومی ندارد، پس ثبت نهایی را خودتان انجام می‌دهید — همیار وضعیت همتای هر دستگاه را کنارش نگه می‌دارد و ثبت‌نشده‌ها را جدا نشان می‌دهد.',
 
         /*
         | Three sample records — seed-shaped fiction from a demo shop, never a customer's
@@ -364,7 +420,7 @@ return [
     /* ------------------------------------------------------------- 5. tour -- */
 
     'tour' => [
-        'eyebrow' => 'داخل نرم‌افزار',
+        'eyebrow' => 'شش صفحه از یک روز کاری',
         'title_html' => 'همان صفحه‌هایی که هر روز <em>باز می‌کنید</em>',
 
         /*
@@ -389,32 +445,32 @@ return [
         'screens' => [
             'pos' => [
                 'name' => 'صندوق فروش',
-                'body' => 'بارکد یا IMEI را می‌زنید و دستگاه با همان شناسه روی فاکتور می‌نشیند. معاوضه، تخفیف و چند روش پرداخت، همه روی همین یک صفحه.',
+                'body' => 'فاکتور را با اسکن می‌بندید: بارکد، IMEI یا سریال. معاوضه، تخفیف و چند روش پرداخت هم روی همان فاکتور جا می‌شود.',
                 'alt' => 'صفحهٔ صندوق فروش همیار: سبد فاکتور با یک گوشی سریال‌دار، جعبهٔ اسکن بارکد و روش‌های پرداخت.',
             ],
             'repairs' => [
                 'name' => 'بورد تعمیرات',
-                'body' => 'هر قبض پذیرش یک کارت است و بین وضعیت‌های واقعی کارگاه جابه‌جا می‌شود: پذیرش، در دست تعمیر، آمادهٔ تحویل، رسوبی.',
+                'body' => 'تا لحظهٔ تحویل معلوم است هر دستگاه دست کیست و در چه مرحله‌ای مانده — پذیرش، در دست تعمیر، آمادهٔ تحویل، رسوبی.',
                 'alt' => 'بورد تعمیرات همیار: کارت‌های قبض پذیرش در ستون‌های پذیرش، در دست تعمیر و آمادهٔ تحویل.',
             ],
             'installments' => [
                 'name' => 'جدول اقساط',
-                'body' => 'چه کسی امروز باید بیاید، چه کسی عقب افتاده و چقدر هنوز وصول نشده — به‌جای دفترچه‌ای که فقط خودتان می‌توانید بخوانید.',
+                'body' => 'صبح که می‌رسید، می‌دانید امروز سراغ چه کسی بروید و چقدر از قسط‌ها عقب افتاده است.',
                 'alt' => 'جدول اقساط همیار: سررسیدها، مبلغ هر قسط و وضعیت وصول برای چند مشتری.',
             ],
             'profit' => [
                 'name' => 'گزارش سود',
-                'body' => 'بهای تمام‌شده در همان لحظهٔ فروش ثبت می‌شود، پس سود آخر ماه سود واقعی است، نه تفاضل قیمت امروز با قیمت خرید.',
+                'body' => 'سر ماه به‌جای تخمین، تفاوت واقعی خرید و فروش را می‌بینید — به تفکیک کالا، برند، یا خودِ آن دستگاه.',
                 'alt' => 'گزارش سود همیار: فروش، بهای تمام‌شده و سود به تفکیک کالا در یک بازهٔ شمسی.',
             ],
             'sms' => [
                 'name' => 'پیامک',
-                'body' => 'پیامکِ «دستگاه آماده است» و یادآوری قسط از روی رویدادهای خود سیستم می‌رود، نه از روی فهرستی که باید یادتان بماند.',
+                'body' => 'خبر آماده‌شدن دستگاه و ثبت فاکتور، از روی رویدادهای خود سامانه — نه از روی فهرستی که باید یادتان بماند.',
                 'alt' => 'صفحهٔ پیامک همیار: قالب‌های آماده و سیاههٔ پیامک‌های ارسال‌شده به مشتریان.',
             ],
             'imei' => [
                 'name' => 'پروندهٔ دستگاه',
-                'body' => 'همان پرونده‌ای که بالاتر ورق زدید، این بار داخل نرم‌افزار: خرید، تعمیر، حواله و فروش، همه زیر یک شناسه.',
+                'body' => 'همان پرونده‌ای که بالاتر ورق زدید، این بار در خود نرم‌افزار.',
                 'alt' => 'پروندهٔ یک دستگاه در همیار: شناسهٔ IMEI و سابقهٔ خرید، تعمیر و فروش همان گوشی.',
             ],
         ],
@@ -423,9 +479,11 @@ return [
     /* ---------------------------------------------------------- 6. pricing -- */
 
     'pricing' => [
-        'eyebrow' => 'تعرفه',
+        // Not the word «تعرفه» over a table of tariffs: the kicker states the one fact
+        // that decides whether the table below is worth reading (ADR 0018, GATE 6).
+        'eyebrow' => 'همهٔ ماژول‌ها، در هر پلن',
         'title_html' => 'قیمت همینی است که <em>می‌بینید</em>',
-        'lede' => 'همهٔ امکانات در همهٔ پلن‌ها باز است؛ فقط سهمیهٔ ماهانه فرق می‌کند. پلن پایه رایگان است و کارت بانکی نمی‌خواهد. هر ماه می‌توانید پلن را بالا و پایین ببرید یا قطع کنید — قرارداد سالانه و جریمهٔ فسخ نداریم.',
+        'lede' => 'هیچ ماژولی پشت پلن گران‌تر قفل نیست؛ پلن‌ها فقط در سهمیهٔ ماهانه فرق دارند. پلن پایه رایگان است و هر ماه می‌توانید پلن را عوض کنید یا قطع کنید.',
 
         'billing_aria' => 'دورهٔ پرداخت',
         'monthly' => 'ماهانه',
@@ -467,15 +525,22 @@ return [
     /* -------------------------------------------------------------- 7. faq -- */
 
     'faq' => [
-        'eyebrow' => 'سؤال‌های پیش از خرید',
+        // The lede used to restate the heading and then announce its own honesty. It
+        // now says the one thing the six answers below prove.
+        'eyebrow' => 'پیش از خرید',
         'title_html' => 'قبل از اینکه <em>بپرسید</em>',
-        'lede' => 'شش سؤالی که هر فروشندهٔ موبایل پیش از خرید می‌پرسد — با جواب صریح، حتی آنجا که جوابش «نه» است.',
+        'lede' => 'هر جا جواب «نه» بوده، همان را نوشته‌ایم.',
 
         /*
-        | Purchase objections, not trivia, in the order the owner listed them. Two are
-        | questions a marketing page would rather not print — what happens with همتا
-        | (nothing automatic; it has no public API) and what happens when a subscription
-        | lapses — and answering those plainly is worth more than a sixth feature claim.
+        | Purchase objections, not trivia, in the order the owner listed them. Four of
+        | the six now print something a marketing page would rather not: همتا has no
+        | public API, the مودیان connection is not live, there is no support screen or
+        | phone line, and the product and invoice lists have no Excel button yet. Each
+        | was checked against the code before it was written, and each replaced a
+        | sentence that claimed the opposite. Answering these plainly is worth more than
+        | a sixth feature claim — and the lapse answer was simply wrong: ADR 0018 says a
+        | lapsed shop falls back to the free plan and is never locked out, while the
+        | page said «ورود به حساب بسته است».
         |
         | **This array is the single source for both the rendered list and the FAQPage
         | structured data.** `faq.blade.php` builds the JSON-LD from it rather than from
@@ -486,27 +551,27 @@ return [
         'items' => [
             [
                 'q' => 'با سامانهٔ همتا چه می‌کند؟',
-                'a' => 'همتا API عمومی ندارد، پس هیچ نرم‌افزاری — از جمله ما — نمی‌تواند مستقیم در آن ثبت کند و هر کس خلافش را بگوید دارد چیزی می‌فروشد که ندارد. کاری که همیار می‌کند این است: وضعیت همتای هر IMEI را کنار خود دستگاه نگه می‌دارد، دستگاه‌های ثبت‌نشده را یادآوری می‌کند و مرحله‌های کار را نشان می‌دهد. ثبت نهایی را خودتان در سامانه انجام می‌دهید.',
+                'a' => 'همتا API عمومی ندارد، پس هیچ نرم‌افزاری — از جمله ما — نمی‌تواند مستقیم در آن ثبت کند و هرکس خلافش را بگوید دارد چیزی می‌فروشد که ندارد. کاری که همیار می‌کند این است: وضعیت همتای هر IMEI را کنار خود دستگاه نگه می‌دارد، دستگاه‌های ثبت‌نشده را در فهرست جدا نشان می‌دهد و مرحله‌های انتقال را قدم‌به‌قدم جلوتان می‌گذارد. ثبت نهایی را خودتان در سامانهٔ همتا انجام می‌دهید.',
             ],
             [
                 'q' => 'سامانهٔ مودیان چطور؟',
-                'a' => 'ماژول مودیان صورتحساب‌ها را با همان قالبی که سامانه می‌خواهد آماده می‌کند و صف ارسال دارد. ارسال واقعی از راه همان شرکت معتمدی انجام می‌شود که خودتان با آن قرارداد دارید؛ شناسه و کلید حافظهٔ مالیاتی را یک بار در تنظیمات وارد می‌کنید و بعد از آن کاری ندارید.',
+                'a' => 'ماژول مودیان صورتحساب را با همان قالبی که سامانه می‌خواهد می‌سازد و در صف ارسال می‌گذارد. ولی اتصال به شرکت معتمد هنوز زنده نیست و چیزی واقعاً ارسال نمی‌شود؛ اگر امروز به ارسال مودیان نیاز دارید، روی همیار حساب نکنید.',
             ],
             [
                 'q' => 'از نرم‌افزار قبلی‌ام می‌توانم بیایم؟',
-                'a' => 'بله، با فایل اکسل: فهرست کالاها، مشتری‌ها و مانده‌حساب‌ها. قبل از ثبت نهایی یک پیش‌نمایش می‌بینید و ستون‌ها را خودتان تطبیق می‌دهید، پس هیچ چیز کورکورانه وارد نمی‌شود و یک فایل به‌هم‌ریخته، انبارتان را به هم نمی‌ریزد.',
+                'a' => 'بله، با فایل اکسل: فهرست کالاها، مشتری‌ها و مانده‌حساب اولیه‌شان. فایل خودتان را می‌دهید، ستون‌ها را تطبیق می‌دهید و پیش از ثبت نهایی همان سطرها را در یک پیش‌نمایش می‌بینید. موجودی اولیهٔ انبار از این فایل وارد نمی‌شود؛ آن را با فاکتور خرید یا انبارگردانی ثبت می‌کنید تا بهای تمام‌شده درست دربیاید.',
             ],
             [
                 'q' => 'داده‌های من مال کیست؟',
-                'a' => 'مال شما. هر وقت بخواهید از همه‌چیز خروجی اکسل می‌گیرید — کالا، فاکتور، مشتری، چک و قسط — و برای بردن‌شان لازم نیست از کسی اجازه بگیرید. اطلاعات هر فروشگاه هم از بقیه جداست، و این جداسازی در خودِ پایگاه داده اعمال می‌شود، نه فقط در نرم‌افزار.',
+                'a' => 'مال شما. گزارش‌های فروش، سود، موجودی، مالی — با چک و قسط — و مالیات هرکدام دکمهٔ خروجی اکسل دارند و برای بردن‌شان از کسی اجازه نمی‌گیرید. فهرست خام کالا و فاکتور هنوز دکمهٔ خروجی ندارد. دادهٔ هر فروشگاه هم از بقیه جداست و این جداسازی در خودِ پایگاه داده اعمال می‌شود، نه فقط در نرم‌افزار.',
             ],
             [
                 'q' => 'پشتیبانی چطور است؟',
-                'a' => 'وارد کردن فهرست کالاها از فایل اکسل خودتان است و راهنمای مرحله‌به‌مرحله دارد؛ اگر جایی گیر کردید کمک می‌کنیم. پشتیبانی از داخل خود نرم‌افزار و با ایمیل است و کسی جواب می‌دهد که نرم‌افزار را می‌شناسد.',
+                'a' => 'با ایمیل. صفحهٔ پشتیبانی داخل نرم‌افزار و شمارهٔ تلفن پشتیبانی نداریم. نشانی پایین همین صفحه به ما می‌رسد و کسی جواب می‌دهد که خود نرم‌افزار را نوشته است.',
             ],
             [
                 'q' => 'اگر اشتراکم تمام شود چه می‌شود؟',
-                'a' => 'داده‌هایتان پاک نمی‌شود و سر جای خودش می‌ماند — ولی تا وقتی تمدید نکنید، ورود به حساب بسته است. پس قبل از سررسید خروجی اکسل بگیرید؛ ما هم از یک هفته قبل یادآوری می‌کنیم. هر وقت تمدید کنید همه‌چیز دقیقاً همان‌جاست که گذاشته بودید.',
+                'a' => 'حسابتان بسته نمی‌شود. داده‌ها سر جای خودشان می‌مانند، ورود و دیدن و خروجی گرفتن باز است، و فروشگاه به همان پلن پایهٔ رایگان برمی‌گردد: فقط سهمیهٔ ثبت ماهانه به اندازهٔ آن پلن می‌شود. هر وقت تمدید کنید، سهمیه از همان ماه برمی‌گردد.',
             ],
         ],
 
@@ -518,15 +583,21 @@ return [
     /* ---------------------------------------------------------- 8. closing -- */
 
     'closing' => [
-        'title' => 'اولین فاکتورتان را همین امروز بزنید',
-        'lede' => 'چیزی نصب نمی‌شود. فروشگاه را می‌سازید، فهرست کالا را از اکسل وارد می‌کنید و پشت پیشخوان شروع می‌کنید. راه‌اندازی کار یک بعدازظهر است، نه یک پروژه.',
+        'title' => 'اولین فاکتورتان را همین امروز ثبت کنید',
+        // «راه‌اندازی کار یک بعدازظهر است» went: it is a promise about the visitor's own
+        // afternoon that nothing in the product can keep. What is left is three steps
+        // that are each true and each takes one screen.
+        'lede' => 'حساب فروشگاه را می‌سازید، فهرست کالا را از اکسل وارد می‌کنید و پشت پیشخوان شروع می‌کنید. چیزی نصب نمی‌شود.',
         'cta_primary' => 'رایگان شروع کنید',
         'cta_secondary' => 'دیدن تعرفه‌ها',
-        'note' => 'بدون کارت بانکی · بدون قرارداد سالانه · خروجی اکسل هر وقت خواستید',
+        'note' => 'پلن پایه رایگان · بدون کارت بانکی · خروجی اکسل از گزارش‌ها',
 
         'footer' => [
             'brand_label' => 'همیار',
-            'about' => 'نرم‌افزار ابری فروشگاه‌های موبایل: فروش سریال‌دار، تعمیرات، اقساط و چک، پیامک و گزارش سود. فارسی، تقویم شمسی، و ساخته‌شده برای بازار ایران.',
+            // The module list had already been read four times by the time a visitor
+            // reaches the footer. This says the one thing the list does not: what a
+            // record in همیار is.
+            'about' => 'هر دستگاه در همیار پروندهٔ خودش را دارد: خرید، تعمیر، حواله و فروش، همه زیر یک شناسه. اقساط، چک، پیامک و گزارش سود هم در همان حساب است.',
             'nav_aria' => 'پیوندهای فوتر',
 
             'product_heading' => 'محصول',
