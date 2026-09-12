@@ -21,6 +21,36 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 
+/**
+ * A destination's hue. Twelve names, defined once in `brand.css` and mapped to a
+ * value once in `app.css`; nothing here is a colour.
+ *
+ * THE RULE THAT MATTERS: no two items in the same SECTION share a hue. A section is
+ * where the eye actually compares — four or seven rows under one heading — and reuse
+ * across sections is invisible. That is why `emerald` can be both «فروش و صندوق» and
+ * «خزانه‌داری» without reading as a pair, while two ambers inside «کالا و انبار» would.
+ *
+ * `slate` is the neutral and is used twice on purpose: «همتا» is the regulator's
+ * registry and «تنظیمات» is the settings drawer, and neither wants an opinion.
+ *
+ * These are NOT a second accent. A hue names a destination and appears only on a nav
+ * tile or a card's icon tile. It never reaches a badge, a figure, a status pill or a
+ * chart series — success, warning and danger keep their meanings and their hexes.
+ */
+export type NavHue =
+  | 'blue'
+  | 'indigo'
+  | 'violet'
+  | 'magenta'
+  | 'rose'
+  | 'orange'
+  | 'amber'
+  | 'lime'
+  | 'emerald'
+  | 'teal'
+  | 'cyan'
+  | 'slate';
+
 export interface NavItem {
   label: string;
   href: string;
@@ -32,6 +62,9 @@ export interface NavItem {
    * «اقساط» is money owed on dates, not a bank card.
    */
   icon: LucideIcon;
+
+  /** Required, so a new destination cannot ship without one. */
+  hue: NavHue;
   /**
    * Module key (`module:<code>`) gating this item. Undefined = always visible.
    *
@@ -56,17 +89,41 @@ export const NAVIGATION: NavSection[] = [
   {
     label: 'روزانه',
     items: [
-      { label: 'داشبورد', href: '/dashboard', icon: LayoutDashboardIcon },
-      { label: 'فروش و صندوق', href: '/sales', icon: ShoppingCartIcon, feature: 'module:sales' },
-      { label: 'تعمیرات', href: '/repairs', icon: WrenchIcon, feature: 'module:repairs' },
-      { label: 'مشتریان', href: '/crm', icon: UsersIcon, feature: 'module:crm' },
+      { label: 'داشبورد', href: '/dashboard', icon: LayoutDashboardIcon, hue: 'blue' },
+      {
+        label: 'فروش و صندوق',
+        href: '/sales',
+        icon: ShoppingCartIcon,
+        feature: 'module:sales',
+        hue: 'emerald',
+      },
+      {
+        label: 'تعمیرات',
+        href: '/repairs',
+        icon: WrenchIcon,
+        feature: 'module:repairs',
+        hue: 'orange',
+      },
+      { label: 'مشتریان', href: '/crm', icon: UsersIcon, feature: 'module:crm', hue: 'violet' },
     ],
   },
   {
     label: 'کالا و انبار',
     items: [
-      { label: 'کالاها', href: '/catalog', icon: TagsIcon, feature: 'module:catalog' },
-      { label: 'انبار', href: '/inventory', icon: BoxesIcon, feature: 'module:inventory' },
+      {
+        label: 'کالاها',
+        href: '/catalog',
+        icon: TagsIcon,
+        feature: 'module:catalog',
+        hue: 'magenta',
+      },
+      {
+        label: 'انبار',
+        href: '/inventory',
+        icon: BoxesIcon,
+        feature: 'module:inventory',
+        hue: 'orange',
+      },
       {
         label: 'شناسنامه IMEI',
         href: '/inventory/units',
@@ -77,6 +134,7 @@ export const NAVIGATION: NavSection[] = [
           did the four neighbours around it.
         */
         icon: IdCardIcon,
+        hue: 'indigo',
         feature: 'module:inventory',
       },
       {
@@ -90,6 +148,7 @@ export const NAVIGATION: NavSection[] = [
           `check-rtl-arrows` question this one does not.
         */
         icon: ArrowLeftRightIcon,
+        hue: 'cyan',
         feature: 'module:inventory',
       },
       {
@@ -98,9 +157,16 @@ export const NAVIGATION: NavSection[] = [
         // A count is ticked, not listed: the clipboard leaves the office full of boxes
         // to check off, which is the difference between this and «انبار» beside it.
         icon: ClipboardCheckIcon,
+        hue: 'lime',
         feature: 'module:inventory',
       },
-      { label: 'خرید', href: '/purchasing', icon: TruckIcon, feature: 'module:purchasing' },
+      {
+        label: 'خرید',
+        href: '/purchasing',
+        icon: TruckIcon,
+        feature: 'module:purchasing',
+        hue: 'emerald',
+      },
       /*
         Three working screens — the pending queue, a per-device checklist, and the guide —
         reachable only by typing the URL. No `feature` key, because the routes carry no
@@ -110,7 +176,7 @@ export const NAVIGATION: NavSection[] = [
         it is legal on the network. A shield says the shop is being protected from
         something, which is not what the queue on that screen is about.
       */
-      { label: 'همتا', href: '/hamta', icon: BadgeCheckIcon },
+      { label: 'همتا', href: '/hamta', icon: BadgeCheckIcon, hue: 'slate' },
     ],
   },
   {
@@ -122,6 +188,7 @@ export const NAVIGATION: NavSection[] = [
         // Where the shop's money sits — صندوق, کارتخوان and the bank accounts together.
         // A banknote named only the first of the three.
         icon: WalletIcon,
+        hue: 'emerald',
         feature: 'module:treasury',
       },
       {
@@ -138,6 +205,7 @@ export const NAVIGATION: NavSection[] = [
           edges. A signed instrument is the honest reading at this size.
         */
         icon: FileSignatureIcon,
+        hue: 'violet',
         feature: 'module:cheques',
       },
       {
@@ -157,9 +225,16 @@ export const NAVIGATION: NavSection[] = [
         label: 'اقساط',
         href: '/installments/collections',
         icon: CalendarClockIcon,
+        hue: 'amber',
         feature: 'module:installments',
       },
-      { label: 'گزارش‌ها', href: '/reporting', icon: ChartColumnIcon, feature: 'module:reporting' },
+      {
+        label: 'گزارش‌ها',
+        href: '/reporting',
+        icon: ChartColumnIcon,
+        feature: 'module:reporting',
+        hue: 'cyan',
+      },
     ],
   },
   {
@@ -171,18 +246,26 @@ export const NAVIGATION: NavSection[] = [
         // A message, not a bell. The module sends پیامک to customers; it is not the
         // shop's notification tray, and a bell promised one that does not exist.
         icon: MessageSquareTextIcon,
+        hue: 'orange',
         feature: 'module:messaging',
       },
-      { label: 'ویترین', href: '/storefront', icon: StoreIcon, feature: 'module:storefront' },
+      {
+        label: 'ویترین',
+        href: '/storefront',
+        icon: StoreIcon,
+        feature: 'module:storefront',
+        hue: 'magenta',
+      },
       {
         label: 'صورتحساب‌ها',
         href: '/moadian',
         // A ruled invoice rather than a till slip: what goes to مودیان is the formal
         // document, and the counter's receipt lives under «فروش و صندوق».
         icon: ReceiptTextIcon,
+        hue: 'teal',
         feature: 'module:moadian',
       },
-      { label: 'تنظیمات', href: '/settings', icon: SettingsIcon },
+      { label: 'تنظیمات', href: '/settings', icon: SettingsIcon, hue: 'slate' },
     ],
   },
 ];

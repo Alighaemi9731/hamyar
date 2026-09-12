@@ -147,7 +147,7 @@ export function AppShell({ title, actions, header, width = 'default', children }
       <aside
         data-rail={collapsed ? 'collapsed' : 'open'}
         className={cn(
-          'glass no-print sticky top-0 hidden h-dvh shrink-0 flex-col border-e transition-[width] duration-(--duration-base) ease-(--ease-out) lg:flex',
+          'sidebar-glass no-print sticky top-0 hidden h-dvh shrink-0 flex-col border-e transition-[width] duration-(--duration-base) ease-(--ease-out) lg:flex',
           collapsed ? 'w-(--sidebar-rail)' : 'w-(--sidebar-width)'
         )}
       >
@@ -202,7 +202,8 @@ export function AppShell({ title, actions, header, width = 'default', children }
             <SheetContent
               side="right"
               dir="rtl"
-              className="p-0 data-[side=right]:w-(--sidebar-width)"
+              /* The same chrome recipe as the column, or the phone gets a flat panel. */
+              className="sidebar-glass p-0 data-[side=right]:w-(--sidebar-width)"
             >
               <SheetTitle className="sr-only">منوی اصلی</SheetTitle>
               <ShopBadge
@@ -392,9 +393,14 @@ function SidebarNav({
                 const link = (
                   <Link
                     href={item.href}
+                    // The hue goes on the ROW, so `--chip-hue` inherits into the tile.
+                    // The row's own indicator bar deliberately ignores it and paints
+                    // from `--primary`.
+                    data-hue={item.hue}
+                    data-active={active || undefined}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group flex items-center rounded-pill text-sm transition-colors',
+                      'nav-row group flex items-center rounded-pill text-sm',
                       'h-[var(--density-row)]',
                       // The tile carries its own inset, so the row's is smaller than it
                       // was: 8px of row padding plus a 32px chip puts the mark where the
@@ -402,8 +408,8 @@ function SidebarNav({
                       // place it always did.
                       compact ? 'justify-center px-0' : 'gap-2.5 px-2',
                       active
-                        ? 'bg-primary/8 font-semibold text-primary'
-                        : 'text-foreground/75 hover:bg-accent hover:text-foreground'
+                        ? 'font-semibold text-foreground'
+                        : 'text-foreground/75 hover:text-foreground'
                     )}
                   >
                     {/*
@@ -412,22 +418,22 @@ function SidebarNav({
                       and stays in the DOM as `sr-only` on the rail (asserted by
                       `tests/Browser/ShellTest.php`, which counts links with no text).
 
-                      Three states, one accent: a neutral tile at rest so nineteen of
-                      them do not shout, the accent tinting under the pointer, and the
-                      accent filled solid on the page you are on. The reference product
-                      gets this escalation from a different hue per destination; we get
-                      it from one, because a second accent is a bug here.
+                      **One hue per destination**, which the owner asked for twice. The
+                      first pass here refused it — the comment that stood in this place
+                      argued a second accent is a bug — and that was a design-system rule
+                      overriding the person who owns the product. It was the wrong call.
+
+                      Twelve hues hold together because the tile is never a gradient of
+                      its own colour: identical wash alpha, identical white specular pass,
+                      identical rim, glyph at full strength. Same object, same light,
+                      different ground. Every hue was re-measured against a 14% wash of
+                      itself rather than copied — six of the reference's eight fail WCAG
+                      non-text contrast in light mode. All of it lives in `.nav-chip`.
                     */}
                     <span
                       aria-hidden
-                      data-active={active}
-                      className={cn(
-                        'nav-chip grid size-8 shrink-0 place-items-center rounded-inner',
-                        'motion-safe:group-hover:scale-105',
-                        active
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-foreground/10 text-muted-foreground group-hover:bg-primary/12 group-hover:text-primary'
-                      )}
+                      data-active={active || undefined}
+                      className="nav-chip grid size-8 shrink-0 place-items-center rounded-full"
                     >
                       {/*
                         18px inside a 32px tile, and a heavier stroke than lucide's

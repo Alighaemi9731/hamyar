@@ -1933,8 +1933,21 @@ function StatCardSection({ alt = false }: { alt?: boolean }) {
       note="عدد + زمینه. روند صعودی همیشه خوب نیست — کارت آخر با invertTrend."
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="فروش امروز" value={128_500_000} isMoney trend={12} icon={TrendingUpIcon} />
-        <StatCard label="دستگاه موجود" value={47} hint="در ۲ انبار" icon={SmartphoneIcon} />
+        <StatCard
+          label="فروش امروز"
+          value={128_500_000}
+          isMoney
+          trend={12}
+          icon={TrendingUpIcon}
+          accent="emerald"
+        />
+        <StatCard
+          label="دستگاه موجود"
+          value={47}
+          hint="در ۲ انبار"
+          icon={SmartphoneIcon}
+          accent="indigo"
+        />
         <StatCard
           label="در انتظار قطعه"
           value={6}
