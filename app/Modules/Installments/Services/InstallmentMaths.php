@@ -6,6 +6,7 @@ namespace App\Modules\Installments\Services;
 
 use App\Modules\Installments\Models\InstallmentPlan;
 use App\Modules\Installments\Models\InstallmentRow;
+use App\Support\Jalali;
 use App\Support\Settings\ShopSettings;
 use Carbon\CarbonImmutable;
 
@@ -84,7 +85,15 @@ final class InstallmentMaths
 
         $asOf ??= CarbonImmutable::now();
 
-        $daysLate = (int) $row->due_at->startOfDay()->diffInDays($asOf->startOfDay(), false);
+        /*
+        | Days on the shop's calendar, not UTC's.
+        |
+        | `due_at` is the instant a Tehran day begins — `Jalali::startOfDay()` wrote it — so a
+        | row due on the 22nd is stored as 20:30 UTC on the 21st. `startOfDay()` on that UTC
+        | value counted from the 21st, and the customer standing at the counter on the day
+        | the instalment fell due was already a day late, and a day's fee closer to paying one.
+        */
+        $daysLate = (int) Jalali::calendarDate($row->due_at)->diffInDays(Jalali::calendarDate($asOf), false);
         $chargeable = max(0, $daysLate - $policy->lateFeeGraceDays);
 
         if ($chargeable === 0) {

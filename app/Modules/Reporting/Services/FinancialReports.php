@@ -6,6 +6,7 @@ namespace App\Modules\Reporting\Services;
 
 use App\Modules\Cheques\Enums\ChequeStatus;
 use App\Modules\Reporting\Support\ShopClock;
+use App\Support\Jalali;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -217,15 +218,20 @@ final class FinancialReports
     {
         /*
         | `due_date` is a DATE column, not a timestamp — a cheque falls due on a day that
-        | is printed on paper, not at an instant — so this is the one report in the module
-        | with no timezone shift to get wrong.
+        | is printed on paper, not at an instant. The shift to get wrong is the period's:
+        | its bounds are UTC instants, and «از ۲۲ شهریور» starts at 20:30 UTC on the 21st.
+        | `toDateString()` on that bound is the 21st, and the calendar opened with a day
+        | the shop never asked for. Both bounds are read as the shop's dates first.
         */
         $open = $this->openChequeStatuses();
         $openList = $this->quotedList($open);
 
         $rows = DB::table('cheques')
             ->whereNull('cheques.deleted_at')
-            ->whereBetween('cheques.due_date', [$period->from->toDateString(), $period->to->toDateString()])
+            ->whereBetween('cheques.due_date', [
+                Jalali::calendarDate($period->from)->toDateString(),
+                Jalali::calendarDate($period->to)->toDateString(),
+            ])
             ->when($direction !== null, fn ($q) => $q->where('cheques.direction', $direction))
             ->groupBy('cheques.due_date')
             ->orderBy('cheques.due_date')

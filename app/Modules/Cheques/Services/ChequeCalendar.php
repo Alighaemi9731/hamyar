@@ -8,6 +8,7 @@ use App\Modules\Cheques\Enums\ChequeDirection;
 use App\Modules\Cheques\Enums\ChequeStatus;
 use App\Modules\Cheques\Models\Cheque;
 use App\Modules\Inventory\Services\BranchContext;
+use App\Support\Jalali;
 use Carbon\CarbonImmutable;
 
 /**
@@ -43,7 +44,16 @@ final class ChequeCalendar
     public function upcoming(ChequeDirection $direction, int $days = 7, ?CarbonImmutable $asOf = null): array
     {
         $asOf ??= CarbonImmutable::now();
-        $horizon = $asOf->addDays(max(1, $days));
+
+        /*
+        | Today is the shop's date, and the horizon is counted in the shop's days.
+        |
+        | `due_date` is a calendar date. Compared with the UTC clock it went wrong every night
+        | from midnight to 03:30 Tehran, when the UTC date is still yesterday's: a cheque due
+        | yesterday was not yet overdue, and the last day of the horizon fell off the list.
+        */
+        $today = Jalali::calendarDate($asOf);
+        $horizon = $today->addDays(max(1, $days));
 
         $query = Cheque::query()
             ->with(['party:id,name', 'account:id,name'])
@@ -64,7 +74,7 @@ final class ChequeCalendar
             | `cheques_tenant_due_idx (tenant_id, due_date)` serves this, and serves the
             | `order by due_date` with it.
             */
-            ->where('due_date', '<=', $horizon)
+            ->where('due_date', '<=', $horizon->toDateString())
             ->orderBy('due_date');
 
         /*
@@ -84,7 +94,7 @@ final class ChequeCalendar
         $totalDue = 0;
 
         foreach ($open as $cheque) {
-            if ($cheque->due_date->lessThan($asOf->startOfDay())) {
+            if ($cheque->due_date->lessThan($today)) {
                 $overdue[] = $cheque;
                 $totalOverdue += $cheque->outstanding();
 

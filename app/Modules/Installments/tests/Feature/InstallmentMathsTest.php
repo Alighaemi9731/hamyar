@@ -12,6 +12,7 @@ use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Support\Jalali;
 use App\Support\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 
@@ -269,6 +270,44 @@ it('§2 returns a whole number of toman, always', function (): void {
         }
     });
 });
+
+/*
+| §2 on the shop's calendar.
+|
+| The rows above store UTC midnights, which no real plan does: `InstallmentPlanController`
+| writes `Jalali::startOfDay()`, Tehran midnight, 20:30 UTC the evening before. Counted
+| from that value's UTC date, a row due on the 22nd was a day late from 03:30 Tehran on
+| the 22nd — a day's fee charged at the counter on the day it fell due, and one day too
+| many on every later day. From midnight to 03:30 Tehran the two errors cancelled, which
+| is why the just-after-midnight cases passed before and the daytime ones did not.
+*/
+it('§2 counts days late on the shop calendar for a row due at Tehran midnight', function (string $asOf, int $expected): void {
+    withLateFeePolicy(percent: 2, grace: 0, cap: 100);
+
+    ($this->inTenant)(function () use ($asOf, $expected): void {
+        $plan = specPlan();
+
+        /** @var InstallmentRow $row */
+        $row = $plan->rows()->where('sequence', 1)->firstOrFail();
+        $row->forceFill(['due_at' => Jalali::startOfDay('1405/06/22')])->save();
+        $row = $row->fresh() ?? $row;
+
+        // The witness: stored as 20:30 UTC on the 21st, exactly as a real plan stores it.
+        expect($row->due_at->toIso8601String())->toBe('2026-09-12T20:30:00+00:00');
+
+        // 12,000,000 at 2% a month over 30 days is 8,000 a day.
+        expect(app(InstallmentMaths::class)->lateFeeOn($row, CarbonImmutable::parse($asOf)))->toBe($expected);
+    });
+})->with([
+    // 00:30 Tehran on the due day. Right before the fix and after it.
+    'due day, just after Tehran midnight' => ['2026-09-12 21:00:00', 0],
+    // 13:30 Tehran on the due day. The old count said one day late: 8,000.
+    'due day, afternoon' => ['2026-09-13 10:00:00', 0],
+    // 00:30 Tehran the day after. Right before the fix and after it.
+    'a day late, just after Tehran midnight' => ['2026-09-13 21:00:00', 8_000],
+    // 13:30 Tehran the day after. The old count said two days: 16,000.
+    'a day late, afternoon' => ['2026-09-14 10:00:00', 8_000],
+]);
 
 /* ========================= §3 — early settlement ========================= */
 

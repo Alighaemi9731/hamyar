@@ -11,6 +11,7 @@ use App\Modules\Installments\Models\InstallmentRow;
 use App\Modules\Installments\Services\CollectInstallment;
 use App\Modules\Installments\Services\InstallmentMaths;
 use App\Modules\Inventory\Services\BranchContext;
+use App\Support\Jalali;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +40,12 @@ final class CollectionDeskController extends Controller
     {
         $this->authorize('viewAny', InstallmentPlan::class);
 
-        $today = CarbonImmutable::now();
+        $now = CarbonImmutable::now();
+
+        // The shop's date. Overdue and days-late are calendar questions, and a row's `due_at`
+        // is Tehran midnight — 20:30 UTC the evening before — so asking them of UTC dates
+        // put every instalment on the late list on the very day it fell due.
+        $today = Jalali::calendarDate($now);
 
         /*
         | `installment_rows` carries no branch of its own — a schedule belongs to the
@@ -73,6 +79,8 @@ final class CollectionDeskController extends Controller
                 continue;
             }
 
+            $dueOn = Jalali::calendarDate($row->due_at);
+
             $entry = [
                 'id' => $row->id,
                 'plan_id' => $plan->id,
@@ -83,11 +91,11 @@ final class CollectionDeskController extends Controller
                 'due_at' => $row->due_at->toIso8601String(),
                 'amount' => Money::toArray($row->amount),
                 'outstanding' => Money::toArray($collect->outstandingOn($row)),
-                'late_fee' => Money::toArray($maths->lateFeeOn($row, $today)),
-                'days_late' => max(0, (int) $row->due_at->startOfDay()->diffInDays($today->startOfDay(), false)),
+                'late_fee' => Money::toArray($maths->lateFeeOn($row, $now)),
+                'days_late' => max(0, (int) $dueOn->diffInDays($today, false)),
             ];
 
-            $row->due_at->startOfDay()->lessThan($today->startOfDay())
+            $dueOn->lessThan($today)
                 ? $overdue[] = $entry
                 : $due[] = $entry;
         }
