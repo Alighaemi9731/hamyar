@@ -1,7 +1,7 @@
 import { Money } from '@/components/domain/money';
 import { Num } from '@/components/domain/num';
 import { StatusBadge } from '@/components/domain/status-badge';
-import { formatJalali } from '@/lib/jalali';
+import { formatJalali, shopDaysBetween } from '@/lib/jalali';
 import type { MoneyValue } from '@/types';
 
 export interface InstallmentPlanPayload {
@@ -50,7 +50,7 @@ const DUE_SOON_DAYS = 7;
  * which badged an instalment due in six months as due soon. A contract where every line
  * is urgent is a contract where no line is.
  */
-function readingFor(status: string, dueAt: string): string {
+function readingFor(status: string, dueAt: string, now: Date = new Date()): string {
   if (status !== 'pending') {
     return status;
   }
@@ -62,14 +62,10 @@ function readingFor(status: string, dueAt: string): string {
   }
 
   // Compared date-to-date, not instant-to-instant: an instalment due today is due
-  // today all day, not overdue from one second past midnight.
-  const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const days = Math.round(
-    (startOfDueDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // today all day, not overdue from one second past midnight. And the dates are the
+  // SHOP's, on Tehran's calendar — the browser's own timezone put a row stored as Tehran
+  // midnight on the day before, and badged it overdue on its due day.
+  const days = shopDaysBetween(now, due);
 
   if (days < 0) {
     return 'overdue';

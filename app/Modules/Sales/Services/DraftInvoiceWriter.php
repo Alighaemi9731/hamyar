@@ -295,6 +295,12 @@ final class DraftInvoiceWriter
                 'tendered_amount' => $tendered > $amount ? $tendered : null,
                 'reference' => $this->stringOrNull($payment['reference'] ?? null),
                 'actor_id' => $actorId,
+                // From the application's clock, like `issued_at`, not the column's
+                // `useCurrent()` default. Two clocks for one sale put the invoice and the
+                // money that settled it on different sides of a day boundary whenever they
+                // disagree — which a test's `travelTo()` does every time, and which is how
+                // the daily close's cash line read 0 beside a 3,000,000 sale.
+                'received_at' => now(),
             ]);
 
             $applied += $amount;

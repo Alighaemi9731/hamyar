@@ -136,12 +136,13 @@ final class SalesReportController extends Controller
         }
 
         // The Jalali range is in the filename because a folder of «گزارش فروش.xlsx»
-        // files is a folder nobody can tell apart three months later.
+        // files is a folder nobody can tell apart three months later — as the shop's first
+        // and last days, which the UTC date of the bounds is not.
         $name = sprintf(
             'sales-%s-%s-%s.xlsx',
             $cut,
-            $period->from->toDateString(),
-            $period->to->toDateString(),
+            $period->firstDay(),
+            $period->lastDay(),
         );
 
         /*

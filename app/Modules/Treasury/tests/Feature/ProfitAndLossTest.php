@@ -164,14 +164,26 @@ it('groups by when the money moved, not by when it was keyed', function (): void
 
 /* ------------------------------------------------ the daily close -- */
 
+/*
+| Every close below names its day as a SHOP day: a Tehran wall-clock instant for when the
+| money moved, and the Tehran date for the day being closed. These tests used to write
+| `CarbonImmutable::parse('2026-08-05')` for both — UTC midnight, 03:30 in Tehran — which
+| passed against a close that computed its window in UTC, because nothing ever moved near
+| either midnight. The last two tests are the ones that move money there.
+|
+| An instant is handed over as UTC (`->utc()`), the way the application stores one: the
+| query builder writes a Carbon's wall-clock digits as it finds them.
+*/
+
 it('shows opening plus movement equalling closing, on every account', function (): void {
     ($this->inTenant)(function (): void {
-        $at = CarbonImmutable::parse('2026-08-05');
+        // Midday on ۱۴ مرداد in Tehran.
+        $at = CarbonImmutable::parse('2026-08-05 12:00:00', 'Asia/Tehran')->utc();
 
         app(TransferBetweenAccounts::class)->transfer($this->till, $this->bank, 40_000_000, occurredAt: $at);
         app(RecordCashTransaction::class)->record($this->rent, $this->till, 10_000_000, $at);
 
-        $close = app(DailyClose::class)->for($at);
+        $close = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
 
         foreach ($close['accounts'] as $row) {
             // The arithmetic has to be visible, or an operator staring at a discrepancy
@@ -187,11 +199,12 @@ it('shows opening plus movement equalling closing, on every account', function (
 it('opens the day where the previous day closed', function (): void {
     ($this->inTenant)(function (): void {
         app(TransferBetweenAccounts::class)->transfer(
-            $this->till, $this->bank, 40_000_000, occurredAt: CarbonImmutable::parse('2026-08-05'),
+            $this->till, $this->bank, 40_000_000, occurredAt: CarbonImmutable::parse('2026-08-05 12:00:00', 'Asia/Tehran')->utc(),
         );
 
-        $fifth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05'));
-        $sixth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-06'));
+        // The shop days ۱۴ and ۱۵ مرداد.
+        $fifth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
+        $sixth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-06', 'Asia/Tehran'));
 
         expect($sixth['totals']['opening'])->toBe($fifth['totals']['closing'])
             // Nothing happened on the 6th.
@@ -201,11 +214,11 @@ it('opens the day where the previous day closed', function (): void {
 
 it('closes on the same figure the treasury page shows', function (): void {
     ($this->inTenant)(function (): void {
-        $at = CarbonImmutable::parse('2026-08-05');
+        app(RecordCashTransaction::class)->record(
+            $this->rent, $this->till, 10_000_000, CarbonImmutable::parse('2026-08-05 12:00:00', 'Asia/Tehran')->utc(),
+        );
 
-        app(RecordCashTransaction::class)->record($this->rent, $this->till, 10_000_000, $at);
-
-        $close = app(DailyClose::class)->for($at);
+        $close = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
         $balances = app(AccountBalances::class);
 
         foreach ($close['accounts'] as $row) {
@@ -221,7 +234,7 @@ it('closes on the same figure the treasury page shows', function (): void {
 
 it('lists only places money actually sits', function (): void {
     ($this->inTenant)(function (): void {
-        $close = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05'));
+        $close = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
 
         $types = array_unique(array_column($close['accounts'], 'type'));
 
@@ -235,11 +248,11 @@ it('lists only places money actually sits', function (): void {
 
 it('shows what nobody has reconciled beside the balance', function (): void {
     ($this->inTenant)(function (): void {
-        $at = CarbonImmutable::parse('2026-08-05');
+        app(TransferBetweenAccounts::class)->transfer(
+            $this->till, $this->bank, 40_000_000, occurredAt: CarbonImmutable::parse('2026-08-05 12:00:00', 'Asia/Tehran')->utc(),
+        );
 
-        app(TransferBetweenAccounts::class)->transfer($this->till, $this->bank, 40_000_000, occurredAt: $at);
-
-        $close = app(DailyClose::class)->for($at);
+        $close = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
 
         $bank = collect($close['accounts'])->firstWhere('id', $this->bank->id);
 
@@ -250,3 +263,118 @@ it('shows what nobody has reconciled beside the balance', function (): void {
         expect($bank['unreconciled'] ?? null)->toBe(40_000_000);
     });
 });
+
+/*
+| 21:00 UTC on 2026-08-05 is 00:30 on 2026-08-06 in Tehran — ۱۵ مرداد. Rent paid then
+| belongs to the 6th's close. The old window was the UTC day, 03:30 to 03:29 in Tehran,
+| and closed it with the 5th: the 5th's till was short by a payment made after it shut,
+| and the 6th's was over by the same amount.
+*/
+it('closes a payment made at 00:30 Tehran with the next shop day', function (): void {
+    ($this->inTenant)(function (): void {
+        app(RecordCashTransaction::class)->record(
+            $this->rent, $this->till, 10_000_000, CarbonImmutable::parse('2026-08-05 21:00:00', 'UTC'),
+        );
+
+        /** @param array{accounts: list<array{id: int, movement: int}>} $close */
+        $movementOfTill = function (array $close): ?int {
+            foreach ($close['accounts'] as $row) {
+                if ($row['id'] === $this->till->id) {
+                    return $row['movement'];
+                }
+            }
+
+            return null;
+        };
+
+        $fifth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05', 'Asia/Tehran'));
+        $sixth = app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-06', 'Asia/Tehran'));
+
+        expect($fifth['date'])->toBe('2026-08-05')
+            ->and($movementOfTill($fifth))->toBe(0)
+            ->and($sixth['date'])->toBe('2026-08-06')
+            ->and($movementOfTill($sixth))->toBe(-10_000_000)
+            ->and($sixth['totals']['opening'])->toBe($fifth['totals']['closing']);
+
+        // Asked with the instant itself, the close is the shop day it fell on.
+        expect(app(DailyClose::class)->for(CarbonImmutable::parse('2026-08-05 21:00:00', 'UTC'))['date'])
+            ->toBe('2026-08-06');
+    });
+});
+
+it('opens the close screen at 00:30 Tehran on the shop day, with this shop money only', function (): void {
+    ($this->inTenant)(function (): void {
+        app(RecordCashTransaction::class)->record(
+            $this->rent, $this->till, 10_000_000, CarbonImmutable::parse('2026-08-05 21:00:00', 'UTC'),
+        );
+    });
+
+    // Another shop pays its own rent at the same instant, from a till of its own.
+    $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    /** @var array{User, Account} $neighbour */
+    $neighbour = inTenantContext($other, function (): array {
+        $owner = User::factory()->create();
+        $owner->assignRole('Owner');
+
+        $till = Account::factory()->create([
+            'type' => Account::TYPE_CASH, 'name' => 'صندوق همسایه', 'opening_balance' => 90_000_000,
+        ]);
+
+        $rent = TransactionCategory::query()->create([
+            'account_id' => Account::factory()->create(['type' => Account::TYPE_EXPENSE, 'name' => 'اجاره'])->id,
+            'name' => 'اجاره', 'direction' => CashDirection::Expense, 'is_active' => true,
+        ]);
+
+        app(RecordCashTransaction::class)->record($rent, $till, 7_000_000, CarbonImmutable::parse('2026-08-05 21:00:00', 'UTC'));
+
+        return [$owner, $till];
+    });
+
+    [$neighbourOwner, $neighbourTill] = $neighbour;
+
+    // 00:30 in Tehran on ۱۵ مرداد; the UTC date is still the 5th.
+    $this->travelTo(CarbonImmutable::parse('2026-08-05 21:00:00', 'UTC'));
+
+    $this->actingAs($this->owner)
+        ->get(appUrl('/treasury/close'))
+        ->assertOk()
+        ->assertInertia(function ($page): void {
+            $props = propsOf($page);
+
+            /** @var list<array{id: int, movement: array{value: int}}> $accounts */
+            $accounts = $props['accounts'];
+
+            /** @var array{movement: array{value: int}}|null $till */
+            $till = collect($accounts)->firstWhere('id', $this->till->id);
+
+            expect($props['date'])->toBe('2026-08-06')
+                ->and(array_column($accounts, 'id'))->toEqualCanonicalizing([$this->till->id, $this->bank->id])
+                ->and($till['movement']['value'] ?? null)->toBe(-10_000_000);
+        });
+
+    // The day before, named the way the screen's `date` names a day: nothing moved on it.
+    $this->actingAs($this->owner)
+        ->get(appUrl('/treasury/close?date=2026-08-05'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('date', '2026-08-05')
+            ->where('totals.movement.value', 0)
+            ->etc()
+        );
+
+    // And the neighbour's close holds the neighbour's money and nothing of this shop's.
+    $this->actingAs($neighbourOwner)
+        ->get(appUrl('/treasury/close'))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($neighbourTill): void {
+            /** @var list<array{id: int, movement: array{value: int}}> $accounts */
+            $accounts = propsOf($page)['accounts'];
+
+            expect(array_column($accounts, 'id'))->toBe([$neighbourTill->id])
+                ->and($accounts[0]['movement']['value'])->toBe(-7_000_000);
+        });
+})->group('isolation');

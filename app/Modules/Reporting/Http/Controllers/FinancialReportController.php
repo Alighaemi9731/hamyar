@@ -91,7 +91,9 @@ final class FinancialReportController extends Controller
             default => $this->agingSheet($reports->aging($asOf, $direction)),
         };
 
-        $stamp = $cut === 'aging' ? $asOf->toDateString() : $period->from->toDateString();
+        // The shop's dates. `from` is Tehran midnight, whose UTC date is the day before, and
+        // "now" after 20:30 UTC is already tomorrow in Tehran.
+        $stamp = $cut === 'aging' ? Jalali::calendarDate($asOf)->toDateString() : $period->firstDay();
 
         /*
         | The credit, after the workbook is built and before it is handed over.

@@ -18,6 +18,7 @@ use App\Modules\Sales\Models\SalesInvoice;
 use App\Modules\Sales\Services\RecordReturn;
 use App\Support\Jalali;
 use App\Support\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 
 /**
  * گزارش Z — the figure somebody counts notes against.
@@ -340,6 +341,69 @@ it('lists every payment method, including the ones nobody used today', function 
     expect(array_map(fn (array $row): mixed => $row['method'], $rows))
         ->toBe(['cash', 'pos_terminal', 'card_to_card', 'cheque', 'credit', 'trade_in']);
 });
+
+/* ------------------------------------------------------ the day asked for -- */
+
+/*
+| «۱۴۰۵/۶/۲» — one-digit month and day, Persian digits, the way a date is written on the
+| back of a till roll. The controller's own check accepts `\d{1,2}`, and then the parse
+| inside `Jalali::startOfDay()` read an undefined array key in the date package: a 500
+| instead of a close.
+|
+| The sale is rung up at 21:00 UTC on 2026-08-23, which is 00:30 on ۲ شهریور in Tehran. So
+| the same request also proves the close is the shop's day: the sale is on the 2nd's
+| report and not on the 1st's, whatever the UTC date says.
+*/
+it('closes a day typed with a one-digit month and day, in Persian digits', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-23 21:00:00', 'UTC'));
+
+    sellToday(3_000_000, [['method' => 'cash', 'amount' => 3_000_000, 'account_id' => $this->cash->id]]);
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/sales/close?'.http_build_query(['date' => '۱۴۰۵/۶/۲']))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page
+            ->where('date', '1405/6/2')
+            ->where('report.net.value', 3_000_000)
+            ->where('report.expected_cash.value', 3_000_000)
+            ->etc()
+        );
+
+    // The evening before, on the UTC calendar — and not the shop's day it was sold on.
+    $this->actingAs($this->owner)
+        ->get($this->url.'/sales/close?'.http_build_query(['date' => '۱۴۰۵/۶/۱']))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page->where('report.net.value', 0)->etc());
+});
+
+it('closes the short-typed day for its own shop only', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-23 21:00:00', 'UTC'));
+
+    sellToday(3_000_000, [['method' => 'cash', 'amount' => 3_000_000, 'account_id' => $this->cash->id]]);
+
+    $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    $neighbour = inTenantContext($other, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        Warehouse::factory()->create(['is_sellable' => true, 'is_default' => true]);
+
+        return $user;
+    });
+
+    $this->actingAs($neighbour)
+        ->get(appUrl().'/sales/close?'.http_build_query(['date' => '۱۴۰۵/۶/۲']))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page
+            ->where('report.net.value', 0)
+            ->where('report.invoice_count', 0)
+            ->etc()
+        );
+})->group('isolation');
 
 /* ------------------------------------------------------------ permissions -- */
 

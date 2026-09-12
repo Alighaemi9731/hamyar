@@ -30,6 +30,19 @@ use Carbon\CarbonImmutable;
  * Somebody typing 1405/05/31 into the "from" box has mistyped, not asked for nothing.
  * Returning an empty report leaves them to work out why; swapping gives them what they
  * meant and costs nothing.
+ *
+ * ## Every bound is a shop day's bound, whichever way the range was built
+ *
+ * `from` is 00:00 in Tehran on the first day and `to` is the last microsecond of the last
+ * day, both as UTC instants — what {@see Jalali::startOfDay()} and {@see Jalali::endOfDay()}
+ * produce. Carbon's own `startOfDay()`/`endOfDay()` on a UTC value are UTC midnights, 03:30
+ * in Tehran, and they were used for the default range, the swap and `of()`: the default
+ * "to" was 03:29 tomorrow in Tehran, so the range's label read tomorrow's date and the
+ * dashboard's "today" took the first three and a half hours of the next day.
+ *
+ * Because the bounds are Tehran midnights, their UTC DATE is the day before the shop's
+ * first day. Anything that wants the day back — a filename, a date column, a chart's
+ * x-axis — reads it with {@see Jalali::calendarDate()}, never `toDateString()`.
  */
 final readonly class ReportPeriod
 {
@@ -45,29 +58,40 @@ final readonly class ReportPeriod
      *
      * Persian digits are normalised by {@see Jalali::parse()}, so «۱۴۰۵/۰۵/۰۱» and
      * "1405/05/01" behave identically — a shop's staff type both, often in one session.
+     *
+     * Either end left empty is the current Jalali month so far: from its first day to the
+     * end of today, both on the shop's calendar.
      */
     public static function fromJalali(?string $from, ?string $to): self
     {
+        $now = CarbonImmutable::now();
+
         $start = $from === null || $from === ''
-            ? Jalali::startOfMonth(CarbonImmutable::now())
+            // `startOfMonth()` is the first day as a calendar date (midnight UTC), which
+            // `startOfDay()` reads as that day and turns into its Tehran midnight.
+            ? Jalali::startOfDay(Jalali::startOfMonth($now))
             : Jalali::startOfDay($from);
 
         $end = $to === null || $to === ''
-            ? CarbonImmutable::now()->endOfDay()
+            ? Jalali::endOfDay($now)
             : Jalali::endOfDay($to);
 
         if ($start->greaterThan($end)) {
-            [$start, $end] = [$end->startOfDay(), $start->endOfDay()];
+            // The start of the day typed as "to", and the end of the day typed as "from".
+            [$start, $end] = [Jalali::startOfDay($end), Jalali::endOfDay($start)];
         }
 
         return new self($start, $end, Jalali::format($start), Jalali::format($end));
     }
 
+    /**
+     * From two instants, each standing for the shop day it falls on.
+     */
     public static function of(CarbonImmutable $from, CarbonImmutable $to): self
     {
         return new self(
-            $from->startOfDay(),
-            $to->endOfDay(),
+            Jalali::startOfDay($from),
+            Jalali::endOfDay($to),
             Jalali::format($from),
             Jalali::format($to),
         );
@@ -78,17 +102,54 @@ final readonly class ReportPeriod
      *
      * `Jalali::startOfMonth()`, not Carbon's: the first of the Gregorian month falls in the
      * middle of the Jalali one, and "this month" would cover parts of two.
+     *
+     * ## The month's DAYS come from `Jalali`; their bounds are made here
+     *
+     * `Jalali::startOfMonth()` is the first day as a calendar date — 00:00 UTC, which is
+     * 03:30 in Tehran — and `Jalali::endOfMonth()` is 23:59:59 UTC on the last day, 03:29
+     * the next morning in Tehran. Used as they stand, "this month" began three and a half
+     * hours late and ran three and a half hours into the next month.
+     *
+     * They are not changed at the source because the quota clock is built on them:
+     * `PeriodClock::periodKey()` is `startOfMonth()->toDateString()`, and a Tehran-midnight
+     * instant would move every `usage_counters` key back a day and refill every shop's
+     * credit mid-month. So the first and last DAYS are read from them, and each is turned
+     * into a shop day's bound here.
      */
     public static function thisMonth(?CarbonImmutable $now = null): self
     {
         $now ??= CarbonImmutable::now();
 
+        $firstDay = Jalali::startOfMonth($now);
+        // The last day as a calendar date, clamped to the month's length by `dayInMonthOf`.
+        // Not `endOfMonth()`: 23:59:59 UTC is already the next Jalali day in Tehran.
+        $lastDay = Jalali::dayInMonthOf($now, 31);
+
         return new self(
-            Jalali::startOfMonth($now),
-            Jalali::endOfMonth($now),
-            Jalali::format(Jalali::startOfMonth($now)),
-            Jalali::format(Jalali::endOfMonth($now)),
+            Jalali::startOfDay($firstDay),
+            Jalali::endOfDay($lastDay),
+            Jalali::format($firstDay),
+            Jalali::format($lastDay),
         );
+    }
+
+    /**
+     * The first shop day, as `Y-m-d` — for a filename or a `date` column.
+     *
+     * Not `$from->toDateString()`: `from` is Tehran midnight, 20:30 UTC the evening before,
+     * and its UTC date is the day before the range begins. Every export was named that way.
+     */
+    public function firstDay(): string
+    {
+        return Jalali::calendarDate($this->from)->toDateString();
+    }
+
+    /**
+     * The last shop day, as `Y-m-d`.
+     */
+    public function lastDay(): string
+    {
+        return Jalali::calendarDate($this->to)->toDateString();
     }
 
     /**

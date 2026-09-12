@@ -56,6 +56,22 @@ it('rejects an empty date', function (): void {
     expect(fn () => Jalali::parse(''))->toThrow(InvalidArgumentException::class);
 });
 
+/*
+| «1405/6/2» is what a shop's staff write, and what the daily close and the instalment
+| wizard both let through validation. Handed to the package unpadded, it read an undefined
+| array key and the page was a 500. `parse()` pads it now, so every caller is fixed at once.
+*/
+it('parses a Jalali date with a single-digit month and day, in either digit set', function (): void {
+    $padded = Jalali::parse('1405/06/02')->toIso8601String();
+
+    expect(Jalali::parse('1405/6/2')->toIso8601String())->toBe($padded)
+        ->and(Jalali::parse('۱۴۰۵/۶/۲')->toIso8601String())->toBe($padded)
+        ->and(Jalali::parse('1405/6/22')->toIso8601String())->toBe(Jalali::parse('1405/06/22')->toIso8601String())
+        // The day bounds go through `parse()`, so they take the short shape too.
+        ->and(Jalali::startOfDay('۱۴۰۵/۶/۲')->toIso8601String())->toBe('2026-08-23T20:30:00+00:00')
+        ->and(Jalali::endOfDay('1405/6/2')->format('Y-m-d H:i'))->toBe('2026-08-24 20:29');
+});
+
 it('produces UTC bounds for a Jalali day, for range filters', function (): void {
     $start = Jalali::startOfDay('1405/05/15');
     $end = Jalali::endOfDay('1405/05/15');

@@ -6,6 +6,7 @@ namespace App\Modules\Treasury\Services;
 
 use App\Modules\CRM\Models\Account;
 use App\Modules\CRM\Models\LedgerEntry;
+use App\Support\Jalali;
 use Carbon\CarbonImmutable;
 
 /**
@@ -36,6 +37,12 @@ use Carbon\CarbonImmutable;
  * `occurred_at` is stored UTC and a shop closes at a wall-clock hour. The window is
  * computed in the display timezone and converted, or a sale at 11pm lands in tomorrow's
  * close and the drawer is short by exactly one phone.
+ *
+ * That paragraph was written before the code agreed with it. The window was
+ * `$day->startOfDay()`/`endOfDay()` on a UTC value — UTC midnights, 03:30 in Tehran — so
+ * everything from 00:00 to 03:30 on the shop's clock was closed with the previous day, and
+ * `date` named the UTC date. The window now comes from {@see Jalali::startOfDay()} and
+ * {@see Jalali::endOfDay()}, which read the day on the shop's calendar.
  */
 final class DailyClose
 {
@@ -44,12 +51,14 @@ final class DailyClose
     /**
      * The shop's position at the end of a day.
      *
+     * @param  CarbonImmutable  $day  any instant in the shop day to close, or that day as a
+     *                                calendar date; either is read on the shop's calendar
      * @return array{date: string, accounts: list<array{id: int, name: string, type: string, opening: int, movement: int, closing: int, unreconciled: int}>, totals: array{opening: int, movement: int, closing: int}}
      */
     public function for(CarbonImmutable $day): array
     {
-        $start = $day->startOfDay();
-        $end = $day->endOfDay();
+        $start = Jalali::startOfDay($day);
+        $end = Jalali::endOfDay($day);
 
         $accounts = Account::query()
             ->whereIn('type', Account::moneyHoldingTypes())
@@ -88,7 +97,8 @@ final class DailyClose
         }
 
         return [
-            'date' => $day->toDateString(),
+            // The shop's date, as a Y-m-d the close screen renders in Jalali.
+            'date' => Jalali::calendarDate($day)->toDateString(),
             'accounts' => $rows,
             'totals' => [
                 'opening' => $totalOpening,

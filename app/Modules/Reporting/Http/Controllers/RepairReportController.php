@@ -88,7 +88,7 @@ final class RepairReportController extends Controller
             $sheet[] = $line;
         }
 
-        $name = sprintf('technicians-%s-%s.xlsx', $period->from->toDateString(), $period->to->toDateString());
+        $name = sprintf('technicians-%s-%s.xlsx', $period->firstDay(), $period->lastDay());
 
         /*
         | The credit, after the workbook is built and before it is handed over.
