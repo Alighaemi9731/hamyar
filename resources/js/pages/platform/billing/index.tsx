@@ -151,16 +151,23 @@ export default function Billing({
         </h2>
 
         {/*
-          Two up from `md`, three only from `xl` — and the jump is not where it looks like
+          Two up from `md`, four only from `2xl` — and the jump is not where it looks like
           it should be, for the reason the treasury summary records: **the sidebar appears
           at `lg`**, so the content column is narrower at 1024 than at 768. Three tracks at
           `lg` are 208px each, and «۱٬۱۹۰٬۰۰۰» at 40px is 271px, so the row overflowed the
           page at the width that looked safest.
 
-          Measured: 768 → 340px per track, 1024 → 324px, 1280 → 293px. The figure fits at
-          all three.
+          Measured when there were three plans: 768 → 340px per track, 1024 → 324px,
+          1280 → 293px.
+
+          The catalogue is four rungs since 2026-09-12, and the old `xl:grid-cols-3` would
+          have put three cards on one row and one alone underneath — the shape that reads
+          as a plan nobody finished laying out. Four tracks inside the same content column
+          are 213px at 1280, which is the width that already overflowed once, so the fourth
+          track waits for `2xl`: (1183 − 3 × 24) / 4 = 277px at 1536, wider than the figure
+          needs. Between `md` and `2xl` it is an even 2 × 2 rather than a ragged row.
         */}
-        <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid gap-6 md:grid-cols-2 2xl:grid-cols-4">
           {plans.map((plan) => (
             <article
               key={plan.code}
@@ -174,7 +181,7 @@ export default function Billing({
                 plan.is_current && 'border-brand ring-1 ring-brand',
                 // The rung a quota block sent them here to buy. Marked more strongly than
                 // the current plan, because a shop arriving from a block is not comparing
-                // three cards — it has already been told which one clears the wall it hit,
+                // the cards — it has already been told which one clears the wall it hit,
                 // and the job of this page is to make that one button obvious.
                 !plan.is_current && plan.code === highlight && 'border-warning ring-2 ring-warning',
                 !plan.is_current && plan.code !== highlight && 'border-border'
@@ -197,7 +204,7 @@ export default function Billing({
                 track, pushing the page 100px sideways.
 
                 `text-3xl` is 56px — the hero step, which the type scale reserves for a
-                landing headline, not for one of three cards in a row. 40px is the step a
+                landing headline, not for one of a row of cards. 40px is the step a
                 page's anchor figure takes, and this is that.
 
                 And `<Money>` is `whitespace-nowrap` on purpose: a nine-digit figure and
@@ -218,7 +225,7 @@ export default function Billing({
               {plan.price.value > 0 && <p className="mt-1 text-sm text-muted-foreground">ماهانه</p>}
 
               {/* Monthly credits, not a module checklist: every module is open on every
-                  plan, so a list of ticks would be identical on all three cards and tell
+                  plan, so a list of ticks would be identical on every card and tell
                   a shopkeeper nothing about what they are choosing between. */}
               <ul className="mt-5 grow space-y-2 text-sm">
                 {plan.limits.slice(0, 6).map((limit) => (

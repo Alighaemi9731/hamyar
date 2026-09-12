@@ -206,7 +206,7 @@
 
 /* --------------------------------------------------------------- money ---- */
 /*
- | `minmax(11rem, auto)` on the grid column is what makes three prices of different digit
+ | `minmax(11rem, auto)` on the grid column is what makes four prices of different digit
  | counts share a common edge. Tabular figures do the rest: «۱٬۱۹۰٬۰۰۰» and «۲۹۰٬۰۰۰»
  | must line up under each other or the ladder cannot be read at a glance.
  */
@@ -409,7 +409,7 @@
   transform: none;
   transition: opacity 260ms ease-out, transform 260ms ease-out, border-color 200ms ease;
   /* The clamp, written out: rows four and beyond share the last step rather than
-     extending the sequence. A plan list is three or four rows today and the cap is what
+     extending the sequence. A plan list is four rows today and the cap is what
      stops a fifth from turning the sheet into a slideshow. */
   transition-delay: 180ms;
 }

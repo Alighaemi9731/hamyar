@@ -3,7 +3,9 @@
 - **Status:** **Accepted** at **DECISION GATE 6**, 2026-08-29 (`../ROADMAP.md`, Phase 12).
   Amended 2026-08-30 (`0.16.0`) in two places, both marked inline in §Error surface: the
   exception hierarchy is now part of the contract, and POS deletes its draft on refusal
-  rather than parking it.
+  rather than parking it. **Amended 2026-09-12: the ladder is four rungs — the free one
+  plus THREE paid** (§1, «The fourth rung»); the limit matrix gains a کسب‌وکار column and
+  nothing else in this ADR changes.
 - **Date:** 2026-08-29 (j1405-06-07)
 - **Amends:** [ADR 0006](0006-proration.md) — proration stays binding for upgrades; its
   "Add-ons" section is retired with add-ons. [ADR 0012](0012-tenant-keyed-caches.md) — a
@@ -55,13 +57,48 @@ Two facts from the code shape the design more than anything else:
 
 **Three plans, latin codes unchanged** (`basic` / `pro` / `enterprise` — 62 test files and
 three production files name them; a rename buys nothing). Persian names and taglines are
-seeded once and Filament-owned afterwards, like prices:
+seeded once and Filament-owned afterwards, like prices. **Amended 2026-09-12 to four rungs**
+— `business` joins them, and the three codes above still do not change:
 
 | rung | code | name_fa | tagline_fa |
 |---|---|---|---|
 | 1 | `basic` | **پایه — رایگان** | «همهٔ امکانات، با سهمیهٔ ماهانه؛ رایگان و بدون کارت» |
-| 2 | `pro` | **حرفه‌ای** (recommended) | «برای مغازه‌ای که هر روز می‌فروشد و تعمیر می‌کند» |
-| 3 | `enterprise` | **نامحدود** | «بدون سقف؛ برای چند شعبه و حجم بالا» |
+| 2 | `business` | **کسب‌وکار** | «برای فروشگاه یک‌شعبه‌ای که از سقف پلن رایگان عبور کرده است» |
+| 3 | `pro` | **حرفه‌ای** (recommended) | «برای فروشگاهی که هر روز می‌فروشد و تعمیر می‌کند» |
+| 4 | `enterprise` | **نامحدود** | «بدون سقف؛ برای چند شعبه و حجم بالا» |
+
+#### The fourth rung (amendment, 2026-09-12)
+
+Rungs 2 and 4 above are the amendment; every other line of this ADR stands. The owner read
+the shipped catalogue as **two** paid plans and corrected the count: «من گفتم سه تا پلن
+باشه، تو با احتساب free کردیشون ۳ تا. باید رایگان که جدا باشه، پلن‌های پولی ۳ تا باشن.» —
+the free rung stands outside the count, and there are three paid plans. Gate 6's «در کل ۳
+تا پلن» had been implemented as three *rows*, which is two plans a shop can buy.
+
+`business` fills the hole at the **bottom** of the ladder, not the middle of the top. Free
+allows 300 invoices a month and no SMS; the next rung was 5,000 invoices at ۵۹۰٬۰۰۰ تومان.
+The shop between those — one counter, one or two staff, a few repairs a day — had to buy
+four times the work it does or stop selling on the 25th, and that shop is the common shop
+in this market. A rung between حرفه‌ای and نامحدود would instead have sold a smaller
+«نامحدود» to shops that are not asking for one.
+
+**Price ۲۹۰٬۰۰۰ تومان/ماه**, which makes the ladder ۰ → ۲۹۰٬۰۰۰ → ۵۹۰٬۰۰۰ → ۱٬۱۹۰٬۰۰۰ —
+each paid rung a little over double the one below. The number is not new: it is what the
+pre-Gate-6 business plan charged for paid Basic (see «Where the free column comes from»
+below). Gate 6 moved that rung's quota to free and never disputed its price.
+
+**Quotas: ~4× free, ~¼ of حرفه‌ای**, anchored on 1,200 فاکتور a month ≈ 40 a working day,
+which is what one person behind one counter can ring up — so the ceiling and the reason to
+upgrade are the same fact. Two deliberate exceptions: `messaging.sms` is 1,000, a fifth of
+حرفه‌ای's for half the price, because it is the one credit that costs cash per segment and
+must not scale with the price; and the standing capacities follow the shape of the shop
+(۲→۴ seats, ۱→۲ branches, transfers 50) rather than the multiplier — a second person and
+occasionally a second counter, not a chain.
+
+The column is in the matrix below. Item 13 of the gate («prices: `basic` = 0, `pro` and
+`enterprise` unchanged until the 11.4 competitor check») is untouched: no existing price or
+credit moved. `pro`'s tagline loses «مغازه» for «فروشگاه» — the glossary in
+`docs/brand/voice.md`, which postdates this ADR.
 
 **Every module is open on every plan.** `EnsureModuleEnabled` and the `features` prop
 **stay, dormant, as a platform-wide kill-switch** reading a new `modules.is_enabled`
@@ -130,32 +167,32 @@ Treasury templates). There is no day window: `Window` has exactly these two case
 case nothing uses is a promise nobody keeps. `NULL` = unlimited, the meaning
 `plan_limits.value` already has.
 
-| metric key | label_fa | window | پایه (رایگان) | حرفه‌ای | نامحدود | counted at |
-|---|---|---|---|---|---|---|
-| `sales.invoices` | فاکتور فروش | month | 300 | 5,000 | ∞ | `FinaliseInvoice::finalise` (draft→final); repair-delivery invoices exempt (§4) |
-| `sales.quotes` | پیش‌فاکتور | month | 100 | 1,500 | ∞ | new `IssueQuote` service (create + QUO number + consume in one tx; fixes the out-of-tx counter at `PosController:209`). A quote that converts then consumes `sales.invoices` too — two units for one sale, by design |
-| `inventory.units` | دستگاه (IMEI) ثبت‌شده | month | 200 | 3,000 | ∞ | `UnitStateMachine::recordAcquisition` — purchase receive **and** trade-in (or a trade-in is a loophole) |
-| `catalog.products` | کالای جدید | month | 200 | 2,000 | ∞ | `ProductController@store` (+tx); `ProductImporter` with `n = counts[create]` |
-| `purchasing.invoices` | فاکتور خرید دریافت‌شده | month | 50 | 800 | ∞ | `ReceivePurchaseInvoice::receive` (drafts free) |
-| `repairs.tickets` | قبض پذیرش تعمیر | month | 100 | 1,500 | ∞ | `TicketIntake::take` |
-| `crm.parties` | طرف حساب جدید | month | 200 | 3,000 | ∞ | `PartyController@store` (+tx); `PartyImporter` with `n = OUTCOME_CREATE` |
-| `crm.follow_ups` | پیگیری | month | 100 | 1,000 | ∞ | `FollowUpController@store` (+tx) |
-| `installments.plans` | قرارداد اقساطی | month | 20 | 200 | ∞ | `CreateInstallmentPlan::fromInvoice` |
-| `cheques.cheques` | ثبت چک | month | 50 | 500 | ∞ | the future `RegisterCheque` service — no route exists today; the roadmap box stays open |
-| `inventory.transfers` | حوالهٔ انبار | month | 0 | 200 | ∞ | `TransferService::dispatch` (drafts free). `0` renders as «۰ در ماه» with an upgrade CTA; the screen stays visible, so it is not a module gate by the back door |
-| `inventory.stock_counts` | انبارگردانی | month | 1 | 4 | ∞ | `StockCountService::apply` |
-| `treasury.transfers` | انتقال بین حساب‌ها | month | 60 | 600 | ∞ | `TransferBetweenAccounts::transfer` |
-| `treasury.cash_transactions` | ثبت هزینه/درآمد | month | 150 | 1,200 | ∞ | `RecordCashTransaction::record` when `generatedKey === null` — no screen yet; box stays open |
-| `treasury.recurring_templates` | الگوی تکراری | total | 3 | 20 | ∞ | computed; no route yet |
-| `treasury.rental_contracts` | قرارداد اجاره | total | 1 | 10 | ∞ | computed; no route yet |
-| `messaging.sms` | پیامک | month | **0** | 5,000 | ∞ (wallet still pays) | `SendSms::send` — suppress, never fail (§4) |
-| `messaging.campaigns` | کمپین پیامکی | month | 0 | 8 | ∞ | `SendCampaign::send` + pre-flight on `messaging.sms` |
-| `reporting.exports` | خروجی اکسل | month | 30 | 300 | ∞ | every `*ReportController@export`, counted **after** a successful build |
-| `storefront.price_list_links` | لینک لیست قیمت | total (live) | 1 | 5 | ∞ | `PriceListAccess::mint` |
-| `files.attachments` | پیوست | month | 200 | 3,000 | ∞ | `FileStore::attach` |
-| `files.storage_mb` | فضای ذخیره‌سازی | total | 500 | 5,000 | 50,000 | computed `SUM(attachments.size_bytes)` |
-| `identity.users` | کاربر فعال | total | 2 | 6 | 25 | computed: active users + pending invitations; checked at invite and reactivate, **not** at accept (the seat was reserved at invite) |
-| `inventory.branches` | شعبه | total | 1 | 3 | ∞ | computed: live branches; the default branch counts |
+| metric key | label_fa | window | پایه (رایگان) | کسب‌وکار | حرفه‌ای | نامحدود | counted at |
+|---|---|---|---|---|---|---|---|
+| `sales.invoices` | فاکتور فروش | month | 300 | 1,200 | 5,000 | ∞ | `FinaliseInvoice::finalise` (draft→final); repair-delivery invoices exempt (§4) |
+| `sales.quotes` | پیش‌فاکتور | month | 100 | 400 | 1,500 | ∞ | new `IssueQuote` service (create + QUO number + consume in one tx; fixes the out-of-tx counter at `PosController:209`). A quote that converts then consumes `sales.invoices` too — two units for one sale, by design |
+| `inventory.units` | دستگاه (IMEI) ثبت‌شده | month | 200 | 800 | 3,000 | ∞ | `UnitStateMachine::recordAcquisition` — purchase receive **and** trade-in (or a trade-in is a loophole) |
+| `catalog.products` | کالای جدید | month | 200 | 600 | 2,000 | ∞ | `ProductController@store` (+tx); `ProductImporter` with `n = counts[create]` |
+| `purchasing.invoices` | فاکتور خرید دریافت‌شده | month | 50 | 200 | 800 | ∞ | `ReceivePurchaseInvoice::receive` (drafts free) |
+| `repairs.tickets` | قبض پذیرش تعمیر | month | 100 | 400 | 1,500 | ∞ | `TicketIntake::take` |
+| `crm.parties` | طرف حساب جدید | month | 200 | 800 | 3,000 | ∞ | `PartyController@store` (+tx); `PartyImporter` with `n = OUTCOME_CREATE` |
+| `crm.follow_ups` | پیگیری | month | 100 | 300 | 1,000 | ∞ | `FollowUpController@store` (+tx) |
+| `installments.plans` | قرارداد اقساطی | month | 20 | 60 | 200 | ∞ | `CreateInstallmentPlan::fromInvoice` |
+| `cheques.cheques` | ثبت چک | month | 50 | 150 | 500 | ∞ | the future `RegisterCheque` service — no route exists today; the roadmap box stays open |
+| `inventory.transfers` | حوالهٔ انبار | month | 0 | 50 | 200 | ∞ | `TransferService::dispatch` (drafts free). `0` renders as «۰ در ماه» with an upgrade CTA; the screen stays visible, so it is not a module gate by the back door |
+| `inventory.stock_counts` | انبارگردانی | month | 1 | 2 | 4 | ∞ | `StockCountService::apply` |
+| `treasury.transfers` | انتقال بین حساب‌ها | month | 60 | 200 | 600 | ∞ | `TransferBetweenAccounts::transfer` |
+| `treasury.cash_transactions` | ثبت هزینه/درآمد | month | 150 | 400 | 1,200 | ∞ | `RecordCashTransaction::record` when `generatedKey === null` — no screen yet; box stays open |
+| `treasury.recurring_templates` | الگوی تکراری | total | 3 | 8 | 20 | ∞ | computed; no route yet |
+| `treasury.rental_contracts` | قرارداد اجاره | total | 1 | 3 | 10 | ∞ | computed; no route yet |
+| `messaging.sms` | پیامک | month | **0** | **1,000** | 5,000 | ∞ (wallet still pays) | `SendSms::send` — suppress, never fail (§4) |
+| `messaging.campaigns` | کمپین پیامکی | month | 0 | 2 | 8 | ∞ | `SendCampaign::send` + pre-flight on `messaging.sms` |
+| `reporting.exports` | خروجی اکسل | month | 30 | 100 | 300 | ∞ | every `*ReportController@export`, counted **after** a successful build |
+| `storefront.price_list_links` | لینک لیست قیمت | total (live) | 1 | 3 | 5 | ∞ | `PriceListAccess::mint` |
+| `files.attachments` | پیوست | month | 200 | 800 | 3,000 | ∞ | `FileStore::attach` |
+| `files.storage_mb` | فضای ذخیره‌سازی | total | 500 | 1,500 | 5,000 | 50,000 | computed `SUM(attachments.size_bytes)` |
+| `identity.users` | کاربر فعال | total | 2 | 4 | 6 | 25 | computed: active users + pending invitations; checked at invite and reactivate, **not** at accept (the seat was reserved at invite) |
+| `inventory.branches` | شعبه | total | 1 | 2 | 3 | ∞ | computed: live branches; the default branch counts |
 
 **Where the free column comes from.** The free rung has to be big enough that a one-person
 shop can genuinely run a month on it and small enough that a real shop feels the ceiling —

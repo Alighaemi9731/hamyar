@@ -65,7 +65,7 @@ final class PlanCatalogue
     }
 
     /**
-     * The three rungs, and the credits that separate them.
+     * The free rung plus three paid ones, and the credits that separate them.
      *
      * Every value is per Jalali month unless the metric's window says otherwise
      * (`identity.users`, `inventory.branches`, `files.storage_mb`,
@@ -79,6 +79,59 @@ final class PlanCatalogue
      * `messaging.sms` is **0** there: SMS is the one credit that costs us cash per unit, so
      * a free rung that handed it out would be a free SMS service for anyone willing to
      * re-register. Free shops send by funding the wallet, which is money.
+     *
+     * ## Four rows, and why the ladder is shaped this way (2026-09-12)
+     *
+     * The owner's count is **three paid plans, with the free rung standing outside the
+     * count** — «باید رایگان که جدا باشه، پلن‌های پولی ۳ تا باشن». ADR 0018 shipped
+     * `basic` (free) · `pro` · `enterprise`, which is three *rows* and two *plans*, so a
+     * rung was missing rather than a name being wrong. `business` is that rung, and it
+     * goes **between free and حرفه‌ای**, not between حرفه‌ای and نامحدود, because the hole
+     * in the ladder is at the bottom:
+     *
+     * | rung | who it is for | the wall it lifts |
+     * |---|---|---|
+     * | پایه · free | a shop trying the product, or a very quiet one | — |
+     * | کسب‌وکار · ۲۹۰٬۰۰۰ | one counter, one or two staff, a few repairs a day | the free ceiling |
+     * | حرفه‌ای · ۵۹۰٬۰۰۰ | a shop that sells and repairs all day, 2–3 branches | the counter |
+     * | نامحدود · ۱٬۱۹۰٬۰۰۰ | multi-branch, high volume | every cap but two |
+     *
+     * **Price.** ۰ → ۲۹۰٬۰۰۰ → ۵۹۰٬۰۰۰ → ۱٬۱۹۰٬۰۰۰ تومان: each paid rung is a little over
+     * double the one below it, so the ladder reads as one decision repeated rather than
+     * three unrelated numbers. ۲۹۰٬۰۰۰ is **not** an invented midpoint — it is the number
+     * the pre-Gate-6 business plan already put on paid Basic (500 invoices a month; see
+     * ADR 0018, «Where the free column comes from»). Gate 6 moved that rung's *quota* to
+     * free and never disputed its *price*, so the price was sitting unused in the
+     * product's own history; re-using it beats inventing a second number for the same
+     * shop. A midpoint between ۵۹۰ and ۱٬۱۹۰ — the other place a third rung could have
+     * gone — would have sold a smaller version of «نامحدود» to shops that are not yet
+     * asking for one, and left the shop that actually hits a wall every month with
+     * nowhere to go but a ۵۹۰٬۰۰۰ plan sized four times larger than its work.
+     *
+     * **Quotas.** Roughly 4× the free rung and roughly a quarter of حرفه‌ای, anchored on
+     * one number: **1,200 فاکتور a month ≈ 40 a working day**, which is about what one
+     * person behind one counter can actually ring up. A shop that needs more needs a
+     * second counter, and a second counter is حرفه‌ای's story — so the ceiling and the
+     * upgrade reason are the same fact, which is what keeps a ladder honest. Units,
+     * parties, products and attachments move with it, because a shop that sells four
+     * times as much registers four times as many handsets and customers.
+     *
+     * Two deliberate exceptions to the ×4:
+     *
+     * - **`messaging.sms` = 1,000, a fifth of حرفه‌ای's 5,000 for half the price.** It is
+     *   the one credit that costs us cash per segment, so it is the one credit that must
+     *   not scale with the price. The wallet stays the way any shop sends more, on every
+     *   rung, exactly as it does on the free one.
+     * - **The standing capacities follow the shape of the shop, not the multiplier**:
+     *   ۲ → ۴ seats and ۱ → ۲ branches, because the first thing an outgrowing one-counter
+     *   shop buys is a second person and occasionally a second counter — not a chain.
+     *   `inventory.transfers` is 50 against حرفه‌ای's 200 for the same reason: two branches
+     *   move stock between them a couple of times a week, not a couple of times a day.
+     *
+     * Nothing above حرفه‌ای changed, and no existing price or credit moved: the free rung
+     * and the two paid rungs are exactly what Gate 6 approved. As always these numbers
+     * seed a fresh install only — after the row exists, the Filament panel owns it — so
+     * the rung lands on an existing database as a new plan and nothing else.
      *
      * @return list<array{code: string, name_fa: string, tagline_fa: string, price_toman: int, limits: array<string, int|null>}>
      */
@@ -118,9 +171,50 @@ final class PlanCatalogue
                 ],
             ],
             [
+                // The first paid rung. Sized at one counter: ~40 invoices a working day,
+                // four seats, two branches — the shop that outgrew free and is nowhere
+                // near needing حرفه‌ای. See the ladder note above for every number.
+                'code' => 'business',
+                'name_fa' => 'کسب‌وکار',
+                'tagline_fa' => 'برای فروشگاه یک‌شعبه‌ای که از سقف پلن رایگان عبور کرده است',
+                'price_toman' => 290_000,
+                'limits' => [
+                    'sales.invoices' => 1_200,
+                    'sales.quotes' => 400,
+                    'inventory.units' => 800,
+                    'catalog.products' => 600,
+                    'purchasing.invoices' => 200,
+                    'repairs.tickets' => 400,
+                    'crm.parties' => 800,
+                    'crm.follow_ups' => 300,
+                    'installments.plans' => 60,
+                    'cheques.cheques' => 150,
+                    // Non-zero for the first time on this rung: it is the first rung that
+                    // has a second branch to move stock to.
+                    'inventory.transfers' => 50,
+                    'inventory.stock_counts' => 2,
+                    'treasury.transfers' => 200,
+                    'treasury.cash_transactions' => 400,
+                    'treasury.recurring_templates' => 8,
+                    'treasury.rental_contracts' => 3,
+                    // A fifth of حرفه‌ای's for half the price — the one credit that costs
+                    // cash per segment does not scale with what we charge.
+                    'messaging.sms' => 1_000,
+                    'messaging.campaigns' => 2,
+                    'reporting.exports' => 100,
+                    'files.attachments' => 800,
+                    'files.storage_mb' => 1_500,
+                    'identity.users' => 4,
+                    'inventory.branches' => 2,
+                    'storefront.price_list_links' => 3,
+                ],
+            ],
+            [
                 'code' => 'pro',
                 'name_fa' => 'حرفه‌ای',
-                'tagline_fa' => 'برای مغازه‌ای که هر روز می‌فروشد و تعمیر می‌کند',
+                // «فروشگاه», never «مغازه» — `docs/brand/voice.md`'s glossary. The seeded
+                // wording in ADR 0018 predates the voice guide; this is that one word.
+                'tagline_fa' => 'برای فروشگاهی که هر روز می‌فروشد و تعمیر می‌کند',
                 'price_toman' => 590_000,
                 'limits' => [
                     'sales.invoices' => 5_000,

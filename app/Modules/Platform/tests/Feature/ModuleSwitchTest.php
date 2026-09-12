@@ -5,11 +5,13 @@ declare(strict_types=1);
 use App\Modules\Identity\Models\User;
 use App\Modules\Platform\Models\Module;
 use App\Modules\Platform\Models\Plan;
+use App\Modules\Platform\Models\PlanLimit;
 use App\Modules\Platform\Models\Subscription;
 use App\Modules\Platform\Models\Tenant;
 use App\Modules\Platform\Services\PlanCatalogueSeeder;
 use App\Modules\Platform\Services\SubscriptionResolver;
 use App\Modules\Platform\Services\TenantProvisioner;
+use App\Support\Quota\MetricRegistry;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -54,10 +56,124 @@ it('syncs the catalogue idempotently', function (): void {
     $modules = Module::query()->count();
     $plans = Plan::query()->count();
 
+    // Not only the counts: a second run must leave every row byte-identical. Duplication
+    // is the loud failure; *drift* — a price, a position or a credit that moves a little
+    // on every deploy — is the quiet one, and the one a count assertion cannot see.
+    $before = catalogueFingerprint();
+
     app(PlanCatalogueSeeder::class)->sync();
 
     expect(Module::query()->count())->toBe($modules);
     expect(Plan::query()->count())->toBe($plans);
+    expect(catalogueFingerprint())->toBe($before);
+});
+
+it('adds a rung the code has newly introduced, with its credits', function (): void {
+    // How the fourth rung reaches an existing database: `PlanCatalogue` gains a plan, the
+    // seeder runs on deploy, and the row appears with the limits the code shipped. There
+    // is no migration for it, so this is the only thing that puts it there.
+    $business = Plan::query()->where('code', 'business')->firstOrFail();
+    $business->limits()->delete();
+    $business->delete();
+
+    app(PlanCatalogueSeeder::class)->sync();
+
+    $restored = Plan::query()->where('code', 'business')->firstOrFail();
+
+    expect($restored->price)->toBeGreaterThan(0)
+        ->and($restored->limit('sales.invoices'))->toBeGreaterThan(0)
+        // And it lands between the free rung and حرفه‌ای, because `nextPlanFor()` walks
+        // the ladder by position: a rung in the wrong place aims every upgrade button on
+        // the product at the wrong plan.
+        ->and($restored->position)->toBeGreaterThan(Plan::query()->where('code', 'basic')->firstOrFail()->position)
+        ->and($restored->position)->toBeLessThan(Plan::query()->where('code', 'pro')->firstOrFail()->position);
+});
+
+it('sells one free rung and three paid ones, priced upward', function (): void {
+    /*
+    | The owner's count, 2026-09-12: «باید رایگان که جدا باشه، پلن‌های پولی ۳ تا باشن» —
+    | the free rung stands outside the count, and there are three PAID plans. Asserted on
+    | the catalogue rather than on `PlanCatalogue`, because the seeder is what a fresh
+    | install actually runs and a rung defined in code but never seeded is not a product.
+    */
+    $plans = Plan::query()->where('is_public', true)->orderBy('position')->get();
+
+    $free = $plans->where('price', 0);
+    $paid = $plans->where('price', '>', 0);
+
+    expect($free)->toHaveCount(1, 'exactly one rung is free');
+    expect($paid)->toHaveCount(3, 'three paid plans, the free rung outside the count');
+
+    // The free rung is the first one: `TenantProvisioner` puts a new shop on the cheapest
+    // zero-price plan by position, and `nextPlanFor()` offers whatever sits above it.
+    expect($plans->first()?->price)->toBe(0);
+
+    // Prices strictly ascend down the ladder. A rung that costs more and sits lower would
+    // make the pricing sheet an argument for skipping it.
+    $prices = $plans->map(fn (Plan $plan): int => $plan->price)->all();
+
+    $sorted = $prices;
+    sort($sorted);
+
+    expect($prices)->toBe($sorted, 'the ladder is not in price order')
+        ->and(array_unique($prices))->toHaveCount(count($prices), 'two rungs share a price');
+});
+
+it('never sells a smaller quota for a bigger price', function (): void {
+    /*
+    | The test the fourth rung exists to keep honest.
+    |
+    | Every metric, every neighbouring pair of rungs: the more expensive one is at least
+    | as generous. `null` is unlimited and therefore the top of any comparison — the one
+    | place a "bigger number wins" check would get the answer exactly backwards.
+    |
+    | Inserting a rung mid-ladder is precisely how this breaks: one metric copied from the
+    | rung above instead of scaled, and a shop pays more to record less.
+    */
+    $plans = Plan::query()->with('limits')->where('is_public', true)->orderBy('position')->get();
+
+    $keys = app(MetricRegistry::class)->keys();
+
+    expect($keys)->not->toBeEmpty();
+
+    foreach ($keys as $key) {
+        $ladder = $plans->map(fn (Plan $plan): array => [
+            'code' => $plan->code,
+            'limit' => $plan->limit($key),
+        ])->all();
+
+        foreach (array_slice($ladder, 1) as $index => $higher) {
+            $lower = $ladder[$index];
+
+            if ($higher['limit'] === null) {
+                continue; // unlimited: nothing above it to fall short of.
+            }
+
+            $floor = $lower['limit'];
+
+            expect($floor)->not->toBeNull(
+                "{$key}: {$lower['code']} is unlimited and the dearer {$higher['code']} is not"
+            );
+
+            assert($floor !== null);
+
+            expect($higher['limit'])->toBeGreaterThanOrEqual(
+                $floor,
+                "{$key}: {$higher['code']} costs more than {$lower['code']} and allows less"
+            );
+        }
+    }
+});
+
+it('keeps the free rung at zero SMS on a four-rung ladder', function (): void {
+    // A real constraint, not an oversight: SMS is the one credit that costs cash per
+    // segment, so the rung that is priced at nothing hands out none of it. A fourth rung
+    // is exactly the moment somebody "fixes" this by sprinkling a few onto free.
+    expect(Plan::query()->where('code', 'basic')->firstOrFail()->limit('messaging.sms'))->toBe(0);
+
+    // And the first paid rung is where SMS starts, funded by a price.
+    expect(Plan::query()->where('code', 'business')->firstOrFail()->limit('messaging.sms'))
+        ->toBeGreaterThan(0);
 });
 
 it('does not overwrite a price edited in the panel', function (): void {
@@ -248,3 +364,41 @@ it('leaves a free shop usable a year later', function (): void {
 
     expect($subscription->isUsable())->toBeTrue();
 });
+
+/* ------------------------------------------------------------------ helper -- */
+
+/**
+ * Every catalogue row a re-run must leave exactly where it found it, as one comparable
+ * value.
+ *
+ * Row counts catch duplication, which is the loud failure. This catches **drift** — the
+ * price, position or credit that moves a little on each deploy — which is the quiet one,
+ * invisible to any assertion that does not hold the previous value beside the new one.
+ *
+ * @return array<int, string>
+ */
+function catalogueFingerprint(): array
+{
+    $plans = Plan::query()->with('limits')->orderBy('code')->get()
+        ->map(function (Plan $plan): string {
+            $limits = $plan->limits
+                ->sortBy('key')
+                ->map(fn (PlanLimit $limit): string => $limit->key.'='.($limit->value ?? 'unlimited'))
+                ->implode(',');
+
+            return implode('|', [
+                'plan', $plan->code, $plan->name_fa, $plan->tagline_fa ?? '', $plan->interval,
+                (string) $plan->price, (string) $plan->trial_days, (string) $plan->position,
+                $plan->is_public ? 'public' : 'private', $limits,
+            ]);
+        })->all();
+
+    $modules = Module::query()->orderBy('code')->get()
+        ->map(fn (Module $module): string => implode('|', [
+            'module', $module->code, $module->name_fa, (string) $module->position,
+            $module->is_core ? 'core' : 'optional',
+            $module->is_enabled ? 'on' : 'off',
+        ]))->all();
+
+    return array_values([...$plans, ...$modules]);
+}

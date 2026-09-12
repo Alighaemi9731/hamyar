@@ -118,8 +118,10 @@
              made the section arrive as one slab — a single 40px lift of a 600px-tall
              object, which is the heaviest piece of motion on the page and says nothing,
              because a slab has no internal order to reveal. The rows are the peers, so
-             the rows are the level: three of them, 60ms apart, and the reader's eye
-             travels down the ladder in the direction he is about to read it. --}}
+             the rows are the level: four of them, 60ms apart — the fourth shares the
+             third's step rather than extending the sequence, which is the clamp written
+             out in `pricing.css` — and the reader's eye travels down the ladder in the
+             direction he is about to read it. --}}
         <div class="tariff__list">
             @foreach ($plans as $plan)
                 @php($recommended = $plan->code === 'pro')
