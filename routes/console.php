@@ -64,6 +64,30 @@ Schedule::command('messaging:sweep')
     ->withoutOverlapping(60)
     ->onOneServer();
 
+// Just after Tehran midnight, so the rent due «اول هر ماه» is on the books before the shop
+// opens on the first, and the daily close and the P&L read that morning already carry it.
+// Not at 00:00 exactly: that minute belongs to the hourly SMS sweep, and nothing is gained by
+// starting both at once. Tehran's midnight, not UTC's — UTC midnight is 03:30 in Tehran, and
+// the generator decides "has this period fallen due" on the shop's calendar anyway.
+//
+// Nothing ran this before. `GenerateRecurring` had tests and a seeder and no schedule and
+// no route, so no shop's rent or rental income was ever booked outside a test.
+//
+// Daily is enough because the generator asks which periods have not been booked rather
+// than advancing a pointer: a missed night is caught up by the next one. Running it twice
+// is harmless — every booking is keyed `template:{id}:{period}` under a unique index, so a
+// second run finds every key taken and books nothing. `withoutOverlapping` and
+// `onOneServer` spare the work; they are not the guarantee.
+//
+// The overlap lock expires after an hour rather than the default day, for the reason the
+// SMS sweep gives: a run killed mid-way leaves its mutex behind, and a day-long lock taken
+// at 00:10 is still held when tomorrow's 00:10 comes round.
+Schedule::command('treasury:generate-recurring')
+    ->dailyAt('00:10')
+    ->timezone('Asia/Tehran')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
 // Just after Tehran midnight, so a shop that lapsed overnight is already on the fallback
 // plan's limits when it opens rather than three hours into the day. The command is
 // idempotent — it moves rows by state and date, so a second run finds nothing to move.

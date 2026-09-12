@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Treasury\Providers;
 
 use App\Modules\CRM\Models\Account;
+use App\Modules\Treasury\Console\GenerateRecurringBookings;
 use App\Modules\Treasury\Models\RecurringTemplate;
 use App\Modules\Treasury\Models\RentalContract;
 use App\Modules\Treasury\Policies\AccountPolicy;
@@ -68,5 +69,17 @@ final class TreasuryServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         Gate::policy(Account::class, AccountPolicy::class);
+
+        /*
+        | Registered explicitly. Laravel discovers commands in `app/Console/Commands` only,
+        | so a module command this provider does not list does not exist — and the nightly
+        | schedule entry naming it would fail into a log nobody reads, which is how
+        | `repairs:sweep-abandoned` spent Phase 6 to #180 (docs/lessons.md).
+        */
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                GenerateRecurringBookings::class,
+            ]);
+        }
     }
 }
