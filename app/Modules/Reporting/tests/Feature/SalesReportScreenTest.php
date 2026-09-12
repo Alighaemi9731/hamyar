@@ -466,8 +466,11 @@ it('shows the neighbour none of this shop default-range sales', function (): voi
 /*
 | The export's filename carries the range's first and last shop days. It was built from
 | `from->toDateString()`, and `from` is Tehran midnight — 20:30 UTC the evening before — so
-| every Jalali range was filed under the day before it began: «۱ تا ۳۱ شهریور» downloaded as
+| every Jalali range was filed under the day before it began: «۱ تا ۵ شهریور» downloaded as
 | `sales-daily-2026-08-22-…`. Read at 00:30 Tehran, as everything above in this section.
+|
+| Five days rather than the month: this file's `beforeEach` sells at the real clock, and a
+| range reaching the day the suite runs would count those sales too.
 */
 it('names the export after the shop first and last day of a Jalali range', function (): void {
     sellAcrossTehranMidnight();
@@ -475,12 +478,12 @@ it('names the export after the shop first and last day of a Jalali range', funct
     Excel::fake();
 
     $this->actingAs($this->owner)
-        ->get($this->url.'/reporting/sales/export?'.http_build_query(['from' => '۱۴۰۵/۰۶/۰۱', 'to' => '۱۴۰۵/۰۶/۳۱']))
+        ->get($this->url.'/reporting/sales/export?'.http_build_query(['from' => '۱۴۰۵/۰۶/۰۱', 'to' => '۱۴۰۵/۰۶/۰۵']))
         ->assertOk();
 
-    // ۱ شهریور is 2026-08-23 and ۳۱ شهریور is 2026-09-22. And the workbook holds the باتری
+    // ۱ شهریور is 2026-08-23 and ۵ شهریور is 2026-08-27. And the workbook holds the باتری
     // sold at 00:15 on the 1st, not the گلس sold fifteen minutes before the range began.
-    Excel::assertDownloaded('sales-daily-2026-08-23-2026-09-22.xlsx', function (ArraySheet $sheet): bool {
+    Excel::assertDownloaded('sales-daily-2026-08-23-2026-08-27.xlsx', function (ArraySheet $sheet): bool {
         return array_column($sheet->array(), 2) === [100_000_000];
     });
 
@@ -508,10 +511,10 @@ it('names and fills the neighbour export from the neighbour shop alone', functio
     Excel::fake();
 
     $this->actingAs($neighbour)
-        ->get(appUrl().'/reporting/sales/export?'.http_build_query(['from' => '۱۴۰۵/۰۶/۰۱', 'to' => '۱۴۰۵/۰۶/۳۱']))
+        ->get(appUrl().'/reporting/sales/export?'.http_build_query(['from' => '۱۴۰۵/۰۶/۰۱', 'to' => '۱۴۰۵/۰۶/۰۵']))
         ->assertOk();
 
-    Excel::assertDownloaded('sales-daily-2026-08-23-2026-09-22.xlsx', fn (ArraySheet $sheet): bool => $sheet->array() === []);
+    Excel::assertDownloaded('sales-daily-2026-08-23-2026-08-27.xlsx', fn (ArraySheet $sheet): bool => $sheet->array() === []);
 })->group('isolation');
 
 it('falls back to a known cut rather than refusing a stale bookmark', function (): void {
