@@ -66,7 +66,13 @@ final class SettingsCatalogue
      * `permission` of `null` means "anyone signed in": your own sessions and your own
      * two-factor setup are not somebody else's to grant.
      *
-     * @return list<array{key: string, group: string, title: string, description: string, href: string, permission: string|null}>
+     * `hue` names the destination on the card's icon tile, the same twelve-name palette
+     * the sidebar uses (`NavHue` in `resources/js/lib/navigation.ts`). The rule that
+     * matters is the sidebar's: **no two rows in the same group share one**, because a
+     * group is where the eye actually compares. A hue is never a state and never means
+     * "this one is special".
+     *
+     * @return list<array{key: string, group: string, title: string, description: string, href: string, permission: string|null, hue: string}>
      */
     public static function destinations(): array
     {
@@ -78,6 +84,7 @@ final class SettingsCatalogue
                 'description' => 'دعوت همکار، تغییر نقش و غیرفعال کردن دسترسی.',
                 'href' => '/settings/users',
                 'permission' => 'users.view',
+                'hue' => 'violet',
             ],
             [
                 'key' => 'branches',
@@ -85,7 +92,33 @@ final class SettingsCatalogue
                 'title' => 'شعبه‌ها',
                 'description' => 'شعبه‌های فروشگاه و اینکه هر کاربر به کدام دسترسی دارد.',
                 'href' => '/branches',
-                'permission' => null,
+                /*
+                | `settings.view`, not null. `BranchController::index()` has refused
+                | anybody without it since the screen was written, so a cashier was shown
+                | a card that answered 403 — the "hub that lists a thing you cannot open"
+                | this class's own docblock rules out. The existing route walk runs as the
+                | Owner, so it never saw it.
+                */
+                'permission' => 'settings.view',
+                'hue' => 'emerald',
+            ],
+            [
+                'key' => 'print',
+                'group' => self::GROUP_SHOP,
+                'title' => 'چاپ و هویت فروشگاه',
+                'description' => 'لوگو، متن پایین فاکتور و کد QR روی برگه‌ای که به دست مشتری می‌رسد.',
+                'href' => '/settings/print',
+                'permission' => 'settings.view',
+                'hue' => 'amber',
+            ],
+            [
+                'key' => 'messaging',
+                'group' => self::GROUP_SHOP,
+                'title' => 'پیامک',
+                'description' => 'اینکه کدام پیامک خودکار ارسال شود و در چه ساعت‌هایی ارسال نشود.',
+                'href' => '/settings/messaging',
+                'permission' => 'settings.view',
+                'hue' => 'cyan',
             ],
             [
                 'key' => 'billing',
@@ -94,6 +127,7 @@ final class SettingsCatalogue
                 'description' => 'پلن فعلی، مصرف این ماه و پرداخت‌های گذشته.',
                 'href' => '/billing',
                 'permission' => 'billing.view',
+                'hue' => 'indigo',
             ],
             [
                 'key' => 'two-factor',
@@ -102,6 +136,7 @@ final class SettingsCatalogue
                 'description' => 'یک لایهٔ امنیتی روی حساب خودتان، با کد یک‌بارمصرف.',
                 'href' => '/settings/two-factor',
                 'permission' => null,
+                'hue' => 'teal',
             ],
             [
                 'key' => 'sessions',
@@ -110,6 +145,7 @@ final class SettingsCatalogue
                 'description' => 'هر جایی که با حساب شما وارد شده‌اند — و خارج کردنشان.',
                 'href' => '/settings/sessions',
                 'permission' => null,
+                'hue' => 'blue',
             ],
             [
                 'key' => 'activity',
@@ -118,6 +154,7 @@ final class SettingsCatalogue
                 'description' => 'چه کسی چه چیزی را کِی تغییر داد.',
                 'href' => '/settings/activity',
                 'permission' => 'activity.view',
+                'hue' => 'slate',
             ],
         ];
     }
@@ -128,7 +165,7 @@ final class SettingsCatalogue
      * An empty group would leave a heading with nothing under it, which reads as a screen
      * that failed to load rather than as a permission they do not have.
      *
-     * @return list<array{key: string, label: string, items: list<array{key: string, title: string, description: string, href: string}>}>
+     * @return list<array{key: string, label: string, items: list<array{key: string, title: string, description: string, href: string, hue: string}>}>
      */
     public static function visibleTo(?User $user): array
     {
@@ -144,6 +181,7 @@ final class SettingsCatalogue
                 'title' => $destination['title'],
                 'description' => $destination['description'],
                 'href' => $destination['href'],
+                'hue' => $destination['hue'],
             ];
         }
 

@@ -4,7 +4,9 @@ import {
   ArrowLeftIcon,
   CreditCardIcon,
   HistoryIcon,
+  MessageSquareTextIcon,
   MonitorSmartphoneIcon,
+  PrinterIcon,
   SettingsIcon,
   ShieldCheckIcon,
   StoreIcon,
@@ -20,6 +22,8 @@ interface Destination {
   title: string;
   description: string;
   href: string;
+  /** One of the twelve `NavHue` names. The catalogue assigns it; see `SettingsCatalogue`. */
+  hue: string;
 }
 
 interface Props {
@@ -34,6 +38,8 @@ interface Props {
 const ICONS: Record<string, LucideIcon> = {
   users: UsersIcon,
   branches: StoreIcon,
+  print: PrinterIcon,
+  messaging: MessageSquareTextIcon,
   billing: CreditCardIcon,
   'two-factor': ShieldCheckIcon,
   sessions: MonitorSmartphoneIcon,
@@ -90,9 +96,15 @@ export default function SettingsIndex({ groups }: Props) {
                       <Link href={item.href}>
                         <div className="flex items-start justify-between gap-3">
                           <span className="flex min-w-0 items-center gap-3">
+                            {/* The card's icon tile, on the same twelve-hue system as the
+                                sidebar's `.nav-chip` — a wash of the destination's hue, one
+                                specular pass, the glyph at full strength. The hue names the
+                                door and never a state, which is why it comes from the
+                                catalogue rather than from anything about this render. */}
                             <span
                               aria-hidden
-                              className="flex size-9 shrink-0 items-center justify-center rounded-control bg-accent text-accent-foreground"
+                              data-hue={item.hue}
+                              className="hue-tile flex size-9 shrink-0 items-center justify-center rounded-chip"
                             >
                               <Icon className="size-4" />
                             </span>

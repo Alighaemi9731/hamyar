@@ -4154,3 +4154,22 @@ Sections 1–4 and 5–8 are ticked on the evidence rather than on intent: `.mes
 deleted, the IMEI section's unusual head is a documented deliberate exception, and the
 closing band's composition is deliberate — its last v1 leftover was the retired symbol,
 which went in #156. (#166, #167)
+
+## 2026-09-13 — a shopkeeper can change what prints on a receipt and what texts a customer
+
+`TenantShopSettings` had read print identity and messaging switches since Phase 1 and nothing
+wrote them: the only way to change a receipt's logo, footer terms or QR, or to switch an SMS
+automation on, was psql. Two Inertia screens now do it — `/settings/print` and
+`/settings/messaging` — each a FormRequest, a thin controller and `ShopSettingsWriter`, behind
+a new `ShopSettingsPolicy` that is the first thing to enforce the long-unchecked
+`settings.view`/`settings.update` (Owner and Manager). Both tiles are on the hub, which now
+wears the twelve-hue tiles; «شعبه‌ها» there moved from `null` to `settings.view` because its
+controller already refused anyone without it.
+
+The writer stores real booleans in both directions and rebuilds the automation map from
+`AutomationKey`, so the reader's `show_qr !== false` default and its `=== true` switches hold
+through a save; `show_qr` is `required` so an omitted key cannot switch a QR off. The quiet
+window is refused when it closes before it opens, because that pair silences the sweep with no
+trace. Not done, and recorded in the PR: `img-src` in the CSP admits only `'self' data: blob:`,
+so an external logo URL cannot render anywhere yet; `DailyMessagingSweep` compares the UTC hour
+with a window documented as shop-local, and nothing schedules the sweep.

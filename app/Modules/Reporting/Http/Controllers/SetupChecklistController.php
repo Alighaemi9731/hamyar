@@ -16,10 +16,10 @@ use Illuminate\Http\Request;
  *
  * The dismissal is written to the shop's own settings document, not to the browser:
  * the owner who closes the card on the counter PC must not meet it again on their
- * phone, and the manager they invite tomorrow must not meet it at all. It is the one
- * key the product writes into `tenants.settings` so far; the shop settings screen that
- * will edit the rest does not exist yet, which is why there is no way back in from the
- * interface — deliberately unclaimed in the flash.
+ * phone, and the manager they invite tomorrow must not meet it at all. The print and
+ * messaging sections of `tenants.settings` are now written by Settings'
+ * `ShopSettingsWriter`; this key is not one of them, so there is still no way back in
+ * from the interface — deliberately unclaimed in the flash.
  */
 final class SetupChecklistController extends Controller
 {
