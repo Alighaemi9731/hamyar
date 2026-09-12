@@ -160,4 +160,65 @@
   --duration-base: 200ms;
   --duration-slow: 500ms;
   --ease-out: cubic-bezier(0.28, 0.11, 0.32, 1);
+
+  /* --- the navigation hue family -------------------------------------------
+     Twelve categorical hues. NOT a second accent: a hue names a DESTINATION and
+     appears only on a nav tile or a card icon tile. It never reaches a badge, a
+     figure, a status pill or a chart series — success/warning/danger keep their
+     meanings and their hexes.
+
+     Every step is measured the same way the accent was. The bar is WCAG 1.4.11
+     non-text contrast (3:1), taken against the hardest ground each hue meets: a
+     14% wash of ITSELF on the sidebar. Worst case here is orange at 3.78:1; every
+     hue also clears AA 4.5:1 against the sidebar ground, so a hue is legal even as
+     a text colour on that surface.
+
+     The reference's palette is Tailwind's 500 ramp and six of its eight fail that
+     bar in light mode (amber 1.93:1, cyan 2.13:1, green 2.02:1, emerald 2.22:1,
+     sky 2.41:1, pink 2.97:1). Same hues, our ink depth. */
+  --color-hue-blue-on-light: #0066cc;    /* 4.13:1 on its tile */
+  --color-hue-indigo-on-light: #4b3bce;  /* 5.42 */
+  --color-hue-violet-on-light: #6a3fd4;  /* 4.73 */
+  --color-hue-magenta-on-light: #b32872; /* 4.42 */
+  --color-hue-rose-on-light: #b02a5a;    /* 4.60 */
+  --color-hue-orange-on-light: #b4530a;  /* 3.78 */
+  --color-hue-amber-on-light: #92600a;   /* 4.06 */
+  --color-hue-lime-on-light: #5d7008;    /* 4.18 */
+  --color-hue-emerald-on-light: #0a7a52; /* 4.02 */
+  --color-hue-teal-on-light: #0a7268;    /* 4.32 */
+  --color-hue-cyan-on-light: #06697f;    /* 4.66 */
+  --color-hue-slate-on-light: #4a5a72;   /* 5.20 — the neutral, for the quiet destinations */
+
+  --color-hue-blue-on-dark: #409cff;     /* 4.48:1 on its tile over the navy ground */
+  --color-hue-indigo-on-dark: #8b9cff;   /* 4.87 */
+  --color-hue-violet-on-dark: #a78bfa;   /* 4.64 */
+  --color-hue-magenta-on-dark: #f472b6;  /* 4.87 */
+  --color-hue-rose-on-dark: #ff85a8;     /* 5.40 */
+  --color-hue-orange-on-dark: #ff9f4a;   /* 5.88 */
+  --color-hue-amber-on-dark: #e0a13a;    /* 5.45 */
+  --color-hue-lime-on-dark: #a8d13c;     /* 6.37 */
+  --color-hue-emerald-on-dark: #3ecf9a;  /* 5.84 */
+  --color-hue-teal-on-dark: #3ecfc3;     /* 5.95 */
+  --color-hue-cyan-on-dark: #3ac8e0;     /* 5.78 */
+  --color-hue-slate-on-dark: #9aadc4;    /* 5.24 */
+
+  --color-hue-blue: var(--color-hue-blue-on-light);
+  --color-hue-indigo: var(--color-hue-indigo-on-light);
+  --color-hue-violet: var(--color-hue-violet-on-light);
+  --color-hue-magenta: var(--color-hue-magenta-on-light);
+  --color-hue-rose: var(--color-hue-rose-on-light);
+  --color-hue-orange: var(--color-hue-orange-on-light);
+  --color-hue-amber: var(--color-hue-amber-on-light);
+  --color-hue-lime: var(--color-hue-lime-on-light);
+  --color-hue-emerald: var(--color-hue-emerald-on-light);
+  --color-hue-teal: var(--color-hue-teal-on-light);
+  --color-hue-cyan: var(--color-hue-cyan-on-light);
+  --color-hue-slate: var(--color-hue-slate-on-light);
+
+  /* --- motion, ADD to the existing block ------------------------------------
+     `--ease-out` is the system curve and it does not overshoot. The tile's hover
+     wobble is the one gesture in the product that wants a spring; it is scoped to
+     a 32px object that moves 4px, which is why it does not open the door to
+     springing anything else. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }

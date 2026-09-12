@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import { BarChart } from '@/components/domain/bar-chart';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Money } from '@/components/domain/money';
+import type { StatAccent } from '@/components/domain/stat-card';
 import { Num } from '@/components/domain/num';
 import { SetupChecklist, type SetupProgress } from '@/components/domain/setup-checklist';
 import { UsageMeter } from '@/components/domain/usage-meter';
@@ -195,6 +196,8 @@ export default function DashboardIndex({
             {repairs ? (
               <Card
                 title="تعمیرات در جریان"
+                accent="orange"
+                icon={WrenchIcon}
                 href="/repairs/board"
                 linkLabel="تخته کارها"
                 quiet={repairs.total === 0 ? 'هیچ دستگاهی روی میز نیست.' : undefined}
@@ -228,6 +231,8 @@ export default function DashboardIndex({
             {cheques ? (
               <Card
                 title="چک‌های این هفته"
+                accent="violet"
+                icon={ReceiptIcon}
                 href="/cheques"
                 linkLabel="همه چک‌ها"
                 quiet={cheques.soonest.length === 0 ? 'این هفته چکی سررسید نمی‌شود.' : undefined}
@@ -402,7 +407,10 @@ function TodayBand({
   const hasTrend = trend !== null && trend.length > 0;
 
   return (
-    <section className="reveal rounded-card border border-border bg-card p-6 shadow-low sm:p-8">
+    <section
+      className="stat-card reveal rounded-card border border-border bg-card p-6 shadow-low sm:p-8"
+      data-accent="emerald"
+    >
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] xl:gap-12">
         <div className="min-w-0">
           <h2 className="text-sm text-muted-foreground">فروش امروز</h2>
@@ -650,11 +658,22 @@ function Card({
   href,
   linkLabel,
   quiet,
+  accent = 'blue',
+  icon: Icon,
   children,
 }: {
   title: string;
   href: string;
   linkLabel?: string;
+  /**
+   * The card's identity colour — the same twelve the sidebar uses, and for the same
+   * reason: a hue says *what this is about*. It tints the corner wash and the mark's
+   * tile and nothing else, so a briefing reads as a set of distinct objects rather
+   * than a column of grey boxes. It is never a state; `tone` is a different axis.
+   */
+  accent?: StatAccent;
+  /** The mark, on a tile. Matches the sidebar row this card is a door to. */
+  icon?: LucideIcon;
   /**
    * When there is nothing to report, the card says so in one line and gets out of the
    * way. A seeded morning used to render five boxes each announcing that nothing was
@@ -695,9 +714,19 @@ function Card({
   }
 
   return (
-    <section className="rounded-card border bg-card p-5">
+    <section className="stat-card rounded-card border bg-card p-5" data-accent={accent}>
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="font-semibold">{title}</h2>
+        <h2 className="flex items-center gap-2.5 font-semibold">
+          {Icon ? (
+            <span
+              aria-hidden
+              className="stat-tile grid size-9 shrink-0 place-items-center rounded-chip"
+            >
+              <Icon className="size-4.5" strokeWidth={2.25} />
+            </span>
+          ) : null}
+          {title}
+        </h2>
         {linkLabel ? (
           <Link
             href={href}
@@ -779,7 +808,10 @@ function UsageStrip() {
   }
 
   return (
-    <section className="rounded-card border border-border bg-surface px-5 py-4">
+    <section
+      className="stat-card rounded-card border border-border bg-surface px-5 py-4"
+      data-accent="cyan"
+    >
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">سهمیهٔ این ماه</h2>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

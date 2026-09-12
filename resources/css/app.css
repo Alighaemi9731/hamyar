@@ -46,6 +46,12 @@
 
      Caught by grepping the built stylesheet for the class rather than by trusting that a
      defined token implies a generated utility. */
+  /* 14px, between --radius-control (12) and --radius-card (18): the radius a 44px
+     tile wants. In `@theme` and not `:root` for the reason the note above records —
+     a radius token outside this block generates no `rounded-chip` utility at all, and
+     nothing errors when a class simply is not there. Verified in the built stylesheet. */
+  --radius-chip: 0.875rem;
+
   --z-index-sticky: 20;
   --z-index-drawer: 40;
   --z-index-overlay: 50;
@@ -105,16 +111,57 @@
   --chrome: rgb(255 255 255 / 0.72);
   --chrome-border: rgb(14 27 44 / 0.1);
 
-  /* Nav chips — the light on the sidebar's icon tiles; see `.nav-chip` below.
-     White rather than a palette colour on purpose: a specular edge is a light
-     source, and light is white in both themes. Only the tile's GROUND is coloured,
-     and that comes from the one accent at the call site. */
-  --nav-chip-gloss: linear-gradient(to bottom, rgb(255 255 255 / 0.4) 0%, rgb(255 255 255 / 0) 62%);
+  /* Nav chips — the sidebar's icon tiles, and a card's; see `.nav-chip` below.
+
+     Colour is NOT here. `--chip-hue` is set per row from a `data-hue` attribute and
+     inherits into the tile. What lives here is the hue-INDEPENDENT treatment — the
+     tint strength, the specular gloss, the resting rim — because that is the whole
+     trick: twelve hues look like one system precisely because every tile is lit the
+     same way and only the ground changes.
+
+     GOTCHA, and it is why the wash and the glow are composed inside the rule bodies
+     rather than as tokens up here: a custom property containing `var()` is substituted
+     when it is COMPUTED, on the element that declares it. A
+     `--nav-chip-wash: color-mix(…, var(--chip-hue), …)` written on `:root` would bake
+     in the root's hue and every tile in the sidebar would come out the same colour.
+     Scalars are safe here; colour functions that read `--chip-hue` are not. */
+  --chip-hue: var(--color-brand); /* fallback for a tile that names no destination */
+  --chip-tint: 14%;
+  /* The gloss runs on a diagonal, which means it has a lit side, which means it
+     mirrors. 215deg puts the light source at the block-start / inline-start corner
+     in RTL, which is this product's default direction. */
+  --chip-gloss-angle: 215deg;
+  --chip-tilt: -3deg;
+  --nav-chip-gloss:
+    linear-gradient(var(--chip-gloss-angle), rgb(255 255 255 / 0.24) 0%, rgb(255 255 255 / 0) 60%);
   --nav-chip-bevel:
-    inset 0 0 0 1px rgb(14 27 44 / 0.06), inset 0 1px 0 rgb(255 255 255 / 0.7);
-  --nav-chip-glow: 0 4px 12px -4px color-mix(in oklch, var(--color-brand) 55%, transparent);
+    inset 0 0 0 1px rgb(14 27 44 / 0.06), inset 0 1px 0 rgb(255 255 255 / 0.55);
+
+  /* Row surfaces. The selected row LIFTS by going whiter than its ground — which only
+     works if the ground is not already white. `--sidebar-chrome` is one step off the
+     page, and that step is what the whole frosted-lift mechanic stands on. */
+  --sidebar-chrome: rgb(238 242 248 / 0.86);
+  --chrome-blur: saturate(220%) blur(48px) brightness(1.03);
+  --sidebar-ambient:
+    radial-gradient(
+      ellipse 120% 80% at 50% 0%,
+      color-mix(in srgb, var(--color-brand) 18%, transparent) 0%,
+      transparent 70%
+    );
+  --nav-row-hover: rgb(255 255 255 / 0.62);
+  --nav-row-active: rgb(255 255 255 / 0.92);
+  --nav-row-active-hover: rgb(255 255 255 / 0.98);
+  --nav-row-active-edge: rgb(255 255 255 / 0.9);
+  --nav-row-active-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.96), 0 2px 12px -6px rgb(14 27 44 / 0.18);
+  --nav-row-sheen:
+    linear-gradient(175deg, rgb(255 255 255 / 0.12) 0%, rgb(255 255 255 / 0) 60%);
 
   /* Density: POS and table-heavy screens set data-density="compact". */
+  /* Noise. 3% fractal turbulence, desaturated — what stops a large flat panel
+     reading as a screenshot of a panel rather than a surface. */
+  --stat-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' opacity='0.03'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
   --density-row: 2.75rem;
   --density-gap: 1rem;
 
@@ -199,6 +246,53 @@
     `--color-brand-bright` stays the dark-mode FILL and is deliberately not used
     here: a fill takes white text on top of it, and text does not.
   */
+  /* The navigation hues swap the same way every semantic colour does. The dark steps
+     are lighter and less saturated so a 14% wash of them over the navy chrome still
+     clears 3:1 — measured per hue where they are defined in brand.css. */
+  /* The sidebar's chrome and its row surfaces, restated for navy.
+
+     The light theme lifts the selected row by going WHITER than its ground. On navy
+     that same move would blow a hole in the column, so the direction is kept and the
+     material changed: the row lifts by going lighter *navy*, and the rim that reads as
+     a lit edge drops from 96% white to 14% — enough to catch the eye, not enough to
+     glow. Straight alpha-white on a dark ground is the classic way a frosted design
+     turns grey and muddy. */
+  --sidebar-chrome: rgb(10 22 40 / 0.82);
+  --sidebar-ambient:
+    radial-gradient(
+      ellipse 120% 80% at 50% 0%,
+      color-mix(in srgb, var(--color-brand-bright) 22%, transparent) 0%,
+      transparent 70%
+    );
+  --nav-row-hover: rgb(255 255 255 / 0.05);
+  --nav-row-active: rgb(28 52 82 / 0.92);
+  --nav-row-active-hover: rgb(34 60 94 / 0.96);
+  --nav-row-active-edge: rgb(255 255 255 / 0.1);
+  --nav-row-active-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14), 0 2px 12px -6px rgb(0 0 0 / 0.5);
+  --nav-row-sheen:
+    linear-gradient(175deg, rgb(255 255 255 / 0.06) 0%, rgb(255 255 255 / 0) 60%);
+  /* The tint carries further on a dark ground, so the wash comes down and the white
+     specular rim with it — an 0.55 rim on navy reads as a chalk line. */
+  --chip-tint: 20%;
+  --nav-chip-gloss:
+    linear-gradient(var(--chip-gloss-angle), rgb(255 255 255 / 0.14) 0%, rgb(255 255 255 / 0) 60%);
+  --nav-chip-bevel:
+    inset 0 0 0 1px rgb(255 255 255 / 0.07), inset 0 1px 0 rgb(255 255 255 / 0.16);
+
+  --color-hue-blue: var(--color-hue-blue-on-dark);
+  --color-hue-indigo: var(--color-hue-indigo-on-dark);
+  --color-hue-violet: var(--color-hue-violet-on-dark);
+  --color-hue-magenta: var(--color-hue-magenta-on-dark);
+  --color-hue-rose: var(--color-hue-rose-on-dark);
+  --color-hue-orange: var(--color-hue-orange-on-dark);
+  --color-hue-amber: var(--color-hue-amber-on-dark);
+  --color-hue-lime: var(--color-hue-lime-on-dark);
+  --color-hue-emerald: var(--color-hue-emerald-on-dark);
+  --color-hue-teal: var(--color-hue-teal-on-dark);
+  --color-hue-cyan: var(--color-hue-cyan-on-dark);
+  --color-hue-slate: var(--color-hue-slate-on-dark);
+
   --color-success: var(--color-success-on-dark);
   --color-warning: var(--color-warning-on-dark);
   --color-danger: var(--color-danger-on-dark);
@@ -439,23 +533,312 @@
     Colour is NOT here. Ground and glyph come from the one accent at the call site
     (rest → hover → active), so this rule owns shape and light only.
   */
-  .nav-chip {
+  /* Twelve destinations, twelve hues, one object. The tile is never a gradient of its
+     own colour: it is a flat wash of the hue at one alpha, an identical white specular
+     pass on top of every one of them, a rim of light along the block-start edge, and
+     the glyph at full strength. A per-hue gradient is what turns a nav into a
+     highlighter set. */
+  [data-hue='blue'] { --chip-hue: var(--color-hue-blue); }
+  [data-hue='indigo'] { --chip-hue: var(--color-hue-indigo); }
+  [data-hue='violet'] { --chip-hue: var(--color-hue-violet); }
+  [data-hue='magenta'] { --chip-hue: var(--color-hue-magenta); }
+  [data-hue='rose'] { --chip-hue: var(--color-hue-rose); }
+  [data-hue='orange'] { --chip-hue: var(--color-hue-orange); }
+  [data-hue='amber'] { --chip-hue: var(--color-hue-amber); }
+  [data-hue='lime'] { --chip-hue: var(--color-hue-lime); }
+  [data-hue='emerald'] { --chip-hue: var(--color-hue-emerald); }
+  [data-hue='teal'] { --chip-hue: var(--color-hue-teal); }
+  [data-hue='cyan'] { --chip-hue: var(--color-hue-cyan); }
+  [data-hue='slate'] { --chip-hue: var(--color-hue-slate); }
+
+  .nav-chip,
+  .hue-tile {
+    background-color: color-mix(in srgb, var(--chip-hue) var(--chip-tint), transparent);
     background-image: var(--nav-chip-gloss);
     box-shadow: var(--nav-chip-bevel);
+    color: var(--chip-hue);
+    /* `transform`, not Tailwind's `scale-*`: v4's scale utilities set the individual
+       `scale` property, which composes ON TOP of transform. Naming both is how a
+       hover ends up scaling twice. */
     transition:
       background-color var(--duration-fast) var(--ease-out),
       color var(--duration-fast) var(--ease-out),
       box-shadow var(--duration-fast) var(--ease-out),
-      /* `scale`, not `transform`: Tailwind v4's `scale-*` sets the individual
-         property, and a transition naming only `transform` never fires. */
-      scale var(--duration-base) var(--ease-out);
+      transform var(--duration-base) var(--ease-spring);
   }
 
-  /* The page you are on gets the glow the reference puts under its selected chip. It
-     is the accent, softened and thrown downward — the tile lifts off the sidebar
-     rather than merely changing colour. */
-  .nav-chip[data-active='true'] {
-    box-shadow: var(--nav-chip-bevel), var(--nav-chip-glow);
+  /* The page you are on. The tile takes its hue back OUT of the circle — a 1px ring
+     at half strength and a glow thrown downward, so it lifts rather than merely
+     changing colour. This is the only place the hue leaves the 32px tile; the
+     indicator bar on the row stays brand blue for every destination, because the hue
+     says which destination and the blue says where you are. */
+  .nav-chip[data-active='true'],
+  .hue-tile[data-active='true'] {
+    box-shadow:
+      var(--nav-chip-bevel),
+      0 0 0 1px color-mix(in srgb, var(--chip-hue) 50%, transparent),
+      0 4px 12px -4px color-mix(in srgb, var(--chip-hue) 55%, transparent);
+  }
+
+  /* One gesture, and it belongs to the tile: the row hovers, the circle moves.
+     Reduced motion is handled globally in the base layer. */
+  /*
+    The row. Six cues on the selected state, none of them loud: a ground that goes
+    whiter than the sidebar, a near-vertical sheen, a bright inset rim with a soft drop
+    under it, a hairline edge, its own backdrop blur, and the label stepping to 600.
+    Plus the bar. No single one of them IS the state — remove any and it still reads.
+
+    Every row carries a transparent 1px border so the selected one can gain a visible
+    edge without shifting the row 2px.
+  */
+  .nav-row {
+    position: relative;
+    border: 1px solid transparent;
+    transition:
+      background-color var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out),
+      border-color var(--duration-base) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+
+  .nav-row:hover {
+    background-color: var(--nav-row-hover);
+  }
+
+  .nav-row:hover .nav-chip {
+    transform: scale(1.14) rotate(var(--chip-tilt));
+  }
+
+  .nav-row[data-active='true'] {
+    background-color: var(--nav-row-active);
+    background-image: var(--nav-row-sheen);
+    border-color: var(--nav-row-active-edge);
+    box-shadow: var(--nav-row-active-shadow);
+    /* Deliberately only while selected — a blur on nineteen rows is nineteen
+       compositor layers on a sidebar that is sticky for the whole session. */
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .nav-row[data-active='true']:hover {
+    background-color: var(--nav-row-active-hover);
+  }
+
+  /* The indicator bar. Brand blue on EVERY destination, and this is the load-bearing
+     idea: the hue tells you which destination, the blue tells you where you are. Give
+     the bar the item's hue and the sidebar stops answering the second question. */
+  .nav-row[data-active='true']::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0.25rem;
+    inset-block: 0.5rem;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--primary) 90%, transparent) 0%,
+      color-mix(in srgb, var(--primary) 55%, transparent) 100%
+    );
+    box-shadow: 0 0 8px 2px color-mix(in srgb, var(--primary) 42%, transparent);
+  }
+
+  /* On the rail there is no room for the bar and no need for it: the tile is the whole
+     row, and its hue ring plus glow already say which one you are on. */
+  [data-rail='collapsed'] .nav-row[data-active='true']::before {
+    content: none;
+  }
+
+  /*
+    Chrome-tier glass — the sidebar column only. `.glass` (blur 20 / saturate 180) stays
+    as it is for the topbar; this is the stronger tier the reference reserves for the one
+    surface always on screen, plus the ambient the coloured tiles sit on. `at 50% 0%` is
+    centred, so the radial has no side and needs no mirror.
+
+    ONE unprefixed `backdrop-filter`, no hand-written `-webkit-` twin — that pairing is
+    exactly the scar `bin/check-built-css` was written for.
+  */
+  /* ─────────────────────────────────────────────────────────────────────────
+     Stat cards. Five layers, and the last one does most of the work.
+
+     A card here is a lit object, not a filled box: grain + a top-down gloss + a
+     radial corner wash in the card's own hue + a hairline border + an
+     `inset 0 1px 0` white rim along the top edge. That rim is the difference —
+     without it a card is a div with a border; with it, it has a physical edge.
+
+     Colour is not here, the same way it is not in `.nav-chip`. Every tinted
+     surface derives from `--stat-accent` through `color-mix`, and that one
+     variable is set by `[data-accent]` at the bottom. One hex, six surfaces,
+     six alphas — a row of four cards becomes four distinct objects instead of
+     four grey boxes with different words in them.
+     ───────────────────────────────────────────────────────────────────────── */
+  .stat-card {
+    /* The one hex. Overridden per card by [data-accent] below. */
+    --stat-accent: var(--color-hue-blue);
+
+    /* The six derivations. Percentages, so the dark swap is one block. */
+    --stat-wash: 8%;
+    --stat-tile-fill: 15%;
+    --stat-tile-edge: 25%;
+    --stat-tile-glow: 38%;
+    --stat-edge-hover: 35%;
+    --stat-glow-hover: 45%;
+
+    /* Light: a rim along the top edge, and the sheen falling from it. */
+    --stat-rim: inset 0 1px 0 rgb(255 255 255 / 1);
+    --stat-gloss: linear-gradient(
+      175deg,
+      rgb(255 255 255 / 0.7) 0%,
+      rgb(255 255 255 / 0) 50%
+    );
+    --stat-drop: 0 2px 20px rgb(14 27 44 / 0.06);
+    /* 145deg lights a tile from the physical top-LEFT; mirrored to 215deg for
+       RTL below, so the tile's specular and the card's corner wash agree on one
+       light source coming from the top of the label side. */
+    --stat-tile-gloss-angle: 215deg;
+
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    /* No `min-block-size`. The reference pins its cards to a computed height because
+       every one of its cards has the same rows; ours do not — `hint` and `trend` are
+       both optional, and a fixed height would leave a third of the card empty on the
+       plainest one. A grid row already equalises the cards that sit beside each other. */
+    background-image: var(--stat-grain), var(--stat-gloss);
+    box-shadow: var(--stat-drop), var(--stat-rim);
+    /* `translate`, not `transform`: Tailwind v4 sets the individual property and
+       a transition naming only `transform` never fires — the scar `.nav-chip`
+       records for `scale`. */
+    transition:
+      box-shadow var(--duration-base) var(--ease-out),
+      border-color var(--duration-base) var(--ease-out),
+      translate var(--duration-base) var(--ease-out);
+  }
+
+  /* The corner wash — one pseudo-element, and the single biggest "alive" cue in
+     the reference. `z-index: -1` inside the isolated stacking context paints it
+     above the card's background and below its content; `overflow: hidden` on
+     the card clips it to the radius.
+
+     Gradients are NOT mirrored by `dir=rtl`, so `at 100% 0%` is the physical
+     top-right — which in our RTL shell is behind the LABEL, exactly where the
+     reference puts it. For an LTR locale it would want `at 0% 0%`. */
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      120% 120% at 100% 0%,
+      color-mix(in srgb, var(--stat-accent) var(--stat-wash), transparent) 0%,
+      transparent 48%
+    );
+  }
+
+  /* Dark is a designed state, not an inversion. The gloss is DROPPED — a white
+     sheen over a dark ground is haze, not light — leaving grain only, and the
+     rim falls from 100% to 8%. `none` is a legal background-image layer. */
+  .dark .stat-card {
+    --stat-wash: 16%;
+    --stat-edge-hover: 50%;
+    --stat-glow-hover: 50%;
+    --stat-rim: inset 0 1px 0 rgb(255 255 255 / 0.08);
+    --stat-gloss: none;
+    --stat-drop: 0 2px 20px rgb(0 0 0 / 0.5);
+    /* Only here does translucency have anything to work against: the navy
+       ground under a navy card is two surfaces, white under white is one. */
+    background-color: color-mix(in srgb, var(--card) 90%, transparent);
+    backdrop-filter: saturate(140%) blur(20px);
+  }
+
+  /* `(hover: hover)` because the counter PC is often a touch monitor, and a
+     sticky lift on tap is worse than no lift. The hover shadow REPLACES the
+     glass shadow — the rim vanishing is what makes the 2px read as the card
+     leaving the page rather than growing a glow. */
+  @media (hover: hover) {
+    .stat-card:hover {
+      translate: 0 -2px;
+      border-color: color-mix(
+        in srgb,
+        var(--stat-accent) var(--stat-edge-hover),
+        transparent
+      );
+      box-shadow: 0 10px 28px -12px
+        color-mix(in srgb, var(--stat-accent) var(--stat-glow-hover), transparent);
+    }
+
+    .dark .stat-card:hover {
+      box-shadow: 0 8px 26px -10px
+        color-mix(in srgb, var(--stat-accent) var(--stat-glow-hover), transparent);
+    }
+  }
+
+  /*
+    The icon tile — a glossy chip, not an icon.
+
+    Five properties on one 44px square: a tinted ground, a diagonal gloss, a
+    tinted border, an inset specular rim, and a coloured glow thrown beneath it.
+    A flat tinted square with a glyph in it is exactly the thing that reads as
+    lifeless, and it is what most dashboards ship.
+  */
+  .stat-tile {
+    color: var(--stat-accent);
+    background-color: color-mix(
+      in srgb,
+      var(--stat-accent) var(--stat-tile-fill),
+      transparent
+    );
+    background-image: linear-gradient(
+      var(--stat-tile-gloss-angle),
+      rgb(255 255 255 / 0.28) 0%,
+      rgb(255 255 255 / 0) 60%
+    );
+    border: 1px solid
+      color-mix(in srgb, var(--stat-accent) var(--stat-tile-edge), transparent);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.38),
+      0 4px 12px -4px
+        color-mix(in srgb, var(--stat-accent) var(--stat-tile-glow), transparent);
+  }
+
+  /* 215deg is 145deg reflected about the vertical axis: the light now comes
+     from the top of the reading-start side, agreeing with the corner wash. */
+  [dir='rtl'] .stat-tile {
+    --stat-tile-gloss-angle: 215deg;
+  }
+
+  /* --- the hues, at the call site ----------------------------------------
+     Identity hues first; then the three semantics, which map to the tokens
+     that already carry those meanings so the product never grows a second
+     green, amber or red. */
+  .stat-card[data-accent='blue'],
+  { --stat-accent: var(--color-hue-blue); }
+  .stat-card[data-accent='indigo'],
+  { --stat-accent: var(--color-hue-indigo); }
+  .stat-card[data-accent='violet'],
+  { --stat-accent: var(--color-hue-violet); }
+  .stat-card[data-accent='teal'],
+  { --stat-accent: var(--color-hue-teal); }
+  .stat-card[data-accent='cyan'],
+  { --stat-accent: var(--color-hue-cyan); }
+  .stat-card[data-accent='rose'],
+  { --stat-accent: var(--color-hue-rose); }
+  .stat-card[data-accent='slate'],
+  { --stat-accent: var(--color-hue-slate); }
+
+  .stat-card[data-accent='success'],
+  { --stat-accent: var(--color-success); }
+  .stat-card[data-accent='warning'],
+  { --stat-accent: var(--color-warning); }
+  .stat-card[data-accent='danger'],
+  { --stat-accent: var(--color-danger); }
+
+  /* The skeleton is the card's exact box, so nothing shifts when data lands. */
+
+  .sidebar-glass {
+    background-color: var(--sidebar-chrome);
+    background-image: var(--sidebar-ambient);
+    border-color: var(--chrome-border);
+    backdrop-filter: var(--chrome-blur);
   }
 
   /* Alternating section grounds. */

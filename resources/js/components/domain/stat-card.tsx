@@ -8,6 +8,28 @@ import { cn } from '@/lib/utils';
 
 export type StatTone = 'neutral' | 'success' | 'warning' | 'danger';
 
+/**
+ * The card's identity colour.
+ *
+ * A hue says *what this card is about* — it is not a state. The three semantics stay
+ * out of this list on purpose: there is exactly one green, one amber and one red in
+ * this product and they mean paid, due and overdue. A card whose figure is genuinely
+ * bad news asks for `tone="danger"`, which is a different axis.
+ */
+export type StatAccent =
+  | 'blue'
+  | 'indigo'
+  | 'violet'
+  | 'magenta'
+  | 'rose'
+  | 'orange'
+  | 'amber'
+  | 'lime'
+  | 'emerald'
+  | 'teal'
+  | 'cyan'
+  | 'slate';
+
 export interface StatCardProps {
   label: string;
   /**
@@ -35,6 +57,8 @@ export interface StatCardProps {
    */
   invertTrend?: boolean;
   tone?: StatTone;
+  /** Identity colour for the icon tile and the corner wash. Defaults to the brand blue. */
+  accent?: StatAccent;
   className?: string;
 }
 
@@ -72,6 +96,7 @@ export function StatCard({
   trend,
   invertTrend = false,
   tone = 'neutral',
+  accent = 'blue',
   className,
 }: StatCardProps) {
   const hasTrend = typeof trend === 'number' && trend !== 0;
@@ -80,11 +105,28 @@ export function StatCard({
   const TrendIcon = rising ? TrendingUpIcon : TrendingDownIcon;
 
   return (
-    <Card asChild className={cn(TONE_RING[tone], className)}>
-      <article>
+    <Card asChild className={cn('stat-card', TONE_RING[tone], className)}>
+      <article data-accent={accent}>
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm text-muted-foreground">{label}</p>
-          {Icon ? <Icon className={cn('size-5 shrink-0', TONE_ICON[tone])} aria-hidden /> : null}
+          {/*
+            The mark sits on a tile rather than floating as a bare glyph — the same
+            object as a sidebar chip, lit the same way, so a dashboard and the nav read
+            as one system. `tone` still wins when it is not neutral: a card about an
+            overdue balance shows red whatever its identity hue is, because a state
+            outranks an identity.
+          */}
+          {Icon ? (
+            <span
+              aria-hidden
+              className={cn(
+                'stat-tile grid size-11 shrink-0 place-items-center rounded-chip',
+                tone !== 'neutral' && TONE_ICON[tone]
+              )}
+            >
+              <Icon className="size-5" strokeWidth={2.25} />
+            </span>
+          ) : null}
         </div>
 
         {/*
