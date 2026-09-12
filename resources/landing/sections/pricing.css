@@ -214,6 +214,9 @@
  | the typesetting: Estedad's tabular «۰» and «٬» each take a full digit's advance, so the
  | price rendered as «۱ , ۱۹۰ , ۰۰۰» — 304px against 164px, measured. Same defect and the
  | same fix as the IMEI record's amounts (`sections/imei.css`).
+ |
+ | The markup must not add `.nums` to this element: that utility is declared after this
+ | sheet in `landing.css`, wins at equal specificity, and put the tabular figures back.
  */
 
 .tariff__price {
