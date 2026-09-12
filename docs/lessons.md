@@ -153,6 +153,21 @@ only the *telling* was wrong, which is why every counter-based test passed. Exte
 has written yet — where adding `catch (QuotaExceeded) { throw; }` above a dozen existing arms
 works today and silently stops working at the thirteenth.
 
+### A module command is not a command until its provider registers it
+
+`repairs:sweep-abandoned` shipped in Phase 6 with tests, a docblock and a line in
+`routes/console.php` running it daily at 10:00. It never ran once. Laravel discovers commands
+in `app/Console/Commands` only; a class under `app/Modules/<Name>/Console` exists for artisan
+only if that module's provider calls `$this->commands()`. Every scheduled run was *"There are
+no commands defined in the repairs namespace"* into a scheduler log nobody reads — no nudge,
+no رسوبی flag, for any shop.
+
+The tests passed throughout because they called the class directly. Nothing asked the
+question the schedule depends on: does artisan know this name. Found in #180, while
+scheduling the messaging sweep beside it. `tests/Feature/ScheduledCommandsTest.php` now fails
+for any scheduled command name artisan cannot resolve, so the next module command that
+forgets its provider fails CI instead of cron.
+
 ---
 
 ## Forms and what the operator is told
