@@ -123,19 +123,39 @@ final class Jalali
     }
 
     /**
-     * Start of a Jalali day, as a UTC instant — the lower bound for date-range filters.
+     * Start of a shop day, as a UTC instant — the lower bound for date-range filters.
+     *
+     * The day is named by a Jalali string, or by any instant or calendar date, which is
+     * read on the shop's calendar first ({@see calendarDate()}). The second form is what a
+     * range built from "now" needs: Carbon's own `startOfDay()` on a UTC value is UTC
+     * midnight, 03:30 in Tehran, and a range bounded by it loses the first three and a half
+     * hours of the shop's day and takes the same from the next.
      */
-    public static function startOfDay(string $value, string $format = self::DATE): CarbonImmutable
+    public static function startOfDay(DateTimeInterface|string $value, string $format = self::DATE): CarbonImmutable
     {
-        return self::parse($value, $format)->setTimezone(self::displayTimezone())->startOfDay()->utc();
+        return self::shopDay($value, $format)->startOfDay()->utc();
     }
 
     /**
-     * End of a Jalali day, as a UTC instant — the upper bound for date-range filters.
+     * End of a shop day, as a UTC instant — the upper bound for date-range filters.
+     *
+     * Takes the same two kinds of value as {@see startOfDay()}.
      */
-    public static function endOfDay(string $value, string $format = self::DATE): CarbonImmutable
+    public static function endOfDay(DateTimeInterface|string $value, string $format = self::DATE): CarbonImmutable
     {
-        return self::parse($value, $format)->setTimezone(self::displayTimezone())->endOfDay()->utc();
+        return self::shopDay($value, $format)->endOfDay()->utc();
+    }
+
+    /**
+     * A moment inside the shop day a value names, on the shop's wall clock.
+     */
+    private static function shopDay(DateTimeInterface|string $value, string $format): CarbonImmutable
+    {
+        if ($value instanceof DateTimeInterface) {
+            return CarbonImmutable::parse(self::calendarDate($value)->toDateString(), self::displayTimezone());
+        }
+
+        return self::parse($value, $format)->setTimezone(self::displayTimezone());
     }
 
     /**

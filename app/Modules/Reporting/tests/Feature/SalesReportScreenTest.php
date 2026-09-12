@@ -366,6 +366,101 @@ it('keeps the range when the cut changes', function (): void {
         );
 });
 
+/*
+| The default range and the dashboard's "today", read at 00:30 on ۱ شهریور in Tehran —
+| 21:00 UTC on 2026-08-22, when the UTC date is still ۳۱ مرداد.
+|
+| Two sales straddle the shop's midnight: a گلس at 23:45 on ۳۱ مرداد and a باتری at 00:15 on
+| ۱ شهریور. The shop's month and the shop's day hold the باتری only. The old default range
+| came out backwards at this hour, was swapped onto UTC midnights and took both, and the
+| dashboard's "today" was the UTC day, which took both as well. (Here rather than in
+| `DashboardTest` because this file has the till to sell them through.)
+*/
+function sellAcrossTehranMidnight(): void
+{
+    /** @var ProductVariant $glass */
+    $glass = test()->glass;
+    /** @var ProductVariant $battery */
+    $battery = test()->battery;
+    /** @var User $owner */
+    $owner = test()->owner;
+
+    // 23:45 Tehran on ۳۱ مرداد.
+    test()->travelTo(CarbonImmutable::parse('2026-08-22 20:15:00', 'UTC'));
+    sellLine($glass->id, quantity: 1, price: 30_000_000, salespersonId: $owner->id);
+
+    // 00:15 Tehran on ۱ شهریور.
+    test()->travelTo(CarbonImmutable::parse('2026-08-22 20:45:00', 'UTC'));
+    sellLine($battery->id, quantity: 1, price: 100_000_000, salespersonId: $owner->id);
+
+    // 00:30 Tehran on ۱ شهریور.
+    test()->travelTo(CarbonImmutable::parse('2026-08-22 21:00:00', 'UTC'));
+}
+
+it('opens the default range on the shop first day of the month, in its first minutes', function (): void {
+    sellAcrossTehranMidnight();
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/reporting/sales')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('period.from_jalali', '۱۴۰۵/۰۶/۰۱')
+            ->where('period.to_jalali', '۱۴۰۵/۰۶/۰۱')
+            ->where('summary.revenue.value', 100_000_000)
+            ->etc()
+        );
+});
+
+it('counts the dashboard today and the last trend point on the shop day', function (): void {
+    sellAcrossTehranMidnight();
+
+    $this->actingAs($this->owner)
+        ->get($this->url.'/dashboard')
+        ->assertOk()
+        ->assertInertia(function ($page): void {
+            $props = propsOf($page);
+
+            /** @var array{revenue: array{value: int}} $today */
+            $today = $props['today'];
+            /** @var list<array{date: string, jalali: string, revenue: int}> $trend */
+            $trend = $props['trend'];
+
+            expect($today['revenue']['value'])->toBe(100_000_000)
+                ->and($trend)->toHaveCount(30)
+                // The chart ends on the shop's today, with only today's sale on it, and
+                // the گلس sits on the day before. The old walk ended on the UTC date.
+                ->and(array_slice($trend, -2))->toBe([
+                    ['date' => '2026-08-22', 'jalali' => '۱۴۰۵/۰۵/۳۱', 'revenue' => 30_000_000, 'profit' => 10_000_000],
+                    ['date' => '2026-08-23', 'jalali' => '۱۴۰۵/۰۶/۰۱', 'revenue' => 100_000_000, 'profit' => 40_000_000],
+                ]);
+        });
+});
+
+it('shows the neighbour none of this shop default-range sales', function (): void {
+    sellAcrossTehranMidnight();
+
+    $other = Tenant::factory()->withDomain()->create();
+    subscribe($other, 'pro');
+    app(SubscriptionResolver::class)->forget();
+    app(TenantProvisioner::class)->seedRoles($other);
+
+    $neighbour = app(TenantContext::class)->runFor($other, function (): User {
+        $user = User::factory()->create();
+        $user->assignRole('Owner');
+
+        return $user;
+    });
+
+    $this->actingAs($neighbour)
+        ->get(appUrl().'/reporting/sales')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('period.from_jalali', '۱۴۰۵/۰۶/۰۱')
+            ->where('summary.revenue.value', 0)
+            ->etc()
+        );
+})->group('isolation');
+
 it('falls back to a known cut rather than refusing a stale bookmark', function (): void {
     $this->actingAs($this->owner)
         ->get($this->url.'/reporting/sales?cut=by-phase-of-moon')

@@ -123,7 +123,15 @@ final class DashboardWidgets
 
         $trend = [];
 
-        for ($cursor = $period->from; $cursor->lessThanOrEqualTo($period->to); $cursor = $cursor->addDay()) {
+        /*
+        | Walked over the shop's calendar dates, which is what `daily()` keys its rows by.
+        | The period's bounds are Tehran midnights — 20:30 UTC the evening before — so
+        | walking them and keying by `toDateString()` would label every point a day early
+        | and miss every day's sales.
+        */
+        $lastDay = Jalali::calendarDate($period->to);
+
+        for ($cursor = Jalali::calendarDate($period->from); $cursor->lessThanOrEqualTo($lastDay); $cursor = $cursor->addDay()) {
             $key = $cursor->toDateString();
             $row = $byDay[$key] ?? null;
 

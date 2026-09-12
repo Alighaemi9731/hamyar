@@ -30,6 +30,19 @@ use Carbon\CarbonImmutable;
  * Somebody typing 1405/05/31 into the "from" box has mistyped, not asked for nothing.
  * Returning an empty report leaves them to work out why; swapping gives them what they
  * meant and costs nothing.
+ *
+ * ## Every bound is a shop day's bound, whichever way the range was built
+ *
+ * `from` is 00:00 in Tehran on the first day and `to` is the last microsecond of the last
+ * day, both as UTC instants — what {@see Jalali::startOfDay()} and {@see Jalali::endOfDay()}
+ * produce. Carbon's own `startOfDay()`/`endOfDay()` on a UTC value are UTC midnights, 03:30
+ * in Tehran, and they were used for the default range, the swap and `of()`: the default
+ * "to" was 03:29 tomorrow in Tehran, so the range's label read tomorrow's date and the
+ * dashboard's "today" took the first three and a half hours of the next day.
+ *
+ * Because the bounds are Tehran midnights, their UTC DATE is the day before the shop's
+ * first day. Anything that wants the day back — a filename, a date column, a chart's
+ * x-axis — reads it with {@see Jalali::calendarDate()}, never `toDateString()`.
  */
 final readonly class ReportPeriod
 {
@@ -45,29 +58,40 @@ final readonly class ReportPeriod
      *
      * Persian digits are normalised by {@see Jalali::parse()}, so «۱۴۰۵/۰۵/۰۱» and
      * "1405/05/01" behave identically — a shop's staff type both, often in one session.
+     *
+     * Either end left empty is the current Jalali month so far: from its first day to the
+     * end of today, both on the shop's calendar.
      */
     public static function fromJalali(?string $from, ?string $to): self
     {
+        $now = CarbonImmutable::now();
+
         $start = $from === null || $from === ''
-            ? Jalali::startOfMonth(CarbonImmutable::now())
+            // `startOfMonth()` is the first day as a calendar date (midnight UTC), which
+            // `startOfDay()` reads as that day and turns into its Tehran midnight.
+            ? Jalali::startOfDay(Jalali::startOfMonth($now))
             : Jalali::startOfDay($from);
 
         $end = $to === null || $to === ''
-            ? CarbonImmutable::now()->endOfDay()
+            ? Jalali::endOfDay($now)
             : Jalali::endOfDay($to);
 
         if ($start->greaterThan($end)) {
-            [$start, $end] = [$end->startOfDay(), $start->endOfDay()];
+            // The start of the day typed as "to", and the end of the day typed as "from".
+            [$start, $end] = [Jalali::startOfDay($end), Jalali::endOfDay($start)];
         }
 
         return new self($start, $end, Jalali::format($start), Jalali::format($end));
     }
 
+    /**
+     * From two instants, each standing for the shop day it falls on.
+     */
     public static function of(CarbonImmutable $from, CarbonImmutable $to): self
     {
         return new self(
-            $from->startOfDay(),
-            $to->endOfDay(),
+            Jalali::startOfDay($from),
+            Jalali::endOfDay($to),
             Jalali::format($from),
             Jalali::format($to),
         );
