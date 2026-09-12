@@ -60,6 +60,12 @@ trait InteractsWithTenants
                 // it, keep going, and fail the command at the end so CI/cron notices.
                 $failed++;
 
+                // To the exception handler as well as the console. A scheduled run's
+                // output goes nowhere anyone reads, so a line on stderr alone is a failure
+                // nobody hears about — and a `QuotaExceeded` caught here would be exactly
+                // the swallowed refusal `docs/lessons.md` warns about.
+                report($exception);
+
                 $this->components->error(
                     "Tenant [{$tenant->slug}] failed: ".$exception->getMessage()
                 );

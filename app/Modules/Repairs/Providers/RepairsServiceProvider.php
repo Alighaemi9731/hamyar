@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Repairs\Providers;
 
+use App\Modules\Repairs\Console\SweepAbandonedDevices;
 use App\Modules\Repairs\Models\RepairTicket;
 use App\Modules\Repairs\Policies\RepairTicketPolicy;
 use App\Support\Audit\AuditSubjects;
@@ -69,5 +70,20 @@ final class RepairsServiceProvider extends ModuleServiceProvider
             'repair-ticket', RepairTicket::class, 'تیکت تعمیر', 60,
             static fn (int $id): ?string => RepairTicket::query()->find($id)?->code,
         );
+
+        /*
+        | Registered explicitly, because nothing else registers it.
+        |
+        | Laravel discovers commands in `app/Console/Commands` only. `repairs:sweep-abandoned`
+        | shipped in Phase 6 and was scheduled daily at 10:00 in `routes/console.php`, and
+        | from that day every run was "There are no commands defined in the repairs
+        | namespace" into a scheduler log nobody reads — no nudge, no رسوبی flag, for any
+        | shop. `ScheduledCommandsTest` now fails for any scheduled name artisan cannot find.
+        */
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                SweepAbandonedDevices::class,
+            ]);
+        }
     }
 }
