@@ -141,6 +141,26 @@ export function todayJalali(): JalaliDate {
   return toJalali(new Date());
 }
 
+/**
+ * Whole days from one instant's shop day to another's, counted on Tehran's calendar.
+ *
+ * Mirrors `Jalali::calendarDate()` on the server: each value is read on the shop's wall
+ * clock first and only then reduced to a date. `new Date(y, m, d)` arithmetic reads the
+ * BROWSER's timezone instead, and a stored due day is Tehran midnight — 20:30 UTC the
+ * evening before — so on a laptop set to UTC, or anywhere west of Tehran, an instalment due
+ * today counted as due yesterday and was badged overdue on the day it fell due.
+ *
+ * Pure, so it can be reasoned about without a browser: the result depends only on the two
+ * instants. Negative when `to` is on an earlier shop day than `from`.
+ */
+export function shopDaysBetween(from: Date | string, to: Date | string): number {
+  const a = tehranParts(typeof from === 'string' ? new Date(from) : from);
+  const b = tehranParts(typeof to === 'string' ? new Date(to) : to);
+
+  // Both dates as UTC midnights: UTC has no DST, so the difference is a whole number of days.
+  return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 86_400_000);
+}
+
 export function daysInJalaliMonth(jy: number, jm: number): number {
   return jalaali.jalaaliMonthLength(jy, jm);
 }
