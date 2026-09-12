@@ -6,12 +6,71 @@
  | reads the tokens and it styles its own `.imei-*` namespace, which is deliberately
  | hyphenated so it cannot collide with the retired `.imei__*` block in landing.css.
  |
- | ## What it inherits from `.band`
+ | ## What it inherits from `.band`, and where `.band` now sits
  |
  | The navy ground, the two radial lights, and the `h2/h3/b → --color-on-dark` rule.
  | Everything else here restates its colour explicitly, because a caption inheriting
  | `--color-navy-mute` onto a navy ground measures 3.8:1 and that is how a section goes
  | under the floor without anybody editing it.
+ |
+ | As of 2026-09-12 `.band` is on `.imei-panel`, an inner wrapper, rather than on the
+ | `<section>` — see «the anchor is an object» below. Every `.band` rule still applies
+ | unchanged, because all of them are either on the element itself or descendant
+ | selectors (`.band h2`, `.band .sec__lede`, `.band::before`). landing.css still owns
+ | what a dark band looks like; this file still only consumes it.
+ |
+ | ## The anchor is an OBJECT, not a hole in the page (2026-09-12)
+ |
+ | Owner: «کلا انگار با بقیهٔ سایت نمی‌خونه، رنگ و فلانش خیلی فرق داره با بقیه قسمتا.»
+ | Measured first, because four of the five obvious suspects were innocent:
+ |
+ |   ground here      #0A1628  ·  ground under the closing sign-off  #0A1628   same token
+ |   accent here      #6BB4FF  ·  accent in the closing band         #6BB4FF   same token
+ |   top glow here    accent 30% at 50% -20%  ·  closing  accent 32% at 50% -10%   same
+ |   section padding  89.6px at 1440           ·  every other section       89.6px  same
+ |
+ | What was actually different, measured at 1440:
+ |
+ |   · HEAD SHAPE. Every other section opens `.sec__head`: centred, eyebrow, H2 at
+ |     `--text-section` (43.52px/700), a 40px rule, centred lede. This one opened
+ |     start-aligned with no eyebrow and no rule, at 56px/800. ADR 0021 reversed the
+ |     "every section opens differently" policy and converted problems, tour, pricing
+ |     and faq; this head was simply never converted, so section 4 was the one place on
+ |     the page where the grammar changed. (The note that used to stand here — "two
+ |     sections keep the asymmetric masthead (problems and pricing)" — was already stale:
+ |     both of them render `.sec__head` today. So do tour and faq.)
+ |   · RTL BREAK. `dir="ltr"` was on the serial's own `<p>`, which flips a BLOCK: the
+ |     serial rendered at x=80 (the shell's left edge) while the H2 it names rendered
+ |     right-aligned ending at x=1200. The "lockup" was two elements ~1000px apart at
+ |     opposite ends of the band. Same bug in the field: the input's `dir="ltr"` flipped
+ |     its own `padding-inline`, so the 3rem cleared for the scan mark landed on the side
+ |     the mark is not on and the icon sat on top of the first digit.
+ |   · SHAPE. Full-bleed, square, edge to edge — the only square-cornered large surface
+ |     on a page whose vocabulary is rounded panels (cards 14px, panels `--radius-lg`),
+ |     and wedged between `#problems` and `#tour`, which are BOTH `.sec--alt` #EDF2F8.
+ |     Same grey above and below, so the navy read as a slab pasted onto one continuous
+ |     field rather than as a step in the ground alternation.
+ |   · ONE-OFF EFFECT. `.imei-serial` carried `text-shadow: 0 0 26px accent-lit/40` — the
+ |     only text-shadow on the entire page (audited in the browser: one match). A neon
+ |     glow used exactly once is a different site, and it is on the 16.0 baseline's list
+ |     of generated-UI tells.
+ |
+ | The fix keeps it dark and makes it cohere. The section takes the page's own white
+ | ground and the navy becomes an inset rounded panel on it: `--radius-xl` — the step the
+ | shared contract reserves for anchors, which had no user left after the closing card
+ | became a full-bleed tail — plus `--shadow-band`. The ground alternation comes back
+ | (white · alt · WHITE+panel · alt · white · alt · navy) and the head speaks the page's
+ | grammar with the serial standing in the eyebrow's place.
+ |
+ | The page's two dark anchors are now deliberately different shapes: the middle one is
+ | an object the page holds, the last one is the floor the page ends on. `closing.css`
+ | is untouched.
+ |
+ | REJECTED: lightening this section (the complaint is incoherence, not weight — and a
+ | white card here orphans the closing band as the page's only dark element); a gradient
+ | fade from #EDF2F8 into the navy (a smear, and there is no hard seam left to soften);
+ | any texture or overlay to "tie it together" (ADR 0021 deleted `.mesh`, and its
+ | tombstone in landing.css says why).
  |
  | ## Measured contrast — every pair used below
  |
@@ -36,9 +95,15 @@
  |   --radius-md 12px  things you touch, and icon tiles — the serial input, the three
  |                     picker buttons, the timeline event mark
  |   --radius-lg 20px  EVERY large panel — the record sheet, the no-match sheet
- |   --radius-xl 28px  anchors only — the hero counter and the closing card. Not here,
- |                     and that is the point of reserving it: this section holds the
- |                     page's other anchor already, in `--text-section-lg` on the H2.
+ |   --radius-xl 28px  ANCHORS ONLY — and this section's outer panel is now one of them.
+ |                     The contract reserved the step for "the hero counter and the
+ |                     closing card"; the closing card became a full-bleed tail, the hero
+ |                     counter writes a literal, and the step had no user at all. It has
+ |                     one again, on the object the reservation was written for.
+ |
+ | The nesting reads as a hierarchy rather than as four unrelated corner sizes: 28 for
+ | the panel, 20 for the record inside it, 12 for the controls inside that, 8 for a badge
+ | inside a line of text.
  |
  | The pill on `.imei-state` stays 999px. A pill is a shape, not a fifth step.
  |
@@ -71,65 +136,123 @@
   outline-color: var(--color-accent-lit);
 }
 
-/* ---------------------------------------------------------------- head ---- */
+/* --------------------------------------------------------------- panel ---- */
 /*
- | NOT a masthead. This section used to open with title-and-lede in a wide column and
- | the three questions in a narrow one, baseline-aligned — which was the same shape five
- | other sections opened with, and repeating it six times is what made an asymmetric
- | head read as a template instead of a composition. Two sections keep that shape
- | (problems and pricing); the verdict is written out in landing.css.
+ | The navy, as an object on the page.
  |
- | This one opens with a SERIAL-FIRST LOCKUP, single column: a real IMEI, Latin and
- | dir="ltr", set in accent-lit above the H2. The section names its subject before it
- | says a word about it, which no other section on the page can do, because no other
- | section has an object with a number on it.
+ | The `<section>` is an ordinary white `.sec` now, so the page's ground alternation runs
+ | through this section instead of stopping at it, and the two `.sec--alt` neighbours
+ | above and below get a white sheet between them the way every other pair does.
  |
- | ## The markup change that goes with this
+ | THE PANEL INVENTS NO WIDTH. Its edges are `.shell--wide`, the page's 1280px wide
+ | track, whose only other user is the fold's grid — so the page's two largest
+ | compositions share one edge, and below 640 it takes the shell's own phone gutter
+ | (100% - 2rem) with everything else. Every edge it produces is one the neighbours
+ | already have, measured against `#problems` and `#tour`:
  |
- | `<p class="imei-serial" dir="ltr">354879116234901</p>` becomes the first child of
- | `.imei-head`, above `.imei-title`. `.imei-asks` MOVES OUT of the head entirely: the
- | three questions become the timeline's row labels inside the record, where
- | `.imei-ev__ask` already renders them — that is where they are actually answered, and
- | asking them twice on one screen is the section arguing with itself. The `.imei-asks`
- | rules are gone with them; nothing else referenced that block.
+ |   1440   panel 80→1360 (the wide track)   content 160→1280 = their content column
+ |   1024   panel 24→1000 = their content column   content one gutter inside it
+ |    768   panel 24→744  = their content column   content one gutter inside it
+ |    390   panel 16→374  = their content column   content one gutter inside it
+ |
+ | So nothing in this section starts wherever the band happened to end: either the panel
+ | or the content inside it is on the page's column at every width, centred on one axis.
+ |
+ | So this rule adds exactly three declarations — a corner, the room inside, and the
+ | lift — and every one of them is a token.
+ |
+ | `--shadow-band` is what it was written for: 30px/60px of navy at 55%, the one shadow
+ | on this page big enough to hold a 1400px object off the ground.
  */
 
-.imei-head {
-  margin-block-end: clamp(2.5rem, 5vw, 4rem);
+.imei-panel {
+  border-radius: var(--radius-xl);
+  padding-block: clamp(2.75rem, 5.5vw, 4.5rem);
+  box-shadow: var(--shadow-band);
 }
 
-/* The serial as the opener. Tabular, wide-tracked, dir="ltr" in the markup — a number
-   read aloud to a supplier is a Latin number. accent-lit on navy-900 is 8.3:1.
+/* The section's own padding is the air AROUND the panel, and the panel carries its own
+   room inside. Less than the page's `.sec` step, because the panel's internal padding is
+   the other half of the same gap and 89.6px of both puts a screen of nothing between the
+   last problem card and the first word here. */
+.imei.sec {
+  padding-block: clamp(2.5rem, 4.5vw, 4rem);
+}
 
-   It is deliberately NOT --text-section-lg: the H2 under it holds the section's anchor
-   size, and two things at the anchor size in one head is two anchors. */
+/* ---------------------------------------------------------------- head ---- */
+/*
+ | THE PAGE'S HEAD, with the serial in the eyebrow's place.
+ |
+ | The markup is `.sec__head` — the shared opening every other section uses since ADR
+ | 0021: centred, eyebrow slot, H2, a 40px rule, a centred lede on a reading measure.
+ | This section was the last one still opening its own way and that, not the navy, is
+ | most of «با بقیهٔ سایت نمی‌خونه»; the long version is at the top of this file.
+ |
+ | What survives of the serial-first lockup is the idea rather than the shape. The
+ | eyebrow slot holds a REAL IMEI instead of a word, so the section still names its
+ | subject before it says anything about it — the one opening no other section could
+ | copy, because no other section has an object with a number on it. The digits are
+ | `<bdi dir="ltr">` in the markup: the isolation belongs to the number, and putting it
+ | on the paragraph is what used to throw the serial to the opposite edge of the band
+ | from the heading it names.
+ |
+ | Three rules are all this section adds on top of the shared head — the serial, the H2's
+ | anchor size, the rule's on-dark colour — and two of them are written `.imei X` because
+ | they have to OUT-SPECIFY landing.css. Section files are `@import`ed at the TOP of
+ | landing.css, so `.sec__title` is later in the cascade and would beat a bare
+ | `.imei-title` at equal specificity. The doubled class is the fix, not a flourish.
+ */
+
+/* There is deliberately NO `.imei-head` rule, and no `.imei-head` class in the markup.
+   The head's margin, measure and centring are the shared head's, which is the whole
+   point of the change — a local override of the page's own rhythm is how a section ends
+   up reading as a different page one declaration at a time. */
+
+/* The serial, in the eyebrow's place: same slot, same centring, one step of type larger
+   because it is the subject rather than a label for it. Tabular and wide-tracked so the
+   digits read as a serial; accent-lit is 8.3:1 on navy-900, and it is the page's one
+   accent lifted for a dark ground rather than a second blue.
+
+   NO text-shadow. The glow that used to sit here was the only one on the page — audited
+   in the browser, one match in the whole document — and a neon effect used exactly once
+   is what "this section came from somewhere else" looks like. */
 .imei-serial {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1rem, 2.6vw, 1.5rem);
+  font-size: clamp(0.9375rem, 1.6vw, 1.25rem);
   letter-spacing: 0.18em;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--color-accent-lit);
   font-variant-numeric: tabular-nums;
-  margin: 0 0 0.75rem;
-  text-shadow: 0 0 26px color-mix(in srgb, var(--color-accent-lit) 40%, transparent);
+  margin: 0 0 1rem;
 }
 
-.imei-title {
+/* The anchor size stays. `--text-section-lg` means "this is an anchor" and it is spent
+   on exactly two objects — this heading and the closing sign-off's — while the six light
+   sections share `--text-section`. That is emphasis inside one system, which is a
+   different thing from the head shape that was the actual complaint. 800 is the base
+   weight for a heading on this page; `.sec__title` steps it back to 700 and the two
+   anchors do not. */
+.imei .imei-title {
   font-size: var(--text-section-lg);
+  font-weight: 800;
   line-height: 1.14;
   letter-spacing: -0.03em;
-  /* The anchor heading gets a measure of its own. Left to the shell it sets to 1120px,
-     and a 56px line 1120px wide is a banner, not a heading. */
-  max-inline-size: 26ch;
-  margin-block-end: 1.125rem;
 }
 
-.imei-lede {
-  color: var(--color-on-dark-soft);
-  max-inline-size: 34rem;
-  margin: 0;
+/* The rule is the shared one; only its colour is local. `--color-hair` #DCE3EB is a
+   hairline meant for #EDF2F8 and lands as a bright dash on navy — the on-dark analogue
+   is a light line at low alpha, the same near-invisible-but-present weight it has on the
+   light sections. */
+.imei .sec__rule {
+  background: color-mix(in srgb, var(--color-on-dark-mute) 40%, transparent);
 }
+
+/* The lede needs NOTHING here, and that is worth writing down so the next reader does
+   not add a rule that can never win: `.band .sec__lede` in landing.css already carries
+   `--color-on-dark-soft` (10.4:1 on this ground), and a `.imei .sec__lede` restatement
+   would tie it on specificity and lose on order — section files are imported at the top
+   of landing.css. The measure and the centring come from the shared head. */
 
 /* ------------------------------------------------------------- console ---- */
 /*
@@ -428,11 +551,21 @@
   max-inline-size: 34rem;
 }
 
+/*
+ | PROPORTIONAL FIGURES, deliberately — the one place the brand's "figures are tabular"
+ | rule is wrong. That rule is for figures that stack in a column, where a place value has
+ | to sit under its neighbour. These stand alone. Tabular Persian digits give «۰» (a dot)
+ | and «٬» a full digit's advance, so «۳٬۷۰۰٬۰۰۰» rendered as «۳ , ۷۰۰ , ۰۰۰» — 304px
+ | against 164px proportional for the pricing figure, measured — and read as broken
+ | typesetting on exactly the numbers this section exists to show. Tried and rejected:
+ | Vazirmatn tabular (still spaced at display size) and Vazirmatn proportional (fine, but
+ | loses the display voice the rest of the record's figures carry).
+ */
 .imei-ev__amt b {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.0625rem;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: proportional-nums;
 }
 
 /* The bottom line of the record. This is the sentence the whole section exists to be
@@ -454,7 +587,7 @@
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(1.25rem, 3vw, 1.625rem);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: proportional-nums; /* see .imei-ev__amt b */
   color: var(--color-accent-lit);
   letter-spacing: -0.02em;
 }
@@ -511,12 +644,17 @@
 
 /* -------------------------------------------------------------- honesty --- */
 
+/* Centred as a BLOCK, not as text: the head above it is centred and a footnote hanging
+   off one edge of a centred composition is the leftover of the start-aligned head this
+   section used to have. The words inside it stay start-aligned, because a caveat that
+   wraps to four lines on a phone is read, not admired. */
 .imei-honesty {
   font-size: 0.875rem;
   line-height: 1.85;
   color: var(--color-on-dark-mute);
   max-inline-size: 44rem;
   margin-block-start: clamp(2.5rem, 5vw, 3.5rem);
+  margin-inline: auto;
 }
 
 /* --------------------------------------------------------------- motion --- */

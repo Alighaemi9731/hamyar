@@ -207,8 +207,13 @@
 /* --------------------------------------------------------------- money ---- */
 /*
  | `minmax(11rem, auto)` on the grid column is what makes four prices of different digit
- | counts share a common edge. Tabular figures do the rest: «۱٬۱۹۰٬۰۰۰» and «۲۹۰٬۰۰۰»
- | must line up under each other or the ladder cannot be read at a glance.
+ | counts share a common edge, and that edge is the whole alignment: the prices sit
+ | start-aligned, so «۱٬۱۹۰٬۰۰۰» and «۲۹۰٬۰۰۰» never stack place value under place value.
+ |
+ | Which is why the figures are PROPORTIONAL. Tabular bought no alignment here and cost
+ | the typesetting: Estedad's tabular «۰» and «٬» each take a full digit's advance, so the
+ | price rendered as «۱ , ۱۹۰ , ۰۰۰» — 304px against 164px, measured. Same defect and the
+ | same fix as the IMEI record's amounts (`sections/imei.css`).
  */
 
 .tariff__price {
@@ -218,7 +223,7 @@
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: var(--color-navy);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: proportional-nums;
 }
 
 .tariff__unit {

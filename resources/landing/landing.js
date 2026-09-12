@@ -13,7 +13,19 @@
  |
  | Everything left is page FUNCTIONALITY — the pricing toggle, the FAQ and the password
  | reveal all have to work whether or not this file ever arrives.
+ |
+ | ## Section behaviour that lives in its own file is imported HERE
+ |
+ | `sections/imei.js` holds the IMEI console's whole behaviour and was written to be the
+ | section's own file. Nothing imported it, it was not a Vite input, and it therefore
+ | never shipped: the page loaded one script, the two unselected sample buttons did
+ | nothing, and typing a serial did nothing. Verified in the browser before this line
+ | existed — clicking the second handset left `aria-pressed` at `true/false/false` and
+ | the first panel open. A section file is only a section file once something imports
+ | it; this is that import, and it keeps the landing at one bundle.
  */
+
+import './sections/imei.js';
 
 /* -------------------------------------------------------------- pricing ---- */
 /*
