@@ -448,6 +448,16 @@ return [
         'slug' => 'نشانی یکتا',
         'activation_id' => 'کد فعال‌سازی',
         'template_id' => 'الگوی پیامک',
+
+        // ---- Settings: چاپ و هویت فروشگاه، پیامک ----
+        'logo_url' => 'نشانی لوگو',
+        'footer_terms' => 'متن پایین فاکتور',
+        'show_qr' => 'کد QR روی فاکتور',
+        'automations' => 'پیامک‌های خودکار',
+        'automations.*' => 'پیامک خودکار',
+        'quiet_until_hour' => 'ساعت شروع ارسال',
+        'quiet_from_hour' => 'ساعت پایان ارسال',
+
         'tracking_code' => 'کد رهگیری',
         'customer_name' => 'نام مشتری',
         'working_hours' => 'ساعت کاری',
