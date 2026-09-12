@@ -351,7 +351,35 @@ it('opens on the Jalali month, not the Gregorian one', function (): void {
     $period = ReportPeriod::thisMonth(CarbonImmutable::parse('2026-08-14'));
 
     // `Jalali::format()` renders Persian digits, because that is what a shopkeeper reads.
-    // The Gregorian instant is the unambiguous half of the assertion.
-    expect($period->from->toDateString())->toBe('2026-07-23')
-        ->and($period->fromJalali)->toBe('۱۴۰۵/۰۵/۰۱');
+    // The shop's calendar date is the unambiguous half of the assertion: the bound itself
+    // is Tehran midnight, whose UTC date is the evening before (see the next test).
+    expect(App\Support\Jalali::calendarDate($period->from)->toDateString())->toBe('2026-07-23')
+        ->and($period->fromJalali)->toBe('۱۴۰۵/۰۵/۰۱')
+        ->and($period->toJalali)->toBe('۱۴۰۵/۰۵/۳۱');
 });
+
+/*
+| "This month" is whole shop days: 00:00 in Tehran on the first to the last microsecond
+| of the last. It used to be bounded by `Jalali::startOfMonth()`/`endOfMonth()` as they
+| stand — 00:00 and 23:59:59 UTC — so it began at 03:30 Tehran on the 1st, ran to 03:29 on
+| the 1st of the next month, and was labelled with the next month's first day. Those
+| helpers are not changed, because the quota period key is read from `startOfMonth()`.
+*/
+it('bounds this month by Tehran midnights, in the first minutes of the month too', function (string $now): void {
+    $period = ReportPeriod::thisMonth(CarbonImmutable::parse($now, 'UTC'));
+
+    // مرداد ۱۴۰۵ is 2026-07-23 to 2026-08-22.
+    expect($period->from->toIso8601ZuluString('microsecond'))->toBe('2026-07-22T20:30:00.000000Z')
+        ->and($period->to->toIso8601ZuluString('microsecond'))->toBe('2026-08-22T20:29:59.999999Z')
+        ->and($period->fromJalali)->toBe('۱۴۰۵/۰۵/۰۱')
+        ->and($period->toJalali)->toBe('۱۴۰۵/۰۵/۳۱');
+
+    // A sale at 00:15 on ۱ مرداد is this month's, and one at 00:15 on ۱ شهریور is not.
+    expect(CarbonImmutable::parse('2026-07-22 20:45:00', 'UTC')->between($period->from, $period->to))->toBeTrue()
+        ->and(CarbonImmutable::parse('2026-08-22 20:45:00', 'UTC')->between($period->from, $period->to))->toBeFalse();
+})->with([
+    // 00:30 in Tehran on ۱ مرداد. The UTC date is still ۳۱ تیر.
+    'first minutes of the month' => ['2026-07-22 21:00:00'],
+    // 00:15 in Tehran on ۳۱ مرداد — the last shop day, still before UTC midnight.
+    'last night of the month' => ['2026-08-21 20:45:00'],
+]);

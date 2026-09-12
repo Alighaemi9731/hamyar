@@ -102,16 +102,34 @@ final readonly class ReportPeriod
      *
      * `Jalali::startOfMonth()`, not Carbon's: the first of the Gregorian month falls in the
      * middle of the Jalali one, and "this month" would cover parts of two.
+     *
+     * ## The month's DAYS come from `Jalali`; their bounds are made here
+     *
+     * `Jalali::startOfMonth()` is the first day as a calendar date — 00:00 UTC, which is
+     * 03:30 in Tehran — and `Jalali::endOfMonth()` is 23:59:59 UTC on the last day, 03:29
+     * the next morning in Tehran. Used as they stand, "this month" began three and a half
+     * hours late and ran three and a half hours into the next month.
+     *
+     * They are not changed at the source because the quota clock is built on them:
+     * `PeriodClock::periodKey()` is `startOfMonth()->toDateString()`, and a Tehran-midnight
+     * instant would move every `usage_counters` key back a day and refill every shop's
+     * credit mid-month. So the first and last DAYS are read from them, and each is turned
+     * into a shop day's bound here.
      */
     public static function thisMonth(?CarbonImmutable $now = null): self
     {
         $now ??= CarbonImmutable::now();
 
+        $firstDay = Jalali::startOfMonth($now);
+        // The last day as a calendar date, clamped to the month's length by `dayInMonthOf`.
+        // Not `endOfMonth()`: 23:59:59 UTC is already the next Jalali day in Tehran.
+        $lastDay = Jalali::dayInMonthOf($now, 31);
+
         return new self(
-            Jalali::startOfMonth($now),
-            Jalali::endOfMonth($now),
-            Jalali::format(Jalali::startOfMonth($now)),
-            Jalali::format(Jalali::endOfMonth($now)),
+            Jalali::startOfDay($firstDay),
+            Jalali::endOfDay($lastDay),
+            Jalali::format($firstDay),
+            Jalali::format($lastDay),
         );
     }
 
