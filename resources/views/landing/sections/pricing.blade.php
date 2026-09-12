@@ -148,7 +148,11 @@
                             <p class="tariff__unit">{{ __('landing.pricing.free_unit') }}</p>
                             <p class="tariff__year">{{ __('landing.pricing.free_note') }}</p>
                         @else
-                            <p class="tariff__price nums"
+                            {{-- No `.nums` here, deliberately. That utility sets tabular figures
+                                 and is declared after the section sheets, so it silently won
+                                 over `.tariff__price`'s proportional ones and the price kept
+                                 rendering as «۲۹۰ , ۰۰۰» (237px against 147px). --}}
+                            <p class="tariff__price"
                                data-monthly="{{ money($plan->price, Money::UNIT_TOMAN, true) }}"
                                data-yearly="{{ money($plan->price * $yearFactor, Money::UNIT_TOMAN, true) }}">{{ money($plan->price, Money::UNIT_TOMAN, true) }}</p>
 
