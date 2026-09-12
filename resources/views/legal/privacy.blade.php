@@ -1,7 +1,7 @@
 @extends('legal.layout')
 
 @section('title', 'حریم خصوصی')
-@section('updated', '۱۴۰۵/۰۵/۲۹')
+@section('updated', '۱۴۰۵/۰۶/۲۲')
 
 @section('body')
     <p>
@@ -53,13 +53,20 @@
 
     <h2>۷. خروجی و حذف</h2>
     <ul>
-        <li>هر زمان می‌توانید از فهرست‌های اصلی خروجی اکسل بگیرید.</li>
+        <li>هر زمان می‌توانید از گزارش‌های فروش، سود، انبار و تعمیرات خروجی اکسل بگیرید.</li>
         <li>برای حذف کامل حساب، درخواست بدهید؛ داده‌ها پس از یک دورهٔ کوتاه نگهداری، حذف می‌شوند.</li>
         <li>برخی سوابق مالی ممکن است به حکم قانون برای مدت مشخصی نگهداری شوند.</li>
     </ul>
 
     <h2>۸. تماس</h2>
+    @php
+        // The same mailbox the landing's FAQ and footer name — derived from the apex, never
+        // typed (golden rule 1b). There is no support panel; this page used to point at one.
+        $contactEmail = 'info@'.config()->string('app.domain');
+    @endphp
     <p>
-        برای هر پرسشی دربارهٔ داده‌ها، از راه پنل پشتیبانی با ما تماس بگیرید.
+        برای هر پرسشی دربارهٔ داده‌ها به
+        <a href="mailto:{{ $contactEmail }}" dir="ltr">{{ $contactEmail }}</a>
+        ایمیل بزنید.
     </p>
 @endsection
