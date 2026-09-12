@@ -243,16 +243,17 @@ return [
                 'body' => 'موجودی هر دو شعبه را از همین‌جا می‌بینید و جابه‌جایی دستگاه را با حواله ثبت می‌کنید: همان شناسه، انبار دیگر، بدون یک ردیف تازه.',
             ],
             /*
-            | The only card that states a limit, because the alternative was to state
-            | something untrue. The listeners are wired and the send is queued —
-            | `SendRepairStatusSms` and `SendInvoiceIssuedSms` — but every automation
-            | ships off and **no screen turns one on**: `/messaging` is a read-only log
-            | and no route writes the shop's settings. Until one does, «پیامک خودکار»
-            | with no caveat would be selling a switch that is not on any screen.
+            | This card used to state a limit: every automation ships off and no screen
+            | turned one on, so «پیامک خودکار» with no caveat would have sold a switch that
+            | was on no screen. `/settings/messaging` is that screen now, so the card names
+            | it. The two messages it quotes are the event-driven ones —
+            | `SendRepairStatusSms` and `SendInvoiceIssuedSms` send at the moment the event
+            | happens. The swept ones (birthday, reminders) are not quoted here because
+            | nothing schedules `DailyMessagingSweep` yet.
             */
             'sms' => [
                 'title' => 'خبر دادن به مشتری، یکی‌یکی و با تلفن',
-                'body' => 'پیامکِ «دستگاه آماده است» و «فاکتور ثبت شد» را خود سامانه از روی رویدادهای فروشگاه می‌فرستد. روشن‌کردنشان فعلاً دست ماست، نه یک کلید در تنظیمات.',
+                'body' => 'پیامکِ «دستگاه آماده است» و «فاکتور ثبت شد» را خود سامانه از روی رویدادهای فروشگاه می‌فرستد. هرکدام را در تنظیمات پیامک خودتان روشن یا خاموش می‌کنید.',
             ],
         ],
     ],
