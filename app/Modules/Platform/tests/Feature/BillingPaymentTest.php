@@ -403,12 +403,24 @@ it('consumes credit at draft time so it cannot be spent twice', function (): voi
 it('shows the billing page to an owner', function (): void {
     subscribe($this->tenant, 'basic');
 
+    /*
+    | Every public rung, counted from the catalogue rather than typed in here.
+    |
+    | It was a literal 3, and adding the third PAID plan on 2026-09-12 failed this test —
+    | a screen that correctly showed one more plan, reported as a billing bug. What this
+    | assertion is for is "the page shows the whole ladder"; the size of the ladder is
+    | `ModuleSwitchTest`'s business and is asserted there.
+    */
+    $rungs = Plan::query()->where('is_public', true)->count();
+
+    expect($rungs)->toBeGreaterThan(1, 'a one-rung ladder would make the assertion below vacuous');
+
     $this->actingAs($this->user)
         ->get($this->url.'/billing')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('platform/billing/index')
-            ->has('plans', 3)
+            ->has('plans', $rungs)
         );
 });
 
