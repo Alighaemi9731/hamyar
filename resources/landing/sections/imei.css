@@ -551,11 +551,21 @@
   max-inline-size: 34rem;
 }
 
+/*
+ | PROPORTIONAL FIGURES, deliberately — the one place the brand's "figures are tabular"
+ | rule is wrong. That rule is for figures that stack in a column, where a place value has
+ | to sit under its neighbour. These stand alone. Tabular Persian digits give «۰» (a dot)
+ | and «٬» a full digit's advance, so «۳٬۷۰۰٬۰۰۰» rendered as «۳ , ۷۰۰ , ۰۰۰» — 304px
+ | against 164px proportional for the pricing figure, measured — and read as broken
+ | typesetting on exactly the numbers this section exists to show. Tried and rejected:
+ | Vazirmatn tabular (still spaced at display size) and Vazirmatn proportional (fine, but
+ | loses the display voice the rest of the record's figures carry).
+ */
 .imei-ev__amt b {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.0625rem;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: proportional-nums;
 }
 
 /* The bottom line of the record. This is the sentence the whole section exists to be
@@ -577,7 +587,7 @@
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(1.25rem, 3vw, 1.625rem);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: proportional-nums; /* see .imei-ev__amt b */
   color: var(--color-accent-lit);
   letter-spacing: -0.02em;
 }
