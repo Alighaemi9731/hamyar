@@ -77,6 +77,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { toPersianDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import { AppShell } from '@/layouts/app-shell';
+import { NAVIGATION, type NavHue } from '@/lib/navigation';
 import type { UsageMeterState } from '@/types';
 
 /**
@@ -132,6 +133,7 @@ export default function DesignGallery() {
         <ReportPresetsSection />
         <PrintSection alt />
         <StateSection />
+        <NavChipSection alt />
       </div>
     </AppShell>
   );
@@ -2699,6 +2701,100 @@ function TimelineSection({ alt = false }: { alt?: boolean }) {
 
       <Row label="خالی">
         <Timeline items={[]} className="w-full" />
+      </Row>
+    </Section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+const NAV_HUES: NavHue[] = [
+  'blue',
+  'indigo',
+  'violet',
+  'magenta',
+  'rose',
+  'orange',
+  'amber',
+  'lime',
+  'emerald',
+  'teal',
+  'cyan',
+  'slate',
+];
+
+/**
+ * The sidebar's hue tiles, drawn from the real `NAVIGATION` rather than a copy of it.
+ *
+ * A specimen that re-typed the list would drift the first time someone added a
+ * destination; this one cannot, so a new item that breaks the one-hue-per-section rule
+ * shows up here as two same-coloured tiles under one heading.
+ *
+ * The rows are inert `<div>`s, not links: this page is a gallery, and a row that
+ * navigates away from it would be a trap. The first row carries `data-active` so the
+ * lifted surface, the ring and the brand-blue indicator bar are reviewed beside the rest.
+ * Hover any row to check the tile's spring.
+ */
+function NavChipSection({ alt = false }: { alt?: boolean }) {
+  return (
+    <Section
+      alt={alt}
+      title=".nav-chip"
+      note="رنگ هر مقصد هویت همان مقصد است، نه وضعیت: در یک بخش دو رنگ یکسان نمی‌آید، و این رنگ‌ها هرگز به نشان وضعیت، مبلغ یا نمودار نمی‌رسند. نوار کنار ردیف فعال همیشه آبی برند است."
+    >
+      <Row label="دوازده رنگ">
+        {NAV_HUES.map((hue) => (
+          <span key={hue} className="flex flex-col items-center gap-1.5">
+            <span
+              data-hue={hue}
+              className="hue-tile grid size-10 place-items-center rounded-full"
+              aria-hidden
+            >
+              <SmartphoneIcon className="size-5" strokeWidth={2.25} />
+            </span>
+            <span className="text-2xs text-muted-foreground" dir="ltr">
+              {hue}
+            </span>
+          </span>
+        ))}
+      </Row>
+
+      <Row label="نوار کناری واقعی">
+        <div className="sidebar-glass w-(--sidebar-width) max-w-full rounded-card border border-border p-3">
+          {NAVIGATION.map((section, sectionIndex) => (
+            <div key={section.label} className={cn(sectionIndex > 0 && 'mt-4')}>
+              <p className="mb-1.5 px-2 text-2xs font-medium text-muted-foreground">
+                {section.label}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item, itemIndex) => {
+                  const active = sectionIndex === 0 && itemIndex === 0;
+
+                  return (
+                    <div
+                      key={item.href}
+                      data-hue={item.hue}
+                      data-active={active || undefined}
+                      className={cn(
+                        'nav-row group flex h-[var(--density-row)] items-center gap-2.5 rounded-pill px-2 text-sm',
+                        active ? 'font-semibold text-foreground' : 'text-foreground/75'
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        data-active={active || undefined}
+                        className="nav-chip grid size-8 shrink-0 place-items-center rounded-full"
+                      >
+                        <item.icon className="size-4.5" strokeWidth={2.25} aria-hidden />
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </Row>
     </Section>
   );
