@@ -6,6 +6,7 @@ namespace App\Modules\Moadian\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Models\User;
+use App\Modules\Moadian\Http\Requests\MoadianSettingsRequest;
 use App\Modules\Moadian\Jobs\SubmitInvoiceJob;
 use App\Modules\Moadian\Models\MoadianInvoice;
 use App\Modules\Moadian\Models\MoadianSetting;
@@ -73,6 +74,75 @@ final class MoadianController extends Controller
             ],
             'can_manage' => $request->user() instanceof User && $request->user()->can('settings.update'),
         ]);
+    }
+
+    /**
+     * The credentials screen.
+     *
+     * The landing page's FAQ promises this in as many words — «شناسه و کلید حافظهٔ مالیاتی
+     * را یک بار در تنظیمات وارد می‌کنید» — and until now there was no such screen. The table
+     * and the model have existed since the module shipped; only the door was missing, which
+     * is exactly the shape `CLAUDE.md` refuses to let anyone tick a box for.
+     *
+     * **The private key is never sent to the browser.** Not masked, not truncated — absent.
+     * `$hidden` on the model already keeps it out of `toArray()`, and this method does not
+     * reach for it either. What the screen gets is a boolean saying whether one is stored,
+     * which is all a shopkeeper needs to know.
+     */
+    public function settings(Request $request): Response
+    {
+        $this->authorise($request, 'settings.update');
+
+        $settings = MoadianSetting::query()->first();
+
+        return Inertia::render('Moadian::Moadian/Settings', [
+            'memory_id' => $settings?->memory_id,
+            'economic_code' => $settings?->economic_code,
+            // A boolean, never the value. See the note above.
+            'has_private_key' => $settings instanceof MoadianSetting && $settings->private_key !== null,
+            'is_enabled' => $settings instanceof MoadianSetting && $settings->is_enabled,
+            // The other switch. A shop that turns theirs on while ours is off submits
+            // nothing, and «چرا کار نمی‌کند؟» deserves an answer rather than silence.
+            'platform_enabled' => config()->boolean('moadian.enabled', false),
+        ]);
+    }
+
+    /**
+     * Save them.
+     *
+     * `firstOrNew` because the row is created lazily: a shop that never opens this screen
+     * has no `moadian_settings` row at all, and the unique index on `tenant_id` means there
+     * can only ever be one.
+     */
+    public function updateSettings(MoadianSettingsRequest $request): RedirectResponse
+    {
+        $settings = MoadianSetting::query()->firstOrNew([]);
+
+        $settings->memory_id = $request->string('memory_id')->value() ?: null;
+        $settings->economic_code = $request->string('economic_code')->value() ?: null;
+        $settings->is_enabled = $request->boolean('is_enabled');
+
+        /*
+        | A blank key means "unchanged", and this line is the whole reason.
+        |
+        | The form always renders that field empty, because the stored key is never sent
+        | to the browser. So an empty submit is what you get every single time somebody
+        | edits the economic code beside it — and assigning null there would wipe a
+        | working shop's credentials as a side effect of an unrelated save.
+        |
+        | Clearing a key is therefore deliberately NOT something this form does. A shop
+        | that wants to stop submitting turns `is_enabled` off, which is the thing they
+        | actually mean.
+        */
+        $key = $request->string('private_key')->value();
+
+        if ($key !== '') {
+            $settings->private_key = $key;
+        }
+
+        $settings->save();
+
+        return back()->with('success', 'تنظیمات مودیان ذخیره شد.');
     }
 
     /**

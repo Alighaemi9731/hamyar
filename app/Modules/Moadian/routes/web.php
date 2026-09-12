@@ -23,6 +23,14 @@ Route::middleware(['tenant', 'auth', 'tenant.user', 'module:moadian'])
     ->group(function (): void {
         Route::get('/', [MoadianController::class, 'index'])->name('index');
 
+        /*
+        | The credentials the landing's FAQ has been promising. `settings.update` rather
+        | than `settings.view`: a tax memory id and a private key are not something every
+        | counter user should be able to change.
+        */
+        Route::get('/settings', [MoadianController::class, 'settings'])->name('settings');
+        Route::put('/settings', [MoadianController::class, 'updateSettings'])->name('settings.update');
+
         Route::post('/{submission}/resend', [MoadianController::class, 'resend'])
             ->whereNumber('submission')->name('resend');
     });

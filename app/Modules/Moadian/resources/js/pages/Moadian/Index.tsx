@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { InboxIcon } from 'lucide-react';
+import { InboxIcon, KeyRoundIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { EmptyState } from '@/components/domain/empty-state';
@@ -118,6 +118,27 @@ export default function MoadianIndex({
         <PageHeader
           title="سامانه مودیان"
           description="وضعیت ارسال صورتحساب‌های الکترونیکی به سازمان امور مالیاتی."
+          actions={
+            /*
+              The way in to the credentials.
+
+              Not a tile on the settings hub: that catalogue has no module gating, and
+              مودیان is off for every shop at launch (ADR 0011), so a hub tile would be a
+              link most shops cannot follow. The door belongs on the module's own page,
+              which is already only reachable when the module is on.
+
+              `can_manage` is `settings.update` — the same permission the screen itself
+              checks, so a cashier is not shown a button that will refuse them.
+            */
+            canManage ? (
+              <Button variant="outline" asChild>
+                <Link href="/moadian/settings">
+                  <KeyRoundIcon className="size-4" aria-hidden />
+                  شناسه و کلید
+                </Link>
+              </Button>
+            ) : null
+          }
         />
       }
     >
