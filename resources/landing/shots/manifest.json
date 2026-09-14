@@ -1,6 +1,6 @@
 {
-  "captured_at": "2026-09-05T14:34:52.344Z",
-  "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c",
+  "captured_at": "2026-09-14T09:06:50.263Z",
+  "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6",
   "viewport": {
     "width": 1440,
     "height": 900
@@ -13,21 +13,19 @@
       "path": "/sales/pos",
       "files": [
         "pos.webp",
-        "pos@2x.webp",
-        "pos-phone.webp"
+        "pos@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "repairs": {
       "path": "/repairs/board",
       "files": [
         "repairs.webp",
-        "repairs@2x.webp",
-        "repairs-phone.webp"
+        "repairs@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:22:47.060Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "installments": {
       "path": "/installments/collections",
@@ -35,8 +33,8 @@
         "installments.webp",
         "installments@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "profit": {
       "path": "/reporting/profit",
@@ -44,8 +42,8 @@
         "profit.webp",
         "profit@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "sms": {
       "path": "/messaging",
@@ -53,28 +51,26 @@
         "sms.webp",
         "sms@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "imei": {
       "path": "/inventory/units",
       "files": [
         "imei.webp",
-        "imei@2x.webp",
-        "imei-phone.webp"
+        "imei@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "dashboard": {
       "path": "/dashboard",
       "files": [
         "dashboard.webp",
-        "dashboard@2x.webp",
-        "dashboard-phone.webp"
+        "dashboard@2x.webp"
       ],
-      "captured_at": "2026-09-05T14:31:01.206Z",
-      "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "sales": {
       "path": "/sales",
@@ -82,16 +78,16 @@
         "sales.webp",
         "sales@2x.webp"
       ],
-      "captured_at": "2026-09-04T08:20:29.119Z",
-      "git_sha": "c1b1f59888868314deb4f37717ea63f73d444ef3"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     },
     "og": {
       "path": "/design/og",
       "files": [
         "resources/landing/og/og.png"
       ],
-      "captured_at": "2026-09-05T14:34:52.344Z",
-      "git_sha": "36fdc23fe901d0d4d8d7139432c8a2dd61a05d6c"
+      "captured_at": "2026-09-14T09:06:50.263Z",
+      "git_sha": "8d1fdcc4d1275521690b58569269461abb1263e6"
     }
   }
 }
